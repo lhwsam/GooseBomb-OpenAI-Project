@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace BombSwap
     {
         public const float DefaultCellsPerSecond = 5f;
         public const float DefaultChainDelaySeconds = 0.15f;
+        public const int DefaultExplosionDamage = 1;
 
         private static readonly ActorId PrototypePlayerActorId = new ActorId(1);
 
@@ -23,6 +25,9 @@ namespace BombSwap
         private PrototypeBombDefinitionAsset bombDefinition;
 
         [SerializeField]
+        private PrototypePlayerVitalsAsset playerVitals;
+
+        [SerializeField]
         private float cellsPerSecond = DefaultCellsPerSecond;
 
         [SerializeField]
@@ -32,13 +37,20 @@ namespace BombSwap
         private ManualGameClock _clock;
         private PlayerMovementSimulation _movement;
         private BombSimulation _bombs;
+        private PlayerHealthSimulation _health;
         private BombDefinition _coreBombDefinition;
+        private readonly List<PlayerDamageResult> _appliedDamageResults =
+            new List<PlayerDamageResult>();
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
         public event Action<BombSnapshot> BombPlaced;
 
         public event Action<BombExplosion> BombExploded;
+
+        public event Action<PlayerDamageResult> PlayerDamaged;
+
+        public event Action<PlayerDamageResult> PlayerDied;
 
         public event Action Ready;
 
@@ -48,11 +60,13 @@ namespace BombSwap
 
         public PrototypeBombDefinitionAsset BombDefinition => bombDefinition;
 
+        public PrototypePlayerVitalsAsset PlayerVitals => playerVitals;
+
         public float CellsPerSecond => cellsPerSecond;
 
         public float ChainDelaySeconds => chainDelaySeconds;
 
-        public bool IsInitialized => _movement != null && _bombs != null;
+        public bool IsInitialized => _movement != null && _bombs != null && _health != null;
 
         public bool IsReady { get; private set; }
 
@@ -60,6 +74,14 @@ namespace BombSwap
             _movement != null ? _movement.CurrentPosition : default;
 
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
+
+        public int CurrentHealth => _health != null ? _health.CurrentHealth : 0;
+
+        public int MaxHealth => _health != null ? _health.MaxHealth : 0;
+
+        public bool IsPlayerDead => _health != null && _health.IsDead;
+
+        public bool IsPlayerInvulnerable => _health != null && _health.IsInvulnerable;
 
         public bool HasPlayerBombPassThrough =>
             _movement != null && _movement.HasBombPassThrough;
@@ -81,6 +103,7 @@ namespace BombSwap
             TestSandboxContext sandboxContext,
             BombSwapInputReader reader,
             PrototypeBombDefinitionAsset startingBomb,
+            PrototypePlayerVitalsAsset startingPlayerVitals,
             float movementCellsPerSecond = DefaultCellsPerSecond,
             float bombChainDelaySeconds = DefaultChainDelaySeconds)
         {
@@ -101,6 +124,10 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(startingBomb));
             }
+            if (startingPlayerVitals == null)
+            {
+                throw new ArgumentNullException(nameof(startingPlayerVitals));
+            }
 
             ValidateFinitePositive(movementCellsPerSecond, nameof(movementCellsPerSecond));
             ValidateFinitePositive(bombChainDelaySeconds, nameof(bombChainDelaySeconds));
@@ -108,6 +135,7 @@ namespace BombSwap
             context = sandboxContext;
             inputReader = reader;
             bombDefinition = startingBomb;
+            playerVitals = startingPlayerVitals;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
         }
@@ -175,25 +203,52 @@ namespace BombSwap
             }
 
             _clock.Advance(TimeSpan.FromSeconds(elapsedSeconds));
-            if (_movement.TryAdvance(out PlayerMovementStep step))
+            if (!_health.IsDead && _movement.TryAdvance(out PlayerMovementStep step))
             {
                 PlayerMoved?.Invoke(step);
             }
 
             var explosions = _bombs.ProcessDueBombs();
+            _appliedDamageResults.Clear();
             for (int index = 0; index < explosions.Count; index++)
             {
-                _movement.NotifyBombRemoved(explosions[index].BombId);
+                BombExplosion explosion = explosions[index];
+                _movement.NotifyBombRemoved(explosion.BombId);
+                if (Contains(explosion.AffectedCells, _movement.CurrentPosition))
+                {
+                    PlayerDamageResult damage = _health.ApplyExplosionDamage(
+                        explosion.BombId,
+                        DefaultExplosionDamage);
+                    if (damage.WasApplied)
+                    {
+                        _appliedDamageResults.Add(damage);
+                    }
+                }
+            }
+
+            for (int index = 0; index < explosions.Count; index++)
+            {
                 BombExploded?.Invoke(explosions[index]);
+            }
+            for (int index = 0; index < _appliedDamageResults.Count; index++)
+            {
+                PlayerDamageResult damage = _appliedDamageResults[index];
+                PlayerDamaged?.Invoke(damage);
+                if (damage.WasFatal)
+                {
+                    _movement.SetMoveDirection(CardinalDirection.None);
+                    PlayerDied?.Invoke(damage);
+                }
             }
         }
 
         private void Initialize()
         {
-            if (context == null || inputReader == null || bombDefinition == null)
+            if (context == null || inputReader == null || bombDefinition == null ||
+                playerVitals == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeGameSession requires context, input reader, and bomb definition references.");
+                    "PrototypeGameSession requires context, input reader, bomb definition, and player vitals references.");
             }
 
             ValidateFinitePositive(cellsPerSecond, nameof(cellsPerSecond));
@@ -212,12 +267,21 @@ namespace BombSwap
                 _grid,
                 _clock,
                 TimeSpan.FromSeconds(chainDelaySeconds));
+            _health = new PlayerHealthSimulation(
+                _movement.ActorId,
+                _clock,
+                playerVitals.CreateCoreDefinition());
 
             _coreBombDefinition = bombDefinition.CreateCoreDefinition();
         }
 
         private void OnCommandIssued(PlayerCommand command)
         {
+            if (_health.IsDead)
+            {
+                return;
+            }
+
             switch (command.Kind)
             {
                 case PlayerCommandKind.Move:
@@ -255,6 +319,21 @@ namespace BombSwap
 
             _movement.GrantBombPassThrough(snapshot);
             BombPlaced?.Invoke(snapshot);
+        }
+
+        private static bool Contains(
+            IReadOnlyList<GridPosition> positions,
+            GridPosition target)
+        {
+            for (int index = 0; index < positions.Count; index++)
+            {
+                if (positions[index] == target)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static GridState CreateGrid(TestSandboxContext sandboxContext)

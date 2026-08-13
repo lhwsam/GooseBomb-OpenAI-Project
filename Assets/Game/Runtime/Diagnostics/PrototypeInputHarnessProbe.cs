@@ -18,6 +18,7 @@ namespace BombSwap
         private bool _moveReported;
         private bool _placeBombReported;
         private bool _bombExplosionReported;
+        private bool _playerDamagedReported;
         private bool _swapBombReported;
         private bool _pauseReported;
         private bool _isPaused;
@@ -68,6 +69,7 @@ namespace BombSwap
             session.PlayerMoved += OnPlayerMoved;
             session.BombPlaced += OnBombPlaced;
             session.BombExploded += OnBombExploded;
+            session.PlayerDamaged += OnPlayerDamaged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -87,6 +89,7 @@ namespace BombSwap
                 session.PlayerMoved -= OnPlayerMoved;
                 session.BombPlaced -= OnBombPlaced;
                 session.BombExploded -= OnBombExploded;
+                session.PlayerDamaged -= OnPlayerDamaged;
                 session.Ready -= OnSessionReady;
             }
         }
@@ -138,6 +141,17 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("bomb-exploded");
             _bombExplosionReported = true;
+        }
+
+        private void OnPlayerDamaged(PlayerDamageResult result)
+        {
+            if (_playerDamagedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("player-damaged");
+            _playerDamagedReported = true;
         }
 
         private void OnCommandIssued(PlayerCommand command)

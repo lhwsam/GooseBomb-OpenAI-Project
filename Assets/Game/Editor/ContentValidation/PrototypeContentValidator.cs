@@ -16,6 +16,8 @@ namespace BombSwap.Editor.ContentValidation
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
+        public const string PrototypePlayerVitalsPath =
+            "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -30,6 +32,7 @@ namespace BombSwap.Editor.ContentValidation
 
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinition(errors);
+            ValidatePrototypePlayerVitals(errors);
             ValidateTestSandbox(errors);
             ValidateBuildSettings(errors);
         }
@@ -66,6 +69,27 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     $"Prototype bomb definition must reference '{ExplosionCellPrefabPath}', found '{explosionPrefabPath}'.");
+            }
+        }
+
+        private static void ValidatePrototypePlayerVitals(ICollection<string> errors)
+        {
+            PrototypePlayerVitalsAsset vitals =
+                AssetDatabase.LoadAssetAtPath<PrototypePlayerVitalsAsset>(
+                    PrototypePlayerVitalsPath);
+            if (vitals == null)
+            {
+                errors.Add($"Missing prototype player vitals: {PrototypePlayerVitalsPath}");
+                return;
+            }
+
+            try
+            {
+                vitals.CreateCoreDefinition();
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype player vitals: {exception.Message}");
             }
         }
 
@@ -250,6 +274,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypePlayerController>(scene);
                 PrototypeBombPresenter[] bombPresenters =
                     FindComponents<PrototypeBombPresenter>(scene);
+                PrototypePlayerHealthPresenter[] healthPresenters =
+                    FindComponents<PrototypePlayerHealthPresenter>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
@@ -276,6 +302,11 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeBombPresenter; found {bombPresenters.Length}.");
+                }
+                if (healthPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypePlayerHealthPresenter; found {healthPresenters.Length}.");
                 }
                 if (probes.Length != 1)
                 {
@@ -304,10 +335,15 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     PrototypeGameSession session = sessions[0];
                     string definitionPath = AssetDatabase.GetAssetPath(session.BombDefinition);
+                    string playerVitalsPath = AssetDatabase.GetAssetPath(session.PlayerVitals);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
                         !string.Equals(
                             definitionPath,
                             PrototypeBombDefinitionPath,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            playerVitalsPath,
+                            PrototypePlayerVitalsPath,
                             StringComparison.Ordinal))
                     {
                         errors.Add("TestSandbox game session has inconsistent runtime references.");
@@ -346,6 +382,20 @@ namespace BombSwap.Editor.ContentValidation
                     if (presenter.BombPoolSize < 0 || presenter.ExplosionPoolSize < 0)
                     {
                         errors.Add("TestSandbox bomb presenter pool sizes cannot be negative.");
+                    }
+                }
+
+                if (healthPresenters.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypePlayerHealthPresenter presenter = healthPresenters[0];
+                    Renderer playerRenderer =
+                        contexts[0].PlayerPlaceholder.GetComponentInChildren<Renderer>();
+                    if (presenter.Session != sessions[0] ||
+                        presenter.TargetRenderer != playerRenderer ||
+                        !IsFinitePositive(presenter.DamagePulseSeconds))
+                    {
+                        errors.Add(
+                            "TestSandbox player health presenter has inconsistent scene references or timing.");
                     }
                 }
 
