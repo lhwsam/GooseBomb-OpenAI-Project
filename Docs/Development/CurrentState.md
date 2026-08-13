@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 프로토타입 Core 기반 구현
+- 단계: 기본 폭탄 Core 시뮬레이션 구현
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -21,12 +21,16 @@
 - Playwright 기반 WebGL 정적 서버·canvas/input/console/gameplay probe 스모크 구현.
 - `GridPosition`, `GridState`, `IGameClock`, `ManualGameClock` 최소 Core 계약 구현.
 - 논리 좌표, 지형·점유 불변식, 수동 시계 계약을 검증하는 EditMode 테스트 구현.
+- 기본 십자 폭탄 정의, 설치, fuse, 폭발 셀, 벽 차단·파괴, 지연 연쇄를 소유하는 `BombSimulation` 구현.
+- 동일 시각 폭발과 큰 시계 진행에서도 결정론적인 폭탄 사건 순서 구현.
 
 ## 현재 저장소 사실
 
 - `BombSwap.Core`에는 UnityEngine 비참조 논리 격자와 주입식 수동 시계가 구현되어 있다.
 - `GridState`는 미등록 셀을 `Void`로 취급하고 지형과 actor/bomb 점유를 소유한다. 점유는 바닥에만 존재하며 actor와 bomb의 설치 직후 동시 점유를 허용한다.
-- EditMode 테스트 30개가 하네스 발견성, 좌표 값 계약, 격자 지형·점유 불변식, 수동 시계 단조 증가를 검증한다.
+- `BombSimulation`은 활성 폭탄, 세션 내 고유 ID, fuse와 종류 독립적인 양수 지연 연쇄를 소유하고 읽기 전용 폭발 결과를 반환한다.
+- 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다.
+- EditMode 테스트 67개가 하네스 발견성, 좌표·격자·시계, 폭탄 설치·폭발·벽·연쇄 계약을 검증한다.
 - Build Settings에는 `Assets/Scenes/SampleScene.unity`만 등록되어 있다.
 - 기존 Input Actions는 일반 템플릿 액션 중심이며 게임 전용 `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 계약으로 정리되지 않았다.
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
@@ -40,15 +44,16 @@
 
 ## 바로 다음 권장 작업
 
-1. 기본 십자 폭탄의 설치, fuse, 벽 차단, 폭발 셀 계산을 Core 규칙과 EditMode 테스트로 구현한다.
-2. 논리 격자와 3D XZ 월드 좌표를 연결하는 Unity 어댑터를 구현하고 경계값을 검증한다.
-3. Prototype/TestSandbox 씬과 게임 전용 Input Actions를 Unity Editor에서 안전하게 구성한다.
-4. 폭탄 Core 결과를 Unity Runtime과 3D 표현에 연결해 첫 단독 수직 슬라이스를 만든다.
+1. 논리 격자와 3D XZ 월드 좌표를 연결하는 Unity 어댑터를 구현하고 경계값을 검증한다.
+2. Prototype/TestSandbox 씬과 게임 전용 Input Actions를 Unity Editor에서 안전하게 구성한다.
+3. 폭탄 Core 결과를 Unity Runtime과 3D 표현에 연결해 첫 단독 수직 슬라이스를 만든다.
+4. 플레이어 설치자 식별과 폭탄 셀 이탈 후 재진입 차단 계약을 연결한다.
 
 ## 알려진 위험과 미정
 
 - 정확한 simulation step, 연속 이동 감각, 셀 경계 정책은 미정이다.
 - 현재 `GridState` 점유는 actor/bomb 종류만 표현하며 개체 식별과 설치자 한정 통과 권한은 아직 없다.
+- 현재 폭탄 정의는 기본 십자 모양만 지원하며 쿨타임, 피해 후보, 직선·광역 폭탄은 아직 없다.
 - WebGL 성능/다운로드 예산은 빈 기준 빌드와 첫 수직 슬라이스 측정 후 확정해야 한다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 프로토타입 씬, 게임 전용 ScriptableObject 스키마, 콘텐츠 검증기는 아직 없다.
@@ -68,8 +73,8 @@
 - 신규 asmdef 5개 JSON 파싱, 이름/참조 구조 정적 검사: 통과.
 - 루트 AGENTS 크기: 약 9 KB로 Codex 기본 합산 제한 32 KiB 이내.
 - 공식 Unity MCP 연결과 활성 씬 `Assets/Scenes/SampleScene.unity` 확인.
-- Unity Editor import/compile: 신규 Core와 테스트 스크립트 임포트 후 Console 오류 0.
-- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 30개 통과, 실패/건너뜀/불확정 0.
+- Unity Editor import/compile: 격자·시계·폭탄 Core와 테스트 스크립트 임포트 후 Console 오류 0.
+- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 67개 통과, 실패/건너뜀/불확정 0.
 - `Tools/Verify.ps1 -Tier Fast`: 실행 중인 동일 프로젝트 Editor 잠금 때문에 별도 batchmode로는 미실행. Unity 컴파일과 EditMode 테스트는 연결된 MCP로 수행.
 - PlayMode: Unity 생명주기 또는 씬 연결 변경이 없어 이번 Core 작업에서는 미실행.
 - WebGL 빌드: 이 구성 작업에서는 미실행.
