@@ -28,7 +28,8 @@ namespace BombSwap.Editor.ContentValidation
             InputActionAsset inputActions = CreateInputActionsIfMissing();
             PrototypeBombDefinitionAsset bombDefinition =
                 CreatePrototypeBombContentIfMissing();
-            bool sceneCreated = EnsureTestSandbox(inputActions, bombDefinition);
+            PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
+            bool sceneCreated = EnsureTestSandbox(inputActions, bombDefinition, playerVitals);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
@@ -185,13 +186,34 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
+        private static PrototypePlayerVitalsAsset CreatePrototypePlayerVitalsIfMissing()
+        {
+            EnsureAssetFolder("Assets/Game/Content/Player");
+            PrototypePlayerVitalsAsset vitals =
+                AssetDatabase.LoadAssetAtPath<PrototypePlayerVitalsAsset>(
+                    PrototypeContentValidator.PrototypePlayerVitalsPath);
+            if (vitals != null)
+            {
+                return vitals;
+            }
+
+            vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();
+            vitals.name = "PrototypePlayerVitals";
+            vitals.Configure(5, 0.75f);
+            AssetDatabase.CreateAsset(
+                vitals,
+                PrototypeContentValidator.PrototypePlayerVitalsPath);
+            return vitals;
+        }
+
         private static bool EnsureTestSandbox(
             InputActionAsset inputActions,
-            PrototypeBombDefinitionAsset bombDefinition)
+            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypePlayerVitalsAsset playerVitals)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(PrototypeContentValidator.TestSandboxScenePath) == null)
             {
-                CreateTestSandbox(inputActions, bombDefinition);
+                CreateTestSandbox(inputActions, bombDefinition, playerVitals);
                 return true;
             }
 
@@ -206,7 +228,7 @@ namespace BombSwap.Editor.ContentValidation
 
             try
             {
-                UpgradeTestSandbox(scene, bombDefinition);
+                UpgradeTestSandbox(scene, bombDefinition, playerVitals);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -226,7 +248,8 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void CreateTestSandbox(
             InputActionAsset inputActions,
-            PrototypeBombDefinitionAsset bombDefinition)
+            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypePlayerVitalsAsset playerVitals)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -263,6 +286,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerController playerController =
                 systems.AddComponent<PrototypePlayerController>();
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            PrototypePlayerHealthPresenter healthPresenter =
+                systems.AddComponent<PrototypePlayerHealthPresenter>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
 
             var gridRoot = new GameObject("GridRoot");
@@ -349,9 +374,10 @@ namespace BombSwap.Editor.ContentValidation
                 9,
                 1f,
                 blockedCells);
-            gameSession.Configure(context, inputReader, bombDefinition);
+            gameSession.Configure(context, inputReader, bombDefinition, playerVitals);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             harnessProbe.Configure(inputReader, gameSession);
             systems.SetActive(true);
 
@@ -365,7 +391,8 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void UpgradeTestSandbox(
             Scene scene,
-            PrototypeBombDefinitionAsset bombDefinition)
+            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypePlayerVitalsAsset playerVitals)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
@@ -383,6 +410,12 @@ namespace BombSwap.Editor.ContentValidation
             {
                 bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
             }
+            PrototypePlayerHealthPresenter healthPresenter =
+                systems.GetComponent<PrototypePlayerHealthPresenter>();
+            if (healthPresenter == null)
+            {
+                healthPresenter = systems.AddComponent<PrototypePlayerHealthPresenter>();
+            }
 
             Transform runtimePresentation = context.GridRoot.Find("RuntimePresentation");
             if (runtimePresentation == null)
@@ -390,13 +423,23 @@ namespace BombSwap.Editor.ContentValidation
                 runtimePresentation = CreateChild("RuntimePresentation", context.GridRoot);
             }
 
-            gameSession.Configure(context, inputReader, bombDefinition);
+            Renderer playerRenderer =
+                context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
+            if (playerRenderer == null)
+            {
+                throw new InvalidOperationException(
+                    "TestSandbox player placeholder requires a renderer.");
+            }
+
+            gameSession.Configure(context, inputReader, bombDefinition, playerVitals);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            healthPresenter.Configure(gameSession, playerRenderer);
             harnessProbe.Configure(inputReader, gameSession);
             EditorUtility.SetDirty(gameSession);
             EditorUtility.SetDirty(playerController);
             EditorUtility.SetDirty(bombPresenter);
+            EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(harnessProbe);
         }
 

@@ -1183,6 +1183,7 @@ GameObject:
   - component: {fileID: 549228481}
   - component: {fileID: 549228485}
   - component: {fileID: 549228484}
+  - component: {fileID: 549228486}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1277,8 +1278,26 @@ MonoBehaviour:
   context: {fileID: 455876709}
   inputReader: {fileID: 549228480}
   bombDefinition: {fileID: 11400000, guid: 2c0c58c2234aaff49882136fa86b6228, type: 2}
+  playerVitals: {fileID: 11400000, guid: f596c4b9706477042b040e90f2f7ce5d, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15
+--- !u!114 &549228486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45eba3ffab045094b90f9de72e4a47d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerHealthPresenter
+  session: {fileID: 549228485}
+  targetRenderer: {fileID: 317508117}
+  damagePulseSeconds: 0.12
+  damageColor: {r: 1, g: 0.12, b: 0.04, a: 1}
+  deadColor: {r: 0.16, g: 0.17, b: 0.2, a: 1}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

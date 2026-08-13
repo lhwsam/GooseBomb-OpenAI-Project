@@ -16,10 +16,13 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _bombPrefab;
         private GameObject _explosionPrefab;
         private PrototypeBombDefinitionAsset _definition;
+        private PrototypePlayerVitalsAsset _vitals;
+        private Material _playerMaterial;
         private PrototypeGameSession _session;
         private PrototypePlayerController _controller;
         private PrototypeBombPresenter _presenter;
         private PrototypeInputHarnessProbe _probe;
+        private PrototypePlayerHealthPresenter _healthPresenter;
         private Transform _player;
 
         [TearDown]
@@ -40,6 +43,14 @@ namespace BombSwap.Tests.PlayMode
             if (_definition != null)
             {
                 Object.DestroyImmediate(_definition);
+            }
+            if (_vitals != null)
+            {
+                Object.DestroyImmediate(_vitals);
+            }
+            if (_playerMaterial != null)
+            {
+                Object.DestroyImmediate(_playerMaterial);
             }
             if (_inputActions != null)
             {
@@ -185,6 +196,97 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator SelfExplosion_AppliesOneDamageAndNextExplosionDuringInvulnerabilityIsIgnored()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.08f,
+                invulnerabilitySeconds: 0.75f);
+            PlayerDamageResult applied = default;
+            int damageEventCount = 0;
+            _session.PlayerDamaged += result =>
+            {
+                applied = result;
+                damageEventCount++;
+            };
+            yield return null;
+
+            Assert.That(_session.CurrentHealth, Is.EqualTo(5));
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(damageEventCount, Is.EqualTo(1));
+            Assert.That(applied.WasApplied, Is.True);
+            Assert.That(applied.PreviousHealth, Is.EqualTo(5));
+            Assert.That(applied.CurrentHealth, Is.EqualTo(4));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+            Assert.That(_session.IsPlayerInvulnerable, Is.True);
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(damageEventCount, Is.EqualTo(1));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+        }
+
+        [UnityTest]
+        public IEnumerator HealthPresenter_TracksHealthAndUsesPropertyBlockDamagePulse()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeHealthPresenter: true,
+                fuseSeconds: 0.08f,
+                healthDamagePulseSeconds: 0.4f);
+            yield return null;
+            Color normalColor = _healthPresenter.CurrentColor;
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_healthPresenter.DisplayedHealth, Is.EqualTo(4));
+            Assert.That(_healthPresenter.DamagePulseCount, Is.EqualTo(1));
+            Assert.That(_healthPresenter.CurrentColor, Is.Not.EqualTo(normalColor));
+            Assert.That(_healthPresenter.IsDisplayingDeath, Is.False);
+
+            yield return new WaitForSecondsRealtime(0.35f);
+
+            Assert.That(_healthPresenter.CurrentColor, Is.EqualTo(normalColor));
+            Assert.That(_playerMaterial.color, Is.EqualTo(normalColor));
+        }
+
+        [UnityTest]
+        public IEnumerator FatalSelfExplosion_PublishesDeathOnceAndStopsConsumingCommands()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.08f,
+                maxHealth: 1);
+            int deathEventCount = 0;
+            _session.PlayerDied += _ => deathEventCount++;
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_session.IsPlayerDead, Is.True);
+            Assert.That(_session.CurrentHealth, Is.Zero);
+            Assert.That(deathEventCount, Is.EqualTo(1));
+
+            QueueKeyboardState(Key.W);
+            yield return null;
+            QueueKeyboardState();
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(0, 0)));
+            Assert.That(_session.ActiveBombCount, Is.Zero);
+            Assert.That(deathEventCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator HarnessProbe_RemainsEnabledAcrossSessionInitializationOrder()
         {
             CreateRuntime(Vector2Int.zero, false, includeProbe: true);
@@ -204,8 +306,12 @@ namespace BombSwap.Tests.PlayMode
             bool includeBlocker,
             bool includeProbe = false,
             bool includePresenter = false,
+            bool includeHealthPresenter = false,
             float fuseSeconds = 1f,
-            float explosionVisualSeconds = 0.25f)
+            float explosionVisualSeconds = 0.25f,
+            int maxHealth = 5,
+            float invulnerabilitySeconds = 0.75f,
+            float healthDamagePulseSeconds = PrototypePlayerHealthPresenter.DefaultDamagePulseSeconds)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -221,6 +327,8 @@ namespace BombSwap.Tests.PlayMode
                 _bombPrefab,
                 _explosionPrefab,
                 explosionVisualSeconds);
+            _vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();
+            _vitals.Configure(maxHealth, invulnerabilitySeconds);
 
             _root = new GameObject("PrototypePlayerControllerTest");
             _root.SetActive(false);
@@ -231,7 +339,16 @@ namespace BombSwap.Tests.PlayMode
             presentationRoot.SetParent(gridRoot, false);
             var spawn = new GameObject("PlayerSpawn").transform;
             spawn.SetParent(gridRoot, false);
-            _player = new GameObject("PlayerPlaceholder").transform;
+            GameObject playerObject = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            playerObject.name = "PlayerPlaceholder";
+            Collider playerCollider = playerObject.GetComponent<Collider>();
+            Object.DestroyImmediate(playerCollider);
+            Shader playerShader = Shader.Find("Universal Render Pipeline/Lit");
+            Assert.That(playerShader, Is.Not.Null);
+            _playerMaterial = new Material(playerShader);
+            _playerMaterial.color = new Color(1f, 0.69f, 0.12f, 1f);
+            playerObject.GetComponent<Renderer>().sharedMaterial = _playerMaterial;
+            _player = playerObject.transform;
             _player.SetParent(gridRoot, false);
             _player.position = new Vector3(0f, 0.5f, 0f);
 
@@ -249,13 +366,21 @@ namespace BombSwap.Tests.PlayMode
                 includeBlocker ? new[] { blocker } : new Vector2Int[0]);
 
             _session = _root.AddComponent<PrototypeGameSession>();
-            _session.Configure(context, reader, _definition, 10f, 0.05f);
+            _session.Configure(context, reader, _definition, _vitals, 10f, 0.05f);
             _controller = _root.AddComponent<PrototypePlayerController>();
             _controller.Configure(_session, _player);
             if (includePresenter)
             {
                 _presenter = _root.AddComponent<PrototypeBombPresenter>();
                 _presenter.Configure(_session, presentationRoot, 1, 5);
+            }
+            if (includeHealthPresenter)
+            {
+                _healthPresenter = _root.AddComponent<PrototypePlayerHealthPresenter>();
+                _healthPresenter.Configure(
+                    _session,
+                    playerObject.GetComponent<Renderer>(),
+                    healthDamagePulseSeconds);
             }
             if (includeProbe)
             {

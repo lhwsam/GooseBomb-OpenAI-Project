@@ -78,9 +78,9 @@ PlayMode 표식:
 
 ## 브라우저 스모크 준비 상태
 
-`Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 게임플레이 probe는 먼저 `probe-ready`를 보내 Unity 런타임과 입력 구독이 준비됐음을 알리고, 이후 `move`, `place-bomb`, `bomb-exploded`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
+`Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 게임플레이 probe는 먼저 `probe-ready`를 보내 Unity 런타임과 입력 구독이 준비됐음을 알리고, 이후 `move`, `place-bomb`, `bomb-exploded`, `player-damaged`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
 
-현재 TestSandbox 개발 빌드는 `PrototypeInputHarnessProbe`와 `BombSwapHarness.jslib`로 이 배열을 제공한다. `probe-ready`는 `PrototypeGameSession`이 InputReader 구독까지 끝낸 뒤에만 기록한다. Playwright는 canvas focus와 이 준비 표식을 확인하고, `move`가 관측될 때까지 `W`를 누른 상태로 유지한 다음 `Z`, `X`, `Esc` 두 번을 보낸다. 고정 지연을 쓰지 않아 느린 headless WebGL 프레임에서도 keydown/key-up이 같은 Input System update에 합쳐지는 오탐을 피한다. `move`는 성공한 Core 점유 전이, `place-bomb`은 성공한 Core 설치, `bomb-exploded`는 fuse 뒤 확정된 Core 폭발에서만 기록된다. `audio-unlocked`는 사용자 입력 수신 marker일 뿐 실제 오디오 출력 검증을 대체하지 않는다.
+현재 TestSandbox 개발 빌드는 `PrototypeInputHarnessProbe`와 `BombSwapHarness.jslib`로 이 배열을 제공한다. `probe-ready`는 `PrototypeGameSession`이 InputReader 구독까지 끝낸 뒤에만 기록한다. Playwright는 canvas focus와 이 준비 표식을 확인하고, `move`가 관측될 때까지 `W`를 누른 상태로 유지한 다음 `Z`, `X`, `Esc` 두 번을 보낸다. 고정 지연을 쓰지 않아 느린 headless WebGL 프레임에서도 keydown/key-up이 같은 Input System update에 합쳐지는 오탐을 피한다. `move`는 성공한 Core 점유 전이, `place-bomb`은 성공한 Core 설치, `bomb-exploded`는 fuse 뒤 확정된 Core 폭발, `player-damaged`는 그 폭발의 논리 영향 셀과 무적 규칙을 통과한 피해에서만 기록된다. `audio-unlocked`는 사용자 입력 수신 marker일 뿐 실제 오디오 출력 검증을 대체하지 않는다.
 
 Playwright를 찾지 못하면 Node의 `CODEX_NODE_MODULES`가 Playwright 모듈을 포함한 경로를 가리키게 하거나 프로젝트 개발 의존성 도입을 별도 승인받는다. 브라우저는 설치된 Edge/Chrome을 자동 탐색하며, 별도 위치는 `BOMBSWAP_BROWSER_PATH`로 지정한다.
 
