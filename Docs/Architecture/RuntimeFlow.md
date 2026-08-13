@@ -46,6 +46,14 @@ sequenceDiagram
 - 정확한 simulation step 주기와 이동 보간 방식은 첫 수직 슬라이스에서 프로파일링 후 확정한다.
 - VFX와 UI 애니메이션 시간은 게임 규칙 시간과 분리할 수 있다.
 
+현재 Core의 최소 시간 계약은 다음과 같다.
+
+- 규칙 소비자는 `IGameClock.Now`의 `TimeSpan`만 읽는다.
+- `ManualGameClock`은 0 이상의 초기 시각과 `Advance(TimeSpan)`으로만 전진한다.
+- 음수 초기값과 음수 경과 시간은 상태를 변경하지 않고 거부한다.
+- 일시정지는 Unity Runtime이 `Advance`를 호출하지 않는 방식으로 표현한다.
+- `Advance` 간격은 아직 simulation step 주기를 확정하지 않으며, 테스트와 향후 Runtime 어댑터가 같은 시계를 주입할 수 있게 하는 경계다.
+
 ## 랜덤과 재현
 
 - 던전 생성과 콘텐츠 선택은 명시적 run seed를 받는다.
