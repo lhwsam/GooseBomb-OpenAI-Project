@@ -1,0 +1,253 @@
+import fs from "node:fs";
+import http from "node:http";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+function parseArguments(argv) {
+  const values = {};
+  for (let index = 0; index < argv.length; index += 2) {
+    const key = argv[index];
+    const value = argv[index + 1];
+    if (!key?.startsWith("--") || value === undefined) {
+      throw new Error(`Invalid argument pair near ${key ?? "<end>"}.`);
+    }
+    values[key.slice(2)] = value;
+  }
+  return values;
+}
+
+function getContentType(filePath) {
+  const uncompressedPath = filePath.replace(/\.(br|gz)$/i, "");
+  const extension = path.extname(uncompressedPath).toLowerCase();
+  return {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json",
+    ".wasm": "application/wasm",
+    ".data": "application/octet-stream",
+    ".symbols.json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".ico": "image/x-icon",
+  }[extension] ?? "application/octet-stream";
+}
+
+function startStaticServer(rootDirectory) {
+  const normalizedRoot = path.resolve(rootDirectory);
+  const server = http.createServer((request, response) => {
+    try {
+      const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+      const relativePath = decodeURIComponent(requestUrl.pathname).replace(/^\/+/, "") || "index.html";
+      const resolvedPath = path.resolve(normalizedRoot, relativePath);
+      if (!resolvedPath.startsWith(`${normalizedRoot}${path.sep}`) && resolvedPath !== normalizedRoot) {
+        response.writeHead(403).end("Forbidden");
+        return;
+      }
+
+      let filePath = resolvedPath;
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(filePath, "index.html");
+      }
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        if (relativePath === "favicon.ico") {
+          response.writeHead(204).end();
+          return;
+        }
+        response.writeHead(404).end("Not found");
+        return;
+      }
+
+      const headers = { "Content-Type": getContentType(filePath), "Cache-Control": "no-store" };
+      if (filePath.endsWith(".br")) headers["Content-Encoding"] = "br";
+      if (filePath.endsWith(".gz")) headers["Content-Encoding"] = "gzip";
+      response.writeHead(200, headers);
+      fs.createReadStream(filePath).pipe(response);
+    } catch (error) {
+      response.writeHead(500).end(String(error));
+    }
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Static server did not expose a TCP port."));
+        return;
+      }
+      resolve({ server, url: `http://127.0.0.1:${address.port}/` });
+    });
+  });
+}
+
+async function loadPlaywright() {
+  const candidates = ["playwright", "playwright-core"];
+  for (const candidate of candidates) {
+    try {
+      return await import(candidate);
+    } catch {
+      // Try the next package name.
+    }
+  }
+
+  const runtimeModules = process.env.CODEX_NODE_MODULES;
+  if (runtimeModules) {
+    for (const candidate of candidates) {
+      const modulePath = path.join(runtimeModules, candidate, "index.mjs");
+      if (fs.existsSync(modulePath)) return await import(pathToFileURL(modulePath).href);
+    }
+  }
+
+  throw new Error("Playwright is unavailable. Install playwright or set CODEX_NODE_MODULES to a runtime containing it.");
+}
+
+function resolveBrowserExecutable() {
+  const explicitPath = process.env.BOMBSWAP_BROWSER_PATH;
+  if (explicitPath) {
+    if (!fs.existsSync(explicitPath)) {
+      throw new Error(`BOMBSWAP_BROWSER_PATH does not exist: ${explicitPath}`);
+    }
+    return explicitPath;
+  }
+
+  const candidates = process.platform === "win32"
+    ? [
+        path.join(process.env["PROGRAMFILES(X86)"] ?? "", "Microsoft/Edge/Application/msedge.exe"),
+        path.join(process.env.PROGRAMFILES ?? "", "Microsoft/Edge/Application/msedge.exe"),
+        path.join(process.env.PROGRAMFILES ?? "", "Google/Chrome/Application/chrome.exe"),
+        path.join(process.env.LOCALAPPDATA ?? "", "Google/Chrome/Application/chrome.exe"),
+      ]
+    : process.platform === "darwin"
+      ? [
+          "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        ]
+      : [
+          "/usr/bin/microsoft-edge",
+          "/usr/bin/microsoft-edge-stable",
+          "/usr/bin/google-chrome",
+          "/usr/bin/google-chrome-stable",
+          "/usr/bin/chromium",
+          "/usr/bin/chromium-browser",
+        ];
+
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate));
+}
+
+async function main() {
+  const args = parseArguments(process.argv.slice(2));
+  if (!args.buildPath || !args.reportPath) {
+    throw new Error("--buildPath and --reportPath are required.");
+  }
+
+  const buildPath = path.resolve(args.buildPath);
+  const indexPath = path.join(buildPath, "index.html");
+  if (!fs.existsSync(indexPath)) throw new Error(`WebGL index.html was not found at ${indexPath}.`);
+
+  const { chromium } = await loadPlaywright();
+  const browserExecutable = resolveBrowserExecutable();
+  const { server, url } = await startStaticServer(buildPath);
+  const consoleErrors = [];
+  const pageErrors = [];
+  const checks = [];
+  let browser;
+
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      ...(browserExecutable ? { executablePath: browserExecutable } : {}),
+    });
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.waitForFunction(() => {
+      const canvas = document.querySelector("canvas");
+      return canvas && canvas.width > 0 && canvas.height > 0;
+    }, { timeout: 120_000 });
+    checks.push({ name: "load", status: "passed" });
+
+    const canvas = page.locator("canvas").first();
+    await canvas.click({ position: { x: 20, y: 20 } });
+    const focusedTag = await page.evaluate(() => document.activeElement?.tagName ?? "");
+    checks.push({ name: "canvas-focus", status: focusedTag === "CANVAS" ? "passed" : "failed", detail: focusedTag });
+
+    for (const key of ["KeyW", "Space", "Tab", "Escape", "Escape"]) {
+      await page.keyboard.press(key);
+    }
+    checks.push({ name: "keyboard-input", status: "passed", detail: "W, Space, Tab, Escape twice dispatched" });
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.waitForTimeout(250);
+    checks.push({ name: "resize", status: "passed" });
+
+    const requiredGameplayEvents = ["move", "place-bomb", "swap-bomb", "pause-resume", "audio-unlocked"];
+    let harnessEvents = null;
+    let missingEvents = requiredGameplayEvents;
+    const probeDeadline = Date.now() + 10_000;
+    do {
+      harnessEvents = await page.evaluate(() => globalThis.__BOMBSWAP_HARNESS_EVENTS__ ?? null);
+      const observedEventNames = new Set(
+        Array.isArray(harnessEvents)
+          ? harnessEvents
+            .map((event) => typeof event === "string" ? event : event?.name)
+            .filter((name) => typeof name === "string")
+          : [],
+      );
+      missingEvents = requiredGameplayEvents.filter((eventName) => !observedEventNames.has(eventName));
+      if (missingEvents.length === 0) break;
+      await page.waitForTimeout(250);
+    } while (Date.now() < probeDeadline);
+
+    if (Array.isArray(harnessEvents)) {
+      const observedEventNames = new Set(
+        harnessEvents
+          .map((event) => typeof event === "string" ? event : event?.name)
+          .filter((name) => typeof name === "string"),
+      );
+      checks.push({
+        name: "gameplay-probe",
+        status: missingEvents.length === 0 ? "passed" : "failed",
+        detail: missingEvents.length === 0
+          ? { required: requiredGameplayEvents, observed: [...observedEventNames] }
+          : { missing: missingEvents, observed: [...observedEventNames] },
+      });
+    } else {
+      checks.push({ name: "gameplay-probe", status: "failed", detail: "No __BOMBSWAP_HARNESS_EVENTS__ bridge. Add it with the first playable vertical slice." });
+    }
+
+    if (consoleErrors.length > 0 || pageErrors.length > 0) {
+      checks.push({ name: "browser-console", status: "failed", detail: { consoleErrors, pageErrors } });
+    } else {
+      checks.push({ name: "browser-console", status: "passed" });
+    }
+
+    const failedChecks = checks.filter((check) => check.status !== "passed");
+    const report = {
+      schemaVersion: 1,
+      status: failedChecks.length === 0 ? "passed" : "failed",
+      url,
+      checks,
+      consoleErrors,
+      pageErrors,
+      generatedAt: new Date().toISOString(),
+    };
+    fs.mkdirSync(path.dirname(path.resolve(args.reportPath)), { recursive: true });
+    fs.writeFileSync(path.resolve(args.reportPath), `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    if (failedChecks.length > 0) process.exitCode = 1;
+  } finally {
+    if (browser) await browser.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error.stack ?? error}\n`);
+  process.exitCode = 1;
+});

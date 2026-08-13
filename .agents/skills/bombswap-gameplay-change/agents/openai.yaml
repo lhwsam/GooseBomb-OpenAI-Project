@@ -1,0 +1,4 @@
+interface:
+  display_name: "BombSwap Gameplay Change"
+  short_description: "Implement BombSwap gameplay changes safely"
+  default_prompt: "Use $bombswap-gameplay-change to implement this gameplay change with the required tests and documentation."

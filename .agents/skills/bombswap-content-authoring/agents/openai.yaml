@@ -1,0 +1,4 @@
+interface:
+  display_name: "BombSwap Content Authoring"
+  short_description: "Author and validate BombSwap game content"
+  default_prompt: "Use $bombswap-content-authoring to create or update this BombSwap content safely."

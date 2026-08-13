@@ -1,0 +1,4 @@
+interface:
+  display_name: "BombSwap Playtest Review"
+  short_description: "Review BombSwap prototype playtest evidence"
+  default_prompt: "Use $bombswap-playtest-review to evaluate this playtest against the documented prototype hypotheses."

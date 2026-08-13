@@ -78,6 +78,11 @@
 
 ## 검증 기준
 
+- 저장소 검증 진입점은 `Tools/Verify.ps1`이다.
+- Unity를 실행할 수 없는 구조 점검은 `./Tools/Verify.ps1 -StaticOnly`를 사용하며 Fast 통과로 보고하지 않는다.
+- Core 반복은 `./Tools/Verify.ps1 -Tier Fast`, Unity 통합 완료는 `-Tier Full`, 입력·렌더링·패키지·마일스톤은 `-Tier Web`을 사용한다.
+- 실행 중인 Unity가 같은 프로젝트를 잠근 경우 batchmode 하네스를 병렬 실행하지 않는다. Editor를 닫거나 연결된 Unity 도구로 검증한다.
+- 검증 산출물은 `Artifacts/Verification/`에 기록되고 Git에는 포함하지 않는다.
 - 문서 변경: 내부 링크, 권위 원본 중복, 상태 표기를 확인한다.
 - Core 변경: 정적 경계 검사, Unity 컴파일, 관련 EditMode 테스트가 최소 기준이다.
 - Unity 연결 변경: 위 기준에 PlayMode 테스트와 Console 오류 확인을 추가한다.

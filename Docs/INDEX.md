@@ -16,7 +16,7 @@
 | 전체 기술 구조 | [Architecture](Architecture/) | 계층, 의존 방향, 런타임 흐름 |
 | 현재 진행 상태 | [CurrentState](Development/CurrentState.md) | 완료·진행·미구현, 알려진 문제, 바로 다음 작업 |
 | 구현 완료 기준 | [Definition of Done](Development/DefinitionOfDone.md) | 변경 종류별 필수 검증 |
-| 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증 |
+| 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
 | WebGL 제약 | [WebGL](WebGL/) | 빌드, 호스팅, 성능, 브라우저 호환 |
 | AI 작업 절차 | [AI](AI/) | 세션 시작, 작업 계약, 리뷰, 인계 |
 | 실제 튜닝 값 | 검증된 ScriptableObject | 코드와 문서는 값의 의도와 범위를 설명 |
@@ -52,6 +52,7 @@
 | 플레이테스트 계측 | `Systems/Telemetry.md`, `Testing/TestStrategy.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
+| 검증 실행 | `Testing/VerificationHarness.md`, `Testing/TestMatrix.md` |
 | 패키지·Unity 업그레이드 | `Development/PackageInventory.md`, `Migrations/` |
 | AI 세션 인계 | `AI/SessionStart.md`, `AI/HandoffTemplate.md` |
 
