@@ -156,9 +156,9 @@ namespace BombSwap.Editor.ContentValidation
             systems.SetActive(false);
             BombSwapInputReader inputReader = systems.AddComponent<BombSwapInputReader>();
             inputReader.Configure(inputActions);
+            PrototypePlayerController playerController =
+                systems.AddComponent<PrototypePlayerController>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
-            harnessProbe.Configure(inputReader);
-            systems.SetActive(true);
 
             var gridRoot = new GameObject("GridRoot");
             gridRoot.transform.SetParent(root.transform, false);
@@ -204,6 +204,13 @@ namespace BombSwap.Editor.ContentValidation
             CreatePrimitive("WestWall", PrimitiveType.Cube, boundary, new Vector3(-6f, 0.5f, 0f), new Vector3(1f, 1f, 9f), wallMaterial, true);
 
             Transform obstacles = CreateChild("InteriorObstacles", environment);
+            var blockedCells = new[]
+            {
+                new Vector2Int(-2, 0),
+                new Vector2Int(2, 0),
+                new Vector2Int(0, 2),
+                new Vector2Int(0, -2),
+            };
             CreatePrimitive("Obstacle_West", PrimitiveType.Cube, obstacles, new Vector3(-2f, 0.5f, 0f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
             CreatePrimitive("Obstacle_East", PrimitiveType.Cube, obstacles, new Vector3(2f, 0.5f, 0f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
             CreatePrimitive("Obstacle_North", PrimitiveType.Cube, obstacles, new Vector3(0f, 0.5f, 2f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
@@ -234,7 +241,11 @@ namespace BombSwap.Editor.ContentValidation
                 player.transform,
                 11,
                 9,
-                1f);
+                1f,
+                blockedCells);
+            playerController.Configure(context, inputReader, player.transform);
+            harnessProbe.Configure(inputReader, playerController);
+            systems.SetActive(true);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, PrototypeContentValidator.TestSandboxScenePath))

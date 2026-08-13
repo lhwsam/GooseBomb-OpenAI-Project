@@ -18,7 +18,7 @@
 
 - cold/warm load와 진행 표시.
 - canvas click/focus 전후 키보드 입력.
-- WASD/방향키, 게임패드 사용 시 매핑. 자동 smoke는 현재 `W`, `Z`, `X`, `Esc` 두 번을 전송한다.
+- WASD/방향키, 게임패드 사용 시 매핑. 자동 smoke는 현재 Core `move`가 관측될 때까지 `W`를 유지한 뒤 `Z`, `X`, `Esc` 두 번을 전송한다.
 - focus 상실/복귀 후 stuck input 없음.
 - 페이지 스크롤/브라우저 단축키와 충돌 없음.
 - 폭탄 설치, 교체, pause/resume.
@@ -27,7 +27,7 @@
 - 브라우저 Console error와 WebGL context loss.
 - 캐시된 이전 버전에서 새 버전 갱신.
 
-개발 빌드 자동 probe는 `probe-ready`로 런타임 준비를 동기화한 뒤 `move`, `place-bomb`, `swap-bomb`, `pause-resume`, `audio-unlocked`를 확인한다. 현재 입력 기반 `move`와 `audio-unlocked` marker는 실제 Transform 이동 또는 오디오 출력 자체를 증명하지 않으므로 첫 수직 슬라이스와 오디오 연결 뒤 수동 항목을 별도로 통과해야 한다.
+개발 빌드 자동 probe는 `probe-ready`로 런타임 준비를 동기화한 뒤 `move`, `place-bomb`, `swap-bomb`, `pause-resume`, `audio-unlocked`를 확인한다. `move`는 성공한 Core 셀 전이에서 발생해 논리 이동 연결을 증명하고, 실제 보간 좌표는 PlayMode 통합 테스트가 확인한다. `audio-unlocked` marker는 오디오 출력 자체를 증명하지 않으므로 오디오 연결 뒤 수동 항목을 별도로 통과해야 한다.
 
 ## 결과 기록
 

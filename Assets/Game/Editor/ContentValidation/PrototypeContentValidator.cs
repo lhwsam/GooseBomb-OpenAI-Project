@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BombSwap.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -202,6 +203,8 @@ namespace BombSwap.Editor.ContentValidation
             {
                 TestSandboxContext[] contexts = FindComponents<TestSandboxContext>(scene);
                 BombSwapInputReader[] readers = FindComponents<BombSwapInputReader>(scene);
+                PrototypePlayerController[] playerControllers =
+                    FindComponents<PrototypePlayerController>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
@@ -213,6 +216,11 @@ namespace BombSwap.Editor.ContentValidation
                 if (readers.Length != 1)
                 {
                     errors.Add($"TestSandbox must contain exactly one BombSwapInputReader; found {readers.Length}.");
+                }
+                if (playerControllers.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypePlayerController; found {playerControllers.Length}.");
                 }
                 if (probes.Length != 1)
                 {
@@ -237,9 +245,28 @@ namespace BombSwap.Editor.ContentValidation
                     }
                 }
 
-                if (probes.Length == 1 && readers.Length == 1 && probes[0].InputReader != readers[0])
+                if (playerControllers.Length == 1 && contexts.Length == 1 && readers.Length == 1)
                 {
-                    errors.Add("TestSandbox harness probe does not reference the scene input reader.");
+                    PrototypePlayerController controller = playerControllers[0];
+                    if (controller.Context != contexts[0] || controller.InputReader != readers[0] ||
+                        controller.PlayerTransform != contexts[0].PlayerPlaceholder)
+                    {
+                        errors.Add("TestSandbox player controller has inconsistent scene references.");
+                    }
+                    if (float.IsNaN(controller.CellsPerSecond) ||
+                        float.IsInfinity(controller.CellsPerSecond) ||
+                        controller.CellsPerSecond <= 0f)
+                    {
+                        errors.Add("TestSandbox player controller speed must be finite and positive.");
+                    }
+                }
+
+                if (probes.Length == 1 && readers.Length == 1 &&
+                    playerControllers.Length == 1 &&
+                    (probes[0].InputReader != readers[0] ||
+                     probes[0].PlayerController != playerControllers[0]))
+                {
+                    errors.Add("TestSandbox harness probe has inconsistent runtime references.");
                 }
 
                 if (contexts.Length == 1)
@@ -259,6 +286,8 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add("TestSandboxContext cell size must be finite and positive.");
                     }
+
+                    ValidateBlockedCells(context, errors);
                 }
             }
             finally
@@ -266,6 +295,47 @@ namespace BombSwap.Editor.ContentValidation
                 if (openedForValidation && scene.IsValid())
                 {
                     EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static void ValidateBlockedCells(
+            TestSandboxContext context,
+            ICollection<string> errors)
+        {
+            if (context.BlockedCells == null)
+            {
+                errors.Add("TestSandboxContext blocked cells are missing.");
+                return;
+            }
+
+            int halfWidth = context.GridWidth / 2;
+            int halfDepth = context.GridDepth / 2;
+            var seen = new HashSet<Vector2Int>();
+            foreach (Vector2Int blocker in context.BlockedCells)
+            {
+                if (blocker.x < -halfWidth || blocker.x > halfWidth ||
+                    blocker.y < -halfDepth || blocker.y > halfDepth)
+                {
+                    errors.Add($"TestSandbox blocked cell is outside the grid: {blocker}.");
+                }
+                if (!seen.Add(blocker))
+                {
+                    errors.Add($"TestSandbox contains duplicate blocked cell: {blocker}.");
+                }
+            }
+
+            if (seen.Count != 4)
+            {
+                errors.Add($"TestSandbox must declare four prototype blocked cells; found {seen.Count}.");
+            }
+
+            if (context.PlayerSpawn != null)
+            {
+                GridPosition spawn = context.GridSpace.WorldToGrid(context.PlayerSpawn.position);
+                if (seen.Contains(new Vector2Int(spawn.X, spawn.Z)))
+                {
+                    errors.Add($"TestSandbox player spawn cell is blocked: {spawn}.");
                 }
             }
         }

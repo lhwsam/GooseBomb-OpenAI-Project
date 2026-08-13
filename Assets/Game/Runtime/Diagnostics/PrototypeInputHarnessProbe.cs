@@ -5,10 +5,14 @@ namespace BombSwap
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BombSwapInputReader))]
+    [RequireComponent(typeof(PrototypePlayerController))]
     public sealed class PrototypeInputHarnessProbe : MonoBehaviour
     {
         [SerializeField]
         private BombSwapInputReader inputReader;
+
+        [SerializeField]
+        private PrototypePlayerController playerController;
 
         private bool _audioUnlockReported;
         private bool _moveReported;
@@ -16,10 +20,15 @@ namespace BombSwap
         private bool _swapBombReported;
         private bool _pauseReported;
         private bool _isPaused;
+        private bool _readyReported;
 
         public BombSwapInputReader InputReader => inputReader;
 
-        public void Configure(BombSwapInputReader reader)
+        public PrototypePlayerController PlayerController => playerController;
+
+        public void Configure(
+            BombSwapInputReader reader,
+            PrototypePlayerController controller)
         {
             if (isActiveAndEnabled)
             {
@@ -28,6 +37,7 @@ namespace BombSwap
             }
 
             inputReader = reader;
+            playerController = controller;
         }
 
         private void OnEnable()
@@ -41,24 +51,68 @@ namespace BombSwap
             {
                 inputReader = GetComponent<BombSwapInputReader>();
             }
-
-            if (inputReader == null)
+            if (playerController == null)
             {
-                Debug.LogError("PrototypeInputHarnessProbe requires BombSwapInputReader.", this);
+                playerController = GetComponent<PrototypePlayerController>();
+            }
+
+            if (inputReader == null || playerController == null)
+            {
+                Debug.LogError(
+                    "PrototypeInputHarnessProbe requires input and player movement components.",
+                    this);
                 enabled = false;
                 return;
             }
 
             inputReader.CommandIssued += OnCommandIssued;
-            WebGlHarnessReporter.Report("probe-ready");
+            playerController.CellEntered += OnCellEntered;
+            playerController.Ready += OnPlayerControllerReady;
+            if (playerController.IsReady)
+            {
+                ReportReady();
+            }
         }
 
         private void OnDisable()
         {
+            _readyReported = false;
             if (inputReader != null)
             {
                 inputReader.CommandIssued -= OnCommandIssued;
             }
+            if (playerController != null)
+            {
+                playerController.CellEntered -= OnCellEntered;
+                playerController.Ready -= OnPlayerControllerReady;
+            }
+        }
+
+        private void OnPlayerControllerReady()
+        {
+            ReportReady();
+        }
+
+        private void ReportReady()
+        {
+            if (_readyReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("probe-ready");
+            _readyReported = true;
+        }
+
+        private void OnCellEntered(PlayerMovementStep step)
+        {
+            if (_moveReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("move");
+            _moveReported = true;
         }
 
         private void OnCommandIssued(PlayerCommand command)
@@ -72,11 +126,6 @@ namespace BombSwap
             switch (command.Kind)
             {
                 case PlayerCommandKind.Move:
-                    if (!_moveReported && command.MoveDirection != CardinalDirection.None)
-                    {
-                        WebGlHarnessReporter.Report("move");
-                        _moveReported = true;
-                    }
                     break;
                 case PlayerCommandKind.PlaceBomb:
                     if (!_placeBombReported)

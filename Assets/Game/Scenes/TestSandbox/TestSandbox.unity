@@ -1033,6 +1033,11 @@ MonoBehaviour:
   gridWidth: 11
   gridDepth: 9
   cellSize: 1
+  blockedCells:
+  - {x: -2, y: 0}
+  - {x: 2, y: 0}
+  - {x: 0, y: 2}
+  - {x: 0, y: -2}
 --- !u!4 &455876710
 Transform:
   m_ObjectHideFlags: 0
@@ -1174,6 +1179,7 @@ GameObject:
   m_Component:
   - component: {fileID: 549228482}
   - component: {fileID: 549228480}
+  - component: {fileID: 549228483}
   - component: {fileID: 549228481}
   m_Layer: 0
   m_Name: Systems
@@ -1208,6 +1214,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeInputHarnessProbe
   inputReader: {fileID: 549228480}
+  playerController: {fileID: 549228483}
 --- !u!4 &549228482
 Transform:
   m_ObjectHideFlags: 0
@@ -1223,6 +1230,22 @@ Transform:
   m_Children: []
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &549228483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81bbd53f65f48b34a977737280630e0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerController
+  context: {fileID: 455876709}
+  inputReader: {fileID: 549228480}
+  playerTransform: {fileID: 317508116}
+  cellsPerSecond: 5
 --- !u!1 &661464401
 GameObject:
   m_ObjectHideFlags: 0

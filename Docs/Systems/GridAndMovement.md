@@ -25,7 +25,7 @@
 
 카메라, 애니메이션, 발자국 VFX는 이 시스템의 권위 상태가 아니다.
 
-현재 `BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. 실제 점유 판정과 Transform 이동은 아직 연결되지 않았으며 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
+`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 이 명령이 `PlayerMovementSimulation`의 논리 점유 전이와 `PrototypePlayerController`의 placeholder Transform 보간까지 연결된다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
 ## 구현된 최소 Core 계약
 
@@ -36,6 +36,17 @@
 - 같은 종류의 점유를 한 셀에 중복 추가할 수 없다. 설치 직후 상태를 표현하기 위해 `Actor`와 `Bomb`은 한 셀에 함께 존재할 수 있다.
 - 점유가 남은 셀을 `Floor`가 아닌 지형으로 변경하려는 요청은 상태를 바꾸지 않고 실패한다.
 - 현재 점유 계약은 종류만 표현한다. 설치자 식별, actor 식별, 설치 직후 통과 권한은 폭탄·이동 수직 슬라이스에서 별도 상태로 추가한다.
+
+## 구현된 플레이어 이동 계약
+
+- `GridState.TryMoveActor`는 상하좌우로 인접한 한 셀 사이에서 actor 점유를 원자적으로 옮긴다.
+- 목적지가 `Floor`가 아니거나 actor/bomb 점유가 있으면 출발 셀을 바꾸지 않고 이동을 거부한다.
+- 출발 셀에 actor와 bomb가 함께 있으면 actor만 빠져나가고 bomb는 남는다. 이는 설치 직후 탈출 상태의 기반이며 재진입 권한 자체는 아직 구현하지 않았다.
+- `PlayerMovementSimulation`은 주입된 `IGameClock`, 현재 셀, 유지 중인 네 방향, 다음 step 시각을 소유한다.
+- 최초 방향 입력은 즉시 한 step을 시도한다. 누르고 있으면 기본 0.2초 간격으로 반복하고, 방향 변경은 다음 예약 step부터 적용한다.
+- 정지 후 즉시 재입력해도 기존 cadence를 우회해 이동 횟수를 늘릴 수 없다.
+- `PrototypePlayerController`는 TestSandbox의 11×9 바닥과 네 논리 장애물을 Core 격자로 만들고, 기본 5 cells/s로 논리 셀 중심 사이를 선형 보간한다.
+- 논리 점유는 step 시작 시 목적 셀로 전이하며 Transform은 그 결과를 뒤따라 표현한다. 정확한 속도와 시각 곡선은 플레이테스트 대상이다.
 
 ## 구현된 Unity 좌표 계약
 
@@ -56,8 +67,8 @@
 
 ## 미정 사항
 
-- 완전 셀 단위 이동과 연속 아날로그 이동 중 최종 감각.
-- 셀 경계에서 점유 셀을 바꾸는 임계값.
+- 기본 5 cells/s와 선형 보간의 최종 감각.
+- 논리 점유를 step 시작 시 목적 셀로 옮기는 정책과 더 연속적인 셀 경계 전이 정책의 비교.
 - actor끼리의 밀기/겹침 허용 정책.
 
 첫 기본 폭탄 수직 슬라이스에서 조작성과 폭발 회피 가독성을 비교해 확정한다.
@@ -72,17 +83,19 @@
 - actor와 폭탄의 동시 점유 및 종류별 제거.
 - 점유 중 지형 변경 실패의 원자성.
 - 정의되지 않은 지형과 복합/정의되지 않은 점유 입력의 거부.
+- 인접 actor 점유의 원자적 전이, 벽·폭탄 차단, 출발 셀 bomb 보존.
+- 주입 시계 기반 최초/반복 cadence, 방향 변경, 정지·재개 우회 방지.
 
 현재 PlayMode 테스트는 다음 Unity 연결 계약을 고정한다.
 
 - 임의 원점·셀 크기의 격자↔3D XZ 왕복 변환과 Y 분리.
 - 음수/양수 반 칸 경계의 반열린 구간 판정.
 - 잘못된 수치와 지원 범위 밖 좌표의 거부.
+- 실제 Input System 유지 입력에서 논리 셀 전이와 placeholder Transform 보간.
+- 저작된 논리 장애물이 논리 위치와 시각 위치를 함께 차단함.
 
 다음 항목은 이동·콘텐츠 구현 이후 추가한다.
 
-- 고정 벽/파괴 벽/폭탄 점유 통과 거부.
 - 설치자만 설치 셀을 빠져나갈 수 있음.
 - 셀 이탈 후 통과 권한이 복구되지 않음.
 - 방 메타데이터의 출입구와 유효 셀 연결성.
-- `PlayerCommand.Move`에서 논리 점유 전이와 3D 보간까지 이어지는 수직 슬라이스.

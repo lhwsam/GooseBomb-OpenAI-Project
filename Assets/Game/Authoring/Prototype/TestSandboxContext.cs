@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using BombSwap.Core;
 using UnityEngine;
 
 namespace BombSwap
@@ -27,6 +29,9 @@ namespace BombSwap
         [SerializeField]
         private float cellSize = 1f;
 
+        [SerializeField]
+        private Vector2Int[] blockedCells = Array.Empty<Vector2Int>();
+
         public BombSwapInputReader InputReader => inputReader;
 
         public Transform GridRoot => gridRoot;
@@ -41,6 +46,8 @@ namespace BombSwap
 
         public float CellSize => cellSize;
 
+        public IReadOnlyList<Vector2Int> BlockedCells => blockedCells;
+
         public GridSpace GridSpace => new GridSpace(gridRoot.position, cellSize);
 
         public void Configure(
@@ -50,7 +57,8 @@ namespace BombSwap
             Transform player,
             int width,
             int depth,
-            float size)
+            float size,
+            Vector2Int[] blockers)
         {
             if (reader == null)
             {
@@ -80,6 +88,37 @@ namespace BombSwap
             {
                 throw new ArgumentOutOfRangeException(nameof(size), size, "Cell size must be finite and positive.");
             }
+            if (blockers == null)
+            {
+                throw new ArgumentNullException(nameof(blockers));
+            }
+
+            int halfWidth = width / 2;
+            int halfDepth = depth / 2;
+            var uniqueBlockers = new HashSet<Vector2Int>();
+            var gridSpace = new GridSpace(grid.position, size);
+            GridPosition spawnCell = gridSpace.WorldToGrid(spawn.position);
+            foreach (Vector2Int blocker in blockers)
+            {
+                if (blocker.x < -halfWidth || blocker.x > halfWidth ||
+                    blocker.y < -halfDepth || blocker.y > halfDepth)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(blockers),
+                        blocker,
+                        "Blocked cell must be inside the TestSandbox grid.");
+                }
+                if (!uniqueBlockers.Add(blocker))
+                {
+                    throw new ArgumentException($"Duplicate blocked cell: {blocker}.", nameof(blockers));
+                }
+                if (spawnCell == new GridPosition(blocker.x, blocker.y))
+                {
+                    throw new ArgumentException(
+                        $"Player spawn cell cannot also be blocked: {blocker}.",
+                        nameof(blockers));
+                }
+            }
 
             inputReader = reader;
             gridRoot = grid;
@@ -88,6 +127,7 @@ namespace BombSwap
             gridWidth = width;
             gridDepth = depth;
             cellSize = size;
+            blockedCells = (Vector2Int[])blockers.Clone();
         }
     }
 }
