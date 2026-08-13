@@ -6,6 +6,8 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class PlayerMovementSimulationTests
     {
+        private static readonly ActorId PlayerActor = new ActorId(1);
+        private static readonly ActorId OtherActor = new ActorId(2);
         private static readonly TimeSpan StepInterval = TimeSpan.FromMilliseconds(200);
         private static readonly GridPosition Start = new GridPosition(0, 0);
 
@@ -14,14 +16,13 @@ namespace BombSwap.Tests.EditMode
         {
             GridState grid = CreateFloorGrid();
 
-            var movement = new PlayerMovementSimulation(
-                grid,
-                new ManualGameClock(),
-                Start,
-                StepInterval);
+            var movement = CreateMovement(grid, new ManualGameClock());
 
+            Assert.That(movement.ActorId, Is.EqualTo(PlayerActor));
             Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
             Assert.That(grid.GetCell(Start).HasActor, Is.True);
+            Assert.That(grid.TryGetActorPosition(PlayerActor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(Start));
         }
 
         [Test]
@@ -29,7 +30,7 @@ namespace BombSwap.Tests.EditMode
         {
             GridState grid = CreateFloorGrid();
             var clock = new ManualGameClock();
-            var movement = new PlayerMovementSimulation(grid, clock, Start, StepInterval);
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
             movement.SetMoveDirection(CardinalDirection.North);
 
             bool firstMoved = movement.TryAdvance(out PlayerMovementStep firstStep);
@@ -52,7 +53,7 @@ namespace BombSwap.Tests.EditMode
         {
             GridState grid = CreateFloorGrid();
             var clock = new ManualGameClock();
-            var movement = new PlayerMovementSimulation(grid, clock, Start, StepInterval);
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
             movement.SetMoveDirection(CardinalDirection.North);
             movement.TryAdvance(out _);
 
@@ -69,7 +70,7 @@ namespace BombSwap.Tests.EditMode
         {
             GridState grid = CreateFloorGrid();
             var clock = new ManualGameClock();
-            var movement = new PlayerMovementSimulation(grid, clock, Start, StepInterval);
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
             movement.SetMoveDirection(CardinalDirection.North);
             movement.TryAdvance(out _);
 
@@ -86,20 +87,12 @@ namespace BombSwap.Tests.EditMode
         {
             GridState wallGrid = CreateFloorGrid();
             wallGrid.TrySetTerrain(Start.Offset(0, 1), GridTerrain.IndestructibleWall);
-            var wallMovement = new PlayerMovementSimulation(
-                wallGrid,
-                new ManualGameClock(),
-                Start,
-                StepInterval);
+            PlayerMovementSimulation wallMovement = CreateMovement(wallGrid, new ManualGameClock());
             wallMovement.SetMoveDirection(CardinalDirection.North);
 
             GridState bombGrid = CreateFloorGrid();
-            bombGrid.TryAddOccupancy(Start.Offset(1, 0), GridOccupancy.Bomb);
-            var bombMovement = new PlayerMovementSimulation(
-                bombGrid,
-                new ManualGameClock(),
-                Start,
-                StepInterval);
+            bombGrid.TryAddBomb(Start.Offset(1, 0));
+            PlayerMovementSimulation bombMovement = CreateMovement(bombGrid, new ManualGameClock());
             bombMovement.SetMoveDirection(CardinalDirection.East);
 
             Assert.That(wallMovement.TryAdvance(out _), Is.False);
@@ -109,13 +102,86 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void BombUnderPlayerWithoutGrant_BlocksLeaving()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            BombSimulation bombs = CreateBombSimulation(grid, clock);
+            Assert.That(bombs.TryPlaceBomb(CreateBombDefinition(), Start, PlayerActor, out _), Is.True);
+            movement.SetMoveDirection(CardinalDirection.North);
+
+            bool moved = movement.TryAdvance(out _);
+
+            Assert.That(moved, Is.False);
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+            Assert.That(movement.HasBombPassThrough, Is.False);
+        }
+
+        [Test]
+        public void OwnerPassThrough_AllowsOneExitThenBombBlocksReentry()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            BombSimulation bombs = CreateBombSimulation(grid, clock);
+            Assert.That(bombs.TryPlaceBomb(CreateBombDefinition(), Start, PlayerActor, out BombId bombId), Is.True);
+            Assert.That(bombs.TryGetBomb(bombId, out BombSnapshot bomb), Is.True);
+            movement.GrantBombPassThrough(bomb);
+
+            movement.SetMoveDirection(CardinalDirection.North);
+            bool exited = movement.TryAdvance(out _);
+            movement.SetMoveDirection(CardinalDirection.South);
+            clock.Advance(StepInterval);
+            bool reentered = movement.TryAdvance(out _);
+
+            Assert.That(exited, Is.True);
+            Assert.That(movement.HasBombPassThrough, Is.False);
+            Assert.That(reentered, Is.False);
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start.Offset(0, 1)));
+            Assert.That(grid.GetCell(Start).HasBomb, Is.True);
+        }
+
+        [Test]
+        public void GrantBombPassThrough_RejectsNonOwner()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            BombSimulation bombs = CreateBombSimulation(grid, clock);
+            Assert.That(bombs.TryPlaceBomb(CreateBombDefinition(), Start, OtherActor, out BombId bombId), Is.True);
+            Assert.That(bombs.TryGetBomb(bombId, out BombSnapshot bomb), Is.True);
+
+            Assert.Throws<InvalidOperationException>(() => movement.GrantBombPassThrough(bomb));
+            Assert.That(movement.HasBombPassThrough, Is.False);
+        }
+
+        [Test]
+        public void BombRemoval_ClearsUnusedPassThrough()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            BombSimulation bombs = CreateBombSimulation(grid, clock);
+            Assert.That(bombs.TryPlaceBomb(CreateBombDefinition(), Start, PlayerActor, out BombId bombId), Is.True);
+            Assert.That(bombs.TryGetBomb(bombId, out BombSnapshot bomb), Is.True);
+            movement.GrantBombPassThrough(bomb);
+
+            clock.Advance(TimeSpan.FromSeconds(1));
+            BombExplosion explosion = bombs.ProcessDueBombs()[0];
+            movement.NotifyBombRemoved(explosion.BombId);
+            movement.SetMoveDirection(CardinalDirection.North);
+
+            Assert.That(movement.HasBombPassThrough, Is.False);
+            Assert.That(movement.TryAdvance(out _), Is.True);
+        }
+
+        [Test]
         public void UndefinedDirection_IsRejectedWithoutChangingIntent()
         {
-            var movement = new PlayerMovementSimulation(
+            PlayerMovementSimulation movement = CreateMovement(
                 CreateFloorGrid(),
-                new ManualGameClock(),
-                Start,
-                StepInterval);
+                new ManualGameClock());
 
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 movement.SetMoveDirection((CardinalDirection)99));
@@ -127,6 +193,34 @@ namespace BombSwap.Tests.EditMode
         {
             Assert.Throws<ArgumentException>(() =>
                 new PlayerMovementStep(Start, Start.Offset(1, 0), CardinalDirection.North));
+        }
+
+        private static PlayerMovementSimulation CreateMovement(
+            GridState grid,
+            ManualGameClock clock)
+        {
+            return new PlayerMovementSimulation(
+                grid,
+                clock,
+                PlayerActor,
+                Start,
+                StepInterval);
+        }
+
+        private static BombSimulation CreateBombSimulation(
+            GridState grid,
+            ManualGameClock clock)
+        {
+            return new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(150));
+        }
+
+        private static BombDefinition CreateBombDefinition()
+        {
+            return new BombDefinition(
+                new BombDefinitionId("pass-through-test"),
+                BombExplosionShape.Cross,
+                TimeSpan.FromSeconds(1),
+                1);
         }
 
         private static GridState CreateFloorGrid()

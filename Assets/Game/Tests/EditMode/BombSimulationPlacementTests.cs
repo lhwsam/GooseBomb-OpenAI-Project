@@ -6,6 +6,7 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class BombSimulationPlacementTests
     {
+        private static readonly ActorId Owner = new ActorId(1);
         private static readonly GridPosition Position = new GridPosition(1, -2);
 
         [Test]
@@ -16,7 +17,7 @@ namespace BombSwap.Tests.EditMode
             var simulation = new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(200));
             BombDefinition definition = CreateDefinition(TimeSpan.FromSeconds(2));
 
-            bool placed = simulation.TryPlaceBomb(definition, Position, out BombId bombId);
+            bool placed = simulation.TryPlaceBomb(definition, Position, Owner, out BombId bombId);
 
             Assert.That(placed, Is.True);
             Assert.That(bombId.IsValid, Is.True);
@@ -26,6 +27,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(snapshot.Id, Is.EqualTo(bombId));
             Assert.That(snapshot.DefinitionId, Is.EqualTo(definition.Id));
             Assert.That(snapshot.Position, Is.EqualTo(Position));
+            Assert.That(snapshot.OwnerId, Is.EqualTo(Owner));
             Assert.That(snapshot.DetonatesAt, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(snapshot.ScheduledCause, Is.EqualTo(BombDetonationCause.Fuse));
         }
@@ -34,10 +36,10 @@ namespace BombSwap.Tests.EditMode
         public void TryPlaceBomb_AllowsInstallerActorToShareFloorCell()
         {
             var grid = CreateGridWithTerrain(GridTerrain.Floor);
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
+            grid.TryAddActor(Owner, Position);
             var simulation = CreateSimulation(grid);
 
-            bool placed = simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId bombId);
+            bool placed = simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId bombId);
 
             GridCellState cell = grid.GetCell(Position);
             Assert.That(placed, Is.True);
@@ -54,7 +56,7 @@ namespace BombSwap.Tests.EditMode
             var grid = CreateGridWithTerrain(terrain);
             var simulation = CreateSimulation(grid);
 
-            bool placed = simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId bombId);
+            bool placed = simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId bombId);
 
             Assert.That(placed, Is.False);
             Assert.That(bombId.IsValid, Is.False);
@@ -67,9 +69,9 @@ namespace BombSwap.Tests.EditMode
         {
             var grid = CreateGridWithTerrain(GridTerrain.Floor);
             var simulation = CreateSimulation(grid);
-            simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId firstId);
+            simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId firstId);
 
-            bool placed = simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId secondId);
+            bool placed = simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId secondId);
 
             Assert.That(placed, Is.False);
             Assert.That(firstId.IsValid, Is.True);
@@ -84,9 +86,9 @@ namespace BombSwap.Tests.EditMode
             var grid = new GridState();
             var simulation = CreateSimulation(grid);
 
-            simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId failedId);
+            simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId failedId);
             grid.TrySetTerrain(Position, GridTerrain.Floor);
-            simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId placedId);
+            simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId placedId);
 
             Assert.That(failedId.IsValid, Is.False);
             Assert.That(placedId.Value, Is.EqualTo(1));
@@ -100,8 +102,8 @@ namespace BombSwap.Tests.EditMode
             grid.TrySetTerrain(secondPosition, GridTerrain.Floor);
             var simulation = CreateSimulation(grid);
 
-            simulation.TryPlaceBomb(CreateDefinition(), Position, out BombId firstId);
-            simulation.TryPlaceBomb(CreateDefinition(), secondPosition, out BombId secondId);
+            simulation.TryPlaceBomb(CreateDefinition(), Position, Owner, out BombId firstId);
+            simulation.TryPlaceBomb(CreateDefinition(), secondPosition, Owner, out BombId secondId);
 
             Assert.That(secondId.Value, Is.GreaterThan(firstId.Value));
         }
@@ -112,7 +114,16 @@ namespace BombSwap.Tests.EditMode
             var simulation = CreateSimulation(CreateGridWithTerrain(GridTerrain.Floor));
 
             Assert.Throws<ArgumentNullException>(
-                () => simulation.TryPlaceBomb(null, Position, out BombId _));
+                () => simulation.TryPlaceBomb(null, Position, Owner, out BombId _));
+        }
+
+        [Test]
+        public void TryPlaceBomb_RejectsDefaultOwner()
+        {
+            var simulation = CreateSimulation(CreateGridWithTerrain(GridTerrain.Floor));
+
+            Assert.Throws<ArgumentException>(() =>
+                simulation.TryPlaceBomb(CreateDefinition(), Position, default, out BombId _));
         }
 
         [Test]
@@ -125,6 +136,7 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<OverflowException>(() => simulation.TryPlaceBomb(
                 CreateDefinition(TimeSpan.FromTicks(2)),
                 Position,
+                Owner,
                 out BombId _));
             Assert.That(simulation.ActiveBombCount, Is.Zero);
             Assert.That(grid.GetCell(Position).HasBomb, Is.False);

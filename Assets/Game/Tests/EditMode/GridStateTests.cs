@@ -6,6 +6,8 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class GridStateTests
     {
+        private static readonly ActorId Actor = new ActorId(1);
+        private static readonly ActorId OtherActor = new ActorId(2);
         private static readonly GridPosition Position = new GridPosition(2, -1);
 
         [Test]
@@ -44,25 +46,26 @@ namespace BombSwap.Tests.EditMode
             Assert.That(grid.GetCell(Position).Terrain, Is.EqualTo(GridTerrain.DestructibleWall));
         }
 
-        [TestCase(GridOccupancy.Actor)]
-        [TestCase(GridOccupancy.Bomb)]
-        public void TryAddOccupancy_AddsSingleOccupantToFloor(GridOccupancy occupancy)
+        [Test]
+        public void TryAddActor_StoresIdentityAndPosition()
         {
             var grid = CreateFloorGrid();
 
-            bool added = grid.TryAddOccupancy(Position, occupancy);
+            bool added = grid.TryAddActor(Actor, Position);
 
             Assert.That(added, Is.True);
-            Assert.That(grid.GetCell(Position).Occupancy, Is.EqualTo(occupancy));
+            Assert.That(grid.GetCell(Position).HasActor, Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(Position));
         }
 
         [Test]
-        public void ActorAndBomb_CanShareFloorCell()
+        public void ActorAndBomb_CanShareFloorCellOnlyByPlacingBombAfterActor()
         {
             var grid = CreateFloorGrid();
 
-            bool actorAdded = grid.TryAddOccupancy(Position, GridOccupancy.Actor);
-            bool bombAdded = grid.TryAddOccupancy(Position, GridOccupancy.Bomb);
+            bool actorAdded = grid.TryAddActor(Actor, Position);
+            bool bombAdded = grid.TryAddBomb(Position);
 
             GridCellState cell = grid.GetCell(Position);
             Assert.That(actorAdded, Is.True);
@@ -72,29 +75,50 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void TryAddOccupancy_RejectsDuplicateWithoutChangingState()
+        public void TryAddActor_RejectsDuplicateIdentityAndOccupiedCellAtomically()
         {
+            GridPosition secondPosition = Position.Offset(1, 0);
             var grid = CreateFloorGrid();
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
+            grid.TrySetTerrain(secondPosition, GridTerrain.Floor);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.True);
 
-            bool added = grid.TryAddOccupancy(Position, GridOccupancy.Actor);
+            bool duplicateIdentity = grid.TryAddActor(Actor, secondPosition);
+            bool occupiedCell = grid.TryAddActor(OtherActor, Position);
 
-            Assert.That(added, Is.False);
-            Assert.That(grid.GetCell(Position).Occupancy, Is.EqualTo(GridOccupancy.Actor));
+            Assert.That(duplicateIdentity, Is.False);
+            Assert.That(occupiedCell, Is.False);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(Position));
+            Assert.That(grid.TryGetActorPosition(OtherActor, out _), Is.False);
+            Assert.That(grid.GetCell(secondPosition).HasActor, Is.False);
         }
 
         [TestCase(GridTerrain.Void)]
         [TestCase(GridTerrain.IndestructibleWall)]
         [TestCase(GridTerrain.DestructibleWall)]
-        public void TryAddOccupancy_RejectsNonFloorTerrain(GridTerrain terrain)
+        public void TryAddActor_RejectsNonFloorTerrain(GridTerrain terrain)
         {
             var grid = new GridState();
             grid.TrySetTerrain(Position, terrain);
 
-            bool added = grid.TryAddOccupancy(Position, GridOccupancy.Actor);
+            bool added = grid.TryAddActor(Actor, Position);
 
             Assert.That(added, Is.False);
             Assert.That(grid.GetCell(Position).Occupancy, Is.EqualTo(GridOccupancy.None));
+            Assert.That(grid.TryGetActorPosition(Actor, out _), Is.False);
+        }
+
+        [Test]
+        public void TryAddActor_RejectsBombCell()
+        {
+            var grid = CreateFloorGrid();
+            grid.TryAddBomb(Position);
+
+            bool added = grid.TryAddActor(Actor, Position);
+
+            Assert.That(added, Is.False);
+            Assert.That(grid.GetCell(Position).HasBomb, Is.True);
+            Assert.That(grid.GetCell(Position).HasActor, Is.False);
         }
 
         [TestCase(GridTerrain.Void)]
@@ -103,66 +127,69 @@ namespace BombSwap.Tests.EditMode
         public void TrySetTerrain_RejectsNonFloorWhileOccupied(GridTerrain terrain)
         {
             var grid = CreateFloorGrid();
-            grid.TryAddOccupancy(Position, GridOccupancy.Bomb);
+            grid.TryAddBomb(Position);
 
             bool changed = grid.TrySetTerrain(Position, terrain);
 
             Assert.That(changed, Is.False);
             Assert.That(grid.GetCell(Position).Terrain, Is.EqualTo(GridTerrain.Floor));
-            Assert.That(grid.GetCell(Position).Occupancy, Is.EqualTo(GridOccupancy.Bomb));
+            Assert.That(grid.GetCell(Position).HasBomb, Is.True);
         }
 
         [Test]
-        public void TryRemoveOccupancy_RemovesOnlyRequestedOccupant()
+        public void TryRemoveActor_RemovesIdentityAndPreservesBomb()
         {
             var grid = CreateFloorGrid();
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
-            grid.TryAddOccupancy(Position, GridOccupancy.Bomb);
+            grid.TryAddActor(Actor, Position);
+            grid.TryAddBomb(Position);
 
-            bool removed = grid.TryRemoveOccupancy(Position, GridOccupancy.Actor);
+            bool removed = grid.TryRemoveActor(Actor);
 
             GridCellState cell = grid.GetCell(Position);
             Assert.That(removed, Is.True);
             Assert.That(cell.HasActor, Is.False);
             Assert.That(cell.HasBomb, Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out _), Is.False);
         }
 
         [Test]
-        public void TryRemoveOccupancy_ReturnsFalseWhenOccupantIsAbsent()
+        public void TryRemoveBomb_ReturnsFalseWhenBombIsAbsent()
         {
             var grid = CreateFloorGrid();
 
-            bool removed = grid.TryRemoveOccupancy(Position, GridOccupancy.Bomb);
+            bool removed = grid.TryRemoveBomb(Position);
 
             Assert.That(removed, Is.False);
             Assert.That(grid.GetCell(Position).Occupancy, Is.EqualTo(GridOccupancy.None));
         }
 
         [Test]
-        public void TryMoveActor_AtomicallyTransfersActorToAdjacentFloor()
+        public void TryMoveActor_AtomicallyTransfersIdentityToAdjacentFloor()
         {
-            var destination = Position.Offset(1, 0);
+            GridPosition destination = Position.Offset(1, 0);
             var grid = CreateFloorGrid();
             grid.TrySetTerrain(destination, GridTerrain.Floor);
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
+            grid.TryAddActor(Actor, Position);
 
-            bool moved = grid.TryMoveActor(Position, destination);
+            bool moved = grid.TryMoveActor(Actor, destination);
 
             Assert.That(moved, Is.True);
             Assert.That(grid.GetCell(Position).HasActor, Is.False);
             Assert.That(grid.GetCell(destination).HasActor, Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(destination));
         }
 
         [Test]
         public void TryMoveActor_PreservesBombLeftInSourceCell()
         {
-            var destination = Position.Offset(0, 1);
+            GridPosition destination = Position.Offset(0, 1);
             var grid = CreateFloorGrid();
             grid.TrySetTerrain(destination, GridTerrain.Floor);
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
-            grid.TryAddOccupancy(Position, GridOccupancy.Bomb);
+            grid.TryAddActor(Actor, Position);
+            grid.TryAddBomb(Position);
 
-            bool moved = grid.TryMoveActor(Position, destination);
+            bool moved = grid.TryMoveActor(Actor, destination);
 
             Assert.That(moved, Is.True);
             Assert.That(grid.GetCell(Position).HasBomb, Is.True);
@@ -174,28 +201,30 @@ namespace BombSwap.Tests.EditMode
         [TestCase(GridTerrain.DestructibleWall)]
         public void TryMoveActor_BlockedDestinationDoesNotPartiallyChangeState(GridTerrain terrain)
         {
-            var destination = Position.Offset(-1, 0);
+            GridPosition destination = Position.Offset(-1, 0);
             var grid = CreateFloorGrid();
             grid.TrySetTerrain(destination, terrain);
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
+            grid.TryAddActor(Actor, Position);
 
-            bool moved = grid.TryMoveActor(Position, destination);
+            bool moved = grid.TryMoveActor(Actor, destination);
 
             Assert.That(moved, Is.False);
             Assert.That(grid.GetCell(Position).HasActor, Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(Position));
             Assert.That(grid.GetCell(destination).HasActor, Is.False);
         }
 
         [Test]
         public void TryMoveActor_BombBlocksDestination()
         {
-            var destination = Position.Offset(0, -1);
+            GridPosition destination = Position.Offset(0, -1);
             var grid = CreateFloorGrid();
             grid.TrySetTerrain(destination, GridTerrain.Floor);
-            grid.TryAddOccupancy(Position, GridOccupancy.Actor);
-            grid.TryAddOccupancy(destination, GridOccupancy.Bomb);
+            grid.TryAddActor(Actor, Position);
+            grid.TryAddBomb(destination);
 
-            bool moved = grid.TryMoveActor(Position, destination);
+            bool moved = grid.TryMoveActor(Actor, destination);
 
             Assert.That(moved, Is.False);
             Assert.That(grid.GetCell(Position).HasActor, Is.True);
@@ -203,23 +232,40 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void TryMoveActor_CannotMoveAnotherIdentity()
+        {
+            GridPosition destination = Position.Offset(1, 0);
+            var grid = CreateFloorGrid();
+            grid.TrySetTerrain(destination, GridTerrain.Floor);
+            grid.TryAddActor(Actor, Position);
+
+            bool moved = grid.TryMoveActor(OtherActor, destination);
+
+            Assert.That(moved, Is.False);
+            Assert.That(grid.GetCell(Position).HasActor, Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(Position));
+        }
+
+        [Test]
         public void TryMoveActor_RejectsNonAdjacentTarget()
         {
             var grid = CreateFloorGrid();
+            grid.TryAddActor(Actor, Position);
 
             Assert.Throws<ArgumentException>(() =>
-                grid.TryMoveActor(Position, Position.Offset(2, 0)));
+                grid.TryMoveActor(Actor, Position.Offset(2, 0)));
         }
 
-        [TestCase(GridOccupancy.None)]
-        [TestCase(GridOccupancy.Actor | GridOccupancy.Bomb)]
-        [TestCase((GridOccupancy)4)]
-        public void OccupancyMutations_RejectInvalidOrCombinedValues(GridOccupancy occupancy)
+        [Test]
+        public void ActorOperations_RejectDefaultActorId()
         {
             var grid = CreateFloorGrid();
 
-            Assert.Throws<ArgumentOutOfRangeException>(() => grid.TryAddOccupancy(Position, occupancy));
-            Assert.Throws<ArgumentOutOfRangeException>(() => grid.TryRemoveOccupancy(Position, occupancy));
+            Assert.Throws<ArgumentException>(() => grid.TryAddActor(default, Position));
+            Assert.Throws<ArgumentException>(() => grid.TryRemoveActor(default));
+            Assert.Throws<ArgumentException>(() => grid.TryGetActorPosition(default, out _));
+            Assert.Throws<ArgumentException>(() => grid.TryMoveActor(default, Position.Offset(1, 0)));
         }
 
         [Test]

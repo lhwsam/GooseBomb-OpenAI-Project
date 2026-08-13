@@ -42,11 +42,16 @@ namespace BombSwap.Core
         public bool TryPlaceBomb(
             BombDefinition definition,
             GridPosition position,
+            ActorId ownerId,
             out BombId bombId)
         {
             if (definition == null)
             {
                 throw new ArgumentNullException(nameof(definition));
+            }
+            if (!ownerId.IsValid)
+            {
+                throw new ArgumentException("Bomb owner ID must be valid.", nameof(ownerId));
             }
 
             bombId = default;
@@ -59,7 +64,7 @@ namespace BombSwap.Core
             TimeSpan detonatesAt = clock.Now.Add(definition.FuseDuration);
 
             if (bombsByPosition.ContainsKey(position) ||
-                !grid.TryAddOccupancy(position, GridOccupancy.Bomb))
+                !grid.TryAddBomb(position))
             {
                 return false;
             }
@@ -67,7 +72,12 @@ namespace BombSwap.Core
             bombId = new BombId(nextBombSequence);
             nextBombSequence++;
 
-            var bomb = new ActiveBomb(bombId, definition, position, detonatesAt);
+            var bomb = new ActiveBomb(
+                bombId,
+                definition,
+                position,
+                ownerId,
+                detonatesAt);
             bombsById.Add(bombId, bomb);
             bombsByPosition.Add(position, bombId);
             return true;
@@ -122,6 +132,7 @@ namespace BombSwap.Core
                         bomb.Id,
                         bomb.Definition.Id,
                         bomb.Position,
+                        bomb.OwnerId,
                         detonationTime,
                         bomb.ScheduledCause,
                         resolution.AffectedCells,
@@ -183,7 +194,7 @@ namespace BombSwap.Core
 
         private void RemoveActiveBomb(ActiveBomb bomb)
         {
-            if (!grid.TryRemoveOccupancy(bomb.Position, GridOccupancy.Bomb))
+            if (!grid.TryRemoveBomb(bomb.Position))
             {
                 throw new InvalidOperationException("Grid bomb occupancy is inconsistent with BombSimulation.");
             }
@@ -234,11 +245,13 @@ namespace BombSwap.Core
                 BombId id,
                 BombDefinition definition,
                 GridPosition position,
+                ActorId ownerId,
                 TimeSpan detonatesAt)
             {
                 Id = id;
                 Definition = definition;
                 Position = position;
+                OwnerId = ownerId;
                 DetonatesAt = detonatesAt;
                 ScheduledCause = BombDetonationCause.Fuse;
             }
@@ -248,6 +261,8 @@ namespace BombSwap.Core
             public BombDefinition Definition { get; }
 
             public GridPosition Position { get; }
+
+            public ActorId OwnerId { get; }
 
             public TimeSpan DetonatesAt { get; set; }
 
@@ -259,6 +274,7 @@ namespace BombSwap.Core
                     Id,
                     Definition.Id,
                     Position,
+                    OwnerId,
                     DetonatesAt,
                     ScheduledCause);
             }

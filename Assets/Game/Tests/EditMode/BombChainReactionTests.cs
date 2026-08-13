@@ -7,6 +7,7 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class BombChainReactionTests
     {
+        private static readonly ActorId Owner = new ActorId(1);
         private static readonly GridPosition SourcePosition = new GridPosition(0, 0);
         private static readonly GridPosition TargetPosition = new GridPosition(2, 0);
         private static readonly TimeSpan ChainDelay = TimeSpan.FromMilliseconds(250);
@@ -70,9 +71,9 @@ namespace BombSwap.Tests.EditMode
             var simulation = new BombSimulation(grid, clock, ChainDelay);
             BombDefinition sourceDefinition = CreateDefinition("source", 1, 2);
             BombDefinition targetDefinition = CreateDefinition("target", 10, 0);
-            simulation.TryPlaceBomb(sourceDefinition, new GridPosition(0, 0), out BombId firstSourceId);
-            simulation.TryPlaceBomb(targetDefinition, new GridPosition(2, 0), out BombId targetId);
-            simulation.TryPlaceBomb(sourceDefinition, new GridPosition(4, 0), out BombId secondSourceId);
+            simulation.TryPlaceBomb(sourceDefinition, new GridPosition(0, 0), Owner, out BombId firstSourceId);
+            simulation.TryPlaceBomb(targetDefinition, new GridPosition(2, 0), Owner, out BombId targetId);
+            simulation.TryPlaceBomb(sourceDefinition, new GridPosition(4, 0), Owner, out BombId secondSourceId);
             clock.Advance(TimeSpan.FromSeconds(1));
 
             IReadOnlyList<BombExplosion> sourceExplosions = simulation.ProcessDueBombs();
@@ -96,8 +97,8 @@ namespace BombSwap.Tests.EditMode
             var simulation = new BombSimulation(grid, clock, ChainDelay);
             BombDefinition sourceDefinition = CreateDefinition("source", 1, 2);
             BombDefinition targetDefinition = CreateDefinition("target", 1, 0);
-            simulation.TryPlaceBomb(sourceDefinition, SourcePosition, out BombId sourceId);
-            simulation.TryPlaceBomb(targetDefinition, TargetPosition, out BombId targetId);
+            simulation.TryPlaceBomb(sourceDefinition, SourcePosition, Owner, out BombId sourceId);
+            simulation.TryPlaceBomb(targetDefinition, TargetPosition, Owner, out BombId targetId);
             clock.Advance(TimeSpan.FromSeconds(1));
 
             IReadOnlyList<BombExplosion> explosions = simulation.ProcessDueBombs();
@@ -131,8 +132,8 @@ namespace BombSwap.Tests.EditMode
             var grid = CreateLineFloor(0, 3);
             var clock = new ManualGameClock();
             var simulation = new BombSimulation(grid, clock, ChainDelay);
-            simulation.TryPlaceBomb(CreateDefinition("source", 1, 1), SourcePosition, out BombId _);
-            simulation.TryPlaceBomb(CreateDefinition("target", 10, 0), new GridPosition(3, 0), out BombId targetId);
+            simulation.TryPlaceBomb(CreateDefinition("source", 1, 1), SourcePosition, Owner, out BombId _);
+            simulation.TryPlaceBomb(CreateDefinition("target", 10, 0), new GridPosition(3, 0), Owner, out BombId targetId);
             clock.Advance(TimeSpan.FromSeconds(1));
 
             simulation.ProcessDueBombs();
@@ -150,10 +151,12 @@ namespace BombSwap.Tests.EditMode
             simulation.TryPlaceBomb(
                 CreateDefinition("source", 1, 2),
                 SourcePosition,
+                Owner,
                 out BombId sourceId);
             simulation.TryPlaceBomb(
                 CreateDefinition("different-target-type", 10, 0),
                 TargetPosition,
+                Owner,
                 out BombId targetId);
             return new ChainFixture(clock, simulation, sourceId, targetId);
         }

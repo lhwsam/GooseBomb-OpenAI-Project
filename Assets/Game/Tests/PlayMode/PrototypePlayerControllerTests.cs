@@ -104,6 +104,7 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(placementCount, Is.EqualTo(1));
             Assert.That(placed.Id.IsValid, Is.True);
+            Assert.That(placed.OwnerId.IsValid, Is.True);
             var origin = new GridPosition(0, 0);
             Assert.That(placed.Position, Is.EqualTo(origin));
             Assert.That(_session.ActiveBombCount, Is.EqualTo(1));
@@ -117,11 +118,41 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(exploded, Is.Not.Null);
             Assert.That(exploded.BombId, Is.EqualTo(placed.Id));
+            Assert.That(exploded.OwnerId, Is.EqualTo(placed.OwnerId));
             Assert.That(exploded.Origin, Is.EqualTo(origin));
             Assert.That(exploded.AffectedCells, Has.Count.EqualTo(5));
             Assert.That(_session.ActiveBombCount, Is.Zero);
             Assert.That(_session.GetCell(origin).HasActor, Is.True);
             Assert.That(_session.GetCell(origin).HasBomb, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator BombOwner_CanExitPlacementCellOnceButCannotReenter()
+        {
+            CreateRuntime(Vector2Int.zero, false, fuseSeconds: 1f);
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            Assert.That(_session.HasPlayerBombPassThrough, Is.True);
+
+            QueueKeyboardState(Key.W);
+            yield return null;
+            QueueKeyboardState();
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            var origin = new GridPosition(0, 0);
+            var north = new GridPosition(0, 1);
+            Assert.That(_session.CurrentGridPosition, Is.EqualTo(north));
+            Assert.That(_session.HasPlayerBombPassThrough, Is.False);
+            Assert.That(_session.GetCell(origin).HasBomb, Is.True);
+
+            QueueKeyboardState(Key.S);
+            yield return null;
+            QueueKeyboardState();
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_session.CurrentGridPosition, Is.EqualTo(north));
+            Assert.That(_player.position.z, Is.EqualTo(1f).Within(0.05f));
         }
 
         [UnityTest]
