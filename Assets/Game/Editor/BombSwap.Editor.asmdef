@@ -1,0 +1,19 @@
+{
+  "name": "BombSwap.Editor",
+  "rootNamespace": "BombSwap.Editor",
+  "references": [
+    "BombSwap.Core",
+    "BombSwap.Unity"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

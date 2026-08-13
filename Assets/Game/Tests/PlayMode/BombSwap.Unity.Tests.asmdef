@@ -1,0 +1,20 @@
+{
+  "name": "BombSwap.Unity.Tests",
+  "rootNamespace": "BombSwap.Tests.PlayMode",
+  "references": [
+    "BombSwap.Core",
+    "BombSwap.Unity"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,21 @@
+{
+  "name": "BombSwap.Core.Tests",
+  "rootNamespace": "BombSwap.Tests.EditMode",
+  "references": [
+    "BombSwap.Core"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
