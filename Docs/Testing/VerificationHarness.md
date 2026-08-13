@@ -60,7 +60,15 @@ Unity가 기본 Hub 경로에 없다면 `-UnityPath` 또는 `UNITY_EDITOR_PATH`�
 
 하네스는 `Temp/UnityLockfile`이 있으면 Unity 실행을 거부한다. 열려 있는 Editor를 닫고 실행하거나, 연결된 Unity 도구에서 컴파일/테스트를 수행한 뒤 정확한 증거를 별도로 보고한다. 같은 프로젝트에 두 번째 Unity 인스턴스를 띄우지 않는다.
 
-연결된 Editor에서 공식 Unity MCP로 PlayMode 테스트를 시작하면 도메인 리로드 때문에 호출을 시작한 동적 콜백이 사라질 수 있다. `BombSwap.Unity.Tests`의 `ConnectedPlayModeResultReporter`는 테스트 어셈블리 내부 콜백으로 다음 Console 표식을 남긴다.
+연결된 Editor에서 공식 Unity MCP로 테스트를 시작하면 실행을 요청한 동적 콜백이 종료되거나 PlayMode 도메인 리로드로 사라질 수 있다. 각 테스트 어셈블리 내부의 `ConnectedEditModeResultReporter`와 `ConnectedPlayModeResultReporter`가 완료 여부를 독립적으로 Console에 남긴다.
+
+EditMode 표식:
+
+- `BOMBSWAP_EDITMODE_RESULT STARTED`: 발견된 테스트 수.
+- `BOMBSWAP_EDITMODE_RESULT FINISHED`: passed/failed/skipped/inconclusive 요약.
+- `BOMBSWAP_EDITMODE_RESULT FAILED`: 실패한 개별 테스트와 stack trace.
+
+PlayMode 표식:
 
 - `BOMBSWAP_PLAYMODE_RESULT STARTED`: 발견된 테스트 수.
 - `BOMBSWAP_PLAYMODE_RESULT FINISHED`: passed/failed/skipped/inconclusive 요약.

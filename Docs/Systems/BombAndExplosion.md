@@ -62,7 +62,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 
 ## 구현된 최소 Core 계약
 
-- `BombSimulation`이 세션 내 증가하는 `BombId`, 활성 폭탄, 위치별 폭탄 점유, fuse와 연쇄 예약을 소유한다.
+- `BombSimulation`이 세션 내 증가하는 `BombId`, 설치자 `ActorId`, 활성 폭탄, 위치별 폭탄 점유, fuse와 연쇄 예약을 소유한다.
 - 폭탄은 `Floor`에만 설치할 수 있고 같은 셀에 두 개를 설치할 수 없다. 설치자 actor와 새 폭탄의 동시 점유는 허용한다.
 - 설치 실패는 ID를 소비하거나 격자 점유를 남기지 않는다.
 - `ProcessDueBombs`는 주입된 `IGameClock`의 현재 시각까지 도달한 사건을 예약된 논리 시각 순서로 처리한다.
@@ -70,12 +70,13 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - `Void`와 파괴 불가 벽은 효과 없이 해당 방향을 끝낸다. 파괴 가능 벽은 폭발 셀과 파괴 목록에 포함한 후 해당 방향을 끝낸다.
 - 폭발 셀의 다른 활성 폭탄은 폭탄 정의와 관계없이 주입된 양수 고정 지연으로 한 번만 앞당겨 예약한다.
 - 시계가 여러 사건 시각을 한 번에 지나가도 각 폭발은 원래 예약된 논리 시각으로 처리되어 프레임 호출 빈도에 따라 결과가 달라지지 않는다.
-- 폭발 결과는 폭탄/정의 ID, 원점, 논리 폭발 시각, fuse/chain 원인, 영향 셀, 파괴 벽을 읽기 전용으로 제공한다.
+- 설치 직후 snapshot과 폭발 결과는 폭탄/정의 ID, 설치자 ID, 원점, 논리 시각, fuse/chain 원인, 영향 셀, 파괴 벽을 읽기 전용으로 제공한다.
 
 ## 구현된 Unity 수직 슬라이스
 
 - `PrototypeGameSession`은 이동과 폭탄이 공유하는 하나의 논리 격자·시계를 소유하고 `PlaceBomb` 명령을 현재 플레이어 셀에 적용한다.
 - 설치가 성공할 때만 `BombPlaced`, fuse 또는 연쇄 처리 결과가 확정될 때만 `BombExploded`를 발행한다.
+- `PrototypeGameSession`은 설치 snapshot의 소유자가 현재 셀의 플레이어임을 근거로 한 번의 탈출 권한을 부여하고, 폭발로 폭탄이 제거되면 남은 권한을 종료한다.
 - `PrototypeBombPresenter`는 설치 폭탄과 영향 셀 placeholder를 사전 생성 풀에서 꺼내고, 폭발 셀은 저작된 짧은 표시 시간이 끝나면 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
 - 현재 수직 슬라이스는 피해, 설치 쿨타임, 두 슬롯을 의도적으로 포함하지 않는다.
@@ -93,7 +94,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 현재 EditMode 테스트는 다음 계약을 실행 가능하게 고정한다.
 
 - 정의 ID 값 동등성, 양수 fuse, 0 이상 범위와 지원 모양 검증.
-- 바닥 설치, actor 동시 점유, 중복/비바닥 설치 실패의 원자성, 세션 ID 증가.
+- 바닥 설치, 설치자 ID 보존, actor 동시 점유, 중복/비바닥 설치 실패의 원자성, 세션 ID 증가.
 - 십자 범위 0과 2의 셀 집합.
 - `Void`·고정 벽 앞 종료와 파괴 벽 셀 포함 후 종료 및 실제 지형 변경.
 - 같은 시각 폭발의 ID 순서와 벽 파괴 지연 적용.
@@ -106,7 +107,6 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 직선/광역 패턴 셀 집합과 방향 계약.
 - 검증된 콘텐츠가 정한 최대 범위 경계.
 - 자기 피해와 적 피해 후보 생성 및 같은 폭발 내 중복 제거.
-- 설치자-폭탄 통과 권한과 셀 이탈 후 재진입 차단.
 
 ## 플레이테스트 관찰
 

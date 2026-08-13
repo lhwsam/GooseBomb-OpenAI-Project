@@ -7,6 +7,7 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class BombExplosionTests
     {
+        private static readonly ActorId Owner = new ActorId(1);
         private static readonly GridPosition Origin = new GridPosition(0, 0);
 
         [Test]
@@ -34,6 +35,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(explosions[0].BombId, Is.EqualTo(fixture.BombId));
             Assert.That(explosions[0].DefinitionId, Is.EqualTo(fixture.Definition.Id));
             Assert.That(explosions[0].Origin, Is.EqualTo(Origin));
+            Assert.That(explosions[0].OwnerId, Is.EqualTo(Owner));
             Assert.That(explosions[0].DetonatedAt, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(explosions[0].Cause, Is.EqualTo(BombDetonationCause.Fuse));
             Assert.That(explosions[0].AffectedCells, Is.EquivalentTo(new[] { Origin }));
@@ -127,8 +129,8 @@ namespace BombSwap.Tests.EditMode
             var clock = new ManualGameClock();
             var simulation = new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(200));
             BombDefinition definition = CreateDefinition("basic-cross", TimeSpan.FromSeconds(1), 2);
-            simulation.TryPlaceBomb(definition, left, out BombId leftId);
-            simulation.TryPlaceBomb(definition, right, out BombId rightId);
+            simulation.TryPlaceBomb(definition, left, Owner, out BombId leftId);
+            simulation.TryPlaceBomb(definition, right, Owner, out BombId rightId);
             clock.Advance(TimeSpan.FromSeconds(1));
 
             IReadOnlyList<BombExplosion> explosions = simulation.ProcessDueBombs();
@@ -152,8 +154,8 @@ namespace BombSwap.Tests.EditMode
             var clock = new ManualGameClock();
             var simulation = new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(200));
             BombDefinition definition = CreateDefinition("basic-cross", TimeSpan.FromSeconds(1), 0);
-            simulation.TryPlaceBomb(definition, firstPosition, out BombId firstId);
-            simulation.TryPlaceBomb(definition, secondPosition, out BombId secondId);
+            simulation.TryPlaceBomb(definition, firstPosition, Owner, out BombId firstId);
+            simulation.TryPlaceBomb(definition, secondPosition, Owner, out BombId secondId);
             clock.Advance(TimeSpan.FromSeconds(1));
 
             IReadOnlyList<BombExplosion> explosions = simulation.ProcessDueBombs();
@@ -169,7 +171,7 @@ namespace BombSwap.Tests.EditMode
             var clock = new ManualGameClock();
             var simulation = new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(200));
             BombDefinition definition = CreateDefinition("basic-cross", fuse, range);
-            simulation.TryPlaceBomb(definition, Origin, out BombId bombId);
+            simulation.TryPlaceBomb(definition, Origin, Owner, out BombId bombId);
             return new ExplosionFixture(grid, clock, simulation, definition, bombId);
         }
 

@@ -11,6 +11,8 @@ namespace BombSwap
         public const float DefaultCellsPerSecond = 5f;
         public const float DefaultChainDelaySeconds = 0.15f;
 
+        private static readonly ActorId PrototypePlayerActorId = new ActorId(1);
+
         [SerializeField]
         private TestSandboxContext context;
 
@@ -58,6 +60,9 @@ namespace BombSwap
             _movement != null ? _movement.CurrentPosition : default;
 
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
+
+        public bool HasPlayerBombPassThrough =>
+            _movement != null && _movement.HasBombPassThrough;
 
         public GridSpace GridSpace
         {
@@ -178,6 +183,7 @@ namespace BombSwap
             var explosions = _bombs.ProcessDueBombs();
             for (int index = 0; index < explosions.Count; index++)
             {
+                _movement.NotifyBombRemoved(explosions[index].BombId);
                 BombExploded?.Invoke(explosions[index]);
             }
         }
@@ -199,6 +205,7 @@ namespace BombSwap
             _movement = new PlayerMovementSimulation(
                 _grid,
                 _clock,
+                PrototypePlayerActorId,
                 start,
                 TimeSpan.FromSeconds(1f / cellsPerSecond));
             _bombs = new BombSimulation(
@@ -235,6 +242,7 @@ namespace BombSwap
             if (!_bombs.TryPlaceBomb(
                 _coreBombDefinition,
                 _movement.CurrentPosition,
+                _movement.ActorId,
                 out BombId bombId))
             {
                 return;
@@ -245,6 +253,7 @@ namespace BombSwap
                 throw new InvalidOperationException("Placed bomb was not available for presentation.");
             }
 
+            _movement.GrantBombPassThrough(snapshot);
             BombPlaced?.Invoke(snapshot);
         }
 
