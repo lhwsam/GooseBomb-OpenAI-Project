@@ -14,6 +14,7 @@ namespace BombSwap.Editor.ContentValidation
     public static class PrototypeContentBuilder
     {
         private const string MaterialsPath = "Assets/Game/Content/Materials/Prototype";
+        private const string PrototypePrefabsPath = "Assets/Game/Content/Prefabs/Prototype";
 
         [MenuItem("Bomb Swap/Prototype/Create Missing Prototype Content")]
         public static void CreateMissingPrototypeContentMenu()
@@ -25,13 +26,15 @@ namespace BombSwap.Editor.ContentValidation
         public static string CreateMissingPrototypeContent()
         {
             InputActionAsset inputActions = CreateInputActionsIfMissing();
-            bool sceneCreated = CreateTestSandboxIfMissing(inputActions);
+            PrototypeBombDefinitionAsset bombDefinition =
+                CreatePrototypeBombContentIfMissing();
+            bool sceneCreated = EnsureTestSandbox(inputActions, bombDefinition);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
             return sceneCreated
-                ? "Created BombSwap Input Actions, TestSandbox content, and Build Settings entry."
-                : "BombSwap prototype content already existed; ensured Build Settings entry.";
+                ? "Created BombSwap Input Actions, bomb content, TestSandbox, and Build Settings entry."
+                : "BombSwap prototype content exists; upgraded TestSandbox runtime references and Build Settings entry.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -118,13 +121,113 @@ namespace BombSwap.Editor.ContentValidation
             return imported;
         }
 
-        private static bool CreateTestSandboxIfMissing(InputActionAsset inputActions)
+        private static PrototypeBombDefinitionAsset CreatePrototypeBombContentIfMissing()
         {
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(PrototypeContentValidator.TestSandboxScenePath) != null)
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
             {
-                return false;
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
             }
 
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+
+            Material bombMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/Bomb.mat",
+                shader,
+                new Color(0.07f, 0.08f, 0.1f, 1f));
+            Material explosionMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/Explosion.mat",
+                shader,
+                new Color(1f, 0.24f, 0.02f, 1f));
+            if (explosionMaterial.HasProperty("_EmissionColor"))
+            {
+                explosionMaterial.EnableKeyword("_EMISSION");
+                explosionMaterial.SetColor("_EmissionColor", new Color(1f, 0.08f, 0f, 1f));
+                EditorUtility.SetDirty(explosionMaterial);
+            }
+
+            GameObject bombPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BombPrefabPath,
+                "BombPlaceholder",
+                PrimitiveType.Sphere,
+                new Vector3(0f, 0.32f, 0f),
+                new Vector3(0.62f, 0.62f, 0.62f),
+                bombMaterial);
+            GameObject explosionPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ExplosionCellPrefabPath,
+                "ExplosionCellPlaceholder",
+                PrimitiveType.Cube,
+                new Vector3(0f, 0.07f, 0f),
+                new Vector3(0.9f, 0.14f, 0.9f),
+                explosionMaterial);
+
+            PrototypeBombDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeBombDefinitionPath);
+            if (definition != null)
+            {
+                return definition;
+            }
+
+            definition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+            definition.name = "PrototypeCrossBomb";
+            definition.Configure(
+                "prototype-cross",
+                2f,
+                2,
+                bombPrefab,
+                explosionPrefab,
+                0.25f);
+            AssetDatabase.CreateAsset(
+                definition,
+                PrototypeContentValidator.PrototypeBombDefinitionPath);
+            return definition;
+        }
+
+        private static bool EnsureTestSandbox(
+            InputActionAsset inputActions,
+            PrototypeBombDefinitionAsset bombDefinition)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(PrototypeContentValidator.TestSandboxScenePath) == null)
+            {
+                CreateTestSandbox(inputActions, bombDefinition);
+                return true;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(PrototypeContentValidator.TestSandboxScenePath);
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = EditorSceneManager.OpenScene(
+                    PrototypeContentValidator.TestSandboxScenePath,
+                    OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                UpgradeTestSandbox(scene, bombDefinition);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException("Unity failed to upgrade TestSandbox scene.");
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+
+            return false;
+        }
+
+        private static void CreateTestSandbox(
+            InputActionAsset inputActions,
+            PrototypeBombDefinitionAsset bombDefinition)
+        {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
             {
@@ -156,8 +259,10 @@ namespace BombSwap.Editor.ContentValidation
             systems.SetActive(false);
             BombSwapInputReader inputReader = systems.AddComponent<BombSwapInputReader>();
             inputReader.Configure(inputActions);
+            PrototypeGameSession gameSession = systems.AddComponent<PrototypeGameSession>();
             PrototypePlayerController playerController =
                 systems.AddComponent<PrototypePlayerController>();
+            PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
 
             var gridRoot = new GameObject("GridRoot");
@@ -226,6 +331,7 @@ namespace BombSwap.Editor.ContentValidation
                 playerMaterial,
                 true);
             player.tag = "Player";
+            Transform runtimePresentation = CreateChild("RuntimePresentation", gridRoot.transform);
 
             CreateCamera(root.transform);
             CreateDirectionalLight(root.transform);
@@ -243,8 +349,10 @@ namespace BombSwap.Editor.ContentValidation
                 9,
                 1f,
                 blockedCells);
-            playerController.Configure(context, inputReader, player.transform);
-            harnessProbe.Configure(inputReader, playerController);
+            gameSession.Configure(context, inputReader, bombDefinition);
+            playerController.Configure(gameSession, player.transform);
+            bombPresenter.Configure(gameSession, runtimePresentation);
+            harnessProbe.Configure(inputReader, gameSession);
             systems.SetActive(true);
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -253,7 +361,43 @@ namespace BombSwap.Editor.ContentValidation
                 throw new InvalidOperationException("Unity failed to save TestSandbox scene.");
             }
 
-            return true;
+        }
+
+        private static void UpgradeTestSandbox(
+            Scene scene,
+            PrototypeBombDefinitionAsset bombDefinition)
+        {
+            TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
+            BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
+            PrototypePlayerController playerController = FindExactlyOne<PrototypePlayerController>(scene);
+            PrototypeInputHarnessProbe harnessProbe = FindExactlyOne<PrototypeInputHarnessProbe>(scene);
+
+            GameObject systems = inputReader.gameObject;
+            PrototypeGameSession gameSession = systems.GetComponent<PrototypeGameSession>();
+            if (gameSession == null)
+            {
+                gameSession = systems.AddComponent<PrototypeGameSession>();
+            }
+            PrototypeBombPresenter bombPresenter = systems.GetComponent<PrototypeBombPresenter>();
+            if (bombPresenter == null)
+            {
+                bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            }
+
+            Transform runtimePresentation = context.GridRoot.Find("RuntimePresentation");
+            if (runtimePresentation == null)
+            {
+                runtimePresentation = CreateChild("RuntimePresentation", context.GridRoot);
+            }
+
+            gameSession.Configure(context, inputReader, bombDefinition);
+            playerController.Configure(gameSession, context.PlayerPlaceholder);
+            bombPresenter.Configure(gameSession, runtimePresentation);
+            harnessProbe.Configure(inputReader, gameSession);
+            EditorUtility.SetDirty(gameSession);
+            EditorUtility.SetDirty(playerController);
+            EditorUtility.SetDirty(bombPresenter);
+            EditorUtility.SetDirty(harnessProbe);
         }
 
         private static void EnsureBuildSettings()
@@ -317,6 +461,88 @@ namespace BombSwap.Editor.ContentValidation
             }
             AssetDatabase.CreateAsset(material, assetPath);
             return material;
+        }
+
+        private static GameObject CreateVisualPrefabIfMissing(
+            string assetPath,
+            string prefabName,
+            PrimitiveType primitiveType,
+            Vector3 localPosition,
+            Vector3 localScale,
+            Material material)
+        {
+            GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var root = new GameObject(prefabName);
+            try
+            {
+                CreatePrimitive(
+                    "Visual",
+                    primitiveType,
+                    root.transform,
+                    localPosition,
+                    localScale,
+                    material,
+                    false);
+                GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, assetPath);
+                if (prefab == null)
+                {
+                    throw new InvalidOperationException($"Unity failed to save prototype prefab: {assetPath}");
+                }
+
+                return prefab;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        private static void EnsureAssetFolder(string assetPath)
+        {
+            string[] segments = assetPath.Split('/');
+            string current = segments[0];
+            for (int index = 1; index < segments.Length; index++)
+            {
+                string next = current + "/" + segments[index];
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, segments[index]);
+                }
+
+                current = next;
+            }
+        }
+
+        private static T FindExactlyOne<T>(Scene scene) where T : Component
+        {
+            T found = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                T[] components = root.GetComponentsInChildren<T>(true);
+                for (int index = 0; index < components.Length; index++)
+                {
+                    if (found != null)
+                    {
+                        throw new InvalidOperationException(
+                            $"TestSandbox contains more than one {typeof(T).Name}.");
+                    }
+
+                    found = components[index];
+                }
+            }
+
+            if (found == null)
+            {
+                throw new InvalidOperationException(
+                    $"TestSandbox is missing required {typeof(T).Name}.");
+            }
+
+            return found;
         }
 
         private static Transform CreateChild(string name, Transform parent)

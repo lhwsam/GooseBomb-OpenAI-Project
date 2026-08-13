@@ -5,18 +5,19 @@ namespace BombSwap
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BombSwapInputReader))]
-    [RequireComponent(typeof(PrototypePlayerController))]
+    [RequireComponent(typeof(PrototypeGameSession))]
     public sealed class PrototypeInputHarnessProbe : MonoBehaviour
     {
         [SerializeField]
         private BombSwapInputReader inputReader;
 
         [SerializeField]
-        private PrototypePlayerController playerController;
+        private PrototypeGameSession session;
 
         private bool _audioUnlockReported;
         private bool _moveReported;
         private bool _placeBombReported;
+        private bool _bombExplosionReported;
         private bool _swapBombReported;
         private bool _pauseReported;
         private bool _isPaused;
@@ -24,20 +25,18 @@ namespace BombSwap
 
         public BombSwapInputReader InputReader => inputReader;
 
-        public PrototypePlayerController PlayerController => playerController;
+        public PrototypeGameSession Session => session;
 
-        public void Configure(
-            BombSwapInputReader reader,
-            PrototypePlayerController controller)
+        public void Configure(BombSwapInputReader reader, PrototypeGameSession gameSession)
         {
-            if (isActiveAndEnabled)
+            if (Application.isPlaying && isActiveAndEnabled)
             {
                 throw new System.InvalidOperationException(
-                    "Disable PrototypeInputHarnessProbe before changing its input reader.");
+                    "Disable PrototypeInputHarnessProbe before changing its runtime configuration.");
             }
 
             inputReader = reader;
-            playerController = controller;
+            session = gameSession;
         }
 
         private void OnEnable()
@@ -51,24 +50,26 @@ namespace BombSwap
             {
                 inputReader = GetComponent<BombSwapInputReader>();
             }
-            if (playerController == null)
+            if (session == null)
             {
-                playerController = GetComponent<PrototypePlayerController>();
+                session = GetComponent<PrototypeGameSession>();
             }
 
-            if (inputReader == null || playerController == null)
+            if (inputReader == null || session == null)
             {
                 Debug.LogError(
-                    "PrototypeInputHarnessProbe requires input and player movement components.",
+                    "PrototypeInputHarnessProbe requires input and game-session components.",
                     this);
                 enabled = false;
                 return;
             }
 
             inputReader.CommandIssued += OnCommandIssued;
-            playerController.CellEntered += OnCellEntered;
-            playerController.Ready += OnPlayerControllerReady;
-            if (playerController.IsReady)
+            session.PlayerMoved += OnPlayerMoved;
+            session.BombPlaced += OnBombPlaced;
+            session.BombExploded += OnBombExploded;
+            session.Ready += OnSessionReady;
+            if (session.IsReady)
             {
                 ReportReady();
             }
@@ -81,14 +82,16 @@ namespace BombSwap
             {
                 inputReader.CommandIssued -= OnCommandIssued;
             }
-            if (playerController != null)
+            if (session != null)
             {
-                playerController.CellEntered -= OnCellEntered;
-                playerController.Ready -= OnPlayerControllerReady;
+                session.PlayerMoved -= OnPlayerMoved;
+                session.BombPlaced -= OnBombPlaced;
+                session.BombExploded -= OnBombExploded;
+                session.Ready -= OnSessionReady;
             }
         }
 
-        private void OnPlayerControllerReady()
+        private void OnSessionReady()
         {
             ReportReady();
         }
@@ -104,7 +107,7 @@ namespace BombSwap
             _readyReported = true;
         }
 
-        private void OnCellEntered(PlayerMovementStep step)
+        private void OnPlayerMoved(PlayerMovementStep step)
         {
             if (_moveReported)
             {
@@ -113,6 +116,28 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("move");
             _moveReported = true;
+        }
+
+        private void OnBombPlaced(BombSnapshot snapshot)
+        {
+            if (_placeBombReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("place-bomb");
+            _placeBombReported = true;
+        }
+
+        private void OnBombExploded(BombExplosion explosion)
+        {
+            if (_bombExplosionReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("bomb-exploded");
+            _bombExplosionReported = true;
         }
 
         private void OnCommandIssued(PlayerCommand command)
@@ -126,13 +151,7 @@ namespace BombSwap
             switch (command.Kind)
             {
                 case PlayerCommandKind.Move:
-                    break;
                 case PlayerCommandKind.PlaceBomb:
-                    if (!_placeBombReported)
-                    {
-                        WebGlHarnessReporter.Report("place-bomb");
-                        _placeBombReported = true;
-                    }
                     break;
                 case PlayerCommandKind.SwapBomb:
                     if (!_swapBombReported)

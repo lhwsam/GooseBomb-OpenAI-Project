@@ -45,16 +45,16 @@ flowchart LR
 
 ## 주요 런타임 소유자
 
-이 이름은 책임 경계를 설명하는 초기 용어이며 실제 타입은 구현 시 시스템 문서와 함께 확정한다.
+아래 이름은 현재 구현 타입과 후속 책임 경계를 함께 설명한다.
 
 - `GridState`: 셀 종류와 점유의 권위 상태.
-- `SimulationClock`: 일시정지와 시간 진행을 명시적으로 통제.
+- `ManualGameClock`: Unity Runtime이 일시정지 정책과 시간 진행을 명시적으로 통제해 Core에 주입.
 - `BombPlacementRules`: 설치 가능 여부와 설치 직후 통과 상태.
 - `ExplosionResolver`: 방향별 전파, 벽 차단, 피격 셀 산출.
 - `ChainReactionScheduler`: 모든 폭탄 종류의 지연 연쇄를 단일 순서로 처리.
 - `DamageResolver`: 플레이어·적 피해와 무적 구간 처리.
 - `DungeonGraphGenerator`: seed 기반 한 층 그래프 생성.
-- Unity `GameSession`: 입력 명령을 Core에 전달하고 결과 이벤트를 표현 계층으로 중계.
+- Unity `PrototypeGameSession`: 공유 격자·시계에서 입력 명령을 이동/폭탄 Core에 전달하고 확정 결과를 표현 계층으로 중계. 상세 결정은 [ADR-0006](../ADR/0006-Shared-Prototype-Game-Session.md)을 따른다.
 
 ## 데이터 원칙
 

@@ -29,7 +29,8 @@ sequenceDiagram
 - `BombSwapInputReader`는 게임 전용 `Gameplay` action map을 enable/disable 생명주기에 맞춰 대칭으로 구독한다.
 - focus 또는 application pause 상실 시 활성 이동을 `Move(None)`으로 해제하고 action map과 바인딩 장치 상태를 초기화한다.
 - `CardinalInputInterpreter`는 아날로그·복합 입력을 결정론적인 단일 상하좌우 방향으로 바꾼다.
-- TestSandbox의 `PrototypePlayerController`가 첫 제한된 세션 어댑터 역할을 맡아 `Move` 명령과 Unity가 전진시킨 `ManualGameClock`을 Core `PlayerMovementSimulation`에 전달한다. 설치·교체·pause 명령의 실제 규칙 소비자는 아직 없다.
+- TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`과 `BombSimulation`에 공유한다. `Move`는 이동 simulation으로, `PlaceBomb`은 현재 논리 셀의 폭탄 simulation으로 전달한다.
+- `PrototypePlayerController`와 `PrototypeBombPresenter`는 세션의 확정된 이동·설치·폭발 결과를 Transform과 pooled placeholder로 표현한다. 교체·pause 명령의 실제 규칙 소비자는 아직 없다.
 
 binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 
@@ -65,6 +66,8 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - `Advance` 간격은 아직 simulation step 주기를 확정하지 않으며, 테스트와 향후 Runtime 어댑터가 같은 시계를 주입할 수 있게 하는 경계다.
 
 현재 이동 수직 슬라이스는 한 셀 이동 cadence를 기본 5 cells/s로 두고 있다. Core는 시계의 현재값과 다음 step 시각만 비교하며 Unity `Time`을 읽지 않는다. Runtime은 `Time.deltaTime`을 `ManualGameClock`에 전달하고 동일한 0.2초 동안 placeholder Transform을 셀 중심 사이에서 선형 보간한다. 이 값과 보간 곡선은 플레이테스트 전까지 `Proposed`다.
+
+첫 폭탄 수직 슬라이스도 같은 시계를 사용한다. 기본 십자 폭탄의 현재 저작 값은 fuse 2초, 범위 2, 연쇄 지연 0.15초이며 `PrototypeBombDefinitionAsset`과 세션 설정이 소유한다. 이 값은 플레이테스트 전까지 `Proposed`다.
 
 ## 랜덤과 재현
 
