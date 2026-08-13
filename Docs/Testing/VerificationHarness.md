@@ -60,6 +60,14 @@ Unity가 기본 Hub 경로에 없다면 `-UnityPath` 또는 `UNITY_EDITOR_PATH`�
 
 하네스는 `Temp/UnityLockfile`이 있으면 Unity 실행을 거부한다. 열려 있는 Editor를 닫고 실행하거나, 연결된 Unity 도구에서 컴파일/테스트를 수행한 뒤 정확한 증거를 별도로 보고한다. 같은 프로젝트에 두 번째 Unity 인스턴스를 띄우지 않는다.
 
+연결된 Editor에서 공식 Unity MCP로 PlayMode 테스트를 시작하면 도메인 리로드 때문에 호출을 시작한 동적 콜백이 사라질 수 있다. `BombSwap.Unity.Tests`의 `ConnectedPlayModeResultReporter`는 테스트 어셈블리 내부 콜백으로 다음 Console 표식을 남긴다.
+
+- `BOMBSWAP_PLAYMODE_RESULT STARTED`: 발견된 테스트 수.
+- `BOMBSWAP_PLAYMODE_RESULT FINISHED`: passed/failed/skipped/inconclusive 요약.
+- `BOMBSWAP_PLAYMODE_RESULT FAILED`: 실패한 개별 테스트와 stack trace.
+
+연결된 Editor 검증은 실행 직전 Console을 비우고, 완료 뒤 이 표식과 일반 Error 항목을 함께 읽는다. 이 표식은 연결 검증의 증거이며 `Tools/Verify.ps1 -Tier Full`의 XML·로그 산출물을 대체하지 않는다.
+
 ## 브라우저 스모크 준비 상태
 
 `Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 첫 플레이 가능한 수직 슬라이스 전에는 `__BOMBSWAP_HARNESS_EVENTS__` 브리지가 없으므로 browser smoke가 의도적으로 실패한다. 게임플레이 probe는 `move`, `place-bomb`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
