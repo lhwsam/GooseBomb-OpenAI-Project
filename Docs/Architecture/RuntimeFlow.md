@@ -23,6 +23,16 @@ sequenceDiagram
 
 입력은 장치 이름이 아니라 의미로 변환한다. 초기 명령 집합은 `Move`, `PlaceBomb`, `SwapBomb`, `Pause`다. 키보드·게임패드 키 매핑, 브라우저 focus 복구는 InputReader 바깥의 플랫폼 세부사항이다.
 
+현재 구현된 입력 경계는 다음과 같다.
+
+- Core의 `PlayerCommand`는 장치 타입을 포함하지 않고 명령 종류와 네 방향 이동 의도만 보존한다.
+- `BombSwapInputReader`는 게임 전용 `Gameplay` action map을 enable/disable 생명주기에 맞춰 대칭으로 구독한다.
+- focus 또는 application pause 상실 시 활성 이동을 `Move(None)`으로 해제하고 action map과 바인딩 장치 상태를 초기화한다.
+- `CardinalInputInterpreter`는 아날로그·복합 입력을 결정론적인 단일 상하좌우 방향으로 바꾼다.
+- TestSandbox에는 아직 `GameSession`이 없으므로 이 경계는 명령 발행까지만 구현되어 있다.
+
+binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
+
 ## 논리 처리 순서
 
 한 simulation step에서는 다음 순서를 유지한다. 같은 시각에 일어난 사건의 순서를 고정해 재현성을 확보한다.

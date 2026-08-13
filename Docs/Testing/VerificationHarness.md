@@ -70,7 +70,9 @@ Unity가 기본 Hub 경로에 없다면 `-UnityPath` 또는 `UNITY_EDITOR_PATH`�
 
 ## 브라우저 스모크 준비 상태
 
-`Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 첫 플레이 가능한 수직 슬라이스 전에는 `__BOMBSWAP_HARNESS_EVENTS__` 브리지가 없으므로 browser smoke가 의도적으로 실패한다. 게임플레이 probe는 `move`, `place-bomb`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
+`Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 게임플레이 probe는 먼저 `probe-ready`를 보내 Unity 런타임과 입력 구독이 준비됐음을 알리고, 이후 `move`, `place-bomb`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
+
+현재 TestSandbox 개발 빌드는 `PrototypeInputHarnessProbe`와 `BombSwapHarness.jslib`로 이 배열을 제공한다. Playwright는 canvas focus와 `probe-ready`를 확인한 뒤 `W`, `Z`, `X`, `Esc` 두 번을 보낸다. 이 단계의 `move`는 입력 명령 발행을 증명하지만 아직 Transform 이동을 증명하지 않으며, `audio-unlocked`는 사용자 입력 수신 marker일 뿐 실제 오디오 출력 검증을 대체하지 않는다.
 
 Playwright를 찾지 못하면 Node의 `CODEX_NODE_MODULES`가 Playwright 모듈을 포함한 경로를 가리키게 하거나 프로젝트 개발 의존성 도입을 별도 승인받는다. 브라우저는 설치된 Edge/Chrome을 자동 탐색하며, 별도 위치는 `BOMBSWAP_BROWSER_PATH`로 지정한다.
 

@@ -3,7 +3,8 @@
   "rootNamespace": "BombSwap.Editor",
   "references": [
     "BombSwap.Core",
-    "BombSwap.Unity"
+    "BombSwap.Unity",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"
