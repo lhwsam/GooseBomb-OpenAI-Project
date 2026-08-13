@@ -14,6 +14,12 @@ namespace BombSwap.Editor.ContentValidation
     {
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
+        public const string PrototypeBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
+        public const string BombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
+        public const string ExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ExplosionCellPlaceholder.prefab";
 
         public static void Validate(ICollection<string> errors)
         {
@@ -23,8 +29,44 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             ValidateInputActions(errors);
+            ValidatePrototypeBombDefinition(errors);
             ValidateTestSandbox(errors);
             ValidateBuildSettings(errors);
+        }
+
+        private static void ValidatePrototypeBombDefinition(ICollection<string> errors)
+        {
+            PrototypeBombDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeBombDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype bomb definition: {PrototypeBombDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                definition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype bomb definition: {exception.Message}");
+            }
+
+            string bombPrefabPath = AssetDatabase.GetAssetPath(definition.BombPrefab);
+            if (!string.Equals(bombPrefabPath, BombPrefabPath, StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype bomb definition must reference '{BombPrefabPath}', found '{bombPrefabPath}'.");
+            }
+            string explosionPrefabPath = AssetDatabase.GetAssetPath(definition.ExplosionCellPrefab);
+            if (!string.Equals(explosionPrefabPath, ExplosionCellPrefabPath, StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype bomb definition must reference '{ExplosionCellPrefabPath}', found '{explosionPrefabPath}'.");
+            }
         }
 
         private static void ValidateInputActions(ICollection<string> errors)
@@ -203,8 +245,11 @@ namespace BombSwap.Editor.ContentValidation
             {
                 TestSandboxContext[] contexts = FindComponents<TestSandboxContext>(scene);
                 BombSwapInputReader[] readers = FindComponents<BombSwapInputReader>(scene);
+                PrototypeGameSession[] sessions = FindComponents<PrototypeGameSession>(scene);
                 PrototypePlayerController[] playerControllers =
                     FindComponents<PrototypePlayerController>(scene);
+                PrototypeBombPresenter[] bombPresenters =
+                    FindComponents<PrototypeBombPresenter>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
@@ -217,10 +262,20 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add($"TestSandbox must contain exactly one BombSwapInputReader; found {readers.Length}.");
                 }
+                if (sessions.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeGameSession; found {sessions.Length}.");
+                }
                 if (playerControllers.Length != 1)
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypePlayerController; found {playerControllers.Length}.");
+                }
+                if (bombPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeBombPresenter; found {bombPresenters.Length}.");
                 }
                 if (probes.Length != 1)
                 {
@@ -245,10 +300,29 @@ namespace BombSwap.Editor.ContentValidation
                     }
                 }
 
-                if (playerControllers.Length == 1 && contexts.Length == 1 && readers.Length == 1)
+                if (sessions.Length == 1 && contexts.Length == 1 && readers.Length == 1)
+                {
+                    PrototypeGameSession session = sessions[0];
+                    string definitionPath = AssetDatabase.GetAssetPath(session.BombDefinition);
+                    if (session.Context != contexts[0] || session.InputReader != readers[0] ||
+                        !string.Equals(
+                            definitionPath,
+                            PrototypeBombDefinitionPath,
+                            StringComparison.Ordinal))
+                    {
+                        errors.Add("TestSandbox game session has inconsistent runtime references.");
+                    }
+                    if (!IsFinitePositive(session.CellsPerSecond) ||
+                        !IsFinitePositive(session.ChainDelaySeconds))
+                    {
+                        errors.Add("TestSandbox game session timing values must be finite and positive.");
+                    }
+                }
+
+                if (playerControllers.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
                 {
                     PrototypePlayerController controller = playerControllers[0];
-                    if (controller.Context != contexts[0] || controller.InputReader != readers[0] ||
+                    if (controller.Session != sessions[0] ||
                         controller.PlayerTransform != contexts[0].PlayerPlaceholder)
                     {
                         errors.Add("TestSandbox player controller has inconsistent scene references.");
@@ -261,10 +335,23 @@ namespace BombSwap.Editor.ContentValidation
                     }
                 }
 
-                if (probes.Length == 1 && readers.Length == 1 &&
-                    playerControllers.Length == 1 &&
+                if (bombPresenters.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeBombPresenter presenter = bombPresenters[0];
+                    if (presenter.Session != sessions[0] || presenter.PresentationRoot == null ||
+                        !presenter.PresentationRoot.IsChildOf(contexts[0].GridRoot))
+                    {
+                        errors.Add("TestSandbox bomb presenter has inconsistent scene references.");
+                    }
+                    if (presenter.BombPoolSize < 0 || presenter.ExplosionPoolSize < 0)
+                    {
+                        errors.Add("TestSandbox bomb presenter pool sizes cannot be negative.");
+                    }
+                }
+
+                if (probes.Length == 1 && readers.Length == 1 && sessions.Length == 1 &&
                     (probes[0].InputReader != readers[0] ||
-                     probes[0].PlayerController != playerControllers[0]))
+                     probes[0].Session != sessions[0]))
                 {
                     errors.Add("TestSandbox harness probe has inconsistent runtime references.");
                 }
@@ -297,6 +384,11 @@ namespace BombSwap.Editor.ContentValidation
                     EditorSceneManager.CloseScene(scene, true);
                 }
             }
+        }
+
+        private static bool IsFinitePositive(float value)
+        {
+            return value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
         private static void ValidateBlockedCells(

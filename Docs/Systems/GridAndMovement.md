@@ -25,7 +25,7 @@
 
 카메라, 애니메이션, 발자국 VFX는 이 시스템의 권위 상태가 아니다.
 
-`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 이 명령이 `PlayerMovementSimulation`의 논리 점유 전이와 `PrototypePlayerController`의 placeholder Transform 보간까지 연결된다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
+`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 진행하고 `PrototypePlayerController`가 확정된 이동을 placeholder Transform 보간으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
 ## 구현된 최소 Core 계약
 
@@ -45,7 +45,7 @@
 - `PlayerMovementSimulation`은 주입된 `IGameClock`, 현재 셀, 유지 중인 네 방향, 다음 step 시각을 소유한다.
 - 최초 방향 입력은 즉시 한 step을 시도한다. 누르고 있으면 기본 0.2초 간격으로 반복하고, 방향 변경은 다음 예약 step부터 적용한다.
 - 정지 후 즉시 재입력해도 기존 cadence를 우회해 이동 횟수를 늘릴 수 없다.
-- `PrototypePlayerController`는 TestSandbox의 11×9 바닥과 네 논리 장애물을 Core 격자로 만들고, 기본 5 cells/s로 논리 셀 중심 사이를 선형 보간한다.
+- `PrototypeGameSession`은 TestSandbox의 11×9 바닥과 네 논리 장애물을 Core 격자로 만들고 이동과 폭탄 simulation에 공유한다. `PrototypePlayerController`는 기본 5 cells/s로 확정된 논리 셀 중심 사이를 선형 보간한다.
 - 논리 점유는 step 시작 시 목적 셀로 전이하며 Transform은 그 결과를 뒤따라 표현한다. 정확한 속도와 시각 곡선은 플레이테스트 대상이다.
 
 ## 구현된 Unity 좌표 계약
