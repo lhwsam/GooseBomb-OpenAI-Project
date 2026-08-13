@@ -19,11 +19,11 @@
 
 ## 실행 단계
 
-- `Fast`: Static + Compile + 관련 EditMode. 작은 Core 반복에 사용.
-- `Full`: Fast + 전체 EditMode + PlayMode + Content. 기능 완료와 통합 전 사용.
+- `Fast`: Static + Compile + Core EditMode. 작은 Core 반복에 사용.
+- `Full`: Fast + first-party PlayMode + Editor validation. 기능 완료와 통합 전 사용.
 - `Web`: Full + development WebGL build + browser smoke. 입력/렌더/패키지/마일스톤에 사용.
 
-자동화 하네스 도입 전에는 Unity Test Runner와 batchmode를 직접 사용한다. 도입 후 단일 명령, 명확한 exit code, XML/로그/JSON 산출물을 권위 실행 경로로 문서화한다.
+실행 규약과 종료 코드는 [VerificationHarness.md](VerificationHarness.md)를 따른다. `Tools/Verify.ps1`이 XML, 로그, JSON 산출물을 생성하는 권위 실행 경로다.
 
 ## Core 테스트 원칙
 
