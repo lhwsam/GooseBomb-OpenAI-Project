@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BombSwap.Editor.ContentValidation;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -123,6 +124,7 @@ namespace BombSwap.Editor.Verification
             ValidateAssemblyDefinition("Assets/Game/Editor/BombSwap.Editor.asmdef", errors);
             ValidateAssemblyDefinition("Assets/Game/Tests/EditMode/BombSwap.Core.Tests.asmdef", errors);
             ValidateAssemblyDefinition("Assets/Game/Tests/PlayMode/BombSwap.Unity.Tests.asmdef", errors);
+            PrototypeContentValidator.Validate(errors);
 
             return errors;
         }

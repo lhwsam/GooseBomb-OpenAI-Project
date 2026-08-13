@@ -3,7 +3,8 @@
   "rootNamespace": "BombSwap.Tests.PlayMode",
   "references": [
     "BombSwap.Core",
-    "BombSwap.Unity"
+    "BombSwap.Unity",
+    "Unity.InputSystem"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"

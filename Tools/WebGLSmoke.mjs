@@ -178,10 +178,17 @@ async function main() {
     const focusedTag = await page.evaluate(() => document.activeElement?.tagName ?? "");
     checks.push({ name: "canvas-focus", status: focusedTag === "CANVAS" ? "passed" : "failed", detail: focusedTag });
 
-    for (const key of ["KeyW", "Space", "Tab", "Escape", "Escape"]) {
+    await page.waitForFunction(() => {
+      const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+      return Array.isArray(events) && events.some((event) =>
+        (typeof event === "string" ? event : event?.name) === "probe-ready");
+    }, { timeout: 120_000 });
+    checks.push({ name: "gameplay-probe-ready", status: "passed" });
+
+    for (const key of ["KeyW", "KeyZ", "KeyX", "Escape", "Escape"]) {
       await page.keyboard.press(key);
     }
-    checks.push({ name: "keyboard-input", status: "passed", detail: "W, Space, Tab, Escape twice dispatched" });
+    checks.push({ name: "keyboard-input", status: "passed", detail: "W, Z, X, Escape twice dispatched" });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);

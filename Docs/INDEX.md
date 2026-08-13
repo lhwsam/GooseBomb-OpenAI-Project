@@ -42,6 +42,7 @@
 
 | 작업 | 추가로 읽을 문서 |
 |---|---|
+| 입력·플레이어 명령 | `Systems/InputAndCommands.md`, `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | 폭탄·폭발 규칙 | `Systems/BombAndExplosion.md`, `Systems/GridAndMovement.md`, ADR-0001~0003 |
 | 두 폭탄·쿨타임 | `Systems/WeaponSlotsAndCooldown.md`, `ProtoType_v0.2.md` 가설 B·C |
 | 플레이어 피해 | `Systems/DamageAndInvulnerability.md` |

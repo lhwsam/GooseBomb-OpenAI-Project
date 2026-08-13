@@ -11,6 +11,7 @@ Assets/Game/
     BombSwap.Core.asmdef
     Grid/
     Bombs/
+    Input/
     Combat/
     Enemies/
     Dungeon/
@@ -20,6 +21,8 @@ Assets/Game/
     Input/
     Simulation/
     World/
+    Diagnostics/
+    WebGL/
   Presentation/
     Camera/
     Characters/
@@ -28,10 +31,13 @@ Assets/Game/
     Audio/
     VFX/
   Authoring/
+    Prototype/
     Definitions/
     Rooms/
     Validation/
   Content/
+    Input/
+    Materials/
     Bombs/
     Enemies/
     Rooms/
@@ -50,7 +56,7 @@ Assets/Game/
       BombSwap.Unity.Tests.asmdef
 ```
 
-현재는 상위 책임 폴더와 asmdef만 만든다. 기능 구현 시 실제 코드가 생기는 세부 폴더를 추가하며, 빈 계층을 미리 과도하게 만들지 않는다.
+기능 구현 시 실제 코드가 생기는 세부 폴더만 추가한다. 현재 `Core/Input`, `Runtime/Input`, 개발 WebGL probe, TestSandbox authoring과 프로토타입 재료·입력 에셋이 존재한다.
 
 ## asmdef 선택 이유
 

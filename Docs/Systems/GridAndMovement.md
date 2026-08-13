@@ -25,6 +25,8 @@
 
 카메라, 애니메이션, 발자국 VFX는 이 시스템의 권위 상태가 아니다.
 
+현재 `BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. 실제 점유 판정과 Transform 이동은 아직 연결되지 않았으며 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
+
 ## 구현된 최소 Core 계약
 
 - `GridPosition`은 부호 있는 정수 `X`, `Z`를 보존하는 불변 값이며 값 동등성과 오프셋 계산을 제공한다.
@@ -83,3 +85,4 @@
 - 설치자만 설치 셀을 빠져나갈 수 있음.
 - 셀 이탈 후 통과 권한이 복구되지 않음.
 - 방 메타데이터의 출입구와 유효 셀 연결성.
+- `PlayerCommand.Move`에서 논리 점유 전이와 3D 보간까지 이어지는 수직 슬라이스.

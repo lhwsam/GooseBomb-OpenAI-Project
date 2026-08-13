@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: Core 폭탄과 Unity 좌표 어댑터 구현
+- 단계: TestSandbox와 의미 입력 경계 구현·WebGL 검증 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -25,6 +25,11 @@
 - 동일 시각 폭발과 큰 시계 진행에서도 결정론적인 폭탄 사건 순서 구현.
 - 정수 XZ 논리 격자와 Unity 3D 셀 중심을 변환하는 `GridSpace` 구현.
 - 공식 Unity MCP PlayMode 실행 결과를 도메인 리로드 뒤에도 Console에서 확인하는 테스트 전용 리포터 구현.
+- 게임 전용 `Gameplay/Move·PlaceBomb·SwapBomb·Pause` Input Actions와 Keyboard/Gamepad control scheme 구현.
+- 장치 입력을 Core `PlayerCommand`로 변환하고 focus 상실 시 이동을 해제하는 `BombSwapInputReader` 구현.
+- 11×9 격자, 경계 벽, 내부 장애물, 플레이어 placeholder, 탑다운 카메라를 가진 `TestSandbox` 씬 구현.
+- Input Actions·TestSandbox·Build Settings를 재생성/검증하는 Editor builder와 validator 구현.
+- 개발 WebGL에서 입력 사건을 브라우저 smoke에 전달하는 제한된 harness probe 구현.
 
 ## 현재 저장소 사실
 
@@ -32,11 +37,11 @@
 - `GridState`는 미등록 셀을 `Void`로 취급하고 지형과 actor/bomb 점유를 소유한다. 점유는 바닥에만 존재하며 actor와 bomb의 설치 직후 동시 점유를 허용한다.
 - `BombSimulation`은 활성 폭탄, 세션 내 고유 ID, fuse와 종류 독립적인 양수 지연 연쇄를 소유하고 읽기 전용 폭발 결과를 반환한다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다.
-- EditMode 테스트 67개가 하네스 발견성, 좌표·격자·시계, 폭탄 설치·폭발·벽·연쇄 계약을 검증한다.
+- EditMode 테스트 76개가 하네스 발견성, 좌표·격자·시계, 폭탄 설치·폭발·벽·연쇄, 플레이어 명령 계약을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 테스트 18개가 `GridSpace`의 왕복·경계·실패 계약을 검증하며, 기존 하네스 smoke를 포함한 전체 묶음은 19개다.
-- Build Settings에는 `Assets/Scenes/SampleScene.unity`만 등록되어 있다.
-- 기존 Input Actions는 일반 템플릿 액션 중심이며 게임 전용 `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 계약으로 정리되지 않았다.
+- PlayMode 전체 33개가 `GridSpace`, cardinal 입력 해석, 실제 Input System 키→명령 변환, focus 해제·누락 key-up reset, 재구독 계약과 하네스 발견성을 검증한다.
+- Build Settings의 첫 enabled 씬은 `Assets/Game/Scenes/TestSandbox/TestSandbox.unity`이며 기존 SampleScene은 보존하되 비활성화했다.
+- BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
 - WebGL platform quality는 Mobile 프로필을 사용한다.
 - WebGL threads support는 꺼져 있고 data caching은 켜져 있다.
@@ -48,8 +53,8 @@
 
 ## 바로 다음 권장 작업
 
-1. Prototype/TestSandbox 씬과 게임 전용 Input Actions를 Unity Editor에서 안전하게 구성한다.
-2. 폭탄 Core 결과를 Unity Runtime과 3D 표현에 연결해 첫 단독 수직 슬라이스를 만든다.
+1. `PlayerCommand.Move`를 논리 점유와 placeholder Transform 보간에 연결한다.
+2. 폭탄 Core 설치·fuse·폭발 결과를 3D 표현에 연결해 첫 단독 수직 슬라이스를 만든다.
 3. 플레이어 설치자 식별과 폭탄 셀 이탈 후 재진입 차단 계약을 연결한다.
 4. 기본 추격자와 자기 폭발 피해 후보를 연결해 프로토타입 가설 A의 첫 플레이 루프를 만든다.
 
@@ -58,10 +63,12 @@
 - 정확한 simulation step, 연속 이동 감각, 셀 경계 정책은 미정이다.
 - 현재 `GridState` 점유는 actor/bomb 종류만 표현하며 개체 식별과 설치자 한정 통과 권한은 아직 없다.
 - 현재 폭탄 정의는 기본 십자 모양만 지원하며 쿨타임, 피해 후보, 직선·광역 폭탄은 아직 없다.
-- WebGL 성능/다운로드 예산은 빈 기준 빌드와 첫 수직 슬라이스 측정 후 확정해야 한다.
+- 개발 WebGL 기준 빌드는 약 139.5 MB이며 현재 설치된 AI Inference·vendor 패키지와 셰이더가 빌드 크기와 시간을 크게 차지한다. 실제 배포 예산과 패키지 정리는 첫 수직 슬라이스 뒤 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
-- 프로토타입 씬, 게임 전용 ScriptableObject 스키마, 콘텐츠 검증기는 아직 없다.
-- 첫 플레이 가능한 수직 슬라이스 전에는 브라우저 gameplay probe가 없으므로 실제 `Web` tier는 통과할 수 없다.
+- TestSandbox는 입력 명령 발행까지만 연결되어 플레이어가 아직 이동하거나 폭탄을 설치하지 않는다.
+- 게임 전용 폭탄 ScriptableObject 스키마와 일반 방 콘텐츠 검증기는 아직 없다.
+- 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
+- 게임패드 binding은 구조 검증만 완료했고 목표 기기 수동 플레이가 남아 있다.
 
 ## 최근 검증
 
@@ -78,8 +85,12 @@
 - 루트 AGENTS 크기: 약 9 KB로 Codex 기본 합산 제한 32 KiB 이내.
 - 공식 Unity MCP 연결과 활성 씬 `Assets/Scenes/SampleScene.unity` 확인.
 - Unity Editor import/compile: 격자·시계·폭탄 Core, Unity 좌표 어댑터와 테스트 스크립트 임포트 후 Console 오류 0.
-- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 67개 통과, 실패/건너뜀/불확정 0.
+- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 76개 통과, 실패/건너뜀/불확정 0.
 - `Tools/Verify.ps1 -Tier Fast`: 실행 중인 동일 프로젝트 Editor 잠금 때문에 별도 batchmode로는 미실행. Unity 컴파일과 EditMode 테스트는 연결된 MCP로 수행.
 - PlayMode: 공식 Unity MCP로 `GridSpaceTests` 18개 통과, 실패/건너뜀/불확정 0. 테스트 어셈블리 내부 리포터로 도메인 리로드 후 결과 확인.
-- PlayMode 전체 회귀: `BombSwap.Unity.Tests` 19개 통과, 실패/건너뜀/불확정 0. 기존 하네스 smoke 포함.
-- WebGL 빌드: 이 구성 작업에서는 미실행.
+- PlayMode 전체 회귀: `BombSwap.Unity.Tests` 33개 통과, 실패/건너뜀/불확정 0. 기존 하네스 smoke 포함.
+- `PrototypeContentValidator`: 게임 전용 Input Actions, TestSandbox 필수 참조, 카메라·조명, Build Settings 검증 통과.
+- TestSandbox Scene View 시각 확인: 11×9 격자, 경계 벽, 네 장애물, 플레이어 placeholder가 탑다운 구도에서 식별 가능.
+- Development WebGL 빌드: `Assets/Game/Scenes/TestSandbox/TestSandbox.unity` 단일 씬으로 성공. 증분 빌드 139,549,472 bytes, 221.94초, 오류 0, 경고 359개. 경고는 주로 설치된 Sentis 셰이더와 vendor 누락 스크립트에서 발생했다.
+- 실제 Edge headless browser smoke: load, canvas focus, `probe-ready` handshake, W/Z/X/Esc×2, resize, `move/place-bomb/swap-bomb/pause-resume/audio-unlocked` 관측, browser Console 모두 통과.
+- 검증 증거: `Artifacts/Verification/20260814-062514-web-connected/` (Git 제외).
