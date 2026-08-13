@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 기본 폭탄 Core 시뮬레이션 구현
+- 단계: Core 폭탄과 Unity 좌표 어댑터 구현
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -23,6 +23,8 @@
 - 논리 좌표, 지형·점유 불변식, 수동 시계 계약을 검증하는 EditMode 테스트 구현.
 - 기본 십자 폭탄 정의, 설치, fuse, 폭발 셀, 벽 차단·파괴, 지연 연쇄를 소유하는 `BombSimulation` 구현.
 - 동일 시각 폭발과 큰 시계 진행에서도 결정론적인 폭탄 사건 순서 구현.
+- 정수 XZ 논리 격자와 Unity 3D 셀 중심을 변환하는 `GridSpace` 구현.
+- 공식 Unity MCP PlayMode 실행 결과를 도메인 리로드 뒤에도 Console에서 확인하는 테스트 전용 리포터 구현.
 
 ## 현재 저장소 사실
 
@@ -31,6 +33,8 @@
 - `BombSimulation`은 활성 폭탄, 세션 내 고유 ID, fuse와 종류 독립적인 양수 지연 연쇄를 소유하고 읽기 전용 폭발 결과를 반환한다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다.
 - EditMode 테스트 67개가 하네스 발견성, 좌표·격자·시계, 폭탄 설치·폭발·벽·연쇄 계약을 검증한다.
+- `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
+- PlayMode 테스트 18개가 `GridSpace`의 왕복·경계·실패 계약을 검증하며, 기존 하네스 smoke를 포함한 전체 묶음은 19개다.
 - Build Settings에는 `Assets/Scenes/SampleScene.unity`만 등록되어 있다.
 - 기존 Input Actions는 일반 템플릿 액션 중심이며 게임 전용 `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 계약으로 정리되지 않았다.
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
@@ -44,10 +48,10 @@
 
 ## 바로 다음 권장 작업
 
-1. 논리 격자와 3D XZ 월드 좌표를 연결하는 Unity 어댑터를 구현하고 경계값을 검증한다.
-2. Prototype/TestSandbox 씬과 게임 전용 Input Actions를 Unity Editor에서 안전하게 구성한다.
-3. 폭탄 Core 결과를 Unity Runtime과 3D 표현에 연결해 첫 단독 수직 슬라이스를 만든다.
-4. 플레이어 설치자 식별과 폭탄 셀 이탈 후 재진입 차단 계약을 연결한다.
+1. Prototype/TestSandbox 씬과 게임 전용 Input Actions를 Unity Editor에서 안전하게 구성한다.
+2. 폭탄 Core 결과를 Unity Runtime과 3D 표현에 연결해 첫 단독 수직 슬라이스를 만든다.
+3. 플레이어 설치자 식별과 폭탄 셀 이탈 후 재진입 차단 계약을 연결한다.
+4. 기본 추격자와 자기 폭발 피해 후보를 연결해 프로토타입 가설 A의 첫 플레이 루프를 만든다.
 
 ## 알려진 위험과 미정
 
@@ -73,8 +77,9 @@
 - 신규 asmdef 5개 JSON 파싱, 이름/참조 구조 정적 검사: 통과.
 - 루트 AGENTS 크기: 약 9 KB로 Codex 기본 합산 제한 32 KiB 이내.
 - 공식 Unity MCP 연결과 활성 씬 `Assets/Scenes/SampleScene.unity` 확인.
-- Unity Editor import/compile: 격자·시계·폭탄 Core와 테스트 스크립트 임포트 후 Console 오류 0.
+- Unity Editor import/compile: 격자·시계·폭탄 Core, Unity 좌표 어댑터와 테스트 스크립트 임포트 후 Console 오류 0.
 - EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 67개 통과, 실패/건너뜀/불확정 0.
 - `Tools/Verify.ps1 -Tier Fast`: 실행 중인 동일 프로젝트 Editor 잠금 때문에 별도 batchmode로는 미실행. Unity 컴파일과 EditMode 테스트는 연결된 MCP로 수행.
-- PlayMode: Unity 생명주기 또는 씬 연결 변경이 없어 이번 Core 작업에서는 미실행.
+- PlayMode: 공식 Unity MCP로 `GridSpaceTests` 18개 통과, 실패/건너뜀/불확정 0. 테스트 어셈블리 내부 리포터로 도메인 리로드 후 결과 확인.
+- PlayMode 전체 회귀: `BombSwap.Unity.Tests` 19개 통과, 실패/건너뜀/불확정 0. 기존 하네스 smoke 포함.
 - WebGL 빌드: 이 구성 작업에서는 미실행.
