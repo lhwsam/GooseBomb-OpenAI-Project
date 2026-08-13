@@ -12,6 +12,7 @@ Assets/Game/
     Grid/
     Bombs/
     Input/
+    Movement/
     Combat/
     Enemies/
     Dungeon/
@@ -19,6 +20,7 @@ Assets/Game/
   Runtime/
     Bootstrap/
     Input/
+    Movement/
     Simulation/
     World/
     Diagnostics/
@@ -56,7 +58,7 @@ Assets/Game/
       BombSwap.Unity.Tests.asmdef
 ```
 
-기능 구현 시 실제 코드가 생기는 세부 폴더만 추가한다. 현재 `Core/Input`, `Runtime/Input`, 개발 WebGL probe, TestSandbox authoring과 프로토타입 재료·입력 에셋이 존재한다.
+기능 구현 시 실제 코드가 생기는 세부 폴더만 추가한다. 현재 `Core/Input·Movement`, `Runtime/Input·Movement`, 개발 WebGL probe, TestSandbox authoring과 프로토타입 재료·입력 에셋이 존재한다.
 
 ## asmdef 선택 이유
 

@@ -59,6 +59,35 @@ namespace BombSwap.Core
             return true;
         }
 
+        public bool TryMoveActor(GridPosition from, GridPosition to)
+        {
+            long distanceX = Math.Abs((long)to.X - from.X);
+            long distanceZ = Math.Abs((long)to.Z - from.Z);
+            if (distanceX + distanceZ != 1L)
+            {
+                throw new ArgumentException(
+                    "Actor movement must target one cardinally adjacent cell.",
+                    nameof(to));
+            }
+
+            GridCellState source = GetCell(from);
+            GridCellState destination = GetCell(to);
+            if (!source.HasActor ||
+                !destination.IsWalkableTerrain ||
+                destination.Occupancy != GridOccupancy.None)
+            {
+                return false;
+            }
+
+            SetOrRemoveCell(
+                from,
+                new GridCellState(source.Terrain, source.Occupancy & ~GridOccupancy.Actor));
+            cells[to] = new GridCellState(
+                destination.Terrain,
+                destination.Occupancy | GridOccupancy.Actor);
+            return true;
+        }
+
         private static void ValidateTerrain(GridTerrain terrain)
         {
             if (terrain != GridTerrain.Void &&

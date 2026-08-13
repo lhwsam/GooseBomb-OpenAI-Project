@@ -27,9 +27,10 @@
 - `BombSwapInputReader`: 액션 callback을 구독하고 `PlayerCommand`를 발행하며 focus/생명주기를 정리한다.
 - `CardinalInputInterpreter`: `Vector2`를 네 방향 이동 의도로 축소한다.
 - `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 의미와 이동 방향을 보존하는 Core 값이다.
-- 향후 `GameSession`: 명령을 논리 시간과 함께 simulation에 전달한다.
+- `PrototypePlayerController`: TestSandbox에서 `Move` 명령을 주입 시계 기반 `PlayerMovementSimulation`에 전달한다.
+- 향후 `GameSession`: 이동 외 설치·교체·pause 명령도 논리 시간과 함께 각 simulation에 전달한다.
 
-입력 계층은 이동 가능 여부, 폭탄 설치 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에는 아직 `GameSession` 소비자가 없으므로 키 입력이 플레이어 Transform이나 폭탄 상태를 바꾸지 않는다.
+입력 계층은 이동 가능 여부, 폭탄 설치 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에서 이동 가능 여부는 Core 이동 simulation이 판정하고 Transform이 그 결과를 보간한다. 폭탄 설치·교체·pause 소비자는 아직 없다.
 
 ## 상태와 전이
 
@@ -54,20 +55,20 @@
 ## WebGL 고려사항
 
 - canvas focus 상실 중 key-up이 누락되어도 `SetInputFocus(false)` 경계에서 이동을 해제한다.
-- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 입력 구독 직후 `probe-ready`를 보내고, 최초로 관찰한 move/place/swap과 pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
+- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 플레이어 컨트롤러가 입력 구독을 완료한 뒤 `probe-ready`를 보내고, 최초로 성공한 논리 셀 이동과 관찰한 place/swap, pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
 - `audio-unlocked` probe는 사용자 입력을 게임이 수신한 시점을 표시할 뿐 실제 오디오 클립 재생을 증명하지 않는다. 실제 오디오 연결 후 브라우저에서 별도로 확인해야 한다.
 - probe와 `.jslib` 브리지는 개발 빌드 검증용이며 게임 규칙의 권위 API가 아니다.
 
 ## 자동 테스트
 
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
-- PlayMode: cardinal 축 선택과 tie-break, 실제 Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지.
+- PlayMode: cardinal 축 선택과 tie-break, 실제 Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지 입력→논리 셀→Transform 보간.
 - Editor validator: Input Actions 구조, TestSandbox 필수 참조, 카메라·조명, 첫 enabled Build Settings 씬.
-- WebGL smoke: canvas focus 후 `W`, `Z`, `X`, `Esc` 두 번을 보내고 개발 probe 사건을 확인한다.
+- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동을 포함한 개발 probe 사건을 확인한다.
 
 ## 미정 사항과 종료 조건
 
-- 실제 이동 감각, 입력 버퍼와 simulation step 연결은 첫 수직 슬라이스에서 확정한다.
+- 기본 5 cells/s, 선형 보간, 방향 변경 시점은 플레이테스트 후 확정한다.
 - 사용자 리바인딩과 UI 전용 action map은 프로토타입 코어 전투 이후 결정한다.
 - 게임패드 binding은 자동 구조 검증만 완료했으며 목표 기기 수동 플레이가 남아 있다.
 - pause 명령이 논리 시계와 UI를 실제로 멈추는 연결은 아직 없다.

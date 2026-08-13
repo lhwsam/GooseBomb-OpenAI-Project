@@ -170,7 +170,7 @@ async function main() {
     await page.waitForFunction(() => {
       const canvas = document.querySelector("canvas");
       return canvas && canvas.width > 0 && canvas.height > 0;
-    }, { timeout: 120_000 });
+    }, undefined, { timeout: 120_000 });
     checks.push({ name: "load", status: "passed" });
 
     const canvas = page.locator("canvas").first();
@@ -178,17 +178,46 @@ async function main() {
     const focusedTag = await page.evaluate(() => document.activeElement?.tagName ?? "");
     checks.push({ name: "canvas-focus", status: focusedTag === "CANVAS" ? "passed" : "failed", detail: focusedTag });
 
-    await page.waitForFunction(() => {
-      const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
-      return Array.isArray(events) && events.some((event) =>
-        (typeof event === "string" ? event : event?.name) === "probe-ready");
-    }, { timeout: 120_000 });
-    checks.push({ name: "gameplay-probe-ready", status: "passed" });
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) === "probe-ready");
+      }, undefined, { timeout: 120_000 });
+      checks.push({ name: "gameplay-probe-ready", status: "passed" });
+    } catch (error) {
+      checks.push({
+        name: "gameplay-probe-ready",
+        status: "failed",
+        detail: `Timed out waiting for Unity runtime readiness: ${error}`,
+      });
+    }
 
-    for (const key of ["KeyW", "KeyZ", "KeyX", "Escape", "Escape"]) {
+    let moveObserved = false;
+    let moveWaitError = null;
+    await page.keyboard.down("KeyW");
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) === "move");
+      }, undefined, { timeout: 30_000 });
+      moveObserved = true;
+    } catch (error) {
+      moveWaitError = String(error);
+    } finally {
+      await page.keyboard.up("KeyW");
+    }
+    for (const key of ["KeyZ", "KeyX", "Escape", "Escape"]) {
       await page.keyboard.press(key);
     }
-    checks.push({ name: "keyboard-input", status: "passed", detail: "W, Z, X, Escape twice dispatched" });
+    checks.push({
+      name: "keyboard-input",
+      status: moveObserved ? "passed" : "failed",
+      detail: moveObserved
+        ? "W held until Core move event, then Z, X, Escape twice dispatched"
+        : `W produced no Core move event before timeout; remaining keys dispatched. ${moveWaitError}`,
+    });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
