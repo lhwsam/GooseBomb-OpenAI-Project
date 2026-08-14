@@ -75,7 +75,7 @@
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
 - PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타·동일 frame press-release, 유지 대각선의 최신 축 고정, Input System 키 상태→이동·폭탄·pause·재시작 명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시, pause 중 이동·설치·교체와 fuse 정지·UI 표시 및 재개 뒤 유지 키 재적용.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 뒤 안전방에서 `Esc`로 실제 pause에 진입하고 `PAUSED` 화면을 캡처한다. pause 중 방향키 유지와 `Z`를 보내도 논리 셀·frame motion·폭탄 설치 수가 변하지 않아야 하며, 두 번째 `Esc`의 `pause-resumed` 뒤 진행을 재개한다. 이어 첫 전투방에서 `ArrowLeft/ArrowUp`의 즉시 press-release 단타를 여섯 번 교대하고 각 탭이 한 frame의 대응 `move-motion-direction-*`을 만든 뒤 추가 이동 없이 멈춰야 한다. 보스 격파 뒤 완료 화면과 `R` 재시작을 확인하고, 새 안전방에서 자기 폭발로 사망시킨 뒤 실패 화면과 두 번째 새 run 시작까지 확인한다.
+- WebGL smoke: canvas focus 뒤 오른쪽 키를 누른 채 브라우저 `blur`를 발생시켜 `Move(None)`과 셀·motion 정지를 확인하고, 누락 key-up 상태의 `focus` 복귀가 이동을 되살리지 않는지 검증한다. 이어 안전방에서 `Esc`로 실제 pause에 진입하고 `PAUSED` 화면을 캡처한다. pause 중 방향키 유지와 `Z`를 보내도 논리 셀·frame motion·폭탄 설치 수가 변하지 않아야 하며, 두 번째 `Esc`의 `pause-resumed` 뒤 진행을 재개한다. 첫 전투방에서는 `ArrowLeft/ArrowUp`의 즉시 press-release 단타를 여섯 번 교대하고 각 탭이 한 frame의 대응 `move-motion-direction-*`을 만든 뒤 추가 이동 없이 멈춰야 한다. 보스 격파 뒤 완료 화면과 `R` 재시작을 확인하고, 새 안전방에서 자기 폭발로 사망시킨 뒤 실패 화면과 두 번째 새 run 시작까지 확인한다.
 
 ## 미정 사항과 종료 조건
 
