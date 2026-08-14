@@ -333,6 +333,10 @@ async function main() {
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-boss-telegraph.png`,
   );
+  const pauseScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-paused.png`,
+  );
   const runFailureScreenshotPath = path.join(
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-run-failed.png`,
@@ -384,6 +388,54 @@ async function main() {
       name: "dungeon-start-ready",
       status: "passed",
       detail: "The safe Start placeholder initialized with the reusable loop shell.",
+    });
+
+    const pauseCellBefore = await getLastPlayerCell(page);
+    const pauseMotionBefore = await eventCount(
+      page,
+      "move-motion-direction-north",
+    );
+    const pauseBombPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    await page.keyboard.press("Escape");
+    await waitForEvent(page, "pause-entered", { timeout: 5_000 });
+    fs.mkdirSync(path.dirname(pauseScreenshotPath), { recursive: true });
+    await page.screenshot({ path: pauseScreenshotPath });
+    await page.keyboard.down("ArrowUp");
+    try {
+      await page.keyboard.press("KeyZ");
+      await page.waitForTimeout(400);
+    } finally {
+      await page.keyboard.up("ArrowUp");
+    }
+    const pauseCellAfter = await getLastPlayerCell(page);
+    const pauseMotionAfter = await eventCount(
+      page,
+      "move-motion-direction-north",
+    );
+    const pauseBombPlacementsAfter = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    if (JSON.stringify(pauseCellAfter) !== JSON.stringify(pauseCellBefore) ||
+        pauseMotionAfter !== pauseMotionBefore ||
+        pauseBombPlacementsAfter !== pauseBombPlacementsBefore) {
+      throw new Error(
+        `Pause did not block gameplay: cell ${JSON.stringify(pauseCellBefore)} -> ` +
+        `${JSON.stringify(pauseCellAfter)}, motion ${pauseMotionBefore} -> ` +
+        `${pauseMotionAfter}, bombs ${pauseBombPlacementsBefore} -> ` +
+        `${pauseBombPlacementsAfter}.`,
+      );
+    }
+    await page.keyboard.press("Escape");
+    await waitForEvent(page, "pause-resumed", { timeout: 5_000 });
+    await waitForEvent(page, "pause-resume", { timeout: 5_000 });
+    checks.push({
+      name: "pause-freezes-gameplay",
+      status: "passed",
+      detail: "The PAUSED state blocked movement and bomb placement, then resumed from Escape without advancing the player cell.",
     });
 
     await moveSteps(page, "ArrowUp", "north", 1);
@@ -728,12 +780,9 @@ async function main() {
       detail: "Room 7 telegraphed deterministic grid attacks, accepted four area-bomb counterattacks only during Recovery, and presented the floor-clear result once.",
     });
 
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("Escape");
-    await waitForEvent(page, "pause-resume", { timeout: 5_000 });
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
-    checks.push({ name: "pause-resume-and-resize", status: "passed" });
+    checks.push({ name: "resize", status: "passed" });
 
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath });
@@ -853,6 +902,8 @@ async function main() {
       "run-restart-requested",
       "dungeon-run-restarted",
       "swap-bomb",
+      "pause-entered",
+      "pause-resumed",
       "pause-resume",
       "audio-unlocked",
     ];
@@ -891,6 +942,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),
     };
@@ -921,6 +973,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),
     };

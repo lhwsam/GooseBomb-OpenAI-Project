@@ -32,7 +32,7 @@ sequenceDiagram
 - `PlayerMovementSimulation`은 주입 시계 경과량 × cells/s로 Core `GridSubcellPosition`을 매 frame 진행한다. 방향 해제는 위치를 즉시 멈추고, 새 방향은 다음 frame 변위 축에 적용하며 정수 점유는 셀 경계에서만 전이한다.
 - TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, 전투 활성 시 `ChaserEnemySimulation`과 선택적 `ChargerEnemySimulation`·`ArmoredEnemySimulation`, `BombSimulation`, `BombWeaponLoadout`, 플레이어·각 적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`과 `SwapBomb`은 활성 폭탄 슬롯으로 전달한다. 적 비활성 placeholder는 같은 이동·폭탄·체력을 사용하지만 적 actor를 만들지 않고 처음부터 안전방으로 취급한다.
 - `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정/파괴 가능 벽·플레이어/필수 추격자/선택적 돌진형·갑옷 적 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
-- `PrototypePlayerController`는 Core 플레이어 연속 위치를 직접 표시한다. `PrototypeChaserPresenter`, `PrototypeChargerPresenter`, `PrototypeArmoredPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 확정된 적 상태·이동, 정의별 설치·폭발, 피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. 각 적 presenter는 자신의 생존 상태만 읽는다. `PrototypeWeaponHud`는 Core 슬롯 snapshot을 표시한다. pause 명령의 실제 규칙 소비자는 아직 없다.
+- `PrototypePlayerController`는 Core 플레이어 연속 위치를 직접 표시한다. `PrototypeChaserPresenter`, `PrototypeChargerPresenter`, `PrototypeArmoredPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 확정된 적 상태·이동, 정의별 설치·폭발, 피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. 각 적 presenter는 자신의 생존 상태만 읽는다. `PrototypeWeaponHud`는 Core 슬롯 snapshot을 표시한다. `PrototypeGameSession`은 실제 pause 상태를 소유하고 입력 재샘플링과 논리 시계 진행 전에 simulation을 차단하며, `PrototypePausePresenter`는 확정 상태를 받아 UI만 표현한다.
 - Core `DungeonRunState`는 `InProgress → Completed | Failed` 단방향 결과를 소유한다. room binder는 `PlayerDied`의 정확한 치명 피해 결과를 `FailureDamage`로 보존하며 실패로, 보스방 `RoomCleared`를 완료로 반영한다. `PrototypeRunCompletionPresenter`는 다음 frame에 결과 snapshot을 읽어 방 세션을 멈추고 `FLOOR CLEARED` 또는 `RUN FAILED`와 source 기반 사망 원인을 표시한다. terminal 상태의 `RestartRun`만 persistent host가 소비하며, host는 기존 상태를 부분 초기화하지 않고 같은 seed와 catalog에서 새 session·navigator를 구성해 시작 씬을 다시 로드한다.
 - 플레이테스트 전용 `PrototypeRoomAdvanceController`는 `RoomCleared`를 한 번 받은 뒤 1.25초 realtime 지연으로 다음 TestSandbox 씬을 단일 로드한다. 중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험 순서이며 마지막 씬은 다음 이름이 비어 있어 머문다. 이 Unity 어댑터는 Core 규칙이나 room asset의 mutable 상태가 아니며, 보상·방 그래프가 생기면 그 흐름으로 대체한다.
 
@@ -68,7 +68,7 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - 규칙 소비자는 `IGameClock.Now`의 `TimeSpan`만 읽는다.
 - `ManualGameClock`은 0 이상의 초기 시각과 `Advance(TimeSpan)`으로만 전진한다.
 - 음수 초기값과 음수 경과 시간은 상태를 변경하지 않고 거부한다.
-- 일시정지는 Unity Runtime이 `Advance`를 호출하지 않는 방식으로 표현한다.
+- 일시정지는 Unity Runtime의 `PrototypeGameSession`이 입력 재샘플링과 `Advance` 전에 `Update`를 반환하는 방식으로 구현한다. `Time.timeScale`을 바꾸지 않으므로 pause UI와 브라우저 생명주기는 게임 규칙 시간과 분리된다.
 - `Advance` 간격은 아직 simulation step 주기를 확정하지 않으며, 테스트와 향후 Runtime 어댑터가 같은 시계를 주입할 수 있게 하는 경계다.
 
 현재 이동 수직 슬라이스는 기본 5 cells/s를 유지하되 별도 한 셀 cadence를 두지 않는다. Runtime이 `Time.deltaTime`을 `ManualGameClock`에 전달하면 Core가 이전 관찰 시각 이후의 거리만큼 `GridSubcellPosition`을 진행하고, 셀 경계를 지날 때 정수 점유를 전이한다. 키 해제 중 시간은 다음 입력에 누적하지 않으며 Unity 표현은 별도 0.2초 보간 없이 같은 Core 위치를 직접 표시한다. 속도와 코너 보정 감각은 후속 플레이테스트 전까지 `Proposed`다.

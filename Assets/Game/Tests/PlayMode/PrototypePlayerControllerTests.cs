@@ -208,6 +208,71 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Pause_FreezesMovementFuseAndActionsUntilResume()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.15f,
+                combatEnabled: false);
+
+            yield return null;
+
+            PrototypePausePresenter pausePresenter =
+                _root.GetComponent<PrototypePausePresenter>();
+            Assert.That(pausePresenter, Is.Not.Null);
+            Assert.That(pausePresenter.Session, Is.SameAs(_session));
+            Assert.That(pausePresenter.IsVisible, Is.False);
+
+            var pauseStates = new List<bool>();
+            _session.PauseStateChanged += pauseStates.Add;
+            PressAndRelease(Key.Z);
+            Assert.That(_session.ActiveBombCount, Is.EqualTo(1));
+
+            PressAndRelease(Key.Escape);
+            yield return null;
+
+            Assert.That(_session.IsPaused, Is.True);
+            Assert.That(pausePresenter.IsVisible, Is.True);
+            Assert.That(pausePresenter.ShowCount, Is.EqualTo(1));
+            Assert.That(pausePresenter.StatusText, Does.Contain("RESUME"));
+            GridSubcellPosition pausedPosition = _session.CurrentMovementPosition;
+            int pausedSlot = _session.ActiveBombSlotIndex;
+
+            QueueKeyboardState(Key.W);
+            yield return new WaitForSecondsRealtime(0.25f);
+
+            Assert.That(_session.CurrentMovementPosition, Is.EqualTo(pausedPosition));
+            Assert.That(_session.ActiveBombCount, Is.EqualTo(1));
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(pausedSlot));
+
+            QueueKeyboardState(Key.W, Key.Z, Key.X);
+            QueueKeyboardState(Key.W);
+            Assert.That(_session.ActiveBombCount, Is.EqualTo(1));
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(pausedSlot));
+
+            QueueKeyboardState(Key.W, Key.Escape);
+            QueueKeyboardState(Key.W);
+            yield return null;
+
+            Assert.That(_session.IsPaused, Is.False);
+            Assert.That(pausePresenter.IsVisible, Is.False);
+            Assert.That(pausePresenter.HideCount, Is.EqualTo(1));
+            Assert.That(
+                _session.CurrentMovementPosition.Z,
+                Is.GreaterThan(pausedPosition.Z));
+            Assert.That(pauseStates, Is.EqualTo(new[] { true, false }));
+
+            QueueKeyboardState();
+            float deadline = Time.realtimeSinceStartup + 1f;
+            while (_session.ActiveBombCount > 0 && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(_session.ActiveBombCount, Is.Zero);
+        }
+
+        [UnityTest]
         public IEnumerator RuntimeRoomPreparation_OverridesPlayerStartBeforeAwakeOnly()
         {
             var runtimeStart = new GridPosition(1, 0);
