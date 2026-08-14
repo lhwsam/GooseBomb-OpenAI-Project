@@ -1153,6 +1153,7 @@ MonoBehaviour:
   playerSpawn: {fileID: 1034727587}
   playerPlaceholder: {fileID: 317508116}
   chaserSpawn: {fileID: 2013815863}
+  chargerSpawn: {fileID: 1478885736}
   roomDefinition: {fileID: 11400000, guid: 6ea6a6577252e034d81b4f3e26eeed31, type: 2}
 --- !u!4 &455876710
 Transform:
@@ -1192,6 +1193,7 @@ GameObject:
   - component: {fileID: 549228488}
   - component: {fileID: 549228489}
   - component: {fileID: 549228490}
+  - component: {fileID: 549228491}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1289,6 +1291,7 @@ MonoBehaviour:
   bombLoadout: {fileID: 11400000, guid: a612238febd5e764482b2533f95652ba, type: 2}
   playerVitals: {fileID: 11400000, guid: f596c4b9706477042b040e90f2f7ce5d, type: 2}
   chaserDefinition: {fileID: 11400000, guid: d5e3ca0a7af7a3740b3ca2574b0cd87e, type: 2}
+  chargerDefinition: {fileID: 11400000, guid: f66ea46e897cfb94a9c9cedf31599f7f, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15
 --- !u!114 &549228486
@@ -1365,6 +1368,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeDestructibleWallPresenter
   session: {fileID: 549228485}
   wallRoot: {fileID: 51830846}
+--- !u!114 &549228491
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea2377754e77e0049941cc2495732c64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChargerPresenter
+  session: {fileID: 549228485}
+  presentationRoot: {fileID: 550081171}
+  telegraphColor: {r: 1, g: 0.82, b: 0.08, a: 1}
+  chargeColor: {r: 1, g: 0.12, b: 0.04, a: 1}
+  recoverColor: {r: 0.42, g: 0.46, b: 0.5, a: 1}
+  deathColor: {r: 0.14, g: 0.02, b: 0.02, a: 1}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
@@ -2356,6 +2377,7 @@ Transform:
   - {fileID: 317508116}
   - {fileID: 550081171}
   - {fileID: 2013815863}
+  - {fileID: 1478885736}
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1180217955
@@ -3243,6 +3265,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1394298820}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1478885735
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1478885736}
+  m_Layer: 0
+  m_Name: ChargerSpawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1478885736
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478885735}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -3, y: 0, z: 2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1165390088}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1506963518
 GameObject:
   m_ObjectHideFlags: 0

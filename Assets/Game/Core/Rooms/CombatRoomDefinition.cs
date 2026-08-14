@@ -29,7 +29,8 @@ namespace BombSwap.Core
             IReadOnlyList<GridPosition> retreatAnchors,
             IReadOnlyList<GridPosition> lureLoop,
             IReadOnlyList<RoomExit> exits,
-            IReadOnlyList<GridPosition> destructibleWalls = null)
+            IReadOnlyList<GridPosition> destructibleWalls = null,
+            GridPosition? chargerSpawn = null)
         {
             if (!id.IsValid)
             {
@@ -91,6 +92,23 @@ namespace BombSwap.Core
             {
                 throw new ArgumentException("Player and chaser cannot begin in cardinal contact.");
             }
+            if (chargerSpawn.HasValue)
+            {
+                GridPosition authoredChargerSpawn = chargerSpawn.Value;
+                ValidateTraversableCell(authoredChargerSpawn, nameof(chargerSpawn));
+                if (authoredChargerSpawn == playerSpawn || authoredChargerSpawn == chaserSpawn)
+                {
+                    throw new ArgumentException(
+                        "Charger spawn must be distinct from player and chaser spawns.",
+                        nameof(chargerSpawn));
+                }
+                if (playerSpawn.IsCardinallyAdjacentTo(authoredChargerSpawn))
+                {
+                    throw new ArgumentException(
+                        "Player and charger cannot begin in cardinal contact.",
+                        nameof(chargerSpawn));
+                }
+            }
 
             ValidateTraversableCells(safeArray, nameof(safePlayerCells));
             ValidateTraversableCells(retreatArray, nameof(retreatAnchors));
@@ -107,6 +125,12 @@ namespace BombSwap.Core
                     "Safe player cells cannot include the chaser spawn.",
                     nameof(safePlayerCells));
             }
+            if (chargerSpawn.HasValue && Array.IndexOf(safeArray, chargerSpawn.Value) >= 0)
+            {
+                throw new ArgumentException(
+                    "Safe player cells cannot include the charger spawn.",
+                    nameof(safePlayerCells));
+            }
             if (retreatArray.Length < 2)
             {
                 throw new ArgumentException(
@@ -120,6 +144,7 @@ namespace BombSwap.Core
 
             IndestructibleWalls = Array.AsReadOnly(wallArray);
             DestructibleWalls = Array.AsReadOnly(destructibleWallArray);
+            ChargerSpawn = chargerSpawn;
             SafePlayerCells = Array.AsReadOnly(safeArray);
             RetreatAnchors = Array.AsReadOnly(retreatArray);
             LureLoop = Array.AsReadOnly(lureArray);
@@ -137,6 +162,8 @@ namespace BombSwap.Core
         public GridPosition PlayerSpawn { get; }
 
         public GridPosition ChaserSpawn { get; }
+
+        public GridPosition? ChargerSpawn { get; }
 
         public IReadOnlyList<GridPosition> IndestructibleWalls { get; }
 

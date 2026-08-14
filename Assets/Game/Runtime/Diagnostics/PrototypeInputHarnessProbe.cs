@@ -24,6 +24,9 @@ namespace BombSwap
         private bool _playerExplosionDamagedReported;
         private bool _playerContactDamagedReported;
         private bool _chaserMovedReported;
+        private bool _chargerTelegraphReported;
+        private bool _chargerChargeReported;
+        private bool _chargerMovedReported;
         private bool _enemyDiedReported;
         private bool _roomClearedReported;
         private bool _swapBombReported;
@@ -81,6 +84,7 @@ namespace BombSwap
             session.ActiveBombSlotChanged += OnActiveBombSlotChanged;
             session.PlayerDamaged += OnPlayerDamaged;
             session.ChaserMoved += OnChaserMoved;
+            session.ChargerAdvanced += OnChargerAdvanced;
             session.EnemyDied += OnEnemyDied;
             session.RoomCleared += OnRoomCleared;
             session.Ready += OnSessionReady;
@@ -106,6 +110,7 @@ namespace BombSwap
                 session.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
                 session.PlayerDamaged -= OnPlayerDamaged;
                 session.ChaserMoved -= OnChaserMoved;
+                session.ChargerAdvanced -= OnChargerAdvanced;
                 session.EnemyDied -= OnEnemyDied;
                 session.RoomCleared -= OnRoomCleared;
                 session.Ready -= OnSessionReady;
@@ -238,6 +243,27 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("chaser-moved");
             _chaserMovedReported = true;
+        }
+
+        private void OnChargerAdvanced(ChargerEnemyAdvanceResult result)
+        {
+            if (!_chargerTelegraphReported && result.HasStateTransition &&
+                result.State == ChargerEnemyState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("charger-telegraph");
+                _chargerTelegraphReported = true;
+            }
+            if (!_chargerChargeReported && result.HasStateTransition &&
+                result.State == ChargerEnemyState.Charge)
+            {
+                WebGlHarnessReporter.Report("charger-charge");
+                _chargerChargeReported = true;
+            }
+            if (!_chargerMovedReported && result.HasMovement)
+            {
+                WebGlHarnessReporter.Report("charger-moved");
+                _chargerMovedReported = true;
+            }
         }
 
         private void OnEnemyDied(EnemyDamageResult result)

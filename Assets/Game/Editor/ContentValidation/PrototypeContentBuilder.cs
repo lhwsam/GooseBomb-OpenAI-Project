@@ -46,6 +46,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
                 CreatePrototypeChaserContentIfMissing();
+            PrototypeChargerDefinitionAsset chargerDefinition =
+                CreatePrototypeChargerContentIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
             bool sceneCreated = EnsureTestSandbox(
@@ -53,6 +55,7 @@ namespace BombSwap.Editor.ContentValidation
                 bombLoadout,
                 playerVitals,
                 chaserDefinition,
+                chargerDefinition,
                 roomDefinitions[0],
                 "TestSandboxLanes");
             bool lanesSceneCreated = EnsurePlaytestRoomVariant(
@@ -60,6 +63,7 @@ namespace BombSwap.Editor.ContentValidation
                 bombLoadout,
                 playerVitals,
                 chaserDefinition,
+                chargerDefinition,
                 roomDefinitions[1],
                 "TestSandboxPillars");
             bool pillarsSceneCreated = EnsurePlaytestRoomVariant(
@@ -67,6 +71,7 @@ namespace BombSwap.Editor.ContentValidation
                 bombLoadout,
                 playerVitals,
                 chaserDefinition,
+                chargerDefinition,
                 roomDefinitions[2],
                 string.Empty);
             EnsureBuildSettings();
@@ -394,6 +399,54 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
+        private static PrototypeChargerDefinitionAsset CreatePrototypeChargerContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Enemies");
+            Material chargerMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/Charger.mat",
+                shader,
+                new Color(0.78f, 0.16f, 0.12f, 1f));
+            GameObject chargerPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ChargerPrefabPath,
+                "ChargerPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.7f, 0.7f, 0.7f),
+                chargerMaterial);
+
+            PrototypeChargerDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeChargerDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<PrototypeChargerDefinitionAsset>();
+                definition.name = "PrototypeCharger";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            }
+
+            definition.Configure(
+                "prototype-charger",
+                1,
+                1,
+                0.75f,
+                8f,
+                0.75f,
+                chargerPrefab,
+                0.45f,
+                0.12f);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
         private static PrototypeCombatRoomDefinitionAsset[] CreatePrototypeCombatRoomContentIfMissing()
         {
             EnsureAssetFolder("Assets/Game/Content/Rooms");
@@ -549,7 +602,8 @@ namespace BombSwap.Editor.ContentValidation
                 new[]
                 {
                     Vector2Int.zero,
-                });
+                },
+                new Vector2Int(-3, 2));
             EditorUtility.SetDirty(pillars);
 
             return new[] { loop, lanes, pillars };
@@ -603,6 +657,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -613,6 +668,7 @@ namespace BombSwap.Editor.ContentValidation
                     bombLoadout,
                     playerVitals,
                     chaserDefinition,
+                    chargerDefinition,
                     roomDefinition,
                     nextSceneName);
                 return true;
@@ -634,6 +690,7 @@ namespace BombSwap.Editor.ContentValidation
                     bombLoadout,
                     playerVitals,
                     chaserDefinition,
+                    chargerDefinition,
                     roomDefinition,
                     nextSceneName);
                 EditorSceneManager.MarkSceneDirty(scene);
@@ -658,6 +715,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -689,6 +747,7 @@ namespace BombSwap.Editor.ContentValidation
                     bombLoadout,
                     playerVitals,
                     chaserDefinition,
+                    chargerDefinition,
                     roomDefinition,
                     nextSceneName);
                 EditorSceneManager.MarkSceneDirty(scene);
@@ -714,6 +773,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -764,6 +824,8 @@ namespace BombSwap.Editor.ContentValidation
                 systems.AddComponent<PrototypePlayerHealthPresenter>();
             PrototypeChaserPresenter chaserPresenter =
                 systems.AddComponent<PrototypeChaserPresenter>();
+            PrototypeChargerPresenter chargerPresenter =
+                systems.AddComponent<PrototypeChargerPresenter>();
             PrototypeWeaponHud weaponHud = systems.AddComponent<PrototypeWeaponHud>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
             PrototypeRoomAdvanceController roomAdvanceController =
@@ -849,6 +911,16 @@ namespace BombSwap.Editor.ContentValidation
                 room.ChaserSpawn.X * cellSize,
                 0f,
                 room.ChaserSpawn.Z * cellSize);
+            Transform chargerSpawn = null;
+            if (room.ChargerSpawn.HasValue)
+            {
+                GridPosition chargerCell = room.ChargerSpawn.Value;
+                chargerSpawn = CreateChild("ChargerSpawn", gridRoot.transform);
+                chargerSpawn.localPosition = new Vector3(
+                    chargerCell.X * cellSize,
+                    0f,
+                    chargerCell.Z * cellSize);
+            }
             GameObject player = CreatePrimitive(
                 "PlayerPlaceholder",
                 PrimitiveType.Capsule,
@@ -876,18 +948,21 @@ namespace BombSwap.Editor.ContentValidation
                 playerSpawn,
                 player.transform,
                 chaserSpawn,
-                roomDefinition);
+                roomDefinition,
+                chargerSpawn);
             gameSession.Configure(
                 context,
                 inputReader,
                 bombLoadout,
                 playerVitals,
-                chaserDefinition);
+                chaserDefinition,
+                startingCharger: chargerDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
+            chargerPresenter.Configure(gameSession, runtimePresentation);
             weaponHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
@@ -906,6 +981,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -944,6 +1020,12 @@ namespace BombSwap.Editor.ContentValidation
             {
                 chaserPresenter = systems.AddComponent<PrototypeChaserPresenter>();
             }
+            PrototypeChargerPresenter chargerPresenter =
+                systems.GetComponent<PrototypeChargerPresenter>();
+            if (chargerPresenter == null)
+            {
+                chargerPresenter = systems.AddComponent<PrototypeChargerPresenter>();
+            }
             PrototypeWeaponHud weaponHud = systems.GetComponent<PrototypeWeaponHud>();
             if (weaponHud == null)
             {
@@ -967,6 +1049,19 @@ namespace BombSwap.Editor.ContentValidation
                 chaserSpawn = CreateChild("ChaserSpawn", context.GridRoot);
             }
             CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+            Transform chargerSpawn = context.GridRoot.Find("ChargerSpawn");
+            if (room.ChargerSpawn.HasValue)
+            {
+                if (chargerSpawn == null)
+                {
+                    chargerSpawn = CreateChild("ChargerSpawn", context.GridRoot);
+                }
+            }
+            else if (chargerSpawn != null)
+            {
+                UnityEngine.Object.DestroyImmediate(chargerSpawn.gameObject);
+                chargerSpawn = null;
+            }
             SynchronizeInteriorObstacles(context.GridRoot, roomDefinition, room);
             Transform destructibleObstacles = SynchronizeDestructibleObstacles(
                 context.GridRoot,
@@ -978,6 +1073,10 @@ namespace BombSwap.Editor.ContentValidation
             playerPosition.y = context.PlayerPlaceholder.position.y;
             context.PlayerPlaceholder.position = playerPosition;
             chaserSpawn.position = gridSpace.GridToWorld(room.ChaserSpawn);
+            if (room.ChargerSpawn.HasValue)
+            {
+                chargerSpawn.position = gridSpace.GridToWorld(room.ChargerSpawn.Value);
+            }
 
             Renderer playerRenderer =
                 context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
@@ -993,18 +1092,21 @@ namespace BombSwap.Editor.ContentValidation
                 context.PlayerSpawn,
                 context.PlayerPlaceholder,
                 chaserSpawn,
-                roomDefinition);
+                roomDefinition,
+                chargerSpawn);
             gameSession.Configure(
                 context,
                 inputReader,
                 bombLoadout,
                 playerVitals,
-                chaserDefinition);
+                chaserDefinition,
+                startingCharger: chargerDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
+            chargerPresenter.Configure(gameSession, runtimePresentation);
             weaponHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
@@ -1015,6 +1117,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(destructibleWallPresenter);
             EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(chaserPresenter);
+            EditorUtility.SetDirty(chargerPresenter);
             EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);
             EditorUtility.SetDirty(roomAdvanceController);

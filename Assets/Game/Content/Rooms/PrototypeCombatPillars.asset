@@ -19,6 +19,8 @@ MonoBehaviour:
   cellSize: 1
   playerSpawn: {x: -3, y: -2}
   chaserSpawn: {x: 3, y: 2}
+  hasCharger: 1
+  chargerSpawn: {x: -3, y: 2}
   indestructibleWalls:
   - {x: -1, y: -2}
   - {x: 1, y: -1}

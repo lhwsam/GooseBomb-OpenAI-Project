@@ -24,6 +24,9 @@ namespace BombSwap
         private Transform chaserSpawn;
 
         [SerializeField]
+        private Transform chargerSpawn;
+
+        [SerializeField]
         private PrototypeCombatRoomDefinitionAsset roomDefinition;
 
         public BombSwapInputReader InputReader => inputReader;
@@ -35,6 +38,8 @@ namespace BombSwap
         public Transform PlayerPlaceholder => playerPlaceholder;
 
         public Transform ChaserSpawn => chaserSpawn;
+
+        public Transform ChargerSpawn => chargerSpawn;
 
         public PrototypeCombatRoomDefinitionAsset RoomDefinition => roomDefinition;
 
@@ -58,7 +63,8 @@ namespace BombSwap
             Transform spawn,
             Transform player,
             Transform enemySpawn,
-            PrototypeCombatRoomDefinitionAsset authoredRoomDefinition)
+            PrototypeCombatRoomDefinitionAsset authoredRoomDefinition,
+            Transform authoredChargerSpawn = null)
         {
             if (reader == null)
             {
@@ -90,12 +96,31 @@ namespace BombSwap
             ValidateTransformCell(gridSpace, spawn, coreRoom.PlayerSpawn, nameof(spawn));
             ValidateTransformCell(gridSpace, player, coreRoom.PlayerSpawn, nameof(player));
             ValidateTransformCell(gridSpace, enemySpawn, coreRoom.ChaserSpawn, nameof(enemySpawn));
+            if (coreRoom.ChargerSpawn.HasValue)
+            {
+                if (authoredChargerSpawn == null)
+                {
+                    throw new ArgumentNullException(nameof(authoredChargerSpawn));
+                }
+                ValidateTransformCell(
+                    gridSpace,
+                    authoredChargerSpawn,
+                    coreRoom.ChargerSpawn.Value,
+                    nameof(authoredChargerSpawn));
+            }
+            else if (authoredChargerSpawn != null)
+            {
+                throw new ArgumentException(
+                    "A charger spawn Transform requires an authored charger cell.",
+                    nameof(authoredChargerSpawn));
+            }
 
             inputReader = reader;
             gridRoot = grid;
             playerSpawn = spawn;
             playerPlaceholder = player;
             chaserSpawn = enemySpawn;
+            chargerSpawn = authoredChargerSpawn;
             roomDefinition = authoredRoomDefinition;
         }
 
