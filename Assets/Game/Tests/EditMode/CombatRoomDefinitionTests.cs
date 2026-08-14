@@ -129,6 +129,40 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Definition_StoresOptionalArmoredSpawnAsTraversableEnemyCell()
+        {
+            var armoredSpawn = new GridPosition(-2, 2);
+
+            CombatRoomDefinition room = CreateRoom(armoredSpawn: armoredSpawn);
+
+            Assert.That(room.ArmoredSpawn, Is.EqualTo(armoredSpawn));
+            Assert.That(room.IsBlocked(armoredSpawn), Is.False);
+        }
+
+        [Test]
+        public void Definition_RejectsArmoredSpawnOverlapsContactAndSafeCells()
+        {
+            var chargerSpawn = new GridPosition(-3, 2);
+
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(armoredSpawn: PlayerSpawn));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(armoredSpawn: new GridPosition(1, 0)));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(armoredSpawn: ChaserSpawn));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(chargerSpawn: chargerSpawn, armoredSpawn: chargerSpawn));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    walls: new[] { new GridPosition(-2, 2) },
+                    armoredSpawn: new GridPosition(-2, 2)));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    safeCells: new[] { PlayerSpawn, new GridPosition(-2, 2) },
+                    armoredSpawn: new GridPosition(-2, 2)));
+        }
+
+        [Test]
         public void Definition_RejectsSpawnOverlappingWallOrImmediateContact()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -247,6 +281,7 @@ namespace BombSwap.Tests.EditMode
             GridPosition[] walls = null,
             GridPosition[] destructibleWalls = null,
             GridPosition? chargerSpawn = null,
+            GridPosition? armoredSpawn = null,
             GridPosition[] safeCells = null,
             GridPosition[] lureLoop = null,
             RoomExit[] exits = null)
@@ -273,7 +308,8 @@ namespace BombSwap.Tests.EditMode
                 lureLoop ?? CreateLureLoop(),
                 exits ?? CreateExits(),
                 destructibleWalls ?? Array.Empty<GridPosition>(),
-                chargerSpawn);
+                chargerSpawn,
+                armoredSpawn);
         }
 
         private static GridPosition[] CreateLureLoop()

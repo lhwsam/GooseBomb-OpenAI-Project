@@ -21,6 +21,8 @@ MonoBehaviour:
   chaserSpawn: {x: 0, y: 2}
   hasCharger: 0
   chargerSpawn: {x: 0, y: 0}
+  hasArmored: 0
+  armoredSpawn: {x: 0, y: 0}
   indestructibleWalls:
   - {x: -2, y: -1}
   - {x: -2, y: 0}

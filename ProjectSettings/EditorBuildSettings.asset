@@ -14,6 +14,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity
     guid: 3b90612d37ce22a4cbab23d93589e656
+  - enabled: 1
+    path: Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity
+    guid: f67bfeafd9f67204a94e8439d824996b
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05

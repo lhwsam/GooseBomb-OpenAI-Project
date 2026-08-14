@@ -10,41 +10,57 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94bba3b7889305842bed67e2a81209cb, type: 3}
-  m_Name: PrototypeCombatLoop
+  m_Name: PrototypeCombatArmor
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeCombatRoomDefinitionAsset
-  roomId: prototype-combat-loop
+  roomId: prototype-combat-armor
   roomType: 0
   gridWidth: 11
   gridDepth: 9
   cellSize: 1
-  playerSpawn: {x: 0, y: 0}
-  chaserSpawn: {x: 1, y: -1}
+  playerSpawn: {x: 0, y: -2}
+  chaserSpawn: {x: 4, y: 4}
   hasCharger: 0
   chargerSpawn: {x: 0, y: 0}
-  hasArmored: 0
-  armoredSpawn: {x: 0, y: 0}
+  hasArmored: 1
+  armoredSpawn: {x: 0, y: 1}
   indestructibleWalls:
-  - {x: -2, y: 0}
-  - {x: 2, y: 0}
-  - {x: 0, y: 2}
-  - {x: 0, y: -2}
+  - {x: -2, y: -1}
+  - {x: 2, y: -1}
+  - {x: -2, y: 1}
+  - {x: 2, y: 1}
   destructibleWalls: []
   safePlayerCells:
-  - {x: 0, y: 0}
-  - {x: 0, y: 1}
-  - {x: -1, y: 0}
+  - {x: 0, y: -2}
+  - {x: -1, y: -2}
+  - {x: 1, y: -2}
   retreatAnchors:
-  - {x: -3, y: 1}
-  - {x: 3, y: 1}
+  - {x: -3, y: -2}
+  - {x: 3, y: -2}
   lureLoop:
-  - {x: -1, y: -1}
-  - {x: -1, y: 0}
-  - {x: -1, y: 1}
-  - {x: 0, y: 1}
-  - {x: 1, y: 1}
-  - {x: 1, y: 0}
-  - {x: 1, y: -1}
-  - {x: 0, y: -1}
+  - {x: -3, y: -3}
+  - {x: -3, y: -2}
+  - {x: -3, y: -1}
+  - {x: -3, y: 0}
+  - {x: -3, y: 1}
+  - {x: -3, y: 2}
+  - {x: -3, y: 3}
+  - {x: -2, y: 3}
+  - {x: -1, y: 3}
+  - {x: 0, y: 3}
+  - {x: 1, y: 3}
+  - {x: 2, y: 3}
+  - {x: 3, y: 3}
+  - {x: 3, y: 2}
+  - {x: 3, y: 1}
+  - {x: 3, y: 0}
+  - {x: 3, y: -1}
+  - {x: 3, y: -2}
+  - {x: 3, y: -3}
+  - {x: 2, y: -3}
+  - {x: 1, y: -3}
+  - {x: 0, y: -3}
+  - {x: -1, y: -3}
+  - {x: -2, y: -3}
   exits:
   - cell: {x: 0, y: 4}
     direction: 0

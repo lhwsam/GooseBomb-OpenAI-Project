@@ -124,6 +124,9 @@ namespace BombSwap.Editor.Verification
             ValidateAssemblyDefinition("Assets/Game/Editor/BombSwap.Editor.asmdef", errors);
             ValidateAssemblyDefinition("Assets/Game/Tests/EditMode/BombSwap.Core.Tests.asmdef", errors);
             ValidateAssemblyDefinition("Assets/Game/Tests/PlayMode/BombSwap.Unity.Tests.asmdef", errors);
+            ValidateAssemblyDefinition(
+                "Assets/Game/Tests/EditorHarness/BombSwap.ConnectedTestHarness.asmdef",
+                errors);
             PrototypeContentValidator.Validate(errors);
 
             return errors;

@@ -42,6 +42,16 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - `PrototypeChargerPresenter`는 논리 상태를 예고·돌진·회복 색과 확정 이동 보간으로 표현한다. 각 적 presenter는 전체 적 수가 아니라 자신의 생존 상태만 읽어 다른 적 사망 뒤 잘못 활성화되지 않는다.
 - 첫 두 방은 기존 추격자 기준선을 유지하고 마지막 `prototype-combat-pillars` 방만 플레이어 `(-3,-2)`, 돌진형 `(-3,2)`의 장애물 없는 세로 예고선으로 시작한다.
 
+## 구현된 갑옷 적
+
+- `ArmoredEnemyDefinition`은 안정적인 `EnemyDefinitionId`, 갑옷/파괴 상태별 이동 간격, 접촉 피해와 방향 유지 성공 step 수를 소유한다. TestSandbox의 `prototype-armored` 값은 접촉 피해 1, 갑옷 상태 1 cell/s, 파괴 상태 3 cells/s, 방향 유지 2칸이며 플레이테스트 전까지 `Proposed`다.
+- `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 `GridState`를 점유하고 `Armored → Broken → Dead` 상태를 소유한다. 첫 서로 다른 폭발은 폭탄 위력과 무관하게 갑옷 한 단계만 파괴하고, 두 번째 서로 다른 폭발이 사망시킨다. 같은 `BombId`의 중복 셀과 사망 뒤 피해는 무시한다.
+- 첫 피격은 기존 방향 유지와 다음 이동 대기를 버린다. 다음 frame부터 3 cells/s cadence로 기본 추격자와 같은 국소 Manhattan 선택과 `North → East → South → West` 동률 규칙을 다시 평가한다.
+- 플레이어와 cardinal 인접하면 같은 셀에 들어가지 않고 접촉 피해 1 후보를 만든다. 벽·폭탄·다른 actor는 두 상태 모두 같은 논리 장애물로 취급한다.
+- `PrototypeGameSession`은 추격자→돌진형→갑옷 적 순서로 이동, 폭발 피해, 접촉 후보를 처리한다. 첫 피격은 `ArmoredStateChanged(Broken)` 뒤 일반 `EnemyDamaged`, 두 번째 피격은 `ArmoredStateChanged(Dead)` 뒤 `EnemyDied`를 발행하고 마지막 생존 적이면 `RoomCleared`를 한 번 발행한다.
+- `PrototypeArmoredPresenter`는 공유 재질을 복제하지 않고 `MaterialPropertyBlock`과 scale로 갑옷 상태, 파괴 상태, 사망을 구분하고 상태별 논리 cadence에 맞춰 확정 이동을 보간한다.
+- 네 번째 `prototype-combat-armor` 방만 플레이어 `(0,-2)`, 갑옷 적 `(0,1)`의 열린 중앙 실험선으로 시작한다. 파괴 가능 벽과 돌진형을 제외해 2회 피격 가설을 다른 가설과 섞지 않는다.
+
 ## 불변식
 
 - 적 판단은 보이지 않는 Transform 검색이나 프레임 순서에 의존하지 않는다.
@@ -66,8 +76,8 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - PlayMode의 cardinal 접촉 피해·공유 무적 재피해와 같은 프레임 폭발 사망 우선순위.
 - 돌진형의 정렬·가시선, 방향 잠금, 예고·돌진·회복 경계, 한 셀 cadence, 플레이어 충돌과 벽·폭탄·actor 차단.
 - PlayMode의 두 적 공유 점유, 돌진 충돌 단일 피해, 두 적 동시 폭발 사망의 `EnemyDied` 순서와 단일 방 클리어, 적별 presenter 생존 상태.
+- 갑옷 적의 첫/두 번째 서로 다른 폭발, 같은 `BombId` 중복, 사망 뒤 무시, 1→3 cells/s cadence 경계와 첫 피격 재판단.
+- 갑옷 적의 벽·폭탄·actor 차단, cardinal 인접 접촉, 시계 역행과 잘못된 정의·spawn 거부.
+- PlayMode의 첫 피격 표현·상태 사건·빠른 이동, 두 번째 사망·점유 제거·단일 방 클리어와 적별 presenter 생존 상태.
 
-다음 적 단계에서 추가한다.
-
-- 갑옷 첫 피격 변화.
-- 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책.
+다음 적 단계에서는 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책을 추가한다.

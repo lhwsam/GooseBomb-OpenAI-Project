@@ -63,6 +63,12 @@ namespace BombSwap
         private Vector2Int chargerSpawn;
 
         [SerializeField]
+        private bool hasArmored;
+
+        [SerializeField]
+        private Vector2Int armoredSpawn;
+
+        [SerializeField]
         private Vector2Int[] indestructibleWalls = Array.Empty<Vector2Int>();
 
         [SerializeField]
@@ -98,6 +104,10 @@ namespace BombSwap
 
         public Vector2Int ChargerSpawn => chargerSpawn;
 
+        public bool HasArmored => hasArmored;
+
+        public Vector2Int ArmoredSpawn => armoredSpawn;
+
         public IReadOnlyList<Vector2Int> IndestructibleWalls => indestructibleWalls;
 
         public IReadOnlyList<Vector2Int> DestructibleWalls => destructibleWalls;
@@ -124,7 +134,8 @@ namespace BombSwap
             Vector2Int[] authoredLureLoop,
             PrototypeRoomExitData[] authoredExits,
             Vector2Int[] authoredDestructibleWalls = null,
-            Vector2Int? authoredChargerSpawn = null)
+            Vector2Int? authoredChargerSpawn = null,
+            Vector2Int? authoredArmoredSpawn = null)
         {
             ValidateFinitePositive(authoredCellSize, nameof(authoredCellSize));
             Vector2Int[] wallCopy = CloneRequired(
@@ -155,7 +166,8 @@ namespace BombSwap
                 lureCopy,
                 exitCopy,
                 destructibleWallCopy,
-                authoredChargerSpawn);
+                authoredChargerSpawn,
+                authoredArmoredSpawn);
 
             roomId = authoredRoomId;
             roomType = authoredRoomType;
@@ -166,6 +178,8 @@ namespace BombSwap
             chaserSpawn = authoredChaserSpawn;
             hasCharger = authoredChargerSpawn.HasValue;
             chargerSpawn = authoredChargerSpawn ?? default;
+            hasArmored = authoredArmoredSpawn.HasValue;
+            armoredSpawn = authoredArmoredSpawn ?? default;
             indestructibleWalls = wallCopy;
             destructibleWalls = destructibleWallCopy;
             safePlayerCells = safeCopy;
@@ -190,7 +204,8 @@ namespace BombSwap
                 lureLoop,
                 exits,
                 destructibleWalls,
-                hasCharger ? chargerSpawn : (Vector2Int?)null);
+                hasCharger ? chargerSpawn : (Vector2Int?)null,
+                hasArmored ? armoredSpawn : (Vector2Int?)null);
         }
 
         private static CombatRoomDefinition CreateCoreDefinition(
@@ -206,7 +221,8 @@ namespace BombSwap
             IReadOnlyList<Vector2Int> authoredLureLoop,
             IReadOnlyList<PrototypeRoomExitData> authoredExits,
             IReadOnlyList<Vector2Int> authoredDestructibleWalls,
-            Vector2Int? authoredChargerSpawn)
+            Vector2Int? authoredChargerSpawn,
+            Vector2Int? authoredArmoredSpawn)
         {
             return new CombatRoomDefinition(
                 new RoomDefinitionId(authoredRoomId),
@@ -223,6 +239,9 @@ namespace BombSwap
                 ToCorePositions(authoredDestructibleWalls),
                 authoredChargerSpawn.HasValue
                     ? ToCorePosition(authoredChargerSpawn.Value)
+                    : (GridPosition?)null,
+                authoredArmoredSpawn.HasValue
+                    ? ToCorePosition(authoredArmoredSpawn.Value)
                     : (GridPosition?)null);
         }
 
