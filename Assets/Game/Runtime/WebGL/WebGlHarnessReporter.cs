@@ -25,6 +25,14 @@ namespace BombSwap
 #endif
         }
 
+        public static void ReportChaserCell(GridPosition position)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            BombSwapHarnessReport(
+                $"chaser-cell-x-{position.X}-z-{position.Z}");
+#endif
+        }
+
         public static void ReportDungeonRoomReady(
             DungeonRoomNodeId roomId,
             RoomType roomType,

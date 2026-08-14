@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-15
-- 단계: 한 슬롯 시작→첫 전투→첫 폭탄 보상 선택→왕복→다음 전투방 loadout 유지 WebGL 수직 슬라이스 완료
+- 단계: 한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어→보스 전실·보스 placeholder WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -97,6 +97,8 @@
 - WebGL 자동 smoke가 시작 십자 폭탄만으로 첫 전투를 클리어하고 보상방·클리어 전투방·보상방·다음 전투방을 왕복해, 방 node·타입·활성/클리어 상태와 적 미재생성을 한 세션에서 검증하도록 확장.
 - `DungeonBombLoadoutState`와 검증된 `PrototypeBombRewardCatalogAsset`으로 한 종류 시작, 2~3개 후보의 단일 선택과 선택 결과의 run 수명 persistence를 구현.
 - `DungeonReward`의 보행 가능한 `(-1,0)`·`(1,0)` 셀에 광역·긴 십자 후보를 표시하고, 플레이어 논리 셀 진입으로 빈 2번 슬롯을 채우며 HUD·폭탄 풀·다음 scene session에 즉시 반영하도록 연결.
+- seed-0 주 경로를 보스 placeholder까지 자동 탐색해 8회 scene transition/commit, 전투방 3개 클리어와 선택한 광역 폭탄의 전체 run persistence를 한 Development WebGL 세션에서 검증.
+- Development WebGL 전용 추격자 확정 셀 marker를 추가해 자동 폭탄 유도를 논리 상태로 동기화하고, 국소 Manhattan 동률 순환을 재현 가능한 위험으로 기록.
 
 ## 현재 저장소 사실
 
@@ -137,13 +139,13 @@
 ## 진행 중
 
 - 최신 4방 WebGL에서 파괴 블록·돌진형·갑옷 적이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
-- 선택한 loadout을 유지한 채 seed-0 보스 전실·보스 placeholder까지 전체 주 경로 탐색 회귀를 확장한다.
+- seed-0 전체 사람 플레이에서 되돌아가기 피로, 첫 보상 선택과 추격자 동률 순환이 실제 흐름을 방해하는지 관찰한다.
 
 ## 바로 다음 권장 작업
 
 1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
-2. 선택한 loadout을 유지한 채 보스 전실·보스 placeholder까지 seed-0 전체 주 경로 탐색 회귀를 확장한다.
-3. `prototype-long-cross`가 단순 범위 증가만으로 충분히 다른 선택인지 플레이테스트하고, 필요하면 GDD의 방향성 직선 폭탄 후보로 교체한다.
+2. [seed-0 전체 경로 계약](DungeonFullPathSmokeSlice.md)을 사람 플레이로 반복해 추격자 동률 순환, 되돌아가기 피로와 보상 loadout의 체감을 관찰한다.
+3. 실제 보스 규칙의 최소 수직 슬라이스를 [보스 전투 문서](../Systems/BossBattle.md)에 계약화하거나, 먼저 `prototype-long-cross`가 충분히 다른 선택인지 플레이테스트해 방향성 직선 폭탄 필요 여부를 결정한다.
 
 ## 알려진 위험과 미정
 
@@ -151,10 +153,10 @@
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 범위 3 십자 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. `prototype-long-cross`는 아직 새로운 폭발 shape가 아니라 기존 십자의 범위 변형이다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 관찰해야 한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
 - 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하며 부활·재시작, 완성 HUD·오디오는 아직 없다.
-- 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. 접촉 압력은 연결됐지만 실제 공정성과 유도 재미는 아직 플레이테스트하지 않았다.
+- 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. seed-0 4번 전투방에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합이 `(1,-3)↔(1,-4)↔(1,-5)` 동률 순환을 만들었다. 자동 smoke는 플레이어 위치를 바꿔 진행하지만 AI가 수정된 것은 아니며 실제 공정성·유도 재미와 최소 수정은 사람 플레이 뒤 결정한다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 던전 8개 씬 Development WebGL 빌드는 137,501,035 bytes이며 첫 보상 최종 연결 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
+- 던전 8개 씬 Development WebGL 빌드는 137,501,446 bytes이며 전체 보스 경로 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
@@ -167,7 +169,7 @@
 ## 최근 검증
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
-- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-204239-static/`.
+- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-005044-static/`.
 - `skill-creator` 공식 `quick_validate.py`: 프로젝트 스킬 4종 모두 통과.
 - PowerShell AST parse와 `node --check`로 `WebGLSmoke.mjs`, `WebGLStaticServer.mjs`, `ServeWebGL.mjs`, `WebGLStaticServerTests.mjs`: 통과.
 - `node Tools/WebGLStaticServerTests.mjs`: HTML/WASM/data/symbols MIME, gzip/Brotli `Content-Encoding`, GET/HEAD 제한, 404와 경로 이탈 403 계약 통과.
@@ -229,3 +231,6 @@
 - 첫 폭탄 보상 최종 코드로 전체 EditMode 251/251, PlayMode 95/95 통과, 실패·건너뜀·불확정 0. 빈 슬롯·단일 장착 Core 계약, reward catalog, 실제 `DungeonReward` 논리 셀 수집과 다음 scene 유지, 기존 host·클리어 방 재입장 회귀를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-151258-803.json`, `Artifacts/Verification/ConnectedTests/20260814-151310-363.json`.
 - `PrototypeContentValidator`가 시작 폭탄·두 후보·긴 십자 정의와 prefab, 모든 scene host의 reward catalog와 `DungeonReward` presenter·binder 참조를 오류 0으로 확인했다. 보행 가능 후보 셀은 presenter 초기화와 실제 scene PlayMode 회귀가 확인했으며 Unity Console Error 0이다.
 - 첫 폭탄 보상 Development WebGL 8개 씬 빌드 성공: 137,501,035 bytes, 52.347초, 오류 0, 경고 3. Edge headless smoke 17/17이 시작 십자 폭탄 두 번의 첫 전투 클리어, `prototype-area` 보상 수집, 클리어 방 왕복, 다음 전투방 교체·광역 설치와 다섯 transition/commit, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-000500-bomb-reward-web/`.
+- 전체 보스 경로 코드로 PlayMode 95/95 통과, 실패·건너뜀·불확정 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-153109-903.json`.
+- 전체 보스 경로 최종 코드로 EditMode 251/251 통과, 실패·건너뜀·불확정 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-154600-181.json`. `PrototypeContentValidator`와 Unity Console Error도 0이다.
+- Development WebGL 8개 씬 빌드 성공: 137,501,446 bytes, 51.950초, 오류 0, 경고 3. Edge headless smoke 21/21이 8회 transition/commit, 주 경로 전투방 3개 클리어, 보상 선택과 광역 폭탄 4회 설치, 보스 전실·보스 placeholder 진입, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-003200-full-boss-path-web/`와 `webgl-boss-path.png`.

@@ -49,8 +49,8 @@
 - content validator 오류 0과 builder 2회차 멱등 동기화 통과.
 - Editor Play Mode에서 `DungeonStart` primary host·안전 session·열린 문을 확인하고, 서쪽 출구→`TestSandboxPillars` 로드·Core commit·90도 회전 입장 셀·잠긴 문을 확인.
 - 실제 `DungeonStart`와 seed-0 첫 전투 씬을 로드하는 PlayMode 회귀에서 첫 입장의 적 생성·문 잠금, Core 클리어 뒤 시작방 왕복, 재입장의 적 0·미생성 presenter·열린 문을 확인.
-- Development WebGL 8개 씬 빌드 오류 0. Playwright 한 세션에서 canvas focus, Start 안전방 경로, 시작 십자 폭탄만으로 첫 전투 클리어, 보상방 후보 수집, 클리어 전투방 역방향 재입장 시 적 미생성, 보상방 재진입과 다음 전투방에서 선택 폭탄 설치를 확인했다.
-- WebGL build, 다섯 번의 graph transition/commit, 보상 선택·loadout 유지, pause/resume, resize와 browser Console/page error 0 증거는 `Artifacts/Verification/20260815-000500-bomb-reward-web/`에 남겼다.
+- Development WebGL 8개 씬 빌드 오류 0. Playwright 한 세션에서 canvas focus, Start 안전방 경로, 시작 십자 폭탄만으로 첫 전투 클리어, 보상방 후보 수집, 클리어 전투방 역방향 재입장 시 적 미생성, 나머지 주 경로 전투방 2개 클리어, 보스 전실과 보스 placeholder 진입을 확인했다.
+- WebGL build, 8번의 graph transition/commit, 주 경로 전투 3개 클리어, 보상 선택과 보스방까지의 loadout 유지, pause/resume, resize와 browser Console/page error 0 증거는 `Artifacts/Verification/20260815-003200-full-boss-path-web/`에 남겼다.
 
 ## 비목표
 

@@ -238,6 +238,7 @@ namespace BombSwap
 
         private void OnChaserMoved(EnemyMovementStep step)
         {
+            WebGlHarnessReporter.ReportChaserCell(step.To);
             if (_chaserMovedReported)
             {
                 return;

@@ -68,4 +68,4 @@ standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2
 - 교체 쿨타임 경계와 일시정지.
 - 같은 step의 설치/교체 명령 순서.
 
-현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계·시계 정지와 빈 슬롯·단일 보상 장착을 검증한다. PlayMode는 고정 두 슬롯 씬의 기존 `X`/`Z`, 던전 보상방의 빈 슬롯 수집과 다음 scene persistence를 검증한다. WebGL smoke는 시작 십자 2회, `bomb-reward-selected-prototype-area`, 다음 전투방의 `active-bomb-slot-1`과 `place-bomb-definition-prototype-area` 성공 사건을 요구한다.
+현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계·시계 정지와 빈 슬롯·단일 보상 장착을 검증한다. PlayMode는 고정 두 슬롯 씬의 기존 `X`/`Z`, 던전 보상방의 빈 슬롯 수집과 다음 scene persistence를 검증한다. WebGL smoke는 시작 십자 2회, `bomb-reward-selected-prototype-area`, 후속 전투방과 보스 placeholder에서 `active-bomb-slot-1`과 `place-bomb-definition-prototype-area` 성공 사건을 요구한다.
