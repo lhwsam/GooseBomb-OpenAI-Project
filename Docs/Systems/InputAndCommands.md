@@ -19,7 +19,7 @@
 | 폭탄 교체 | `X` | West 버튼 |
 | 일시정지 요청 | `Esc` | Start 버튼 |
 
-이동은 상하좌우 네 방향만 Core에 전달한다. 아날로그 입력은 절댓값이 큰 축을 선택한다. 두 축의 크기가 같으면 아직 눌린 이전 방향을 유지하고, 유지할 방향이 없으면 세로축을 우선하는 결정론적 규칙을 사용한다.
+이동은 상하좌우 네 방향만 Core에 전달한다. 아날로그·복합 입력은 절댓값이 큰 축을 선택한다. 두 축의 크기가 같고 현재 방향도 여전히 눌려 있으면 현재 축에 직교하는 새 전환 축을 우선해 짧은 키 겹침에서도 방향 전환을 즉시 명령으로 만든다. 유지 중인 방향이 벡터에 없거나 `None`이면 세로축을 우선하는 결정론적 규칙을 사용한다.
 
 ## 책임과 비책임
 
@@ -36,6 +36,7 @@
 ## 상태와 전이
 
 - `Move` performed/canceled에서 방향이 바뀔 때만 새 이동 명령을 발행한다.
+- 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
 - 이동 해제는 `Move(None)`으로 표현한다.
 - 설치·교체·pause는 버튼의 performed 시점에 한 번 발행한다.
 - 컴포넌트 비활성화 또는 application focus/pause 상실 시 활성 이동을 즉시 `None`으로 해제한다.
@@ -56,20 +57,20 @@
 ## WebGL 고려사항
 
 - canvas focus 상실 중 key-up이 누락되어도 `SetInputFocus(false)` 경계에서 이동을 해제한다.
-- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 게임 세션이 입력 구독을 완료한 뒤 `probe-ready`와 `room-ready-<room-id>`를 보내고, 최초로 성공한 논리 셀 이동·폭탄 설치·폭발과 관찰한 swap, pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
+- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 게임 세션이 입력 구독을 완료한 뒤 `probe-ready`와 `room-ready-<room-id>`를 보내고, 입력 방향 변경 `move-direction-<direction>`, 최초로 성공한 논리 셀 이동·폭탄 설치·폭발과 관찰한 swap, pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
 - `audio-unlocked` probe는 사용자 입력을 게임이 수신한 시점을 표시할 뿐 실제 오디오 클립 재생을 증명하지 않는다. 실제 오디오 연결 후 브라우저에서 별도로 확인해야 한다.
 - probe와 `.jslib` 브리지는 개발 빌드 검증용이며 게임 규칙의 권위 API가 아니다.
 
 ## 자동 테스트
 
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
-- PlayMode: cardinal 축 선택과 tie-break, 실제 Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지 입력→논리 셀→Transform 보간.
+- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침 중 새 방향 명령, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지 입력→논리 셀→Transform 보간.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다.
+- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서 `ArrowUp`을 유지한 채 `ArrowRight`를 눌러 `ArrowUp` 해제 전에 `move-direction-east`가 오는지도 확인한다.
 
 ## 미정 사항과 종료 조건
 
-- 기본 5 cells/s, 선형 보간, 방향 변경 시점은 플레이테스트 후 확정한다.
+- 동일 크기 두 축에서 새 직교 방향을 우선하는 입력 정책은 PT-20260814-01 결함 수정으로 채택했다. 기본 5 cells/s, 선형 보간과 셀 경계 방향 적용 시점은 후속 조작감 비교 전까지 `Proposed`다.
 - 사용자 리바인딩과 UI 전용 action map은 프로토타입 코어 전투 이후 결정한다.
 - 게임패드 binding은 자동 구조 검증만 완료했으며 목표 기기 수동 플레이가 남아 있다.
 - pause 명령이 논리 시계와 UI를 실제로 멈추는 연결은 아직 없다.

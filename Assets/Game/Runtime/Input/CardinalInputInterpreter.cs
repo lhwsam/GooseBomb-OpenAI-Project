@@ -70,7 +70,20 @@ namespace BombSwap
 
             if (Matches(previousDirection, value))
             {
-                return previousDirection;
+                return ResolvePerpendicularTurn(previousDirection, value);
+            }
+
+            return value.y > 0f ? CardinalDirection.North : CardinalDirection.South;
+        }
+
+        private static CardinalDirection ResolvePerpendicularTurn(
+            CardinalDirection previousDirection,
+            Vector2 value)
+        {
+            if (previousDirection == CardinalDirection.North ||
+                previousDirection == CardinalDirection.South)
+            {
+                return value.x > 0f ? CardinalDirection.East : CardinalDirection.West;
             }
 
             return value.y > 0f ? CardinalDirection.North : CardinalDirection.South;

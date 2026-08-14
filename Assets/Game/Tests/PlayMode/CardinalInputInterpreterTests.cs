@@ -35,14 +35,25 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(CardinalDirection.South));
         }
 
-        [Test]
-        public void Resolve_EqualDiagonalPreservesStillHeldPreviousDirection()
+        [TestCase(1f, 1f, CardinalDirection.North, CardinalDirection.East)]
+        [TestCase(-1f, 1f, CardinalDirection.North, CardinalDirection.West)]
+        [TestCase(1f, -1f, CardinalDirection.South, CardinalDirection.East)]
+        [TestCase(-1f, -1f, CardinalDirection.South, CardinalDirection.West)]
+        [TestCase(1f, 1f, CardinalDirection.East, CardinalDirection.North)]
+        [TestCase(1f, -1f, CardinalDirection.East, CardinalDirection.South)]
+        [TestCase(-1f, 1f, CardinalDirection.West, CardinalDirection.North)]
+        [TestCase(-1f, -1f, CardinalDirection.West, CardinalDirection.South)]
+        public void Resolve_EqualDiagonalPrioritizesNewPerpendicularDirection(
+            float x,
+            float y,
+            CardinalDirection previous,
+            CardinalDirection expected)
         {
-            CardinalDirection direction = CardinalInputInterpreter.Resolve(
-                new Vector2(1f, 1f),
-                CardinalDirection.East);
-
-            Assert.That(direction, Is.EqualTo(CardinalDirection.East));
+            Assert.That(
+                CardinalInputInterpreter.Resolve(
+                    new Vector2(x, y),
+                    previous),
+                Is.EqualTo(expected));
         }
 
         [Test]
