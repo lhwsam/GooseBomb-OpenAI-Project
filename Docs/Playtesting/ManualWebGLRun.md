@@ -2,7 +2,8 @@
 
 - 상태: 로컬 플레이테스트 절차 `Accepted`
 - 실행 도구: `Tools/ServeWebGL.mjs`
-- 관찰 계약: [첫 기본 전투 관찰 플레이테스트](FirstCombatProtocol.md)
+- 현재 관찰 계약: [두 적·폭탄 선택 비교 플레이테스트](TwoEnemyBombChoiceProtocol.md)
+- 기본 전투 기준선: [첫 기본 전투 관찰 플레이테스트](FirstCombatProtocol.md)
 
 ## 목적
 
@@ -59,7 +60,7 @@ started-at:
 ## 관찰 세션 순서
 
 1. 브라우저 DevTools Console을 열어 시작 시 오류가 없는지 확인한다.
-2. 참가자에게 프로토콜의 시작 안내만 읽고 전략 힌트는 주지 않는다.
+2. 고정 build에 대응하는 프로토콜의 시작 안내만 읽고 전략 힌트는 주지 않는다.
 3. 중앙 루프→평행 통로→엇갈린 기둥을 한 시도로 관찰한다.
 4. 방별 행동, 피해 원인 설명과 전환 반응을 기록한다.
 5. 세션이 끝나면 Console 오류를 `browser-console.txt`로 보존하고 서버를 종료한다.
