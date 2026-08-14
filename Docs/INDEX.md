@@ -56,7 +56,7 @@
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
 | 보스 | `Systems/BossBattle.md`, `Development/BossCoreSlice.md` |
-| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/FirstCombatProtocol.md`, `Systems/Telemetry.md` |
+| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/DirectionalBombChoiceProtocol.md`, `Systems/Telemetry.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
 | 검증 실행 | `Testing/VerificationHarness.md`, `Testing/TestMatrix.md` |

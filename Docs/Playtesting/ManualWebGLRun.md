@@ -2,7 +2,7 @@
 
 - 상태: 로컬 플레이테스트 절차 `Accepted`
 - 실행 도구: `Tools/ServeWebGL.mjs`
-- 현재 관찰 계약: [갑옷 적 2회 피격 플레이테스트](ArmoredEnemyProtocol.md)
+- 현재 관찰 계약: [직선·광역 폭탄 선택 플레이테스트](DirectionalBombChoiceProtocol.md)
 - 비교 기준선: [두 적·폭탄 선택 비교 플레이테스트](TwoEnemyBombChoiceProtocol.md)
 - 기본 전투 기준선: [첫 기본 전투 관찰 플레이테스트](FirstCombatProtocol.md)
 
@@ -62,8 +62,8 @@ started-at:
 
 1. 브라우저 DevTools Console을 열어 시작 시 오류가 없는지 확인한다.
 2. 고정 build에 대응하는 프로토콜의 시작 안내만 읽고 전략 힌트는 주지 않는다.
-3. 고정 build에 대응하는 프로토콜의 대상 방과 시도 수를 따른다. 현재 갑옷 빌드는 `prototype-combat-armor` 한 방을 페이지 reload로 반복한다.
-4. 첫 피격 전후 행동, 피해 원인 설명과 다음 폭탄 계획 변화를 기록한다.
+3. 고정 build에 대응하는 프로토콜의 대상 방과 시도 수를 따른다. 현재 전체 경로 빌드는 첫 run에서 보상 후보를 자유 선택하고 다음 run에서 반대 후보를 비교한다.
+4. 보상 선택, 방별 설치 셀·바라보기·퇴로, 폭탄 교체 이유와 피해 원인 설명을 기록한다.
 5. 세션이 끝나면 Console 오류를 `browser-console.txt`로 보존하고 서버를 종료한다.
 6. 자동 probe 사건과 관찰 사실·발언·해석을 분리한다.
 
@@ -75,7 +75,7 @@ started-at:
 node ./Tools/WebGLStaticServerTests.mjs
 ```
 
-성공 표식은 `BOMBSWAP_WEBGL_STATIC_SERVER_TEST|passed`다. 실제 게임 입력과 전투 상태는 이 테스트가 아니라 `Tools/WebGLSmoke.mjs`, `Tools/ArmoredWebGLSmoke.mjs` 또는 사람 세션에서 별도로 확인한다.
+성공 표식은 `BOMBSWAP_WEBGL_STATIC_SERVER_TEST|passed`다. 실제 게임 입력과 전투 상태는 이 테스트가 아니라 `Tools/WebGLSmoke.mjs`, `Tools/DirectionalLineWebGLSmoke.mjs`, `Tools/ArmoredWebGLSmoke.mjs` 또는 사람 세션에서 별도로 확인한다.
 
 ## 문제 해결
 

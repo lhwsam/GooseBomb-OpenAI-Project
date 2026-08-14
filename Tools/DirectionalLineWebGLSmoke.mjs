@@ -249,11 +249,20 @@ async function main() {
 
     await page.keyboard.press("KeyX");
     await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
+    const eastCommandsBefore = await eventCount(page, "move-direction-east");
     await page.keyboard.press("ArrowRight");
+    await waitForEvent(page, "move-direction-east", {
+      count: eastCommandsBefore + 1,
+      timeout: 5_000,
+    });
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "line-bomb-placed-east", { timeout: 5_000 });
+    const northCommandsBefore = await eventCount(page, "move-direction-north");
     await page.keyboard.press("ArrowUp");
-    await waitForEvent(page, "move-direction-north", { timeout: 5_000 });
+    await waitForEvent(page, "move-direction-north", {
+      count: northCommandsBefore + 1,
+      timeout: 5_000,
+    });
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath });
     await waitForEvent(page, "line-bomb-exploded-east", { timeout: 15_000 });
