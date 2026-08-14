@@ -1,6 +1,6 @@
 # 한 층 던전 그래프 생성
 
-- 상태: 결정론적 Core 그래프 `Accepted`, Unity 탐색 연결·정확한 분포 `Proposed`
+- 상태: 결정론적 Core 그래프·탐색 상태 `Accepted`, Unity 콘텐츠 배정·씬 연결·정확한 분포 `Proposed`
 - 설계 원본: `GDD_v0.2.md` 19~21장, `ProtoType_v0.2.md` 가설 E
 - 코드 소유: 그래프는 `BombSwap.Core`, 프리팹 배치는 `BombSwap.Unity`
 
@@ -26,6 +26,8 @@
 - `DungeonGraph`는 seed, 생성 버전, 정의, 순서가 고정된 `DungeonRoomNode`·`DungeonRoomConnection` snapshot을 소유한다. 각 노드는 양수 `DungeonRoomNodeId`, `RoomType`, 고유 `RoomGraphPosition`을 가진다.
 - 현재 `RoomType`은 기존 직렬화 값 `Combat = 0`을 보존하고 `Start`, `BombReward`, `BossAntechamber`, `Boss`를 추가한다. 특수방의 실제 씬·prefab은 아직 없다.
 - 조회 API는 방, 정렬된 이웃, 최단 경로와 거리를 제공한다. 반환 컬렉션은 read-only이며 호출자가 생성 결과를 변경할 수 없다.
+- `DungeonGraph`는 연결된 두 노드의 XZ 좌표에서 `RoomExitDirection`을 계산하고, 현재 방과 방향으로 이웃을 조회한다. 연결되지 않은 노드나 정의되지 않은 방향은 상태를 만들지 않는다.
+- `DungeonRunState`는 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방과 보스방은 첫 입장 뒤 클리어 전까지 퇴실을 막고, 클리어한 전투방은 재방문 때 다시 잠그지 않는다.
 
 현재 필수 주 경로는 다음과 같다.
 
@@ -44,7 +46,8 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 4. 보상 이후 주 경로 노드에 남은 전투방 1~2개의 단일 선택 가지를 붙인다.
 5. 노드별 고정 방향 후보 순서로 정수 XZ 좌표를 유한 backtracking 배치한다. 연결되지 않은 방의 cardinal 인접은 거부해 암시적 문과 루프를 막는다.
 6. 연결 수, 좌표, 필수 노드, 첫 보상, 보스 경로, 선택 가지를 `DungeonGraph` 생성 시 다시 검증한다.
-7. 후속 Unity 단계에서 출입구와 호환되는 수제 방 정의를 선택한다. 이 단계는 아직 구현되지 않았다.
+7. Core `DungeonRunState`가 인접 이동, 최초 방문, 전투 잠금·클리어와 양방향 재방문을 처리한다.
+8. 후속 Unity 단계에서 출입구와 호환되는 수제 방 정의를 선택한다. 이 단계는 아직 구현되지 않았다.
 
 ## 불변식
 
@@ -59,6 +62,9 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 연결된 방만 cardinal 인접하며 연결되지 않은 좌표 인접은 허용하지 않는다.
 - 노드 ID는 1부터 연속이고 연결·이웃 순서는 안정적이다.
 - 생성 알고리즘 변경 시 버전을 함께 바꾸며 seed 0 golden snapshot을 조용히 변경하지 않는다.
+- 안전방은 클리어 상태를 만들지 않으며 일반 전투방과 보스방만 클리어할 수 있다.
+- 현재 전투방을 클리어하기 전에는 연결된 방으로도 나갈 수 없고, 실패한 이동은 현재·직전·방문 상태를 바꾸지 않는다.
+- 클리어한 방은 어느 연결 방향에서 재진입해도 잠기지 않는다.
 
 ## 자동 테스트
 
@@ -69,5 +75,7 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 필수 노드 한 개씩, 첫 전투 뒤 보상, 보스 주 경로 전투방 3개와 보상 포함, 보스 전실 단일 진입.
 - 주 경로 밖 선택 전투 가지와 막다른 끝, 보상 이후 접근.
 - 잘못된 정의, null 정의, 유효하지 않거나 범위 밖 노드 조회, read-only snapshot.
+- 모든 연결의 양방향 출구가 서로 반대 방향인지, 없는 방향과 비연결 이동이 상태를 바꾸지 않는지 검증.
+- 첫 전투 잠금, 안전방 비잠금, 클리어 중복, 클리어 전 퇴실 차단, 클리어 뒤 양방향 재방문과 전체 트리 왕복.
 
 호환 room asset 부족, 출입구 회전, prefab 중복 선택 분포와 실제 탐색은 후속 Unity authoring/runtime 테스트에서 추가한다.

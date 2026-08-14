@@ -77,6 +77,72 @@ namespace BombSwap.Core
             return _neighbors[GetRoomIndex(roomId)];
         }
 
+        public bool TryGetNeighbor(
+            DungeonRoomNodeId from,
+            RoomExitDirection direction,
+            out DungeonRoomNodeId neighbor)
+        {
+            ValidateExitDirection(direction);
+            IReadOnlyList<DungeonRoomNodeId> neighbors = GetNeighbors(from);
+            for (int index = 0; index < neighbors.Count; index++)
+            {
+                DungeonRoomNodeId candidate = neighbors[index];
+                if (GetExitDirection(from, candidate) == direction)
+                {
+                    neighbor = candidate;
+                    return true;
+                }
+            }
+
+            neighbor = default;
+            return false;
+        }
+
+        public RoomExitDirection GetExitDirection(
+            DungeonRoomNodeId from,
+            DungeonRoomNodeId to)
+        {
+            DungeonRoomNode fromRoom = GetRoom(from);
+            DungeonRoomNode toRoom = GetRoom(to);
+            IReadOnlyList<DungeonRoomNodeId> neighbors = _neighbors[from.Value - 1];
+            bool connected = false;
+            for (int index = 0; index < neighbors.Count; index++)
+            {
+                if (neighbors[index] == to)
+                {
+                    connected = true;
+                    break;
+                }
+            }
+            if (!connected)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon rooms {from} and {to} are not directly connected.");
+            }
+
+            long deltaX = (long)toRoom.Position.X - fromRoom.Position.X;
+            long deltaZ = (long)toRoom.Position.Z - fromRoom.Position.Z;
+            if (deltaX == 0L && deltaZ == 1L)
+            {
+                return RoomExitDirection.North;
+            }
+            if (deltaX == 1L && deltaZ == 0L)
+            {
+                return RoomExitDirection.East;
+            }
+            if (deltaX == 0L && deltaZ == -1L)
+            {
+                return RoomExitDirection.South;
+            }
+            if (deltaX == -1L && deltaZ == 0L)
+            {
+                return RoomExitDirection.West;
+            }
+
+            throw new InvalidOperationException(
+                $"Connected dungeon rooms {from} and {to} are not cardinally adjacent.");
+        }
+
         public int GetDistance(DungeonRoomNodeId from, DungeonRoomNodeId to)
         {
             IReadOnlyList<DungeonRoomNodeId> path = GetShortestPath(from, to);
@@ -424,6 +490,23 @@ namespace BombSwap.Core
             if (!roomId.IsValid)
             {
                 throw new ArgumentException($"Dungeon graph requires one {roomType} room.");
+            }
+        }
+
+        private static void ValidateExitDirection(RoomExitDirection direction)
+        {
+            switch (direction)
+            {
+                case RoomExitDirection.North:
+                case RoomExitDirection.East:
+                case RoomExitDirection.South:
+                case RoomExitDirection.West:
+                    return;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Unknown room exit direction.");
             }
         }
     }
