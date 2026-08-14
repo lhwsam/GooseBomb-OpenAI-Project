@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94bba3b7889305842bed67e2a81209cb, type: 3}
+  m_Name: PrototypeCombatPillars
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeCombatRoomDefinitionAsset
+  roomId: prototype-combat-pillars
+  roomType: 0
+  gridWidth: 11
+  gridDepth: 9
+  cellSize: 1
+  playerSpawn: {x: -3, y: -2}
+  chaserSpawn: {x: 3, y: 2}
+  indestructibleWalls:
+  - {x: -1, y: -2}
+  - {x: 1, y: -1}
+  - {x: -1, y: 0}
+  - {x: 1, y: 1}
+  - {x: -1, y: 2}
+  safePlayerCells:
+  - {x: -3, y: -2}
+  - {x: -3, y: -1}
+  - {x: -2, y: -2}
+  retreatAnchors:
+  - {x: -4, y: 1}
+  - {x: 0, y: -3}
+  lureLoop:
+  - {x: -2, y: -3}
+  - {x: -2, y: -2}
+  - {x: -2, y: -1}
+  - {x: -2, y: 0}
+  - {x: -2, y: 1}
+  - {x: -2, y: 2}
+  - {x: -2, y: 3}
+  - {x: -1, y: 3}
+  - {x: 0, y: 3}
+  - {x: 1, y: 3}
+  - {x: 2, y: 3}
+  - {x: 2, y: 2}
+  - {x: 2, y: 1}
+  - {x: 2, y: 0}
+  - {x: 2, y: -1}
+  - {x: 2, y: -2}
+  - {x: 2, y: -3}
+  - {x: 1, y: -3}
+  - {x: 0, y: -3}
+  - {x: -1, y: -3}
+  exits:
+  - cell: {x: -5, y: 0}
+    direction: 3
+  - cell: {x: 5, y: 0}
+    direction: 1

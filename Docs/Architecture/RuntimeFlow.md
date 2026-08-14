@@ -32,6 +32,7 @@ sequenceDiagram
 - TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, `ChaserEnemySimulation`, `BombSimulation`, 플레이어·적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`은 현재 논리 셀의 폭탄 simulation으로 전달한다.
 - `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정 벽·플레이어/추격자 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
 - `PrototypePlayerController`, `PrototypeChaserPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 세션의 확정된 플레이어·적 이동, 설치·폭발·피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. 교체·pause 명령의 실제 규칙 소비자는 아직 없다.
+- 플레이테스트 전용 `PrototypeRoomAdvanceController`는 `RoomCleared`를 한 번 받은 뒤 1.25초 realtime 지연으로 다음 TestSandbox 씬을 단일 로드한다. 중앙 루프→평행 통로→엇갈린 기둥 순서이며 마지막 씬은 다음 이름이 비어 있어 머문다. 이 Unity 어댑터는 Core 규칙이나 room asset의 mutable 상태가 아니며, 보상·방 그래프가 생기면 그 흐름으로 대체한다.
 
 binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 

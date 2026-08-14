@@ -33,20 +33,35 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
                 CreatePrototypeChaserContentIfMissing();
-            PrototypeCombatRoomDefinitionAsset roomDefinition =
+            PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
             bool sceneCreated = EnsureTestSandbox(
                 inputActions,
                 bombDefinition,
                 playerVitals,
                 chaserDefinition,
-                roomDefinition);
+                roomDefinitions[0],
+                "TestSandboxLanes");
+            bool lanesSceneCreated = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.TestSandboxLanesScenePath,
+                bombDefinition,
+                playerVitals,
+                chaserDefinition,
+                roomDefinitions[1],
+                "TestSandboxPillars");
+            bool pillarsSceneCreated = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.TestSandboxPillarsScenePath,
+                bombDefinition,
+                playerVitals,
+                chaserDefinition,
+                roomDefinitions[2],
+                string.Empty);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
-            return sceneCreated
-                ? "Created BombSwap Input Actions, bomb/enemy/room content, TestSandbox, and Build Settings entry."
-                : "BombSwap prototype content exists; upgraded TestSandbox room authority, runtime references, and Build Settings entry.";
+            return sceneCreated || lanesSceneCreated || pillarsSceneCreated
+                ? "Created BombSwap prototype content and the three-room TestSandbox playtest sequence."
+                : "BombSwap prototype content exists; synchronized three room scenes, transitions, references, and Build Settings.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -264,22 +279,13 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
-        private static PrototypeCombatRoomDefinitionAsset CreatePrototypeCombatRoomContentIfMissing()
+        private static PrototypeCombatRoomDefinitionAsset[] CreatePrototypeCombatRoomContentIfMissing()
         {
             EnsureAssetFolder("Assets/Game/Content/Rooms");
-            PrototypeCombatRoomDefinitionAsset definition =
-                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
-                    PrototypeContentValidator.PrototypeCombatRoomDefinitionPath);
-            if (definition == null)
-            {
-                definition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
-                definition.name = "PrototypeCombatLoop";
-                AssetDatabase.CreateAsset(
-                    definition,
-                    PrototypeContentValidator.PrototypeCombatRoomDefinitionPath);
-            }
-
-            definition.Configure(
+            PrototypeCombatRoomDefinitionAsset loop = GetOrCreateRoomDefinition(
+                PrototypeContentValidator.PrototypeCombatRoomDefinitionPath,
+                "PrototypeCombatLoop");
+            loop.Configure(
                 "prototype-combat-loop",
                 RoomType.Combat,
                 11,
@@ -325,8 +331,137 @@ namespace BombSwap.Editor.ContentValidation
                         new Vector2Int(0, -4),
                         RoomExitDirection.South),
                 });
-            EditorUtility.SetDirty(definition);
+            EditorUtility.SetDirty(loop);
+
+            PrototypeCombatRoomDefinitionAsset lanes = GetOrCreateRoomDefinition(
+                PrototypeContentValidator.PrototypeCombatLanesDefinitionPath,
+                "PrototypeCombatLanes");
+            lanes.Configure(
+                "prototype-combat-lanes",
+                RoomType.Combat,
+                11,
+                9,
+                1f,
+                new Vector2Int(0, -2),
+                new Vector2Int(0, 2),
+                new[]
+                {
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(-2, 0),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(2, -1),
+                    new Vector2Int(2, 0),
+                    new Vector2Int(2, 1),
+                },
+                new[]
+                {
+                    new Vector2Int(0, -2),
+                    new Vector2Int(-1, -2),
+                    new Vector2Int(1, -2),
+                },
+                new[]
+                {
+                    new Vector2Int(-3, -2),
+                    new Vector2Int(3, -2),
+                },
+                CreateRectangleLoop(-3, 3, -2, 2),
+                new[]
+                {
+                    new PrototypeRoomExitData(
+                        new Vector2Int(0, 4),
+                        RoomExitDirection.North),
+                    new PrototypeRoomExitData(
+                        new Vector2Int(0, -4),
+                        RoomExitDirection.South),
+                });
+            EditorUtility.SetDirty(lanes);
+
+            PrototypeCombatRoomDefinitionAsset pillars = GetOrCreateRoomDefinition(
+                PrototypeContentValidator.PrototypeCombatPillarsDefinitionPath,
+                "PrototypeCombatPillars");
+            pillars.Configure(
+                "prototype-combat-pillars",
+                RoomType.Combat,
+                11,
+                9,
+                1f,
+                new Vector2Int(-3, -2),
+                new Vector2Int(3, 2),
+                new[]
+                {
+                    new Vector2Int(-1, -2),
+                    new Vector2Int(1, -1),
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(1, 1),
+                    new Vector2Int(-1, 2),
+                },
+                new[]
+                {
+                    new Vector2Int(-3, -2),
+                    new Vector2Int(-3, -1),
+                    new Vector2Int(-2, -2),
+                },
+                new[]
+                {
+                    new Vector2Int(-4, 1),
+                    new Vector2Int(0, -3),
+                },
+                CreateRectangleLoop(-2, 2, -3, 3),
+                new[]
+                {
+                    new PrototypeRoomExitData(
+                        new Vector2Int(-5, 0),
+                        RoomExitDirection.West),
+                    new PrototypeRoomExitData(
+                        new Vector2Int(5, 0),
+                        RoomExitDirection.East),
+                });
+            EditorUtility.SetDirty(pillars);
+
+            return new[] { loop, lanes, pillars };
+        }
+
+        private static PrototypeCombatRoomDefinitionAsset GetOrCreateRoomDefinition(
+            string assetPath,
+            string assetName)
+        {
+            PrototypeCombatRoomDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(assetPath);
+            if (definition != null)
+            {
+                return definition;
+            }
+
+            definition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
+            definition.name = assetName;
+            AssetDatabase.CreateAsset(definition, assetPath);
             return definition;
+        }
+
+        private static Vector2Int[] CreateRectangleLoop(
+            int minX,
+            int maxX,
+            int minZ,
+            int maxZ)
+        {
+            var cells = new List<Vector2Int>();
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                cells.Add(new Vector2Int(minX, z));
+            }
+            for (int x = minX + 1; x <= maxX; x++)
+            {
+                cells.Add(new Vector2Int(x, maxZ));
+            }
+            for (int z = maxZ - 1; z >= minZ; z--)
+            {
+                cells.Add(new Vector2Int(maxX, z));
+            }
+            for (int x = maxX - 1; x > minX; x--)
+            {
+                cells.Add(new Vector2Int(x, minZ));
+            }
+            return cells.ToArray();
         }
 
         private static bool EnsureTestSandbox(
@@ -334,7 +469,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombDefinitionAsset bombDefinition,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
-            PrototypeCombatRoomDefinitionAsset roomDefinition)
+            PrototypeCombatRoomDefinitionAsset roomDefinition,
+            string nextSceneName)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(PrototypeContentValidator.TestSandboxScenePath) == null)
             {
@@ -343,7 +479,8 @@ namespace BombSwap.Editor.ContentValidation
                     bombDefinition,
                     playerVitals,
                     chaserDefinition,
-                    roomDefinition);
+                    roomDefinition,
+                    nextSceneName);
                 return true;
             }
 
@@ -363,7 +500,8 @@ namespace BombSwap.Editor.ContentValidation
                     bombDefinition,
                     playerVitals,
                     chaserDefinition,
-                    roomDefinition);
+                    roomDefinition,
+                    nextSceneName);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -381,12 +519,69 @@ namespace BombSwap.Editor.ContentValidation
             return false;
         }
 
+        private static bool EnsurePlaytestRoomVariant(
+            string scenePath,
+            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition,
+            string nextSceneName)
+        {
+            bool created = false;
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                if (!AssetDatabase.CopyAsset(
+                        PrototypeContentValidator.TestSandboxScenePath,
+                        scenePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to copy the TestSandbox scene to '{scenePath}'.");
+                }
+                AssetDatabase.ImportAsset(scenePath, ImportAssetOptions.ForceSynchronousImport);
+                created = true;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                UpgradeTestSandbox(
+                    scene,
+                    bombDefinition,
+                    playerVitals,
+                    chaserDefinition,
+                    roomDefinition,
+                    nextSceneName);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save playtest room scene '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+
+            return created;
+        }
+
         private static void CreateTestSandbox(
             InputActionAsset inputActions,
             PrototypeBombDefinitionAsset bombDefinition,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
-            PrototypeCombatRoomDefinitionAsset roomDefinition)
+            PrototypeCombatRoomDefinitionAsset roomDefinition,
+            string nextSceneName)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -430,6 +625,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserPresenter chaserPresenter =
                 systems.AddComponent<PrototypeChaserPresenter>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
+            PrototypeRoomAdvanceController roomAdvanceController =
+                systems.AddComponent<PrototypeRoomAdvanceController>();
 
             var gridRoot = new GameObject("GridRoot");
             gridRoot.transform.SetParent(root.transform, false);
@@ -539,6 +736,7 @@ namespace BombSwap.Editor.ContentValidation
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
             harnessProbe.Configure(inputReader, gameSession);
+            roomAdvanceController.Configure(gameSession, nextSceneName);
             systems.SetActive(true);
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -554,7 +752,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombDefinitionAsset bombDefinition,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
-            PrototypeCombatRoomDefinitionAsset roomDefinition)
+            PrototypeCombatRoomDefinitionAsset roomDefinition,
+            string nextSceneName)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
@@ -584,6 +783,12 @@ namespace BombSwap.Editor.ContentValidation
             {
                 chaserPresenter = systems.AddComponent<PrototypeChaserPresenter>();
             }
+            PrototypeRoomAdvanceController roomAdvanceController =
+                systems.GetComponent<PrototypeRoomAdvanceController>();
+            if (roomAdvanceController == null)
+            {
+                roomAdvanceController = systems.AddComponent<PrototypeRoomAdvanceController>();
+            }
 
             Transform runtimePresentation = context.GridRoot.Find("RuntimePresentation");
             if (runtimePresentation == null)
@@ -596,6 +801,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserSpawn = CreateChild("ChaserSpawn", context.GridRoot);
             }
             CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+            SynchronizeInteriorObstacles(context.GridRoot, roomDefinition, room);
             var gridSpace = new GridSpace(context.GridRoot.position, roomDefinition.CellSize);
             context.PlayerSpawn.position = gridSpace.GridToWorld(room.PlayerSpawn);
             Vector3 playerPosition = gridSpace.GridToWorld(room.PlayerSpawn);
@@ -629,6 +835,7 @@ namespace BombSwap.Editor.ContentValidation
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
             harnessProbe.Configure(inputReader, gameSession);
+            roomAdvanceController.Configure(gameSession, nextSceneName);
             EditorUtility.SetDirty(context);
             EditorUtility.SetDirty(gameSession);
             EditorUtility.SetDirty(playerController);
@@ -636,6 +843,67 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(chaserPresenter);
             EditorUtility.SetDirty(harnessProbe);
+            EditorUtility.SetDirty(roomAdvanceController);
+        }
+
+        private static void SynchronizeInteriorObstacles(
+            Transform gridRoot,
+            PrototypeCombatRoomDefinitionAsset roomDefinition,
+            CombatRoomDefinition room)
+        {
+            Transform environment = gridRoot.Find("Environment");
+            if (environment == null)
+            {
+                throw new InvalidOperationException("TestSandbox is missing its Environment root.");
+            }
+            Transform obstacles = environment.Find("InteriorObstacles");
+            if (obstacles == null)
+            {
+                obstacles = CreateChild("InteriorObstacles", environment);
+            }
+
+            var expected = new HashSet<GridPosition>(room.IndestructibleWalls);
+            var actual = new HashSet<GridPosition>();
+            var gridSpace = new GridSpace(gridRoot.position, roomDefinition.CellSize);
+            bool matches = obstacles.childCount == expected.Count;
+            for (int index = 0; index < obstacles.childCount; index++)
+            {
+                GridPosition cell = gridSpace.WorldToGrid(obstacles.GetChild(index).position);
+                if (!actual.Add(cell) || !expected.Contains(cell))
+                {
+                    matches = false;
+                }
+            }
+            if (matches && actual.SetEquals(expected))
+            {
+                return;
+            }
+
+            for (int index = obstacles.childCount - 1; index >= 0; index--)
+            {
+                UnityEngine.Object.DestroyImmediate(obstacles.GetChild(index).gameObject);
+            }
+
+            Material wallMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                MaterialsPath + "/Wall.mat");
+            if (wallMaterial == null)
+            {
+                throw new InvalidOperationException("Prototype wall material is missing.");
+            }
+
+            float cellSize = roomDefinition.CellSize;
+            for (int index = 0; index < room.IndestructibleWalls.Count; index++)
+            {
+                GridPosition wall = room.IndestructibleWalls[index];
+                CreatePrimitive(
+                    $"Obstacle_{index}_{wall.X}_{wall.Z}",
+                    PrimitiveType.Cube,
+                    obstacles,
+                    new Vector3(wall.X * cellSize, 0.5f, wall.Z * cellSize),
+                    new Vector3(0.9f * cellSize, 1f, 0.9f * cellSize),
+                    wallMaterial,
+                    true);
+            }
         }
 
         private static void EnsureBuildSettings()
@@ -643,14 +911,20 @@ namespace BombSwap.Editor.ContentValidation
             var scenes = new List<EditorBuildSettingsScene>
             {
                 new EditorBuildSettingsScene(PrototypeContentValidator.TestSandboxScenePath, true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.TestSandboxLanesScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.TestSandboxPillarsScenePath,
+                    true),
             };
 
             foreach (EditorBuildSettingsScene existing in EditorBuildSettings.scenes)
             {
-                if (string.Equals(
-                    existing.path,
-                    PrototypeContentValidator.TestSandboxScenePath,
-                    StringComparison.Ordinal))
+                if (scenes.Any(scene => string.Equals(
+                        scene.path,
+                        existing.path,
+                        StringComparison.Ordinal)))
                 {
                     continue;
                 }

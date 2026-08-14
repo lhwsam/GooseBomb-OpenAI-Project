@@ -269,11 +269,43 @@ async function main() {
           },
     });
 
+    let roomSequenceObserved = false;
+    let roomSequenceWaitError = null;
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        const names = events.map((event) => typeof event === "string" ? event : event?.name);
+        return names.filter((name) => name === "room-transition-started").length >= 1 &&
+          names.includes("room-ready-prototype-combat-lanes");
+      }, undefined, { timeout: 60_000 });
+
+      await canvas.click({ position: { x: 20, y: 20 } });
+      await page.keyboard.press("KeyZ");
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        const names = events.map((event) => typeof event === "string" ? event : event?.name);
+        return names.filter((name) => name === "room-transition-started").length >= 2 &&
+          names.includes("room-ready-prototype-combat-pillars");
+      }, undefined, { timeout: 60_000 });
+      roomSequenceObserved = true;
+    } catch (error) {
+      roomSequenceWaitError = String(error);
+    }
+    checks.push({
+      name: "three-room-sequence",
+      status: roomSequenceObserved ? "passed" : "failed",
+      detail: roomSequenceObserved
+        ? "Cleared the loop and lanes rooms, then loaded the final pillars room in one browser session"
+        : roomSequenceWaitError,
+    });
+
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["move", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

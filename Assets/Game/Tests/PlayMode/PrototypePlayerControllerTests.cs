@@ -28,6 +28,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeInputHarnessProbe _probe;
         private PrototypePlayerHealthPresenter _healthPresenter;
         private PrototypeChaserPresenter _chaserPresenter;
+        private PrototypeRoomAdvanceController _roomAdvanceController;
         private Transform _player;
 
         [TearDown]
@@ -402,6 +403,50 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RoomClear_WithNextScene_SchedulesOneDelayedTransition()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.08f,
+                chaserSpawnPosition: new Vector2Int(1, -1),
+                includeRoomAdvanceController: true,
+                nextSceneName: "UnusedPlayModeTarget",
+                roomTransitionDelaySeconds: 10f);
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(_roomAdvanceController.IsTransitionPending, Is.True);
+            Assert.That(_roomAdvanceController.NextSceneName, Is.EqualTo("UnusedPlayModeTarget"));
+            Assert.That(_roomAdvanceController.TransitionDelaySeconds, Is.EqualTo(10f));
+
+            yield return null;
+            Assert.That(_roomAdvanceController.IsTransitionPending, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator RoomClear_WithoutNextScene_RemainsInFinalRoom()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.08f,
+                chaserSpawnPosition: new Vector2Int(1, -1),
+                includeRoomAdvanceController: true,
+                nextSceneName: string.Empty);
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(_roomAdvanceController.IsTransitionPending, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator ChaserContact_UsesLogicalAdjacencyAndSharedInvulnerability()
         {
             CreateRuntime(
@@ -509,7 +554,11 @@ namespace BombSwap.Tests.PlayMode
             float healthDamagePulseSeconds = PrototypePlayerHealthPresenter.DefaultDamagePulseSeconds,
             float chaserCellsPerSecond = 2f,
             float chaserDeathVisualSeconds = 0.12f,
-            Vector2Int? chaserSpawnPosition = null)
+            Vector2Int? chaserSpawnPosition = null,
+            bool includeRoomAdvanceController = false,
+            string nextSceneName = "UnusedPlayModeTarget",
+            float roomTransitionDelaySeconds =
+                PrototypeRoomAdvanceController.DefaultTransitionDelaySeconds)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -664,6 +713,14 @@ namespace BombSwap.Tests.PlayMode
             {
                 _probe = _root.AddComponent<PrototypeInputHarnessProbe>();
                 _probe.Configure(reader, _session);
+            }
+            if (includeRoomAdvanceController)
+            {
+                _roomAdvanceController = _root.AddComponent<PrototypeRoomAdvanceController>();
+                _roomAdvanceController.Configure(
+                    _session,
+                    nextSceneName,
+                    roomTransitionDelaySeconds);
             }
             _root.SetActive(true);
         }

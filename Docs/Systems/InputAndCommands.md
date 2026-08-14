@@ -49,14 +49,14 @@
 - actions: `Move`(`Value/Vector2`), `PlaceBomb`, `SwapBomb`, `Pause`(`Button`)
 - control schemes: 필수 Keyboard 한 개, 필수 Gamepad 한 개
 - 생성/복구 도구: `Bomb Swap/Prototype/Create Missing Prototype Content`
-- `PrototypeContentValidator`가 액션, 필수 binding, 중복 binding, control scheme, 씬 참조와 Build Settings를 검사한다.
+- `PrototypeContentValidator`가 액션, 필수 binding, 중복 binding, control scheme, 세 TestSandbox 씬 참조와 Build Settings의 3방 순서를 검사한다.
 
 기존 Unity 템플릿 `Assets/InputSystem_Actions.inputactions`는 수정하지 않는다. BombSwap 런타임은 게임 전용 에셋만 참조한다.
 
 ## WebGL 고려사항
 
 - canvas focus 상실 중 key-up이 누락되어도 `SetInputFocus(false)` 경계에서 이동을 해제한다.
-- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 게임 세션이 입력 구독을 완료한 뒤 `probe-ready`를 보내고, 최초로 성공한 논리 셀 이동·폭탄 설치·폭발과 관찰한 swap, pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
+- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 게임 세션이 입력 구독을 완료한 뒤 `probe-ready`와 `room-ready-<room-id>`를 보내고, 최초로 성공한 논리 셀 이동·폭탄 설치·폭발과 관찰한 swap, pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
 - `audio-unlocked` probe는 사용자 입력을 게임이 수신한 시점을 표시할 뿐 실제 오디오 클립 재생을 증명하지 않는다. 실제 오디오 연결 후 브라우저에서 별도로 확인해야 한다.
 - probe와 `.jslib` 브리지는 개발 빌드 검증용이며 게임 규칙의 권위 API가 아니다.
 
@@ -64,7 +64,7 @@
 
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
 - PlayMode: cardinal 축 선택과 tie-break, 실제 Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지 입력→논리 셀→Transform 보간.
-- Editor validator: Input Actions 구조, TestSandbox 필수 참조, 카메라·조명, 첫 enabled Build Settings 씬.
+- Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
 - WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다.
 
 ## 미정 사항과 종료 조건

@@ -14,6 +14,10 @@ namespace BombSwap.Editor.ContentValidation
     {
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
+        public const string TestSandboxLanesScenePath =
+            "Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity";
+        public const string TestSandboxPillarsScenePath =
+            "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypePlayerVitalsPath =
@@ -22,6 +26,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Enemies/PrototypeChaser.asset";
         public const string PrototypeCombatRoomDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatLoop.asset";
+        public const string PrototypeCombatLanesDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeCombatLanes.asset";
+        public const string PrototypeCombatPillarsDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeCombatPillars.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -40,8 +48,8 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeBombDefinition(errors);
             ValidatePrototypePlayerVitals(errors);
             ValidatePrototypeChaserDefinition(errors);
-            ValidatePrototypeCombatRoomDefinition(errors);
-            ValidateTestSandbox(errors);
+            ValidatePrototypeCombatRoomDefinitions(errors);
+            ValidateTestSandboxes(errors);
             ValidateBuildSettings(errors);
         }
 
@@ -135,30 +143,51 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static void ValidatePrototypeCombatRoomDefinition(ICollection<string> errors)
+        private static void ValidatePrototypeCombatRoomDefinitions(ICollection<string> errors)
         {
-            PrototypeCombatRoomDefinitionAsset definition =
-                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
-                    PrototypeCombatRoomDefinitionPath);
-            if (definition == null)
+            string[] expectedPaths =
             {
-                errors.Add($"Missing prototype combat room definition: {PrototypeCombatRoomDefinitionPath}");
-                return;
-            }
+                PrototypeCombatRoomDefinitionPath,
+                PrototypeCombatLanesDefinitionPath,
+                PrototypeCombatPillarsDefinitionPath,
+            };
+            string[] expectedIds =
+            {
+                "prototype-combat-loop",
+                "prototype-combat-lanes",
+                "prototype-combat-pillars",
+            };
 
-            try
+            var seenIds = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < expectedPaths.Length; index++)
             {
-                CombatRoomDefinition room = definition.CreateCoreDefinition();
-                if (room.Id != new RoomDefinitionId("prototype-combat-loop") ||
-                    room.RoomType != RoomType.Combat)
+                string path = expectedPaths[index];
+                PrototypeCombatRoomDefinitionAsset definition =
+                    AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(path);
+                if (definition == null)
                 {
-                    errors.Add(
-                        "Prototype combat room must use ID 'prototype-combat-loop' and Combat type.");
+                    errors.Add($"Missing prototype combat room definition: {path}");
+                    continue;
                 }
-            }
-            catch (Exception exception)
-            {
-                errors.Add($"Invalid prototype combat room definition: {exception.Message}");
+
+                try
+                {
+                    CombatRoomDefinition room = definition.CreateCoreDefinition();
+                    if (room.Id != new RoomDefinitionId(expectedIds[index]) ||
+                        room.RoomType != RoomType.Combat)
+                    {
+                        errors.Add(
+                            $"Prototype combat room '{path}' must use ID '{expectedIds[index]}' and Combat type.");
+                    }
+                    if (!seenIds.Add(room.Id.Value))
+                    {
+                        errors.Add($"Prototype combat room ID is duplicated: '{room.Id.Value}'.");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    errors.Add($"Invalid prototype combat room definition '{path}': {exception.Message}");
+                }
             }
         }
 
@@ -319,19 +348,60 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static void ValidateTestSandbox(ICollection<string> errors)
+        private static void ValidateTestSandboxes(ICollection<string> errors)
         {
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(TestSandboxScenePath) == null)
+            ValidateTestSandboxScene(
+                TestSandboxScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                "TestSandboxLanes",
+                errors);
+            ValidateTestSandboxScene(
+                TestSandboxLanesScenePath,
+                PrototypeCombatLanesDefinitionPath,
+                "TestSandboxPillars",
+                errors);
+            ValidateTestSandboxScene(
+                TestSandboxPillarsScenePath,
+                PrototypeCombatPillarsDefinitionPath,
+                string.Empty,
+                errors);
+        }
+
+        private static void ValidateTestSandboxScene(
+            string scenePath,
+            string expectedRoomPath,
+            string expectedNextSceneName,
+            ICollection<string> errors)
+        {
+            var sceneErrors = new List<string>();
+            ValidateTestSandboxSceneContents(
+                scenePath,
+                expectedRoomPath,
+                expectedNextSceneName,
+                sceneErrors);
+            foreach (string error in sceneErrors)
             {
-                errors.Add($"Missing TestSandbox scene: {TestSandboxScenePath}");
+                errors.Add($"{scenePath}: {error}");
+            }
+        }
+
+        private static void ValidateTestSandboxSceneContents(
+            string scenePath,
+            string expectedRoomPath,
+            string expectedNextSceneName,
+            ICollection<string> errors)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                errors.Add("Missing playtest room scene.");
                 return;
             }
 
-            Scene scene = SceneManager.GetSceneByPath(TestSandboxScenePath);
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
             bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
             if (openedForValidation)
             {
-                scene = EditorSceneManager.OpenScene(TestSandboxScenePath, OpenSceneMode.Additive);
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
             }
 
             try
@@ -348,6 +418,8 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeChaserPresenter[] chaserPresenters =
                     FindComponents<PrototypeChaserPresenter>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
+                PrototypeRoomAdvanceController[] roomAdvanceControllers =
+                    FindComponents<PrototypeRoomAdvanceController>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
 
@@ -387,6 +459,11 @@ namespace BombSwap.Editor.ContentValidation
                 if (probes.Length != 1)
                 {
                     errors.Add($"TestSandbox must contain exactly one PrototypeInputHarnessProbe; found {probes.Length}.");
+                }
+                if (roomAdvanceControllers.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeRoomAdvanceController; found {roomAdvanceControllers.Length}.");
                 }
                 if (!cameras.Any(camera => camera.enabled && camera.CompareTag("MainCamera")))
                 {
@@ -499,6 +576,21 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add("TestSandbox harness probe has inconsistent runtime references.");
                 }
 
+                if (roomAdvanceControllers.Length == 1 && sessions.Length == 1)
+                {
+                    PrototypeRoomAdvanceController controller = roomAdvanceControllers[0];
+                    if (controller.Session != sessions[0] ||
+                        !string.Equals(
+                            controller.NextSceneName,
+                            expectedNextSceneName,
+                            StringComparison.Ordinal) ||
+                        !IsFinitePositive(controller.TransitionDelaySeconds))
+                    {
+                        errors.Add(
+                            "TestSandbox room advance controller has inconsistent session, next scene, or timing.");
+                    }
+                }
+
                 if (contexts.Length == 1)
                 {
                     TestSandboxContext context = contexts[0];
@@ -508,7 +600,7 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add("TestSandboxContext has missing required references.");
                     }
-                    ValidateRoomSceneBinding(context, errors);
+                    ValidateRoomSceneBinding(context, expectedRoomPath, errors);
                 }
             }
             finally
@@ -527,6 +619,7 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void ValidateRoomSceneBinding(
             TestSandboxContext context,
+            string expectedRoomPath,
             ICollection<string> errors)
         {
             if (context.RoomDefinition == null || context.GridRoot == null)
@@ -537,11 +630,11 @@ namespace BombSwap.Editor.ContentValidation
             string roomPath = AssetDatabase.GetAssetPath(context.RoomDefinition);
             if (!string.Equals(
                     roomPath,
-                    PrototypeCombatRoomDefinitionPath,
+                    expectedRoomPath,
                     StringComparison.Ordinal))
             {
                 errors.Add(
-                    $"TestSandbox room authority must reference '{PrototypeCombatRoomDefinitionPath}', found '{roomPath}'.");
+                    $"TestSandbox room authority must reference '{expectedRoomPath}', found '{roomPath}'.");
                 return;
             }
 
@@ -624,13 +717,31 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void ValidateBuildSettings(ICollection<string> errors)
         {
+            string[] expectedScenePaths =
+            {
+                TestSandboxScenePath,
+                TestSandboxLanesScenePath,
+                TestSandboxPillarsScenePath,
+            };
             EditorBuildSettingsScene[] enabledScenes = EditorBuildSettings.scenes
                 .Where(scene => scene.enabled)
                 .ToArray();
-            if (enabledScenes.Length == 0 ||
-                !string.Equals(enabledScenes[0].path, TestSandboxScenePath, StringComparison.Ordinal))
+            if (enabledScenes.Length < expectedScenePaths.Length)
             {
-                errors.Add($"TestSandbox must be the first enabled Build Settings scene: {TestSandboxScenePath}");
+                errors.Add("Build Settings must enable all three playtest room scenes first.");
+                return;
+            }
+
+            for (int index = 0; index < expectedScenePaths.Length; index++)
+            {
+                if (!string.Equals(
+                        enabledScenes[index].path,
+                        expectedScenePaths[index],
+                        StringComparison.Ordinal))
+                {
+                    errors.Add(
+                        $"Build Settings scene {index} must be '{expectedScenePaths[index]}', found '{enabledScenes[index].path}'.");
+                }
             }
         }
 
