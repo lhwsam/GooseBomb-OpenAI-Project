@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: beb3672e5daea9d46bcb66285d2ead5b, type: 3}
+  m_Name: PrototypeCharger
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChargerDefinitionAsset
+  definitionId: prototype-charger
+  maxHealth: 1
+  contactDamage: 1
+  telegraphSeconds: 0.75
+  chargeCellsPerSecond: 8
+  recoverSeconds: 0.75
+  chargerPrefab: {fileID: 7858000552484071694, guid: e4daa76361d76094799d5bf0a0c95ab8, type: 3}
+  visualHeight: 0.45
+  deathVisualSeconds: 0.12

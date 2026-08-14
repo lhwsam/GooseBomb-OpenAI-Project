@@ -28,6 +28,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
         public const string PrototypeChaserDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeChaser.asset";
+        public const string PrototypeChargerDefinitionPath =
+            "Assets/Game/Content/Enemies/PrototypeCharger.asset";
         public const string PrototypeCombatRoomDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatLoop.asset";
         public const string PrototypeCombatLanesDefinitionPath =
@@ -44,6 +46,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
+        public const string ChargerPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ChargerPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
 
@@ -58,6 +62,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);
             ValidatePrototypeChaserDefinition(errors);
+            ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
@@ -248,6 +253,40 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static void ValidatePrototypeChargerDefinition(ICollection<string> errors)
+        {
+            PrototypeChargerDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeChargerDefinitionAsset>(
+                    PrototypeChargerDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype charger definition: {PrototypeChargerDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                definition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype charger definition: {exception.Message}");
+            }
+
+            string prefabPath = AssetDatabase.GetAssetPath(definition.ChargerPrefab);
+            if (!string.Equals(prefabPath, ChargerPrefabPath, StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype charger definition must reference '{ChargerPrefabPath}', found '{prefabPath}'.");
+            }
+            if (definition.ChargerPrefab != null &&
+                definition.ChargerPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                errors.Add("Prototype charger prefab must not contain a Collider; logical grid owns collision.");
+            }
+        }
+
         private static void ValidatePrototypeCombatRoomDefinitions(ICollection<string> errors)
         {
             string[] expectedPaths =
@@ -261,6 +300,12 @@ namespace BombSwap.Editor.ContentValidation
                 "prototype-combat-loop",
                 "prototype-combat-lanes",
                 "prototype-combat-pillars",
+            };
+            GridPosition?[] expectedChargerSpawns =
+            {
+                null,
+                null,
+                new GridPosition(-3, 2),
             };
 
             var seenIds = new HashSet<string>(StringComparer.Ordinal);
@@ -287,6 +332,12 @@ namespace BombSwap.Editor.ContentValidation
                     if (!seenIds.Add(room.Id.Value))
                     {
                         errors.Add($"Prototype combat room ID is duplicated: '{room.Id.Value}'.");
+                    }
+                    if (room.ChargerSpawn != expectedChargerSpawns[index])
+                    {
+                        errors.Add(
+                            $"Prototype combat room '{path}' has unexpected charger spawn " +
+                            $"'{room.ChargerSpawn}'; expected '{expectedChargerSpawns[index]}'.");
                     }
                 }
                 catch (Exception exception)
@@ -524,6 +575,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypePlayerHealthPresenter>(scene);
                 PrototypeChaserPresenter[] chaserPresenters =
                     FindComponents<PrototypeChaserPresenter>(scene);
+                PrototypeChargerPresenter[] chargerPresenters =
+                    FindComponents<PrototypeChargerPresenter>(scene);
                 PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 PrototypeRoomAdvanceController[] roomAdvanceControllers =
@@ -570,6 +623,11 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeChaserPresenter; found {chaserPresenters.Length}.");
                 }
+                if (chargerPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeChargerPresenter; found {chargerPresenters.Length}.");
+                }
                 if (weaponHuds.Length != 1)
                 {
                     errors.Add(
@@ -610,6 +668,8 @@ namespace BombSwap.Editor.ContentValidation
                     string playerVitalsPath = AssetDatabase.GetAssetPath(session.PlayerVitals);
                     string chaserDefinitionPath = AssetDatabase.GetAssetPath(
                         session.ChaserDefinition);
+                    string chargerDefinitionPath = AssetDatabase.GetAssetPath(
+                        session.ChargerDefinition);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
                         !string.Equals(
                             loadoutPath,
@@ -622,6 +682,10 @@ namespace BombSwap.Editor.ContentValidation
                         !string.Equals(
                             chaserDefinitionPath,
                             PrototypeChaserDefinitionPath,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            chargerDefinitionPath,
+                            PrototypeChargerDefinitionPath,
                             StringComparison.Ordinal))
                     {
                         errors.Add("TestSandbox game session has inconsistent runtime references.");
@@ -699,6 +763,17 @@ namespace BombSwap.Editor.ContentValidation
                         presenter.PresentationRoot != runtimePresentation)
                     {
                         errors.Add("TestSandbox chaser presenter has inconsistent scene references.");
+                    }
+                }
+
+                if (chargerPresenters.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeChargerPresenter presenter = chargerPresenters[0];
+                    Transform runtimePresentation = contexts[0].GridRoot.Find("RuntimePresentation");
+                    if (presenter.Session != sessions[0] ||
+                        presenter.PresentationRoot != runtimePresentation)
+                    {
+                        errors.Add("TestSandbox charger presenter has inconsistent scene references.");
                     }
                 }
 
@@ -802,6 +877,26 @@ namespace BombSwap.Editor.ContentValidation
                 "player placeholder",
                 errors);
             ValidateTransformCell(context, context.ChaserSpawn, room.ChaserSpawn, "chaser spawn", errors);
+            if (room.ChargerSpawn.HasValue)
+            {
+                if (context.ChargerSpawn == null)
+                {
+                    errors.Add("TestSandbox is missing the authored charger spawn Transform.");
+                }
+                else
+                {
+                    ValidateTransformCell(
+                        context,
+                        context.ChargerSpawn,
+                        room.ChargerSpawn.Value,
+                        "charger spawn",
+                        errors);
+                }
+            }
+            else if (context.ChargerSpawn != null)
+            {
+                errors.Add("TestSandbox has a charger spawn Transform without an authored charger cell.");
+            }
 
             Transform obstacles = context.GridRoot.Find("Environment/InteriorObstacles");
             if (obstacles == null)

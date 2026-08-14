@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 파괴 가능 블록 수직 슬라이스 완료, WebGL 수동 비교 플레이테스트 준비
+- 단계: 돌진형 적 수직 슬라이스 완료, 두 적·파괴 블록 WebGL 비교 플레이테스트 준비
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -63,6 +63,10 @@
 - 빠른 십자 placeholder를 `prototype-area` 광역 폭탄과 보라색 설치체·자홍색 폭발 셀 prefab으로 교체하고 로드아웃·validator·WebGL 성공 사건을 마이그레이션.
 - 전투방 스키마에 파괴 가능 셀을 추가하고 초기 연결성·고정 벽/중요 셀 비중첩을 Core 불변식으로 검증.
 - 두 번째 방의 대각선 파괴 블록 2개와 세 번째 방 중앙 블록 1개를 논리 `DestructibleWall`, 황갈색 4분할 3D 표현과 확정 파괴 presenter로 연결.
+- `ChargerEnemySimulation`의 `Track → Telegraph → Charge → Recover` 결정론적 상태 머신, 예고 방향 잠금, 한 셀 cadence와 벽·폭탄·actor 차단을 구현.
+- 선택적 돌진형 spawn을 방 스키마에 추가하고 마지막 방 `(-3,2)`에 `prototype-charger` 정의·collider 없는 placeholder·상태별 presenter를 연결.
+- `PrototypeGameSession`에 추격자 `ActorId(2)` 뒤 돌진형 `ActorId(3)` 고정 이동·피해 순서, 적별 생존 상태와 두 적 사망 뒤 단일 `RoomCleared` 집계를 구현.
+- WebGL gameplay probe와 browser smoke가 돌진형의 예고→돌진→논리 이동 순서, 이동 입력 회귀와 차저 접촉 무적에 가려지지 않는 자기 폭발 피해를 검증하도록 확장.
 
 ## 현재 저장소 사실
 
@@ -74,14 +78,15 @@
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다.
 - 플레이어 연속 위치와 방향은 매 Unity frame Core에서 갱신된다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
 - `PlayerHealthSimulation`은 폭발 ID별 처리 여부, 체력 하한, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발과 적 접촉은 원본 ID를 구분해 보존하면서 같은 무적을 공유하고, `PrototypeGameSession`은 적용된 피해와 사망만 표현 이벤트로 발행한다.
-- `ChaserEnemySimulation`은 현재 단일 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
-- 기본 추격자는 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 세션은 마지막 적 사망을 단일 방 클리어로 집계하지만 문 개방·보상은 아직 없다.
-- 세 room asset은 모두 11×9이며 중앙 십자, 평행 통로, 엇갈린 기둥의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽을 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
-- 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
+- `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
+- 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 같은 행/열의 빈 가시선에서 0.75초 예고 뒤 8 cells/s cadence로 잠근 방향을 돌진하고 0.75초 회복한다. 수치는 `Proposed`다.
+- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 세션은 추격자→돌진형 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하지만 문 개방·보상은 아직 없다.
+- 세 room asset은 모두 11×9이며 중앙 십자, 평행 통로, 엇갈린 기둥의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`를 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
+- 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
-- EditMode 테스트 173개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자 결정론·cadence·방향 유지·폭탄 차단·단일 피격, 방 경계·고정/파괴 벽·초기 연결성·퇴로·유도 경로 계약을 검증한다.
+- EditMode 테스트 193개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자와 돌진형의 결정론·cadence·상태 전이·충돌 차단·단일 피격, 방 경계·고정/파괴 벽·선택적 돌진 spawn·초기 연결성·퇴로·유도 경로 계약을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 68개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·6회 `North/East` 단타의 같은 frame Core 위치·Transform 반영, 실제 `X` 교체와 광역 `Z` 설치·3×3 결과·파괴 벽 `Floor` 전환·시각 제거·HUD snapshot 표시, 공유 격자 플레이어·추격자 이동, 접촉 피해·공유 무적·같은 프레임 폭발 사망 우선순위, 폭탄 설치·한 번 탈출·재진입 차단·fuse 폭발·적 사망·방 클리어, 방 전환 pending·마지막 방 무전환, pooled 표현과 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
+- PlayMode 전체 71개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·6회 `North/East` 단타의 같은 frame Core 위치·Transform 반영, 실제 `X` 교체와 광역 `Z` 설치·3×3 결과·파괴 벽 `Floor` 전환·시각 제거·HUD snapshot 표시, 공유 격자 플레이어·추격자·돌진형 이동, 돌진 충돌·접촉 피해·공유 무적·같은 프레임 폭발 사망 우선순위, 두 적 동시 사망·단일 방 클리어, 방 전환 pending·마지막 방 무전환, pooled 표현과 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
 - 세 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
 - Build Settings의 첫 enabled 씬 세 개는 `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
@@ -93,25 +98,26 @@
 
 ## 진행 중
 
-- 최신 WebGL에서 두 번째 방의 대각선 파괴 블록과 세 번째 방 중앙 엄폐가 기본 십자·광역의 설치 위치와 퇴로 선택을 실제로 바꾸는지 사람 플레이테스트로 비교한다.
+- 최신 WebGL에서 두 번째 방의 대각선 파괴 블록, 세 번째 방 중앙 엄폐와 돌진형 예고선이 기본 십자·광역의 설치 위치·퇴로·회피 타이밍을 실제로 바꾸는지 사람 플레이테스트로 비교한다.
 
 ## 바로 다음 권장 작업
 
-1. 최신 WebGL에서 두 번째 방 spawn의 광역이 대각선 블록 둘을 동시에 여는지, 같은 위치의 십자는 닿지 않는지 직접 비교한다.
-2. 세 번째 방 중앙 블록을 남길 때의 엄폐와 부순 뒤 넓어진 위험 공간 중 어느 쪽을 선택하는지 관찰한다.
-3. 파괴 블록 반복 플레이테스트 뒤 가설 B의 다음 미구현 조건인 돌진형 적을 최소 수직 슬라이스로 추가할지 결정한다.
+1. 최신 WebGL에서 돌진형의 0.75초 예고·8 cells/s 이동·0.75초 회복을 읽고 피할 수 있는지, 폭탄을 돌진선 또는 회복 위치에 미리 설치하게 되는지 관찰한다.
+2. 두 번째 방 광역의 대각선 동시 파괴와 세 번째 방 중앙 블록의 엄폐·파괴 선택이 두 적 압력에서도 다른 설치 위치를 만드는지 비교한다.
+3. 결과를 `bombswap-playtest-review` 형식으로 유지·변경·제거 판정한 뒤, 가설 B의 다음 미구현 조건인 갑옷 적 또는 돌진형 표현 개선 중 근거가 강한 쪽을 선택한다.
 
 ## 알려진 위험과 미정
 
 - 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. 키 해제 즉시 정지와 빠른 `North/East` 반복은 자동 검증됐지만 최종 속도, 벽 모서리 코너 보정과 셀 경계 판정 가독성은 수동 재확인 전까지 `Proposed`다.
-- 프로토타입은 플레이어 `ActorId(1)`과 단일 추격자 `ActorId(2)`를 고정 생성한다. 여러 적의 ID 발급, 이동 순서와 동일 목적 셀 경합 정책은 아직 없다.
+- 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`을 고정 생성하고 추격자 뒤 돌진형 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 두 폭탄 슬롯은 십자와 3×3 광역으로 구조적 공간 역할이 달라졌지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지 관찰해야 한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
-- 최대 체력 5, 자기 폭발/추격자 접촉 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하며 부활·재시작, 완성 HUD·오디오는 아직 없다.
+- 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하며 부활·재시작, 완성 HUD·오디오는 아직 없다.
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. 접촉 압력은 연결됐지만 실제 공정성과 유도 재미는 아직 플레이테스트하지 않았다.
+- 돌진형의 예고·돌진·회복 수치와 마지막 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 개발 WebGL 기준 빌드는 약 140.0 MB이며 현재 설치된 AI Inference·vendor 패키지와 셰이더가 빌드 크기, 전체 재빌드 시간과 경고 수를 크게 차지한다. 실제 배포 예산과 패키지 정리는 피해·적 수직 슬라이스 이후 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
-- 프로토타입 전투방 스키마는 단일 추격자, 고정 벽과 1회 파괴 벽만 지원한다. 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor, 방 prefab과 런 그래프는 아직 없다.
+- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor, 방 prefab과 런 그래프는 아직 없다.
 - 현재 3방 전환은 씬 이름과 realtime 1.25초 지연을 쓰는 플레이테스트 어댑터다. 실제 던전 그래프, 보상, 저장·재시작과 방 전환 연출을 대신하지 않는다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
 - 게임패드 binding은 구조 검증만 완료했다. 정확한 대각선 값을 만드는 게임패드·D-pad에도 새 직교 축 우선 정책이 적용되므로 목표 기기 수동 플레이가 남아 있다.
@@ -119,7 +125,7 @@
 ## 최근 검증
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
-- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-162930-static/`.
+- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-183106-static/`.
 - `skill-creator` 공식 `quick_validate.py`: 프로젝트 스킬 4종 모두 통과.
 - PowerShell AST parse와 `node --check`로 `WebGLSmoke.mjs`, `WebGLStaticServer.mjs`, `ServeWebGL.mjs`, `WebGLStaticServerTests.mjs`: 통과.
 - `node Tools/WebGLStaticServerTests.mjs`: HTML/WASM/data/symbols MIME, gzip/Brotli `Content-Encoding`, GET/HEAD 제한, 404와 경로 이탈 403 계약 통과.
@@ -148,4 +154,8 @@
 - Development WebGL 빌드 성공: 140,883,086 bytes, 317.216초, 오류 0, 설치된 패키지·셰이더 기존 범주의 경고 359개. 산출물은 `Artifacts/Verification/20260814-171929-destructible-wall-web-connected/`에 기록.
 - Edge headless smoke 12개 검사 통과. 두 번째 방에서 슬롯 초기화를 거쳐 면적 폭탄을 명시 선택한 뒤 `destructible-wall-destroyed`를 관측했고, 기존 입력·3방 전환·6회 `North/East` 단타·마지막 방 자기 폭발·resize도 함께 통과했다. Browser Console/page error 0.
 - 실제 WebGL 캡처 `webgl-destructible-walls.png`에서 두 번째 방의 황갈색 분할 블록 두 개, 회색 고정 벽, 두 폭탄 슬롯의 시각 구분을 확인했다.
-- 최신 정적 검증 `Artifacts/Verification/20260814-173048-static/`, `node --check Tools/WebGLSmoke.mjs`, `WebGLStaticServerTests.mjs` 통과.
+- 파괴 블록 시점 정적 검증 `Artifacts/Verification/20260814-173048-static/`, `node --check Tools/WebGLSmoke.mjs`, `WebGLStaticServerTests.mjs` 통과.
+- 돌진형 연결 후 공식 Unity MCP EditMode 193개와 PlayMode 71개 전체 통과, 실패/건너뜀/불확정 0. `PrototypeContentValidator`는 정의·collider 없는 prefab·방별 선택적 spawn·session/presenter 참조를 오류 0으로 검증했다.
+- 돌진형 Development WebGL 빌드 성공: 140,947,504 bytes, 241.080초, 오류 0, 설치된 패키지·셰이더 기존 범주의 경고 359개. 산출물은 `Artifacts/Verification/20260814-181400-charger-web-connected/`에 기록했다.
+- Edge headless smoke 전체 통과. 마지막 방에서 `charger-telegraph → charger-charge → charger-moved`, 빠른 `North/East` 단타 회귀, 돌진선 이탈 뒤 자기 폭발 피해와 기존 3방·파괴 블록·Console/page error 0을 확인했다.
+- 돌진형 문서 갱신 뒤 최신 정적 검증 `Artifacts/Verification/20260814-183106-static/`, `node --check Tools/WebGLSmoke.mjs`, `WebGLStaticServerTests.mjs` 통과.

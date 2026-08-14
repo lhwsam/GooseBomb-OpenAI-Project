@@ -17,14 +17,17 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _bombPrefab;
         private GameObject _explosionPrefab;
         private GameObject _chaserPrefab;
+        private GameObject _chargerPrefab;
         private PrototypeBombDefinitionAsset _definition;
         private PrototypeBombDefinitionAsset _areaDefinition;
         private PrototypeBombLoadoutAsset _loadout;
         private PrototypePlayerVitalsAsset _vitals;
         private PrototypeChaserDefinitionAsset _chaserDefinition;
+        private PrototypeChargerDefinitionAsset _chargerDefinition;
         private PrototypeCombatRoomDefinitionAsset _roomDefinition;
         private Material _playerMaterial;
         private Material _chaserMaterial;
+        private Material _chargerMaterial;
         private PrototypeGameSession _session;
         private PrototypePlayerController _controller;
         private PrototypeBombPresenter _presenter;
@@ -32,6 +35,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeInputHarnessProbe _probe;
         private PrototypePlayerHealthPresenter _healthPresenter;
         private PrototypeChaserPresenter _chaserPresenter;
+        private PrototypeChargerPresenter _chargerPresenter;
         private PrototypeWeaponHud _weaponHud;
         private PrototypeRoomAdvanceController _roomAdvanceController;
         private Transform _player;
@@ -55,6 +59,10 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_chaserPrefab);
             }
+            if (_chargerPrefab != null)
+            {
+                Object.DestroyImmediate(_chargerPrefab);
+            }
             if (_definition != null)
             {
                 Object.DestroyImmediate(_definition);
@@ -75,6 +83,10 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_chaserDefinition);
             }
+            if (_chargerDefinition != null)
+            {
+                Object.DestroyImmediate(_chargerDefinition);
+            }
             if (_roomDefinition != null)
             {
                 Object.DestroyImmediate(_roomDefinition);
@@ -86,6 +98,10 @@ namespace BombSwap.Tests.PlayMode
             if (_chaserMaterial != null)
             {
                 Object.DestroyImmediate(_chaserMaterial);
+            }
+            if (_chargerMaterial != null)
+            {
+                Object.DestroyImmediate(_chargerMaterial);
             }
             if (_inputActions != null)
             {
@@ -579,6 +595,90 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Charger_TelegraphsThenMovesInLockedDirectionWithPresenterState()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeChargerPresenter: true,
+                chargerSpawnPosition: new Vector2Int(0, 2),
+                chargerTelegraphSeconds: 0.05f,
+                chargerCellsPerSecond: 4f);
+
+            yield return null;
+
+            Assert.That(_session.HasCharger, Is.True);
+            Assert.That(_session.ChargerActorId, Is.EqualTo(new ActorId(3)));
+            Assert.That(_session.EnemyActiveCount, Is.EqualTo(2));
+            Assert.That(_session.CurrentChargerState, Is.EqualTo(ChargerEnemyState.Telegraph));
+            Assert.That(_chargerPresenter.StateChangeCount, Is.EqualTo(1));
+            Assert.That(_chargerPresenter.CurrentState, Is.EqualTo(ChargerEnemyState.Telegraph));
+            Assert.That(_chargerPresenter.IsEnemyVisible, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.09f);
+
+            Assert.That(_session.CurrentChargerState, Is.EqualTo(ChargerEnemyState.Charge));
+            Assert.That(_session.CurrentChargerGridPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(_chargerPresenter.MoveCount, Is.EqualTo(1));
+            Assert.That(_chargerPresenter.CurrentState, Is.EqualTo(ChargerEnemyState.Charge));
+        }
+
+        [UnityTest]
+        public IEnumerator ChargerImpact_DamagesPlayerOnceWithoutOverlappingTargetCell()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                chargerSpawnPosition: new Vector2Int(0, 2),
+                chargerTelegraphSeconds: 0.02f,
+                chargerCellsPerSecond: 20f,
+                chargerRecoverSeconds: 0.3f);
+            int chargerDamageCount = 0;
+            PlayerDamageResult chargerDamage = default;
+            _session.PlayerDamaged += result =>
+            {
+                if (result.SourceActorId == _session.ChargerActorId)
+                {
+                    chargerDamage = result;
+                    chargerDamageCount++;
+                }
+            };
+
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(chargerDamageCount, Is.EqualTo(1));
+            Assert.That(chargerDamage.SourceKind, Is.EqualTo(PlayerDamageSourceKind.EnemyContact));
+            Assert.That(chargerDamage.AppliedDamage, Is.EqualTo(1));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+            Assert.That(_session.CurrentChargerState, Is.EqualTo(ChargerEnemyState.Recover));
+            Assert.That(_session.CurrentChargerGridPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(_session.GetCell(new GridPosition(0, 0)).HasActor, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator AreaExplosion_KillsBothEnemiesBeforePublishingRoomClear()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.05f,
+                chaserSpawnPosition: new Vector2Int(1, 1),
+                chargerSpawnPosition: new Vector2Int(-1, 1));
+            var eventOrder = new List<string>();
+            _session.EnemyDied += result => eventOrder.Add("dead-" + result.ActorId.Value);
+            _session.RoomCleared += () => eventOrder.Add("clear");
+            yield return null;
+
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            Assert.That(_session.EnemyActiveCount, Is.Zero);
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(eventOrder, Is.EqualTo(new[] { "dead-2", "dead-3", "clear" }));
+        }
+
+        [UnityTest]
         public IEnumerator Explosion_KillsChaserRemovesOccupancyAndClearsRoomOnce()
         {
             CreateRuntime(
@@ -788,7 +888,12 @@ namespace BombSwap.Tests.PlayMode
             float roomTransitionDelaySeconds =
                 PrototypeRoomAdvanceController.DefaultTransitionDelaySeconds,
             Vector2Int[] destructibleWalls = null,
-            bool includeDestructibleWallPresenter = false)
+            bool includeDestructibleWallPresenter = false,
+            Vector2Int? chargerSpawnPosition = null,
+            bool includeChargerPresenter = false,
+            float chargerTelegraphSeconds = 0.05f,
+            float chargerCellsPerSecond = 8f,
+            float chargerRecoverSeconds = 0.05f)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -867,6 +972,37 @@ namespace BombSwap.Tests.PlayMode
                 _chaserPrefab,
                 0.45f,
                 chaserDeathVisualSeconds);
+            Transform chargerSpawn = null;
+            if (chargerSpawnPosition.HasValue)
+            {
+                Vector2Int authoredChargerSpawn = chargerSpawnPosition.Value;
+                chargerSpawn = new GameObject("ChargerSpawn").transform;
+                chargerSpawn.SetParent(gridRoot, false);
+                chargerSpawn.localPosition = new Vector3(
+                    authoredChargerSpawn.x,
+                    0f,
+                    authoredChargerSpawn.y);
+                _chargerPrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _chargerPrefab.name = "ChargerVisualPrefab";
+                Collider chargerCollider = _chargerPrefab.GetComponent<Collider>();
+                Object.DestroyImmediate(chargerCollider);
+                _chargerMaterial = new Material(playerShader);
+                _chargerMaterial.color = new Color(0.95f, 0.28f, 0.08f, 1f);
+                _chargerPrefab.GetComponent<Renderer>().sharedMaterial = _chargerMaterial;
+                _chargerPrefab.SetActive(false);
+                _chargerDefinition =
+                    ScriptableObject.CreateInstance<PrototypeChargerDefinitionAsset>();
+                _chargerDefinition.Configure(
+                    "test-charger",
+                    1,
+                    1,
+                    chargerTelegraphSeconds,
+                    chargerCellsPerSecond,
+                    chargerRecoverSeconds,
+                    _chargerPrefab,
+                    0.45f,
+                    0.12f);
+            }
             _roomDefinition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
             _roomDefinition.Configure(
                 "test-combat-loop",
@@ -911,7 +1047,8 @@ namespace BombSwap.Tests.PlayMode
                         new Vector2Int(0, -2),
                         RoomExitDirection.South),
                 },
-                destructibleWalls ?? new Vector2Int[0]);
+                destructibleWalls ?? new Vector2Int[0],
+                chargerSpawnPosition);
 
             BombSwapInputReader reader = _root.AddComponent<BombSwapInputReader>();
             reader.Configure(_inputActions);
@@ -922,7 +1059,8 @@ namespace BombSwap.Tests.PlayMode
                 spawn,
                 _player,
                 chaserSpawn,
-                _roomDefinition);
+                _roomDefinition,
+                chargerSpawn);
 
             _session = _root.AddComponent<PrototypeGameSession>();
             _session.Configure(
@@ -932,7 +1070,8 @@ namespace BombSwap.Tests.PlayMode
                 _vitals,
                 _chaserDefinition,
                 10f,
-                0.05f);
+                0.05f,
+                _chargerDefinition);
             Transform destructibleRoot = new GameObject("DestructibleObstacles").transform;
             destructibleRoot.SetParent(gridRoot, false);
             Vector2Int[] authoredDestructibleWalls = destructibleWalls ?? new Vector2Int[0];
@@ -968,6 +1107,11 @@ namespace BombSwap.Tests.PlayMode
             {
                 _chaserPresenter = _root.AddComponent<PrototypeChaserPresenter>();
                 _chaserPresenter.Configure(_session, presentationRoot);
+            }
+            if (includeChargerPresenter)
+            {
+                _chargerPresenter = _root.AddComponent<PrototypeChargerPresenter>();
+                _chargerPresenter.Configure(_session, presentationRoot);
             }
             if (includeWeaponHud)
             {

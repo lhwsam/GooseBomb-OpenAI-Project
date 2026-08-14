@@ -103,6 +103,32 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Definition_StoresOptionalChargerSpawnAsTraversableEnemyCell()
+        {
+            var chargerSpawn = new GridPosition(-3, 2);
+
+            CombatRoomDefinition room = CreateRoom(chargerSpawn: chargerSpawn);
+
+            Assert.That(room.ChargerSpawn, Is.EqualTo(chargerSpawn));
+            Assert.That(room.IsBlocked(chargerSpawn), Is.False);
+        }
+
+        [Test]
+        public void Definition_RejectsChargerSpawnOverlapsAndImmediatePlayerContact()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(chargerSpawn: PlayerSpawn));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(chargerSpawn: new GridPosition(0, 1)));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(chargerSpawn: ChaserSpawn));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    walls: new[] { new GridPosition(-3, 2) },
+                    chargerSpawn: new GridPosition(-3, 2)));
+        }
+
+        [Test]
         public void Definition_RejectsSpawnOverlappingWallOrImmediateContact()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -220,6 +246,7 @@ namespace BombSwap.Tests.EditMode
             GridPosition? chaserSpawn = null,
             GridPosition[] walls = null,
             GridPosition[] destructibleWalls = null,
+            GridPosition? chargerSpawn = null,
             GridPosition[] safeCells = null,
             GridPosition[] lureLoop = null,
             RoomExit[] exits = null)
@@ -245,7 +272,8 @@ namespace BombSwap.Tests.EditMode
                 },
                 lureLoop ?? CreateLureLoop(),
                 exits ?? CreateExits(),
-                destructibleWalls ?? Array.Empty<GridPosition>());
+                destructibleWalls ?? Array.Empty<GridPosition>(),
+                chargerSpawn);
         }
 
         private static GridPosition[] CreateLureLoop()

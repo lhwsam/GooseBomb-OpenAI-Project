@@ -360,6 +360,62 @@ async function main() {
         : frameResponsiveTurnsWaitError,
     });
 
+    let chargerSequenceObserved = false;
+    let chargerSequenceWaitError = null;
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        const names = events
+          .map((event) => typeof event === "string" ? event : event?.name);
+        const telegraphIndex = names.indexOf("charger-telegraph");
+        const chargeIndex = names.indexOf("charger-charge");
+        const movedIndex = names.indexOf("charger-moved");
+        return telegraphIndex >= 0 &&
+          chargeIndex > telegraphIndex &&
+          movedIndex > chargeIndex;
+      }, undefined, { timeout: 10_000 });
+      chargerSequenceObserved = true;
+    } catch (error) {
+      chargerSequenceWaitError = String(error);
+    }
+    checks.push({
+      name: "charger-state-sequence",
+      status: chargerSequenceObserved ? "passed" : "failed",
+      detail: chargerSequenceObserved
+        ? "The final-room charger telegraphed, entered charge, and moved on the logical grid after player direction changes"
+        : chargerSequenceWaitError,
+    });
+
+    let finalRoomRepositionObserved = false;
+    let finalRoomRepositionWaitError = null;
+    const finalRepositionStartIndex = await page.evaluate(() =>
+      Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
+        ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
+        : 0);
+    try {
+      await page.keyboard.down("ArrowLeft");
+      await page.waitForFunction((startIndex) => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        return events.slice(startIndex).filter((event) =>
+          (typeof event === "string" ? event : event?.name) ===
+            "move-step-direction-west").length >= 2;
+      }, finalRepositionStartIndex, { timeout: 5_000 });
+      finalRoomRepositionObserved = true;
+    } catch (error) {
+      finalRoomRepositionWaitError = String(error);
+    } finally {
+      await page.keyboard.up("ArrowLeft");
+    }
+    checks.push({
+      name: "final-room-reposition",
+      status: finalRoomRepositionObserved ? "passed" : "failed",
+      detail: finalRoomRepositionObserved
+        ? "Moved two logical cells west after the first charge to prevent a second aligned contact from masking self-explosion damage"
+        : finalRoomRepositionWaitError,
+    });
+
     let finalRoomExplosionDamageObserved = false;
     let finalRoomExplosionDamageWaitError = null;
     const finalExplosionEventStartIndex = await page.evaluate(() =>
@@ -381,7 +437,7 @@ async function main() {
       name: "final-room-self-explosion",
       status: finalRoomExplosionDamageObserved ? "passed" : "failed",
       detail: finalRoomExplosionDamageObserved
-        ? "A final-room bomb damaged the stationary player after contact invulnerability was no longer timing-coupled to the first-room fuse"
+        ? "A final-room bomb damaged the repositioned stationary player without overlapping charger contact invulnerability"
         : finalRoomExplosionDamageWaitError,
     });
 
@@ -389,7 +445,7 @@ async function main() {
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "place-bomb", "place-bomb-definition-prototype-cross", "active-bomb-slot-1", "place-bomb-definition-prototype-area", "destructible-wall-destroyed", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "charger-telegraph", "charger-charge", "charger-moved", "place-bomb", "place-bomb-definition-prototype-cross", "active-bomb-slot-1", "place-bomb-definition-prototype-area", "destructible-wall-destroyed", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

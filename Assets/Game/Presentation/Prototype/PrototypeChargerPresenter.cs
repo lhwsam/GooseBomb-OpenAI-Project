@@ -5,7 +5,7 @@ using UnityEngine;
 namespace BombSwap
 {
     [DisallowMultipleComponent]
-    public sealed class PrototypeChaserPresenter : MonoBehaviour
+    public sealed class PrototypeChargerPresenter : MonoBehaviour
     {
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -17,7 +17,16 @@ namespace BombSwap
         private Transform presentationRoot;
 
         [SerializeField]
-        private Color deathColor = new Color(1f, 0.08f, 0.03f, 1f);
+        private Color telegraphColor = new Color(1f, 0.82f, 0.08f, 1f);
+
+        [SerializeField]
+        private Color chargeColor = new Color(1f, 0.12f, 0.04f, 1f);
+
+        [SerializeField]
+        private Color recoverColor = new Color(0.42f, 0.46f, 0.5f, 1f);
+
+        [SerializeField]
+        private Color deathColor = new Color(0.14f, 0.02f, 0.02f, 1f);
 
         private GameObject _instance;
         private Renderer _renderer;
@@ -40,11 +49,15 @@ namespace BombSwap
 
         public int MoveCount { get; private set; }
 
+        public int StateChangeCount { get; private set; }
+
         public int DeathCount { get; private set; }
 
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
+
+        public ChargerEnemyState CurrentState { get; private set; }
 
         public Color CurrentColor { get; private set; }
 
@@ -53,7 +66,7 @@ namespace BombSwap
             if (Application.isPlaying && isActiveAndEnabled)
             {
                 throw new InvalidOperationException(
-                    "Disable PrototypeChaserPresenter before changing its runtime configuration.");
+                    "Disable PrototypeChargerPresenter before changing its runtime configuration.");
             }
             if (gameSession == null)
             {
@@ -77,10 +90,10 @@ namespace BombSwap
             if (session == null || presentationRoot == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeChaserPresenter requires session and presentation-root references.");
+                    "PrototypeChargerPresenter requires session and presentation-root references.");
             }
 
-            session.ChaserMoved += OnChaserMoved;
+            session.ChargerAdvanced += OnChargerAdvanced;
             session.EnemyDied += OnEnemyDied;
             session.Ready += OnSessionReady;
             if (session.IsReady)
@@ -93,7 +106,7 @@ namespace BombSwap
         {
             if (session != null)
             {
-                session.ChaserMoved -= OnChaserMoved;
+                session.ChargerAdvanced -= OnChargerAdvanced;
                 session.EnemyDied -= OnEnemyDied;
                 session.Ready -= OnSessionReady;
             }
@@ -126,7 +139,7 @@ namespace BombSwap
                 }
             }
 
-            if (_isShowingDeath && Time.unscaledTime >= _deathEndsAt)
+            if (_isShowingDeath && _instance != null && Time.unscaledTime >= _deathEndsAt)
             {
                 _instance.SetActive(false);
                 _isShowingDeath = false;
@@ -144,43 +157,60 @@ namespace BombSwap
             {
                 return;
             }
+            if (!session.HasCharger)
+            {
+                IsInitialized = true;
+                CurrentState = ChargerEnemyState.Track;
+                return;
+            }
 
-            PrototypeChaserDefinitionAsset definition = session.ChaserDefinition;
+            PrototypeChargerDefinitionAsset definition = session.ChargerDefinition;
             definition.ValidatePresentationReferences();
-            _instance = Instantiate(definition.ChaserPrefab, presentationRoot);
-            _instance.name = "PrototypeChaserVisual";
+            _instance = Instantiate(definition.ChargerPrefab, presentationRoot);
+            _instance.name = "PrototypeChargerVisual";
             _renderer = _instance.GetComponentInChildren<Renderer>(true);
             InitializeColor();
-            _visualDuration = 1f / definition.CellsPerSecond;
-            _visualTarget = ToPresentationPosition(session.CurrentChaserGridPosition);
+            _visualDuration = 1f / definition.ChargeCellsPerSecond;
+            _visualTarget = ToPresentationPosition(session.CurrentChargerGridPosition);
             _visualStart = _visualTarget;
             _instance.transform.position = _visualTarget;
-            _instance.SetActive(session.IsChaserAlive);
+            _instance.SetActive(session.IsChargerAlive);
+            CurrentState = session.CurrentChargerState;
+            ApplyStateColor(CurrentState);
             IsInitialized = true;
         }
 
-        private void OnChaserMoved(EnemyMovementStep step)
+        private void OnChargerAdvanced(ChargerEnemyAdvanceResult result)
         {
             if (!IsInitialized)
             {
                 InitializePresentation();
             }
-            if (step.ActorId != session.ChaserActorId)
+            if (result.ActorId != session.ChargerActorId)
             {
                 throw new InvalidOperationException(
-                    "Prototype chaser presenter received another actor's movement.");
+                    "Prototype charger presenter received another actor's update.");
             }
 
-            MoveCount++;
-            _visualStart = _instance.transform.position;
-            _visualTarget = ToPresentationPosition(step.To);
-            _visualElapsed = 0f;
-            _isInterpolating = true;
+            if (result.HasStateTransition)
+            {
+                StateChangeCount++;
+                CurrentState = result.State;
+                ApplyStateColor(CurrentState);
+            }
+            if (result.HasMovement)
+            {
+                MoveCount++;
+                _visualStart = _instance.transform.position;
+                _visualTarget = ToPresentationPosition(result.Movement.To);
+                _visualElapsed = 0f;
+                _isInterpolating = true;
+            }
         }
 
         private void OnEnemyDied(EnemyDamageResult damage)
         {
-            if (damage.ActorId != session.ChaserActorId)
+            if (!session.HasCharger || damage.ActorId != session.ChargerActorId)
             {
                 return;
             }
@@ -192,7 +222,7 @@ namespace BombSwap
             DeathCount++;
             _isInterpolating = false;
             ApplyColor(deathColor);
-            _deathEndsAt = Time.unscaledTime + session.ChaserDefinition.DeathVisualSeconds;
+            _deathEndsAt = Time.unscaledTime + session.ChargerDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
         }
 
@@ -206,7 +236,7 @@ namespace BombSwap
             Material material = _renderer.sharedMaterial;
             if (material == null)
             {
-                throw new InvalidOperationException("Chaser prefab renderer requires a material.");
+                throw new InvalidOperationException("Charger prefab renderer requires a material.");
             }
             if (material.HasProperty(BaseColorId))
             {
@@ -219,11 +249,32 @@ namespace BombSwap
             else
             {
                 throw new InvalidOperationException(
-                    "Chaser material requires a supported color property.");
+                    "Charger material requires a supported color property.");
             }
 
             _normalColor = material.GetColor(_colorPropertyId);
             CurrentColor = _normalColor;
+        }
+
+        private void ApplyStateColor(ChargerEnemyState state)
+        {
+            switch (state)
+            {
+                case ChargerEnemyState.Track:
+                    ApplyColor(_normalColor);
+                    break;
+                case ChargerEnemyState.Telegraph:
+                    ApplyColor(telegraphColor);
+                    break;
+                case ChargerEnemyState.Charge:
+                    ApplyColor(chargeColor);
+                    break;
+                case ChargerEnemyState.Recover:
+                    ApplyColor(recoverColor);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
+            }
         }
 
         private void ApplyColor(Color color)
@@ -237,7 +288,7 @@ namespace BombSwap
         private Vector3 ToPresentationPosition(GridPosition position)
         {
             return session.GridSpace.GridToWorld(position) +
-                (Vector3.up * session.ChaserDefinition.VisualHeight);
+                (Vector3.up * session.ChargerDefinition.VisualHeight);
         }
     }
 }
