@@ -18,6 +18,8 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _explosionPrefab;
         private GameObject _chaserPrefab;
         private PrototypeBombDefinitionAsset _definition;
+        private PrototypeBombDefinitionAsset _quickDefinition;
+        private PrototypeBombLoadoutAsset _loadout;
         private PrototypePlayerVitalsAsset _vitals;
         private PrototypeChaserDefinitionAsset _chaserDefinition;
         private PrototypeCombatRoomDefinitionAsset _roomDefinition;
@@ -29,6 +31,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeInputHarnessProbe _probe;
         private PrototypePlayerHealthPresenter _healthPresenter;
         private PrototypeChaserPresenter _chaserPresenter;
+        private PrototypeWeaponHud _weaponHud;
         private PrototypeRoomAdvanceController _roomAdvanceController;
         private Transform _player;
 
@@ -54,6 +57,14 @@ namespace BombSwap.Tests.PlayMode
             if (_definition != null)
             {
                 Object.DestroyImmediate(_definition);
+            }
+            if (_quickDefinition != null)
+            {
+                Object.DestroyImmediate(_quickDefinition);
+            }
+            if (_loadout != null)
+            {
+                Object.DestroyImmediate(_loadout);
             }
             if (_vitals != null)
             {
@@ -291,6 +302,69 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_session.CurrentGridPosition, Is.EqualTo(north));
             Assert.That(_player.position.z, Is.GreaterThanOrEqualTo(0.5f));
+        }
+
+        [UnityTest]
+        public IEnumerator SwapInput_SelectsSecondDefinitionAndKeepsSlotCooldownsIndependent()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 2f,
+                placementCooldownSeconds: 1f,
+                quickPlacementCooldownSeconds: 0.5f,
+                swapCooldownSeconds: 0.05f);
+            var placed = new List<BombSnapshot>();
+            _session.BombPlaced += snapshot => placed.Add(snapshot);
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            QueueKeyboardState(Key.W);
+            yield return new WaitForSecondsRealtime(0.12f);
+            QueueKeyboardState();
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
+            Assert.That(placed, Has.Count.EqualTo(2));
+            Assert.That(placed[0].DefinitionId.Value, Is.EqualTo("test-cross"));
+            Assert.That(placed[1].DefinitionId.Value, Is.EqualTo("test-quick-cross"));
+            Assert.That(_session.GetBombSlot(0).IsReady, Is.False);
+            Assert.That(_session.GetBombSlot(1).IsReady, Is.False);
+
+            PressAndRelease(Key.X);
+            Assert.That(
+                _session.ActiveBombSlotIndex,
+                Is.EqualTo(1),
+                "Swap cooldown must reject an immediate second swap.");
+
+            yield return new WaitForSecondsRealtime(0.06f);
+            PressAndRelease(Key.X);
+            Assert.That(_session.ActiveBombSlotIndex, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponHud_ReflectsSuccessfulSwapAndCoreCooldownSnapshots()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeWeaponHud: true,
+                placementCooldownSeconds: 0.5f,
+                swapCooldownSeconds: 0.05f);
+            yield return null;
+
+            Assert.That(_weaponHud.IsInitialized, Is.True);
+            Assert.That(_weaponHud.DisplayedActiveSlotIndex, Is.Zero);
+            Assert.That(_weaponHud.FirstSlotReadyFraction, Is.EqualTo(1f));
+
+            PressAndRelease(Key.Z);
+            PressAndRelease(Key.X);
+            yield return null;
+
+            Assert.That(_weaponHud.DisplayedActiveSlotIndex, Is.EqualTo(1));
+            Assert.That(_weaponHud.FirstSlotReadyFraction, Is.LessThan(1f));
+            Assert.That(_weaponHud.SecondSlotReadyFraction, Is.EqualTo(1f));
         }
 
         [UnityTest]
@@ -632,8 +706,12 @@ namespace BombSwap.Tests.PlayMode
             bool includePresenter = false,
             bool includeHealthPresenter = false,
             bool includeChaserPresenter = false,
+            bool includeWeaponHud = false,
             float fuseSeconds = 1f,
             float explosionVisualSeconds = 0.25f,
+            float placementCooldownSeconds = 0.01f,
+            float quickPlacementCooldownSeconds = 0.01f,
+            float swapCooldownSeconds = 0.05f,
             int maxHealth = 5,
             float invulnerabilitySeconds = 0.75f,
             float healthDamagePulseSeconds = PrototypePlayerHealthPresenter.DefaultDamagePulseSeconds,
@@ -658,7 +736,19 @@ namespace BombSwap.Tests.PlayMode
                 1,
                 _bombPrefab,
                 _explosionPrefab,
-                explosionVisualSeconds);
+                explosionVisualSeconds,
+                placementCooldownSeconds);
+            _quickDefinition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+            _quickDefinition.Configure(
+                "test-quick-cross",
+                fuseSeconds,
+                1,
+                _bombPrefab,
+                _explosionPrefab,
+                explosionVisualSeconds,
+                quickPlacementCooldownSeconds);
+            _loadout = ScriptableObject.CreateInstance<PrototypeBombLoadoutAsset>();
+            _loadout.Configure(_definition, _quickDefinition, swapCooldownSeconds);
             _vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();
             _vitals.Configure(maxHealth, invulnerabilitySeconds);
 
@@ -769,7 +859,7 @@ namespace BombSwap.Tests.PlayMode
             _session.Configure(
                 context,
                 reader,
-                _definition,
+                _loadout,
                 _vitals,
                 _chaserDefinition,
                 10f,
@@ -793,6 +883,11 @@ namespace BombSwap.Tests.PlayMode
             {
                 _chaserPresenter = _root.AddComponent<PrototypeChaserPresenter>();
                 _chaserPresenter.Configure(_session, presentationRoot);
+            }
+            if (includeWeaponHud)
+            {
+                _weaponHud = _root.AddComponent<PrototypeWeaponHud>();
+                _weaponHud.Configure(_session);
             }
             if (includeProbe)
             {

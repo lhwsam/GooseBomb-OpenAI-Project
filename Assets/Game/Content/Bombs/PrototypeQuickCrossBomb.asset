@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 84230d018447ddb43bfc80534091f13a, type: 3}
-  m_Name: PrototypeCrossBomb
+  m_Name: PrototypeQuickCrossBomb
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
-  definitionId: prototype-cross
-  fuseSeconds: 2
-  range: 2
-  placementCooldownSeconds: 1.5
-  bombPrefab: {fileID: 4025302524595529602, guid: 253e26d9658a6184393ba37d8fd6353f, type: 3}
-  explosionCellPrefab: {fileID: 1087797100682047269, guid: 91d074b05497e524dbeede344a16e527, type: 3}
-  explosionVisualSeconds: 0.25
+  definitionId: prototype-quick-cross
+  fuseSeconds: 1.25
+  range: 1
+  placementCooldownSeconds: 0.75
+  bombPrefab: {fileID: 4881710887516138335, guid: 695ef045b9e796b44a4bb7a6ba76d118, type: 3}
+  explosionCellPrefab: {fileID: 2383736298994987993, guid: 5c33869c50cd4504eb5017b33378f13f, type: 3}
+  explosionVisualSeconds: 0.2

@@ -77,6 +77,7 @@ namespace BombSwap
             session.PlayerPositionChanged += OnPlayerPositionChanged;
             session.BombPlaced += OnBombPlaced;
             session.BombExploded += OnBombExploded;
+            session.ActiveBombSlotChanged += OnActiveBombSlotChanged;
             session.PlayerDamaged += OnPlayerDamaged;
             session.ChaserMoved += OnChaserMoved;
             session.EnemyDied += OnEnemyDied;
@@ -101,6 +102,7 @@ namespace BombSwap
                 session.PlayerPositionChanged -= OnPlayerPositionChanged;
                 session.BombPlaced -= OnBombPlaced;
                 session.BombExploded -= OnBombExploded;
+                session.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
                 session.PlayerDamaged -= OnPlayerDamaged;
                 session.ChaserMoved -= OnChaserMoved;
                 session.EnemyDied -= OnEnemyDied;
@@ -162,6 +164,7 @@ namespace BombSwap
 
         private void OnBombPlaced(BombSnapshot snapshot)
         {
+            WebGlHarnessReporter.Report("place-bomb-definition-" + snapshot.DefinitionId.Value);
             if (_placeBombReported)
             {
                 return;
@@ -169,6 +172,11 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("place-bomb");
             _placeBombReported = true;
+        }
+
+        private static void OnActiveBombSlotChanged(int slotIndex)
+        {
+            WebGlHarnessReporter.Report("active-bomb-slot-" + slotIndex);
         }
 
         private void OnBombExploded(BombExplosion explosion)

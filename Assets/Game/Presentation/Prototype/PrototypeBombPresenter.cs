@@ -23,10 +23,12 @@ namespace BombSwap
         [SerializeField]
         private int explosionPoolSize = DefaultExplosionPoolSize;
 
-        private readonly Dictionary<BombId, GameObject> _activeBombs =
-            new Dictionary<BombId, GameObject>();
-        private readonly Stack<GameObject> _availableBombs = new Stack<GameObject>();
-        private readonly Stack<GameObject> _availableExplosions = new Stack<GameObject>();
+        private readonly Dictionary<BombId, ActiveBombVisual> _activeBombs =
+            new Dictionary<BombId, ActiveBombVisual>();
+        private readonly Dictionary<BombDefinitionId, Stack<GameObject>> _availableBombs =
+            new Dictionary<BombDefinitionId, Stack<GameObject>>();
+        private readonly Dictionary<BombDefinitionId, Stack<GameObject>> _availableExplosions =
+            new Dictionary<BombDefinitionId, Stack<GameObject>>();
         private readonly List<TimedExplosionVisual> _activeExplosions =
             new List<TimedExplosionVisual>();
         private bool _initialized;
@@ -127,7 +129,7 @@ namespace BombSwap
                 }
 
                 visual.Instance.SetActive(false);
-                _availableExplosions.Push(visual.Instance);
+                GetExplosionPool(visual.DefinitionId).Push(visual.Instance);
                 _activeExplosions.RemoveAt(index);
             }
         }
@@ -144,16 +146,22 @@ namespace BombSwap
                 return;
             }
 
-            PrototypeBombDefinitionAsset definition = session.BombDefinition;
-            definition.ValidatePresentationReferences();
-            for (int index = 0; index < bombPoolSize; index++)
+            for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
             {
-                _availableBombs.Push(CreatePooledInstance(definition.BombPrefab, "BombVisual"));
-            }
-            for (int index = 0; index < explosionPoolSize; index++)
-            {
-                _availableExplosions.Push(
-                    CreatePooledInstance(definition.ExplosionCellPrefab, "ExplosionCellVisual"));
+                PrototypeBombDefinitionAsset definition = session.BombLoadout.GetSlot(slotIndex);
+                definition.ValidatePresentationReferences();
+                BombDefinitionId definitionId = new BombDefinitionId(definition.DefinitionId);
+                Stack<GameObject> bombPool = GetBombPool(definitionId);
+                Stack<GameObject> explosionPool = GetExplosionPool(definitionId);
+                for (int index = 0; index < bombPoolSize; index++)
+                {
+                    bombPool.Push(CreatePooledInstance(definition.BombPrefab, "BombVisual"));
+                }
+                for (int index = 0; index < explosionPoolSize; index++)
+                {
+                    explosionPool.Push(
+                        CreatePooledInstance(definition.ExplosionCellPrefab, "ExplosionCellVisual"));
+                }
             }
 
             _initialized = true;
@@ -167,47 +175,82 @@ namespace BombSwap
                 throw new InvalidOperationException($"Bomb {snapshot.Id} already has a visual.");
             }
 
-            GameObject instance = AcquireBomb();
+            PrototypeBombDefinitionAsset definition =
+                session.GetBombDefinition(snapshot.DefinitionId);
+            GameObject instance = AcquireBomb(snapshot.DefinitionId, definition);
             instance.transform.position = session.GridSpace.GridToWorld(snapshot.Position);
             instance.SetActive(true);
-            _activeBombs.Add(snapshot.Id, instance);
+            _activeBombs.Add(
+                snapshot.Id,
+                new ActiveBombVisual(instance, snapshot.DefinitionId));
         }
 
         private void OnBombExploded(BombExplosion explosion)
         {
-            if (_activeBombs.TryGetValue(explosion.BombId, out GameObject bombVisual))
+            if (_activeBombs.TryGetValue(
+                    explosion.BombId,
+                    out ActiveBombVisual bombVisual))
             {
                 _activeBombs.Remove(explosion.BombId);
-                bombVisual.SetActive(false);
-                _availableBombs.Push(bombVisual);
+                bombVisual.Instance.SetActive(false);
+                GetBombPool(bombVisual.DefinitionId).Push(bombVisual.Instance);
             }
 
+            PrototypeBombDefinitionAsset definition =
+                session.GetBombDefinition(explosion.DefinitionId);
             for (int index = 0; index < explosion.AffectedCells.Count; index++)
             {
-                GameObject instance = AcquireExplosion();
+                GameObject instance = AcquireExplosion(explosion.DefinitionId, definition);
                 instance.transform.position = session.GridSpace.GridToWorld(
                     explosion.AffectedCells[index]);
                 instance.SetActive(true);
                 _activeExplosions.Add(new TimedExplosionVisual(
                     instance,
-                    session.BombDefinition.ExplosionVisualSeconds));
+                    explosion.DefinitionId,
+                    definition.ExplosionVisualSeconds));
             }
         }
 
-        private GameObject AcquireBomb()
+        private GameObject AcquireBomb(
+            BombDefinitionId definitionId,
+            PrototypeBombDefinitionAsset definition)
         {
-            return _availableBombs.Count > 0
-                ? _availableBombs.Pop()
-                : CreatePooledInstance(session.BombDefinition.BombPrefab, "BombVisual");
+            Stack<GameObject> pool = GetBombPool(definitionId);
+            return pool.Count > 0
+                ? pool.Pop()
+                : CreatePooledInstance(definition.BombPrefab, "BombVisual");
         }
 
-        private GameObject AcquireExplosion()
+        private GameObject AcquireExplosion(
+            BombDefinitionId definitionId,
+            PrototypeBombDefinitionAsset definition)
         {
-            return _availableExplosions.Count > 0
-                ? _availableExplosions.Pop()
-                : CreatePooledInstance(
-                    session.BombDefinition.ExplosionCellPrefab,
-                    "ExplosionCellVisual");
+            Stack<GameObject> pool = GetExplosionPool(definitionId);
+            return pool.Count > 0
+                ? pool.Pop()
+                : CreatePooledInstance(definition.ExplosionCellPrefab, "ExplosionCellVisual");
+        }
+
+        private Stack<GameObject> GetBombPool(BombDefinitionId definitionId)
+        {
+            if (!_availableBombs.TryGetValue(definitionId, out Stack<GameObject> pool))
+            {
+                pool = new Stack<GameObject>();
+                _availableBombs.Add(definitionId, pool);
+            }
+
+            return pool;
+        }
+
+        private Stack<GameObject> GetExplosionPool(BombDefinitionId definitionId)
+        {
+            if (!_availableExplosions.TryGetValue(definitionId, out Stack<GameObject> pool))
+            {
+                pool = new Stack<GameObject>();
+                _availableExplosions.Add(definitionId, pool);
+            }
+
+            return pool;
         }
 
         private GameObject CreatePooledInstance(GameObject prefab, string instanceName)
@@ -218,15 +261,34 @@ namespace BombSwap
             return instance;
         }
 
-        private struct TimedExplosionVisual
+        private readonly struct ActiveBombVisual
         {
-            public TimedExplosionVisual(GameObject instance, float remainingSeconds)
+            public ActiveBombVisual(GameObject instance, BombDefinitionId definitionId)
             {
                 Instance = instance;
+                DefinitionId = definitionId;
+            }
+
+            public GameObject Instance { get; }
+
+            public BombDefinitionId DefinitionId { get; }
+        }
+
+        private struct TimedExplosionVisual
+        {
+            public TimedExplosionVisual(
+                GameObject instance,
+                BombDefinitionId definitionId,
+                float remainingSeconds)
+            {
+                Instance = instance;
+                DefinitionId = definitionId;
                 RemainingSeconds = remainingSeconds;
             }
 
             public GameObject Instance { get; }
+
+            public BombDefinitionId DefinitionId { get; }
 
             public float RemainingSeconds { get; set; }
         }

@@ -30,6 +30,10 @@ namespace BombSwap.Editor.ContentValidation
             InputActionAsset inputActions = CreateInputActionsIfMissing();
             PrototypeBombDefinitionAsset bombDefinition =
                 CreatePrototypeBombContentIfMissing();
+            PrototypeBombDefinitionAsset quickBombDefinition =
+                CreatePrototypeQuickBombContentIfMissing();
+            PrototypeBombLoadoutAsset bombLoadout =
+                CreatePrototypeBombLoadoutIfMissing(bombDefinition, quickBombDefinition);
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
                 CreatePrototypeChaserContentIfMissing();
@@ -37,21 +41,21 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeCombatRoomContentIfMissing();
             bool sceneCreated = EnsureTestSandbox(
                 inputActions,
-                bombDefinition,
+                bombLoadout,
                 playerVitals,
                 chaserDefinition,
                 roomDefinitions[0],
                 "TestSandboxLanes");
             bool lanesSceneCreated = EnsurePlaytestRoomVariant(
                 PrototypeContentValidator.TestSandboxLanesScenePath,
-                bombDefinition,
+                bombLoadout,
                 playerVitals,
                 chaserDefinition,
                 roomDefinitions[1],
                 "TestSandboxPillars");
             bool pillarsSceneCreated = EnsurePlaytestRoomVariant(
                 PrototypeContentValidator.TestSandboxPillarsScenePath,
-                bombDefinition,
+                bombLoadout,
                 playerVitals,
                 chaserDefinition,
                 roomDefinitions[2],
@@ -194,6 +198,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBombDefinitionPath);
             if (definition != null)
             {
+                EditorUtility.SetDirty(definition);
                 return definition;
             }
 
@@ -205,11 +210,97 @@ namespace BombSwap.Editor.ContentValidation
                 2,
                 bombPrefab,
                 explosionPrefab,
-                0.25f);
+                0.25f,
+                1.5f);
             AssetDatabase.CreateAsset(
                 definition,
                 PrototypeContentValidator.PrototypeBombDefinitionPath);
             return definition;
+        }
+
+        private static PrototypeBombDefinitionAsset CreatePrototypeQuickBombContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+            Material bombMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/QuickBomb.mat",
+                shader,
+                new Color(0.05f, 0.48f, 0.9f, 1f));
+            Material explosionMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/QuickExplosion.mat",
+                shader,
+                new Color(0.05f, 0.75f, 1f, 1f));
+            if (explosionMaterial.HasProperty("_EmissionColor"))
+            {
+                explosionMaterial.EnableKeyword("_EMISSION");
+                explosionMaterial.SetColor("_EmissionColor", new Color(0f, 0.4f, 1f, 1f));
+                EditorUtility.SetDirty(explosionMaterial);
+            }
+
+            GameObject bombPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.QuickBombPrefabPath,
+                "QuickBombPlaceholder",
+                PrimitiveType.Sphere,
+                new Vector3(0f, 0.27f, 0f),
+                new Vector3(0.48f, 0.48f, 0.48f),
+                bombMaterial);
+            GameObject explosionPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.QuickExplosionCellPrefabPath,
+                "QuickExplosionCellPlaceholder",
+                PrimitiveType.Cube,
+                new Vector3(0f, 0.06f, 0f),
+                new Vector3(0.82f, 0.12f, 0.82f),
+                explosionMaterial);
+
+            PrototypeBombDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeQuickBombDefinitionPath);
+            if (definition != null)
+            {
+                return definition;
+            }
+
+            definition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+            definition.name = "PrototypeQuickCrossBomb";
+            definition.Configure(
+                "prototype-quick-cross",
+                1.25f,
+                1,
+                bombPrefab,
+                explosionPrefab,
+                0.2f,
+                0.75f);
+            AssetDatabase.CreateAsset(
+                definition,
+                PrototypeContentValidator.PrototypeQuickBombDefinitionPath);
+            return definition;
+        }
+
+        private static PrototypeBombLoadoutAsset CreatePrototypeBombLoadoutIfMissing(
+            PrototypeBombDefinitionAsset firstSlot,
+            PrototypeBombDefinitionAsset secondSlot)
+        {
+            PrototypeBombLoadoutAsset loadout =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
+                    PrototypeContentValidator.PrototypeBombLoadoutPath);
+            if (loadout == null)
+            {
+                loadout = ScriptableObject.CreateInstance<PrototypeBombLoadoutAsset>();
+                loadout.name = "PrototypeBombLoadout";
+                AssetDatabase.CreateAsset(
+                    loadout,
+                    PrototypeContentValidator.PrototypeBombLoadoutPath);
+            }
+
+            loadout.Configure(firstSlot, secondSlot, 2f);
+            EditorUtility.SetDirty(loadout);
+            return loadout;
         }
 
         private static PrototypePlayerVitalsAsset CreatePrototypePlayerVitalsIfMissing()
@@ -466,7 +557,7 @@ namespace BombSwap.Editor.ContentValidation
 
         private static bool EnsureTestSandbox(
             InputActionAsset inputActions,
-            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
@@ -476,7 +567,7 @@ namespace BombSwap.Editor.ContentValidation
             {
                 CreateTestSandbox(
                     inputActions,
-                    bombDefinition,
+                    bombLoadout,
                     playerVitals,
                     chaserDefinition,
                     roomDefinition,
@@ -497,7 +588,7 @@ namespace BombSwap.Editor.ContentValidation
             {
                 UpgradeTestSandbox(
                     scene,
-                    bombDefinition,
+                    bombLoadout,
                     playerVitals,
                     chaserDefinition,
                     roomDefinition,
@@ -521,7 +612,7 @@ namespace BombSwap.Editor.ContentValidation
 
         private static bool EnsurePlaytestRoomVariant(
             string scenePath,
-            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
@@ -552,7 +643,7 @@ namespace BombSwap.Editor.ContentValidation
             {
                 UpgradeTestSandbox(
                     scene,
-                    bombDefinition,
+                    bombLoadout,
                     playerVitals,
                     chaserDefinition,
                     roomDefinition,
@@ -577,7 +668,7 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void CreateTestSandbox(
             InputActionAsset inputActions,
-            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
@@ -624,6 +715,7 @@ namespace BombSwap.Editor.ContentValidation
                 systems.AddComponent<PrototypePlayerHealthPresenter>();
             PrototypeChaserPresenter chaserPresenter =
                 systems.AddComponent<PrototypeChaserPresenter>();
+            PrototypeWeaponHud weaponHud = systems.AddComponent<PrototypeWeaponHud>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
             PrototypeRoomAdvanceController roomAdvanceController =
                 systems.AddComponent<PrototypeRoomAdvanceController>();
@@ -728,13 +820,14 @@ namespace BombSwap.Editor.ContentValidation
             gameSession.Configure(
                 context,
                 inputReader,
-                bombDefinition,
+                bombLoadout,
                 playerVitals,
                 chaserDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
+            weaponHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
             systems.SetActive(true);
@@ -749,7 +842,7 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void UpgradeTestSandbox(
             Scene scene,
-            PrototypeBombDefinitionAsset bombDefinition,
+            PrototypeBombLoadoutAsset bombLoadout,
             PrototypePlayerVitalsAsset playerVitals,
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
@@ -782,6 +875,11 @@ namespace BombSwap.Editor.ContentValidation
             if (chaserPresenter == null)
             {
                 chaserPresenter = systems.AddComponent<PrototypeChaserPresenter>();
+            }
+            PrototypeWeaponHud weaponHud = systems.GetComponent<PrototypeWeaponHud>();
+            if (weaponHud == null)
+            {
+                weaponHud = systems.AddComponent<PrototypeWeaponHud>();
             }
             PrototypeRoomAdvanceController roomAdvanceController =
                 systems.GetComponent<PrototypeRoomAdvanceController>();
@@ -827,13 +925,14 @@ namespace BombSwap.Editor.ContentValidation
             gameSession.Configure(
                 context,
                 inputReader,
-                bombDefinition,
+                bombLoadout,
                 playerVitals,
                 chaserDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
+            weaponHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
             EditorUtility.SetDirty(context);
@@ -842,6 +941,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(bombPresenter);
             EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(chaserPresenter);
+            EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);
             EditorUtility.SetDirty(roomAdvanceController);
         }

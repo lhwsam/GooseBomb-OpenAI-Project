@@ -185,19 +185,42 @@ async function main() {
       firstBombExplosionWaitError = String(error);
     }
 
-    for (const key of ["KeyX", "Escape", "Escape"]) {
+    await page.keyboard.press("KeyX");
+    let secondSlotObserved = false;
+    let secondSlotWaitError = null;
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) === "active-bomb-slot-1");
+      }, undefined, { timeout: 5_000 });
+      await page.keyboard.press("KeyZ");
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) ===
+            "place-bomb-definition-prototype-quick-cross");
+      }, undefined, { timeout: 5_000 });
+      secondSlotObserved = true;
+    } catch (error) {
+      secondSlotWaitError = String(error);
+    }
+    for (const key of ["Escape", "Escape"]) {
       await page.keyboard.press(key);
     }
     checks.push({
       name: "keyboard-input",
-      status: moveObserved && contactObserved && contactEscapeObserved && firstBombExplosionObserved ? "passed" : "failed",
-      detail: moveObserved && contactObserved && contactEscapeObserved && firstBombExplosionObserved
-        ? "W held until Core move, Z placed a bomb, A escaped contact, and the first bomb exploded; X and Escape twice dispatched"
+      status: moveObserved && contactObserved && contactEscapeObserved &&
+        firstBombExplosionObserved && secondSlotObserved ? "passed" : "failed",
+      detail: moveObserved && contactObserved && contactEscapeObserved &&
+        firstBombExplosionObserved && secondSlotObserved
+        ? "W moved, Z placed the first definition, A escaped contact, X changed the Core slot, and Z placed the quick definition before pause/resume"
         : {
             moveWaitError,
             contactWaitError,
             contactEscapeWaitError,
             firstBombExplosionWaitError,
+            secondSlotWaitError,
           },
     });
 
@@ -311,7 +334,7 @@ async function main() {
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "place-bomb", "place-bomb-definition-prototype-cross", "active-bomb-slot-1", "place-bomb-definition-prototype-quick-cross", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;
