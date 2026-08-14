@@ -84,9 +84,12 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 
 ## 랜덤과 재현
 
-- 던전 생성과 콘텐츠 선택은 명시적 run seed를 받는다.
+- `DungeonGenerator`는 명시적 `int` run seed와 `DungeonGenerationDefinition`만 받아 `prototype-tree-v1` 논리 그래프를 만든다. 동일 버전·정의·seed의 방 타입, ID, 좌표와 연결은 동일하다.
+- 고정 정수 seed 혼합·LCG·곱셈 범위 변환과 유한 후보 배치를 사용하며, 전역 랜덤·시간·호출 순서를 읽지 않는다.
+- 생성 결과는 read-only `DungeonGraph`가 소유한다. 현재 TestSandbox 씬 전환은 아직 이 그래프를 소비하지 않으므로 한 층 런타임 재현까지 완료된 것은 아니다.
+- 후속 콘텐츠 선택도 같은 run seed에서 분리된 결정적 흐름을 받아야 하며, topology RNG 호출 순서와 결합해 한 선택 추가가 전체 그래프를 조용히 바꾸지 않게 설계한다.
 - Core에서 `UnityEngine.Random`을 사용하지 않는다.
-- seed, 게임 정의 버전, 필요 최소한의 명령 로그로 실패 상황을 재현할 수 있어야 한다.
+- seed, 생성 버전, 게임 정의 버전, 필요 최소한의 명령 로그로 실패 상황을 재현할 수 있어야 한다.
 - 시각적 파티클 랜덤은 규칙 결과에 영향을 주지 않는 한 재현 대상이 아니다.
 
 ## 오류 경계
