@@ -208,22 +208,72 @@ async function main() {
     } finally {
       await page.keyboard.up("KeyW");
     }
-    for (const key of ["KeyZ", "KeyX", "Escape", "Escape"]) {
+    await page.keyboard.press("KeyZ");
+
+    let contactObserved = false;
+    let contactWaitError = null;
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) === "player-contact-damaged");
+      }, undefined, { timeout: 30_000 });
+      contactObserved = true;
+    } catch (error) {
+      contactWaitError = String(error);
+    }
+
+    let contactEscapeObserved = false;
+    let contactEscapeWaitError = null;
+    await page.keyboard.down("KeyA");
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) === "contact-escape-moved");
+      }, undefined, { timeout: 30_000 });
+      contactEscapeObserved = true;
+    } catch (error) {
+      contactEscapeWaitError = String(error);
+    } finally {
+      await page.keyboard.up("KeyA");
+    }
+
+    let explosionDamageObserved = false;
+    let explosionDamageWaitError = null;
+    try {
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) === "player-explosion-damaged");
+      }, undefined, { timeout: 30_000 });
+      explosionDamageObserved = true;
+      await page.keyboard.press("KeyZ");
+    } catch (error) {
+      explosionDamageWaitError = String(error);
+    }
+
+    for (const key of ["KeyX", "Escape", "Escape"]) {
       await page.keyboard.press(key);
     }
     checks.push({
       name: "keyboard-input",
-      status: moveObserved ? "passed" : "failed",
-      detail: moveObserved
-        ? "W held until Core move event, then Z, X, Escape twice dispatched"
-        : `W produced no Core move event before timeout; remaining keys dispatched. ${moveWaitError}`,
+      status: moveObserved && contactObserved && contactEscapeObserved && explosionDamageObserved ? "passed" : "failed",
+      detail: moveObserved && contactObserved && contactEscapeObserved && explosionDamageObserved
+        ? "W held until Core move, Z placed a bomb, A escaped contact, then Z retried after self-explosion; X and Escape twice dispatched"
+        : {
+            moveWaitError,
+            contactWaitError,
+            contactEscapeWaitError,
+            explosionDamageWaitError,
+          },
     });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["move", "chaser-moved", "place-bomb", "bomb-exploded", "player-damaged", "enemy-died", "room-cleared", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["move", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

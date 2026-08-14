@@ -63,22 +63,16 @@ namespace BombSwap.Core
             {
                 throw new ArgumentException("Explosion ID must be valid.", nameof(explosionId));
             }
-            if (damage <= 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(damage),
-                    damage,
-                    "Damage must be positive.");
-            }
+            ValidateDamage(damage);
 
             TimeSpan now = clock.Now;
-            EnsureClockDidNotMoveBackwards(now);
-            lastObservedTime = now;
-
+            ObserveTime(now);
             if (IsDead)
             {
                 return CreateIgnoredResult(
+                    PlayerDamageSourceKind.Explosion,
                     explosionId,
+                    default,
                     damage,
                     now,
                     PlayerDamageStatus.IgnoredDead);
@@ -86,15 +80,71 @@ namespace BombSwap.Core
             if (!processedExplosionIds.Add(explosionId))
             {
                 return CreateIgnoredResult(
+                    PlayerDamageSourceKind.Explosion,
                     explosionId,
+                    default,
                     damage,
                     now,
                     PlayerDamageStatus.IgnoredDuplicateExplosion);
             }
+            return ApplyDamage(
+                PlayerDamageSourceKind.Explosion,
+                explosionId,
+                default,
+                damage,
+                now);
+        }
+
+        public PlayerDamageResult ApplyContactDamage(ActorId sourceActorId, int damage)
+        {
+            if (!sourceActorId.IsValid)
+            {
+                throw new ArgumentException(
+                    "Contact damage source actor ID must be valid.",
+                    nameof(sourceActorId));
+            }
+            if (sourceActorId == ActorId)
+            {
+                throw new ArgumentException(
+                    "Player cannot be the source of enemy contact damage.",
+                    nameof(sourceActorId));
+            }
+            ValidateDamage(damage);
+
+            TimeSpan now = clock.Now;
+            ObserveTime(now);
+            if (IsDead)
+            {
+                return CreateIgnoredResult(
+                    PlayerDamageSourceKind.EnemyContact,
+                    default,
+                    sourceActorId,
+                    damage,
+                    now,
+                    PlayerDamageStatus.IgnoredDead);
+            }
+
+            return ApplyDamage(
+                PlayerDamageSourceKind.EnemyContact,
+                default,
+                sourceActorId,
+                damage,
+                now);
+        }
+
+        private PlayerDamageResult ApplyDamage(
+            PlayerDamageSourceKind sourceKind,
+            BombId explosionId,
+            ActorId sourceActorId,
+            int damage,
+            TimeSpan now)
+        {
             if (now < InvulnerableUntil)
             {
                 return CreateIgnoredResult(
+                    sourceKind,
                     explosionId,
+                    sourceActorId,
                     damage,
                     now,
                     PlayerDamageStatus.IgnoredInvulnerable);
@@ -104,7 +154,9 @@ namespace BombSwap.Core
             CurrentHealth = Math.Max(0, CurrentHealth - damage);
             InvulnerableUntil = AddWithSaturation(now, Definition.InvulnerabilityDuration);
             return new PlayerDamageResult(
+                sourceKind,
                 explosionId,
+                sourceActorId,
                 damage,
                 previousHealth,
                 CurrentHealth,
@@ -114,19 +166,40 @@ namespace BombSwap.Core
         }
 
         private PlayerDamageResult CreateIgnoredResult(
+            PlayerDamageSourceKind sourceKind,
             BombId explosionId,
+            ActorId sourceActorId,
             int damage,
             TimeSpan now,
             PlayerDamageStatus status)
         {
             return new PlayerDamageResult(
+                sourceKind,
                 explosionId,
+                sourceActorId,
                 damage,
                 CurrentHealth,
                 CurrentHealth,
                 now,
                 InvulnerableUntil,
                 status);
+        }
+
+        private void ObserveTime(TimeSpan now)
+        {
+            EnsureClockDidNotMoveBackwards(now);
+            lastObservedTime = now;
+        }
+
+        private static void ValidateDamage(int damage)
+        {
+            if (damage <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(damage),
+                    damage,
+                    "Damage must be positive.");
+            }
         }
 
         private void EnsureClockDidNotMoveBackwards(TimeSpan now)

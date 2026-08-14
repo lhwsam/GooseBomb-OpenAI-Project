@@ -7,6 +7,7 @@ namespace BombSwap.Tests.EditMode
     public sealed class PlayerHealthSimulationTests
     {
         private static readonly ActorId PlayerActor = new ActorId(1);
+        private static readonly ActorId EnemyActor = new ActorId(2);
         private static readonly TimeSpan Invulnerability = TimeSpan.FromMilliseconds(750);
 
         [Test]
@@ -55,6 +56,9 @@ namespace BombSwap.Tests.EditMode
             PlayerDamageResult result = simulation.ApplyExplosionDamage(CreateBombId(1), 1);
 
             Assert.That(result.Status, Is.EqualTo(PlayerDamageStatus.Applied));
+            Assert.That(result.SourceKind, Is.EqualTo(PlayerDamageSourceKind.Explosion));
+            Assert.That(result.ExplosionId, Is.EqualTo(CreateBombId(1)));
+            Assert.That(result.SourceActorId.IsValid, Is.False);
             Assert.That(result.WasApplied, Is.True);
             Assert.That(result.WasFatal, Is.False);
             Assert.That(result.PreviousHealth, Is.EqualTo(5));
@@ -64,6 +68,57 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.InvulnerableUntil, Is.EqualTo(TimeSpan.FromSeconds(2) + Invulnerability));
             Assert.That(simulation.CurrentHealth, Is.EqualTo(4));
             Assert.That(simulation.IsInvulnerable, Is.True);
+        }
+
+        [Test]
+        public void ApplyContactDamage_PreservesEnemySourceAndSharesInvulnerability()
+        {
+            var clock = new ManualGameClock(TimeSpan.FromSeconds(2));
+            var simulation = CreateSimulation(clock);
+
+            PlayerDamageResult applied = simulation.ApplyContactDamage(EnemyActor, 1);
+            PlayerDamageResult ignored = simulation.ApplyContactDamage(EnemyActor, 1);
+            clock.Advance(Invulnerability);
+            PlayerDamageResult repeated = simulation.ApplyContactDamage(EnemyActor, 1);
+
+            Assert.That(applied.SourceKind, Is.EqualTo(PlayerDamageSourceKind.EnemyContact));
+            Assert.That(applied.SourceActorId, Is.EqualTo(EnemyActor));
+            Assert.That(applied.ExplosionId.IsValid, Is.False);
+            Assert.That(applied.WasApplied, Is.True);
+            Assert.That(ignored.Status, Is.EqualTo(PlayerDamageStatus.IgnoredInvulnerable));
+            Assert.That(repeated.WasApplied, Is.True);
+            Assert.That(repeated.ResolvedAt, Is.EqualTo(TimeSpan.FromSeconds(2) + Invulnerability));
+            Assert.That(simulation.CurrentHealth, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ExplosionAndContactDamage_UseOneInvulnerabilityWindow()
+        {
+            var clock = new ManualGameClock();
+            var simulation = CreateSimulation(clock);
+            simulation.ApplyExplosionDamage(CreateBombId(1), 1);
+
+            PlayerDamageResult ignoredContact = simulation.ApplyContactDamage(EnemyActor, 1);
+            clock.Advance(Invulnerability);
+            PlayerDamageResult laterContact = simulation.ApplyContactDamage(EnemyActor, 1);
+
+            Assert.That(ignoredContact.Status, Is.EqualTo(PlayerDamageStatus.IgnoredInvulnerable));
+            Assert.That(laterContact.WasApplied, Is.True);
+            Assert.That(simulation.CurrentHealth, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ApplyContactDamage_RejectsInvalidSelfSourceAndDamage()
+        {
+            var simulation = CreateSimulation(new ManualGameClock());
+
+            Assert.Throws<ArgumentException>(() =>
+                simulation.ApplyContactDamage(default, 1));
+            Assert.Throws<ArgumentException>(() =>
+                simulation.ApplyContactDamage(PlayerActor, 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                simulation.ApplyContactDamage(EnemyActor, 0));
+            Assert.That(simulation.CurrentHealth, Is.EqualTo(5));
         }
 
         [Test]

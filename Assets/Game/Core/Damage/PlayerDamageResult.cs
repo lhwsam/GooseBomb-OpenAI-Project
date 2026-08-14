@@ -2,6 +2,12 @@ using System;
 
 namespace BombSwap.Core
 {
+    public enum PlayerDamageSourceKind
+    {
+        Explosion = 0,
+        EnemyContact = 1,
+    }
+
     public enum PlayerDamageStatus
     {
         Applied = 0,
@@ -13,7 +19,9 @@ namespace BombSwap.Core
     public readonly struct PlayerDamageResult
     {
         internal PlayerDamageResult(
+            PlayerDamageSourceKind sourceKind,
             BombId explosionId,
+            ActorId sourceActorId,
             int requestedDamage,
             int previousHealth,
             int currentHealth,
@@ -21,7 +29,9 @@ namespace BombSwap.Core
             TimeSpan invulnerableUntil,
             PlayerDamageStatus status)
         {
+            SourceKind = sourceKind;
             ExplosionId = explosionId;
+            SourceActorId = sourceActorId;
             RequestedDamage = requestedDamage;
             PreviousHealth = previousHealth;
             CurrentHealth = currentHealth;
@@ -30,7 +40,11 @@ namespace BombSwap.Core
             Status = status;
         }
 
+        public PlayerDamageSourceKind SourceKind { get; }
+
         public BombId ExplosionId { get; }
+
+        public ActorId SourceActorId { get; }
 
         public int RequestedDamage { get; }
 

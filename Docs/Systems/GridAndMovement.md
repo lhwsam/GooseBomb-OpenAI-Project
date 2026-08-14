@@ -29,6 +29,8 @@
 
 같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence와 두 칸 방향 유지로 플레이어를 추격한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, `PrototypeChaserPresenter`는 확정된 step만 3D placeholder에 보간한다.
 
+플레이어와 살아 있는 추격자의 접촉은 `GridPosition.IsCardinallyAdjacentTo`가 판정하는 Manhattan 거리 1이다. 대각선과 같은 셀은 접촉이 아니며 Transform·Collider 거리는 규칙 입력으로 사용하지 않는다.
+
 ## 구현된 최소 Core 계약
 
 - `GridPosition`은 부호 있는 정수 `X`, `Z`를 보존하는 불변 값이며 값 동등성과 오프셋 계산을 제공한다.
@@ -103,6 +105,7 @@
 - 실제 `Z` 설치 뒤 소유자가 셀을 빠져나오고 반대 입력으로 폭탄 셀에 재진입하지 못함.
 - 추격자가 플레이어와 공유하는 논리 격자에서 이동하고 presenter가 확정된 적 step을 보간함.
 - 폭발 사망 뒤 추격자 actor 점유가 제거되고 placeholder가 짧은 사망 표시 뒤 비활성화됨.
+- cardinal 인접만 접촉 피해 후보가 되고 대각선·극단 좌표 계산이 overflow 없이 거부됨.
 
 다음 항목은 방 콘텐츠 구현 이후 추가한다.
 

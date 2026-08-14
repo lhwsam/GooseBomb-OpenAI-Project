@@ -16,9 +16,12 @@ namespace BombSwap
 
         private bool _audioUnlockReported;
         private bool _moveReported;
+        private bool _contactEscapeMovedReported;
         private bool _placeBombReported;
         private bool _bombExplosionReported;
         private bool _playerDamagedReported;
+        private bool _playerExplosionDamagedReported;
+        private bool _playerContactDamagedReported;
         private bool _chaserMovedReported;
         private bool _enemyDiedReported;
         private bool _roomClearedReported;
@@ -121,13 +124,17 @@ namespace BombSwap
 
         private void OnPlayerMoved(PlayerMovementStep step)
         {
-            if (_moveReported)
+            if (!_moveReported)
             {
-                return;
+                WebGlHarnessReporter.Report("move");
+                _moveReported = true;
             }
 
-            WebGlHarnessReporter.Report("move");
-            _moveReported = true;
+            if (_playerContactDamagedReported && !_contactEscapeMovedReported)
+            {
+                WebGlHarnessReporter.Report("contact-escape-moved");
+                _contactEscapeMovedReported = true;
+            }
         }
 
         private void OnBombPlaced(BombSnapshot snapshot)
@@ -154,13 +161,34 @@ namespace BombSwap
 
         private void OnPlayerDamaged(PlayerDamageResult result)
         {
-            if (_playerDamagedReported)
+            if (!_playerDamagedReported)
             {
-                return;
+                WebGlHarnessReporter.Report("player-damaged");
+                _playerDamagedReported = true;
             }
 
-            WebGlHarnessReporter.Report("player-damaged");
-            _playerDamagedReported = true;
+            switch (result.SourceKind)
+            {
+                case PlayerDamageSourceKind.Explosion:
+                    if (!_playerExplosionDamagedReported)
+                    {
+                        WebGlHarnessReporter.Report("player-explosion-damaged");
+                        _playerExplosionDamagedReported = true;
+                    }
+                    break;
+                case PlayerDamageSourceKind.EnemyContact:
+                    if (!_playerContactDamagedReported)
+                    {
+                        WebGlHarnessReporter.Report("player-contact-damaged");
+                        _playerContactDamagedReported = true;
+                    }
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(
+                        nameof(result),
+                        result.SourceKind,
+                        "Unsupported player damage source kind.");
+            }
         }
 
         private void OnChaserMoved(EnemyMovementStep step)

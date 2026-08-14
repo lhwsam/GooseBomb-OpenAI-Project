@@ -35,5 +35,36 @@ namespace BombSwap.Tests.EditMode
             Assert.That(first != second, Is.False);
             Assert.That(first.GetHashCode(), Is.EqualTo(second.GetHashCode()));
         }
+
+        [TestCase(0, 1, true)]
+        [TestCase(1, 0, true)]
+        [TestCase(0, -1, true)]
+        [TestCase(-1, 0, true)]
+        [TestCase(0, 0, false)]
+        [TestCase(1, 1, false)]
+        [TestCase(0, 2, false)]
+        public void IsCardinallyAdjacentTo_UsesOneLogicalXZStep(
+            int otherX,
+            int otherZ,
+            bool expected)
+        {
+            var origin = new GridPosition(0, 0);
+
+            Assert.That(
+                origin.IsCardinallyAdjacentTo(new GridPosition(otherX, otherZ)),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void IsCardinallyAdjacentTo_ExtremeCoordinatesDoesNotOverflow()
+        {
+            var minimum = new GridPosition(int.MinValue, int.MinValue);
+            var maximum = new GridPosition(int.MaxValue, int.MaxValue);
+
+            Assert.That(minimum.IsCardinallyAdjacentTo(maximum), Is.False);
+            Assert.That(
+                minimum.IsCardinallyAdjacentTo(new GridPosition(int.MinValue + 1, int.MinValue)),
+                Is.True);
+        }
     }
 }

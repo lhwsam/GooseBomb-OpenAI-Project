@@ -7,6 +7,7 @@ namespace BombSwap.Core
         public ChaserEnemyDefinition(
             EnemyDefinitionId id,
             int maxHealth,
+            int contactDamage,
             TimeSpan stepInterval,
             int directionCommitmentSteps)
         {
@@ -20,6 +21,13 @@ namespace BombSwap.Core
                     nameof(maxHealth),
                     maxHealth,
                     "Enemy maximum health must be positive.");
+            }
+            if (contactDamage <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(contactDamage),
+                    contactDamage,
+                    "Enemy contact damage must be positive.");
             }
             if (stepInterval <= TimeSpan.Zero)
             {
@@ -38,6 +46,7 @@ namespace BombSwap.Core
 
             Id = id;
             MaxHealth = maxHealth;
+            ContactDamage = contactDamage;
             StepInterval = stepInterval;
             DirectionCommitmentSteps = directionCommitmentSteps;
         }
@@ -45,6 +54,8 @@ namespace BombSwap.Core
         public EnemyDefinitionId Id { get; }
 
         public int MaxHealth { get; }
+
+        public int ContactDamage { get; }
 
         public TimeSpan StepInterval { get; }
 

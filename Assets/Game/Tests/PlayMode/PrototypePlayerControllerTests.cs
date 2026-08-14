@@ -308,7 +308,8 @@ namespace BombSwap.Tests.PlayMode
             CreateRuntime(
                 Vector2Int.zero,
                 false,
-                includeChaserPresenter: true);
+                includeChaserPresenter: true,
+                chaserSpawnPosition: new Vector2Int(1, -1));
 
             yield return null;
 
@@ -335,7 +336,8 @@ namespace BombSwap.Tests.PlayMode
                 false,
                 includeChaserPresenter: true,
                 fuseSeconds: 0.08f,
-                chaserDeathVisualSeconds: 0.4f);
+                chaserDeathVisualSeconds: 0.4f,
+                chaserSpawnPosition: new Vector2Int(1, -1));
             int damagedCount = 0;
             int diedCount = 0;
             int roomClearedCount = 0;
@@ -375,6 +377,85 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ChaserContact_UsesLogicalAdjacencyAndSharedInvulnerability()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeHealthPresenter: true,
+                invulnerabilitySeconds: 0.2f,
+                healthDamagePulseSeconds: 0.4f,
+                chaserSpawnPosition: new Vector2Int(1, -1));
+            int contactDamageCount = 0;
+            PlayerDamageResult firstContact = default;
+            _session.PlayerDamaged += result =>
+            {
+                if (result.SourceKind == PlayerDamageSourceKind.EnemyContact)
+                {
+                    if (contactDamageCount == 0)
+                    {
+                        firstContact = result;
+                    }
+                    contactDamageCount++;
+                }
+            };
+
+            yield return null;
+
+            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(new GridPosition(1, 0)));
+            Assert.That(contactDamageCount, Is.EqualTo(1));
+            Assert.That(firstContact.SourceActorId, Is.EqualTo(_session.ChaserActorId));
+            Assert.That(firstContact.AppliedDamage, Is.EqualTo(1));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+            Assert.That(_healthPresenter.DamagePulseCount, Is.EqualTo(1));
+
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            Assert.That(contactDamageCount, Is.EqualTo(1));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(contactDamageCount, Is.EqualTo(2));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(3));
+            Assert.That(_healthPresenter.DamagePulseCount, Is.EqualTo(2));
+            Assert.That(_playerMaterial.color, Is.Not.EqualTo(_healthPresenter.CurrentColor));
+        }
+
+        [UnityTest]
+        public IEnumerator ExplosionDeath_RemovesChaserBeforeSameFrameContactDamage()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.001f,
+                invulnerabilitySeconds: 0.05f,
+                chaserSpawnPosition: new Vector2Int(1, -1));
+            int explosionDamageCount = 0;
+            int contactDamageCount = 0;
+            _session.PlayerDamaged += result =>
+            {
+                if (result.SourceKind == PlayerDamageSourceKind.Explosion)
+                {
+                    explosionDamageCount++;
+                }
+                else if (result.SourceKind == PlayerDamageSourceKind.EnemyContact)
+                {
+                    contactDamageCount++;
+                }
+            };
+
+            PressAndRelease(Key.Z);
+            yield return null;
+
+            Assert.That(_session.EnemyActiveCount, Is.Zero);
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(explosionDamageCount, Is.EqualTo(1));
+            Assert.That(contactDamageCount, Is.Zero);
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+        }
+
+        [UnityTest]
         public IEnumerator HarnessProbe_RemainsEnabledAcrossSessionInitializationOrder()
         {
             CreateRuntime(Vector2Int.zero, false, includeProbe: true);
@@ -402,7 +483,8 @@ namespace BombSwap.Tests.PlayMode
             float invulnerabilitySeconds = 0.75f,
             float healthDamagePulseSeconds = PrototypePlayerHealthPresenter.DefaultDamagePulseSeconds,
             float chaserCellsPerSecond = 2f,
-            float chaserDeathVisualSeconds = 0.12f)
+            float chaserDeathVisualSeconds = 0.12f,
+            Vector2Int? chaserSpawnPosition = null)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -444,7 +526,12 @@ namespace BombSwap.Tests.PlayMode
             _player.position = new Vector3(0f, 0.5f, 0f);
             var chaserSpawn = new GameObject("ChaserSpawn").transform;
             chaserSpawn.SetParent(gridRoot, false);
-            chaserSpawn.localPosition = new Vector3(1f, 0f, -1f);
+            Vector2Int authoredChaserSpawn =
+                chaserSpawnPosition ?? new Vector2Int(2, -2);
+            chaserSpawn.localPosition = new Vector3(
+                authoredChaserSpawn.x,
+                0f,
+                authoredChaserSpawn.y);
             _chaserPrefab = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             _chaserPrefab.name = "ChaserVisualPrefab";
             Collider chaserCollider = _chaserPrefab.GetComponent<Collider>();
@@ -456,6 +543,7 @@ namespace BombSwap.Tests.PlayMode
             _chaserDefinition = ScriptableObject.CreateInstance<PrototypeChaserDefinitionAsset>();
             _chaserDefinition.Configure(
                 "test-chaser",
+                1,
                 1,
                 chaserCellsPerSecond,
                 2,
@@ -472,8 +560,8 @@ namespace BombSwap.Tests.PlayMode
                 spawn,
                 _player,
                 chaserSpawn,
-                3,
-                3,
+                5,
+                5,
                 1f,
                 includeBlocker ? new[] { blocker } : new Vector2Int[0]);
 

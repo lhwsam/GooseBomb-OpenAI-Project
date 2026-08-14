@@ -16,6 +16,9 @@ namespace BombSwap
         private int maxHealth = 1;
 
         [SerializeField]
+        private int contactDamage = 1;
+
+        [SerializeField]
         private float cellsPerSecond = 2f;
 
         [SerializeField]
@@ -34,6 +37,8 @@ namespace BombSwap
 
         public int MaxHealth => maxHealth;
 
+        public int ContactDamage => contactDamage;
+
         public float CellsPerSecond => cellsPerSecond;
 
         public int DirectionCommitmentSteps => directionCommitmentSteps;
@@ -47,6 +52,7 @@ namespace BombSwap
         public void Configure(
             string authoredDefinitionId,
             int authoredMaxHealth,
+            int authoredContactDamage,
             float authoredCellsPerSecond,
             int authoredDirectionCommitmentSteps,
             GameObject authoredChaserPrefab,
@@ -60,6 +66,13 @@ namespace BombSwap
                     nameof(authoredMaxHealth),
                     authoredMaxHealth,
                     "Enemy maximum health must be positive.");
+            }
+            if (authoredContactDamage <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(authoredContactDamage),
+                    authoredContactDamage,
+                    "Enemy contact damage must be positive.");
             }
             ValidateFinitePositive(
                 authoredCellsPerSecond,
@@ -82,6 +95,7 @@ namespace BombSwap
 
             definitionId = id.Value;
             maxHealth = authoredMaxHealth;
+            contactDamage = authoredContactDamage;
             cellsPerSecond = authoredCellsPerSecond;
             directionCommitmentSteps = authoredDirectionCommitmentSteps;
             chaserPrefab = authoredChaserPrefab;
@@ -97,6 +111,11 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "Authored enemy maximum health must be positive.");
             }
+            if (contactDamage <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Authored enemy contact damage must be positive.");
+            }
             ValidateFinitePositive(cellsPerSecond, nameof(cellsPerSecond));
             if (directionCommitmentSteps <= 0)
             {
@@ -107,6 +126,7 @@ namespace BombSwap
             return new ChaserEnemyDefinition(
                 id,
                 maxHealth,
+                contactDamage,
                 TimeSpan.FromSeconds(1f / cellsPerSecond),
                 directionCommitmentSteps);
         }

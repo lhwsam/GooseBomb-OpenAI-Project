@@ -19,6 +19,13 @@ namespace BombSwap.Core
             return new GridPosition(X + deltaX, Z + deltaZ);
         }
 
+        public bool IsCardinallyAdjacentTo(GridPosition other)
+        {
+            long deltaX = Math.Abs((long)X - other.X);
+            long deltaZ = Math.Abs((long)Z - other.Z);
+            return deltaX + deltaZ == 1L;
+        }
+
         public bool Equals(GridPosition other)
         {
             return X == other.X && Z == other.Z;
