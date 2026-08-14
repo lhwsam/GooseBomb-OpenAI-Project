@@ -18,7 +18,7 @@
 
 - cold/warm load와 진행 표시.
 - canvas click/focus 전후 키보드 입력.
-- WASD/방향키, 게임패드 사용 시 매핑. 자동 smoke는 Core 사건을 기준으로 `W` 이동, `Z` 설치, 접촉 확인, `A` 이탈, 자기 폭발 확인, 두 번째 `Z` 재유도, `X`, `Esc` 두 번을 순서대로 전송한다. 마지막 방에서는 `ArrowUp` 실제 step 직후 `ArrowRight`를 짧게 눌렀다 떼고, 명령이 North로 복귀한 뒤에도 실제 이동이 `East → North` 순서인지 확인한다.
+- WASD/방향키, 게임패드 사용 시 매핑. 자동 smoke는 Core 사건을 기준으로 `W` 이동, 첫 `Z` 설치, 접촉 확인, `A` 이탈, 첫 폭발, `X`, `Esc` 두 번과 두 번째 방의 `Z` 유도를 순서대로 전송한다. 마지막 방에서는 `ArrowUp/ArrowRight` 단타를 여섯 번 교대하고 각 release 전에 실제 frame 이동이 `North/East` 같은 순서로 발생하는지 확인한 뒤, 정지 상태의 `Z`로 접촉 무적과 분리된 자기 폭발 피해를 확인한다.
 - focus 상실/복귀 후 stuck input 없음.
 - 페이지 스크롤/브라우저 단축키와 충돌 없음.
 - 추격자 이동, 접촉 피해, 논리 이탈, 폭탄 설치, 실제 fuse 자기 폭발, 두 번째 폭탄 유도 처치·방 클리어, 교체, pause/resume.
@@ -28,7 +28,7 @@
 - 브라우저 Console error와 WebGL context loss.
 - 캐시된 이전 버전에서 새 버전 갱신.
 
-개발 빌드 자동 probe는 `probe-ready`와 `room-ready-prototype-combat-loop`로 첫 런타임 준비를 동기화한 뒤 `move`, `move-direction-north`, `move-direction-east`, `move-step-direction-north`, `move-step-direction-east`, `chaser-moved`, `place-bomb`, `player-contact-damaged`, `contact-escape-moved`, `bomb-exploded`, `player-damaged`, `player-explosion-damaged`, `enemy-died`, `room-cleared`, `room-transition-started`, `room-ready-prototype-combat-lanes`, `room-ready-prototype-combat-pillars`, `swap-bomb`, `pause-resume`, `audio-unlocked`를 확인한다. 명령 probe는 `PlayerCommand.Move`, step probe는 확정된 `PlayerMovementStep`을 기록한다. 짧은 탭 검사는 East 명령 뒤 North 복귀 명령이 먼저 오고 그 뒤 실제 `East → North` step이 와야 통과한다. `room-transition-started`가 두 번 발생하고 두 후속 방 준비 표식이 순서대로 관측되어야 3방 시퀀스가 통과한다. 두 피해 표식은 적용된 `PlayerDamageResult.SourceKind`가 각각 `EnemyContact`, `Explosion`일 때만 발생한다. 이동·설치·폭발·사망·클리어 표식도 실제 Core 상태 전이만 기록한다. 실제 보간 좌표, pooled 표현 생명주기, 피격 material property block은 PlayMode 통합 테스트가 확인한다. `audio-unlocked` marker는 오디오 출력 자체를 증명하지 않으므로 오디오 연결 뒤 수동 항목을 별도로 통과해야 한다.
+개발 빌드 자동 probe는 `probe-ready`와 `room-ready-prototype-combat-loop`로 첫 런타임 준비를 동기화한 뒤 `move`, `move-direction-north/east`, `move-motion-direction-north/east`, `move-step-direction-north`, `chaser-moved`, `place-bomb`, `player-contact-damaged`, `contact-escape-moved`, `bomb-exploded`, `player-damaged`, `player-explosion-damaged`, `enemy-died`, `room-cleared`, `room-transition-started`, 두 후속 `room-ready-*`, `swap-bomb`, `pause-resume`, `audio-unlocked`를 확인한다. 명령 probe는 `PlayerCommand.Move`, motion probe는 frame 연속 위치 변화, step probe는 정수 셀 경계 전이를 기록한다. 빠른 단타 검사는 여섯 방향 각각에서 command뿐 아니라 실제 motion이 release 전에 와야 통과한다. `room-transition-started`가 두 번 발생하고 두 후속 방 준비 표식이 순서대로 관측되어야 3방 시퀀스가 통과한다. 피해·이동·설치·폭발·사망·클리어 표식은 실제 Core 상태 전이만 기록한다. Core 연속 좌표와 Transform 일치는 PlayMode 통합 테스트가 확인한다. `audio-unlocked` marker는 오디오 출력 자체를 증명하지 않으므로 오디오 연결 뒤 수동 항목을 별도로 통과해야 한다.
 
 ## 결과 기록
 

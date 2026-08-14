@@ -107,7 +107,26 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator HeldDirection_AdvancesSharedLogicalCellAndInterpolatesPlaceholder()
+        public IEnumerator HeldDirection_AdvancesSubcellPositionAndPresentationEveryFrame()
+        {
+            CreateRuntime(Vector2Int.zero, false);
+            yield return null;
+
+            QueueKeyboardState(Key.W);
+            yield return null;
+
+            Assert.That(_session.CurrentMovementPosition.Z, Is.GreaterThan(0d));
+            Assert.That(_player.position.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(_player.position.y, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(
+                _player.position.z,
+                Is.EqualTo((float)_session.CurrentMovementPosition.Z).Within(0.001f));
+
+            QueueKeyboardState();
+        }
+
+        [UnityTest]
+        public IEnumerator ReleasedDirection_StopsPresentationWithoutFinishingCommittedCell()
         {
             CreateRuntime(Vector2Int.zero, false);
             yield return null;
@@ -115,37 +134,80 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState(Key.W);
             yield return null;
             QueueKeyboardState();
+            float releasedPosition = _player.position.z;
+
             yield return new WaitForSecondsRealtime(0.15f);
 
-            Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(0, 1)));
-            Assert.That(_controller.CurrentGridPosition, Is.EqualTo(new GridPosition(0, 1)));
-            Assert.That(_player.position.x, Is.EqualTo(0f).Within(0.001f));
-            Assert.That(_player.position.y, Is.EqualTo(0.5f).Within(0.001f));
-            Assert.That(_player.position.z, Is.EqualTo(1f).Within(0.05f));
+            Assert.That(
+                _player.position.z,
+                Is.EqualTo(releasedPosition).Within(0.02f),
+                "Releasing movement should stop the authoritative presentation on the next frame.");
         }
 
         [UnityTest]
-        public IEnumerator ShortPerpendicularTap_MovesOnceThenResumesStillHeldDirection()
+        public IEnumerator OverlappingPerpendicularInput_ChangesMotionOnConsecutiveFrames()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
-            _session.PlayerMoved += step => directions.Add(step.Direction);
+            _session.PlayerPositionChanged += (_, direction) =>
+            {
+                if (directions.Count == 0 || directions[directions.Count - 1] != direction)
+                {
+                    directions.Add(direction);
+                }
+            };
             yield return null;
 
             QueueKeyboardState(Key.W);
             yield return null;
             QueueKeyboardState(Key.W, Key.D);
+            yield return null;
             QueueKeyboardState(Key.W);
-            yield return new WaitForSecondsRealtime(0.25f);
+            yield return null;
+            QueueKeyboardState();
 
             Assert.That(
                 directions,
                 Has.Count.GreaterThanOrEqualTo(3),
-                "The held direction should produce a first step, one buffered turn, and a resumed step.");
+                "Each held direction change should affect motion on the next observed frame.");
             Assert.That(directions[0], Is.EqualTo(CardinalDirection.North));
             Assert.That(directions[1], Is.EqualTo(CardinalDirection.East));
             Assert.That(directions[2], Is.EqualTo(CardinalDirection.North));
-            Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(1, 2)));
+            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(0d));
+            Assert.That(_session.CurrentMovementPosition.Z, Is.GreaterThan(0d));
+        }
+
+        [UnityTest]
+        public IEnumerator RapidAlternatingTaps_ApplyEachDirectionOnTheNextFrame()
+        {
+            CreateRuntime(Vector2Int.zero, false);
+            var directions = new List<CardinalDirection>();
+            _session.PlayerPositionChanged += (_, direction) =>
+            {
+                if (directions.Count == 0 || directions[directions.Count - 1] != direction)
+                {
+                    directions.Add(direction);
+                }
+            };
+            yield return null;
+
+            Key[] keys = { Key.W, Key.D, Key.W, Key.D, Key.W, Key.D };
+            for (int index = 0; index < keys.Length; index++)
+            {
+                QueueKeyboardState(keys[index]);
+                yield return null;
+                QueueKeyboardState();
+                yield return null;
+            }
+
+            Assert.That(directions, Has.Count.GreaterThanOrEqualTo(keys.Length));
+            for (int index = 0; index < keys.Length; index++)
+            {
+                CardinalDirection expected = index % 2 == 0
+                    ? CardinalDirection.North
+                    : CardinalDirection.East;
+                Assert.That(directions[index], Is.EqualTo(expected));
+            }
         }
 
         [UnityTest]
@@ -214,9 +276,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.HasPlayerBombPassThrough, Is.True);
 
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.12f);
             QueueKeyboardState();
-            yield return new WaitForSecondsRealtime(0.15f);
 
             var origin = new GridPosition(0, 0);
             var north = new GridPosition(0, 1);
@@ -225,12 +286,11 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.GetCell(origin).HasBomb, Is.True);
 
             QueueKeyboardState(Key.S);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.12f);
             QueueKeyboardState();
-            yield return new WaitForSecondsRealtime(0.15f);
 
             Assert.That(_session.CurrentGridPosition, Is.EqualTo(north));
-            Assert.That(_player.position.z, Is.EqualTo(1f).Within(0.05f));
+            Assert.That(_player.position.z, Is.GreaterThanOrEqualTo(0.5f));
         }
 
         [UnityTest]

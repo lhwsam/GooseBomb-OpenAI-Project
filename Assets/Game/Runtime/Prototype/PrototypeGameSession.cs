@@ -55,6 +55,8 @@ namespace BombSwap
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
+        public event Action<GridSubcellPosition, CardinalDirection> PlayerPositionChanged;
+
         public event Action<BombSnapshot> BombPlaced;
 
         public event Action<BombExplosion> BombExploded;
@@ -94,6 +96,9 @@ namespace BombSwap
 
         public GridPosition CurrentGridPosition =>
             _movement != null ? _movement.CurrentPosition : default;
+
+        public GridSubcellPosition CurrentMovementPosition =>
+            _movement != null ? _movement.Position : default;
 
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
 
@@ -241,9 +246,20 @@ namespace BombSwap
             }
 
             _clock.Advance(TimeSpan.FromSeconds(elapsedSeconds));
-            if (!_health.IsDead && _movement.TryAdvance(out PlayerMovementStep step))
+            if (!_health.IsDead)
             {
-                PlayerMoved?.Invoke(step);
+                bool playerPositionChanged = _movement.Advance();
+                IReadOnlyList<PlayerMovementStep> playerSteps = _movement.LastCellSteps;
+                for (int index = 0; index < playerSteps.Count; index++)
+                {
+                    PlayerMoved?.Invoke(playerSteps[index]);
+                }
+                if (playerPositionChanged)
+                {
+                    PlayerPositionChanged?.Invoke(
+                        _movement.Position,
+                        _movement.MoveDirection);
+                }
             }
             if (!_chaserHealth.IsDead && _chaser.TryAdvance(out EnemyMovementStep chaserStep))
             {
@@ -348,7 +364,7 @@ namespace BombSwap
                 _clock,
                 PrototypePlayerActorId,
                 start,
-                TimeSpan.FromSeconds(1f / cellsPerSecond));
+                cellsPerSecond);
             _bombs = new BombSimulation(
                 _grid,
                 _clock,

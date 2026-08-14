@@ -172,18 +172,17 @@ async function main() {
       await page.keyboard.up("KeyA");
     }
 
-    let explosionDamageObserved = false;
-    let explosionDamageWaitError = null;
+    let firstBombExplosionObserved = false;
+    let firstBombExplosionWaitError = null;
     try {
       await page.waitForFunction(() => {
         const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
         return Array.isArray(events) && events.some((event) =>
-          (typeof event === "string" ? event : event?.name) === "player-explosion-damaged");
+          (typeof event === "string" ? event : event?.name) === "bomb-exploded");
       }, undefined, { timeout: 30_000 });
-      explosionDamageObserved = true;
-      await page.keyboard.press("KeyZ");
+      firstBombExplosionObserved = true;
     } catch (error) {
-      explosionDamageWaitError = String(error);
+      firstBombExplosionWaitError = String(error);
     }
 
     for (const key of ["KeyX", "Escape", "Escape"]) {
@@ -191,14 +190,14 @@ async function main() {
     }
     checks.push({
       name: "keyboard-input",
-      status: moveObserved && contactObserved && contactEscapeObserved && explosionDamageObserved ? "passed" : "failed",
-      detail: moveObserved && contactObserved && contactEscapeObserved && explosionDamageObserved
-        ? "W held until Core move, Z placed a bomb, A escaped contact, then Z retried after self-explosion; X and Escape twice dispatched"
+      status: moveObserved && contactObserved && contactEscapeObserved && firstBombExplosionObserved ? "passed" : "failed",
+      detail: moveObserved && contactObserved && contactEscapeObserved && firstBombExplosionObserved
+        ? "W held until Core move, Z placed a bomb, A escaped contact, and the first bomb exploded; X and Escape twice dispatched"
         : {
             moveWaitError,
             contactWaitError,
             contactEscapeWaitError,
-            explosionDamageWaitError,
+            firstBombExplosionWaitError,
           },
     });
 
@@ -234,69 +233,85 @@ async function main() {
         : roomSequenceWaitError,
     });
 
-    let bufferedTurnObserved = false;
-    let bufferedTurnWaitError = null;
+    let frameResponsiveTurnsObserved = false;
+    let frameResponsiveTurnsWaitError = null;
     const turnEventStartIndex = await page.evaluate(() =>
       Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
         ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
         : 0);
-    await page.keyboard.down("ArrowUp");
     try {
-      await page.waitForFunction((startIndex) => {
-        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
-        if (!Array.isArray(events)) return false;
-        const names = events
-          .slice(startIndex)
-          .map((event) => typeof event === "string" ? event : event?.name);
-        return names.includes("move-step-direction-north");
-      }, turnEventStartIndex, { timeout: 10_000 });
-
-      await page.keyboard.down("ArrowRight");
-      await page.waitForFunction((startIndex) => {
-        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
-        if (!Array.isArray(events)) return false;
-        return events
-          .slice(startIndex)
-          .map((event) => typeof event === "string" ? event : event?.name)
-          .includes("move-direction-east");
-      }, turnEventStartIndex, { timeout: 10_000 });
-      await page.keyboard.up("ArrowRight");
-
-      await page.waitForFunction((startIndex) => {
-        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
-        if (!Array.isArray(events)) return false;
-        const names = events
-          .slice(startIndex)
-          .map((event) => typeof event === "string" ? event : event?.name);
-        const eastCommandIndex = names.indexOf("move-direction-east");
-        const fallbackCommandIndex = names.indexOf("move-direction-north", eastCommandIndex + 1);
-        const eastStepIndex = names.indexOf("move-step-direction-east");
-        const resumedNorthStepIndex = names.indexOf("move-step-direction-north", eastStepIndex + 1);
-        return eastCommandIndex >= 0 &&
-          fallbackCommandIndex > eastCommandIndex &&
-          eastStepIndex > fallbackCommandIndex &&
-          resumedNorthStepIndex > eastStepIndex;
-      }, turnEventStartIndex, { timeout: 10_000 });
-      bufferedTurnObserved = true;
+      const rapidDirections = [
+        ["ArrowUp", "move-motion-direction-north"],
+        ["ArrowRight", "move-motion-direction-east"],
+        ["ArrowUp", "move-motion-direction-north"],
+        ["ArrowRight", "move-motion-direction-east"],
+        ["ArrowUp", "move-motion-direction-north"],
+        ["ArrowRight", "move-motion-direction-east"],
+      ];
+      const expectedMotionEvents = [];
+      for (const [key, motionEvent] of rapidDirections) {
+        expectedMotionEvents.push(motionEvent);
+        await page.keyboard.down(key);
+        await page.waitForFunction(({ startIndex, expected }) => {
+          const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+          if (!Array.isArray(events)) return false;
+          const names = events
+            .slice(startIndex)
+            .map((event) => typeof event === "string" ? event : event?.name);
+          let expectedIndex = 0;
+          for (const name of names) {
+            if (name === expected[expectedIndex]) expectedIndex++;
+            if (expectedIndex === expected.length) return true;
+          }
+          return false;
+        }, { startIndex: turnEventStartIndex, expected: expectedMotionEvents }, { timeout: 2_000 });
+        await page.keyboard.up(key);
+      }
+      frameResponsiveTurnsObserved = true;
     } catch (error) {
-      bufferedTurnWaitError = String(error);
+      frameResponsiveTurnsWaitError = String(error);
     } finally {
       await page.keyboard.up("ArrowRight");
       await page.keyboard.up("ArrowUp");
     }
     checks.push({
-      name: "buffered-cardinal-turn",
-      status: bufferedTurnObserved ? "passed" : "failed",
-      detail: bufferedTurnObserved
-        ? "A released ArrowRight tap produced one east step before held ArrowUp resumed"
-        : bufferedTurnWaitError,
+      name: "frame-responsive-cardinal-turns",
+      status: frameResponsiveTurnsObserved ? "passed" : "failed",
+      detail: frameResponsiveTurnsObserved
+        ? "Six alternating north/east taps each produced motion before release"
+        : frameResponsiveTurnsWaitError,
+    });
+
+    let finalRoomExplosionDamageObserved = false;
+    let finalRoomExplosionDamageWaitError = null;
+    const finalExplosionEventStartIndex = await page.evaluate(() =>
+      Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
+        ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
+        : 0);
+    await page.keyboard.press("KeyZ");
+    try {
+      await page.waitForFunction((startIndex) => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.slice(startIndex).some((event) =>
+          (typeof event === "string" ? event : event?.name) === "player-explosion-damaged");
+      }, finalExplosionEventStartIndex, { timeout: 10_000 });
+      finalRoomExplosionDamageObserved = true;
+    } catch (error) {
+      finalRoomExplosionDamageWaitError = String(error);
+    }
+    checks.push({
+      name: "final-room-self-explosion",
+      status: finalRoomExplosionDamageObserved ? "passed" : "failed",
+      detail: finalRoomExplosionDamageObserved
+        ? "A final-room bomb damaged the stationary player after contact invulnerability was no longer timing-coupled to the first-room fuse"
+        : finalRoomExplosionDamageWaitError,
     });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-step-direction-north", "move-step-direction-east", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

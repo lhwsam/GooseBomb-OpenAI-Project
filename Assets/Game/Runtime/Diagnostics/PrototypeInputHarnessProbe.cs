@@ -29,6 +29,7 @@ namespace BombSwap
         private bool _pauseReported;
         private bool _isPaused;
         private bool _readyReported;
+        private CardinalDirection _lastMotionDirection;
 
         public BombSwapInputReader InputReader => inputReader;
 
@@ -73,6 +74,7 @@ namespace BombSwap
 
             inputReader.CommandIssued += OnCommandIssued;
             session.PlayerMoved += OnPlayerMoved;
+            session.PlayerPositionChanged += OnPlayerPositionChanged;
             session.BombPlaced += OnBombPlaced;
             session.BombExploded += OnBombExploded;
             session.PlayerDamaged += OnPlayerDamaged;
@@ -96,6 +98,7 @@ namespace BombSwap
             if (session != null)
             {
                 session.PlayerMoved -= OnPlayerMoved;
+                session.PlayerPositionChanged -= OnPlayerPositionChanged;
                 session.BombPlaced -= OnBombPlaced;
                 session.BombExploded -= OnBombExploded;
                 session.PlayerDamaged -= OnPlayerDamaged;
@@ -142,6 +145,19 @@ namespace BombSwap
                 WebGlHarnessReporter.Report("contact-escape-moved");
                 _contactEscapeMovedReported = true;
             }
+        }
+
+        private void OnPlayerPositionChanged(
+            GridSubcellPosition _,
+            CardinalDirection direction)
+        {
+            if (direction == _lastMotionDirection)
+            {
+                return;
+            }
+
+            _lastMotionDirection = direction;
+            ReportMotionDirection(direction);
         }
 
         private void OnBombPlaced(BombSnapshot snapshot)
@@ -243,6 +259,10 @@ namespace BombSwap
             {
                 case PlayerCommandKind.Move:
                     ReportMoveDirection(command.MoveDirection);
+                    if (command.MoveDirection == CardinalDirection.None)
+                    {
+                        _lastMotionDirection = CardinalDirection.None;
+                    }
                     break;
                 case PlayerCommandKind.PlaceBomb:
                     break;
@@ -312,6 +332,30 @@ namespace BombSwap
                         nameof(direction),
                         direction,
                         "Unsupported movement-step direction for the WebGL harness.");
+            }
+        }
+
+        private static void ReportMotionDirection(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    WebGlHarnessReporter.Report("move-motion-direction-north");
+                    break;
+                case CardinalDirection.East:
+                    WebGlHarnessReporter.Report("move-motion-direction-east");
+                    break;
+                case CardinalDirection.South:
+                    WebGlHarnessReporter.Report("move-motion-direction-south");
+                    break;
+                case CardinalDirection.West:
+                    WebGlHarnessReporter.Report("move-motion-direction-west");
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Unsupported motion direction for the WebGL harness.");
             }
         }
     }
