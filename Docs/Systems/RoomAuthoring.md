@@ -29,16 +29,17 @@
 
 파괴 가능 벽, 여러 적 spawn 후보와 제약, 보상·전환 anchor는 아직 구현하지 않았으며 방 그래프 작업에서 확장한다. 첫 구현은 독립 방 prefab 대신 이 데이터와 `TestSandbox` 씬 표현을 연결한다. 향후 prefab으로 분리해도 논리 셀 데이터가 권위 원본이라는 경계는 유지한다.
 
-## 현재 첫 전투방
+## 현재 수제 전투방 세트
 
-- 자산: `Assets/Game/Content/Rooms/PrototypeCombatLoop.asset`.
-- ID/type: `prototype-combat-loop` / `Combat`.
-- 크기: 11×9, 셀 크기 1.
-- spawn: 플레이어 `(0, 0)`, 추격자 `(1, -1)`.
-- 고정 벽: `(-2, 0)`, `(2, 0)`, `(0, 2)`, `(0, -2)`.
-- 출구: 북쪽 `(0, 4)`, 남쪽 `(0, -4)`.
-- 퇴로 anchor: `(-3, 1)`, `(3, 1)`.
-- 유도 순환 경로: 중앙 3×3 외곽의 8개 셀을 cardinal 순서로 순환한다.
+세 방 모두 11×9, 셀 크기 1의 `Combat` 방이며 단일 추격자를 사용한다.
+
+| 순서 | ID / 자산 | spawn | 공간 의도 | 씬 / 다음 씬 |
+|---:|---|---|---|---|
+| 1 | `prototype-combat-loop` / `PrototypeCombatLoop.asset` | 플레이어 `(0, 0)`, 추격자 `(1, -1)` | 중앙 십자 고정 벽 4개, 좌·우 퇴로, 중앙 8셀 순환 경로 | `TestSandbox.unity` / `TestSandboxLanes` |
+| 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | `x=-2`, `x=2`의 세로 벽 3셀씩, 중앙 통로와 좌·우 우회로 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
+| 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)` | 중앙 엇갈린 기둥 5개, 긴 접근과 여러 통과 선택 | `TestSandboxPillars.unity` / 없음 |
+
+첫 방은 북·남, 두 번째는 북·남, 세 번째는 서·동 경계 출구를 갖는다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 출구는 아직 실제 문이나 런 그래프로 연결되지 않으며 공간 저작 검증용 메타데이터다.
 
 유도 경로는 사람과 플레이테스트 도구가 읽는 공간 의도다. 현재 추격 AI에 waypoint를 강제하지 않으며 실제 유도 재미는 관찰 플레이테스트로 판단한다.
 
@@ -61,7 +62,9 @@
 - 누락되거나 잘못된 room ID/type, 범위 밖·중복 셀, 고정 벽 겹침.
 - 누락된 출구, 안전 셀, spawn, 퇴로 anchor, 유도 경로.
 - 경계 방향이 틀린 출구, 끊긴 유도 경로, 연결되지 않은 플레이 영역, 단일 퇴로.
-- TestSandbox가 다른 room asset을 참조하거나 spawn Transform이 저작 셀과 다른 상태.
+- 세 room asset의 ID 중복 또는 각 TestSandbox 씬이 순서에 맞지 않는 room asset을 참조하는 상태.
+- spawn Transform이 저작 셀과 다르거나 방 전환 controller의 session·다음 씬·지연이 잘못된 상태.
 - 논리 고정 벽과 `Environment/InteriorObstacles` 표현 셀의 누락·중복·추가.
+- Build Settings의 첫 enabled 씬 세 개가 중앙 루프→평행 통로→엇갈린 기둥 순서가 아닌 상태.
 
 자동 검증이 방의 재미를 보증하지는 않는다. 시각 확인과 플레이테스트를 함께 수행한다.

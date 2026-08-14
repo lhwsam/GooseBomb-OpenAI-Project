@@ -119,6 +119,11 @@ namespace BombSwap
             }
 
             WebGlHarnessReporter.Report("probe-ready");
+            PrototypeCombatRoomDefinitionAsset room = session.Context.RoomDefinition;
+            if (room != null)
+            {
+                WebGlHarnessReporter.Report("room-ready-" + room.RoomId);
+            }
             _readyReported = true;
         }
 
