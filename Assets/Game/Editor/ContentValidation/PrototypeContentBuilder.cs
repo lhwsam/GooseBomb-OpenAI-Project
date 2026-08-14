@@ -239,24 +239,25 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeChaserDefinitionAsset>(
                     PrototypeContentValidator.PrototypeChaserDefinitionPath);
-            if (definition != null)
+            if (definition == null)
             {
-                return definition;
+                definition = ScriptableObject.CreateInstance<PrototypeChaserDefinitionAsset>();
+                definition.name = "PrototypeChaser";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeChaserDefinitionPath);
             }
 
-            definition = ScriptableObject.CreateInstance<PrototypeChaserDefinitionAsset>();
-            definition.name = "PrototypeChaser";
             definition.Configure(
                 "prototype-chaser",
+                1,
                 1,
                 2f,
                 2,
                 chaserPrefab,
                 0.45f,
                 0.12f);
-            AssetDatabase.CreateAsset(
-                definition,
-                PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            EditorUtility.SetDirty(definition);
             return definition;
         }
 

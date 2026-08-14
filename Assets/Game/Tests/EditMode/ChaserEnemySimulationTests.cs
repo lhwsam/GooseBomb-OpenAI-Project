@@ -14,10 +14,11 @@ namespace BombSwap.Tests.EditMode
         public void Definition_StoresStableIdHealthCadenceAndCommitment()
         {
             var id = new EnemyDefinitionId("prototype-chaser");
-            var definition = new ChaserEnemyDefinition(id, 1, StepInterval, 2);
+            var definition = new ChaserEnemyDefinition(id, 1, 1, StepInterval, 2);
 
             Assert.That(definition.Id, Is.EqualTo(id));
             Assert.That(definition.MaxHealth, Is.EqualTo(1));
+            Assert.That(definition.ContactDamage, Is.EqualTo(1));
             Assert.That(definition.StepInterval, Is.EqualTo(StepInterval));
             Assert.That(definition.DirectionCommitmentSteps, Is.EqualTo(2));
         }
@@ -40,7 +41,20 @@ namespace BombSwap.Tests.EditMode
         public void Definition_RejectsNonPositiveHealth(int health)
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new ChaserEnemyDefinition(CreateDefinitionId(), health, StepInterval, 2));
+                new ChaserEnemyDefinition(CreateDefinitionId(), health, 1, StepInterval, 2));
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void Definition_RejectsNonPositiveContactDamage(int contactDamage)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new ChaserEnemyDefinition(
+                    CreateDefinitionId(),
+                    1,
+                    contactDamage,
+                    StepInterval,
+                    2));
         }
 
         [TestCase(0)]
@@ -48,7 +62,7 @@ namespace BombSwap.Tests.EditMode
         public void Definition_RejectsNonPositiveCommitment(int commitment)
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new ChaserEnemyDefinition(CreateDefinitionId(), 1, StepInterval, commitment));
+                new ChaserEnemyDefinition(CreateDefinitionId(), 1, 1, StepInterval, commitment));
         }
 
         [Test]
@@ -259,7 +273,7 @@ namespace BombSwap.Tests.EditMode
 
         private static ChaserEnemyDefinition CreateDefinition()
         {
-            return new ChaserEnemyDefinition(CreateDefinitionId(), 1, StepInterval, 2);
+            return new ChaserEnemyDefinition(CreateDefinitionId(), 1, 1, StepInterval, 2);
         }
 
         private sealed class MutableGameClock : IGameClock

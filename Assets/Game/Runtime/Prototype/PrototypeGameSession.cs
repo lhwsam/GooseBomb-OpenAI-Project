@@ -286,6 +286,18 @@ namespace BombSwap
                 }
             }
 
+            if (!_health.IsDead && !_chaserHealth.IsDead &&
+                _movement.CurrentPosition.IsCardinallyAdjacentTo(_chaser.CurrentPosition))
+            {
+                PlayerDamageResult contactDamage = _health.ApplyContactDamage(
+                    _chaser.ActorId,
+                    _coreChaserDefinition.ContactDamage);
+                if (contactDamage.WasApplied)
+                {
+                    _appliedDamageResults.Add(contactDamage);
+                }
+            }
+
             for (int index = 0; index < explosions.Count; index++)
             {
                 BombExploded?.Invoke(explosions[index]);

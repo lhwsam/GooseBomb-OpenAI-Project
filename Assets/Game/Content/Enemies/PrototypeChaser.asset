@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChaserDefinitionAsset
   definitionId: prototype-chaser
   maxHealth: 1
+  contactDamage: 1
   cellsPerSecond: 2
   directionCommitmentSteps: 2
   chaserPrefab: {fileID: 5675793016543394093, guid: b8f665f278770cb4b8c7ce4ba430ecb0, type: 3}

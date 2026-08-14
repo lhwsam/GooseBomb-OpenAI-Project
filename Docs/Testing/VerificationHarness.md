@@ -78,9 +78,9 @@ PlayMode 표식:
 
 ## 브라우저 스모크 준비 상태
 
-`Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 게임플레이 probe는 먼저 `probe-ready`를 보내 Unity 런타임과 입력 구독이 준비됐음을 알리고, 이후 `move`, `chaser-moved`, `place-bomb`, `bomb-exploded`, `player-damaged`, `enemy-died`, `room-cleared`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
+`Tools/WebGLSmoke.mjs`는 정적 서버와 Playwright를 사용한다. 게임플레이 probe는 먼저 `probe-ready`를 보내 Unity 런타임과 입력 구독이 준비됐음을 알리고, 이후 `move`, `chaser-moved`, `place-bomb`, `player-contact-damaged`, `contact-escape-moved`, `bomb-exploded`, `player-damaged`, `player-explosion-damaged`, `enemy-died`, `room-cleared`, `swap-bomb`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다.
 
-현재 TestSandbox 개발 빌드는 `PrototypeInputHarnessProbe`와 `BombSwapHarness.jslib`로 이 배열을 제공한다. `probe-ready`는 `PrototypeGameSession`이 InputReader 구독까지 끝낸 뒤에만 기록한다. Playwright는 canvas focus와 이 준비 표식을 확인하고, `move`가 관측될 때까지 `W`를 누른 상태로 유지한 다음 `Z`, `X`, `Esc` 두 번을 보낸다. 고정 지연을 쓰지 않아 느린 headless WebGL 프레임에서도 keydown/key-up이 같은 Input System update에 합쳐지는 오탐을 피한다. `move`와 `chaser-moved`는 성공한 Core 점유 전이, `place-bomb`은 성공한 Core 설치, `bomb-exploded`는 fuse 뒤 확정된 Core 폭발, `player-damaged`, `enemy-died`, `room-cleared`는 논리 영향 셀과 체력·집계 규칙을 통과한 결과에서만 기록된다. `audio-unlocked`는 사용자 입력 수신 marker일 뿐 실제 오디오 출력 검증을 대체하지 않는다.
+현재 TestSandbox 개발 빌드는 `PrototypeInputHarnessProbe`와 `BombSwapHarness.jslib`로 이 배열을 제공한다. `probe-ready`는 `PrototypeGameSession`이 InputReader 구독까지 끝낸 뒤에만 기록한다. Playwright는 canvas focus와 이 준비 표식을 확인하고, `move`까지 `W` 유지 → `Z` 설치 → 접촉 피해까지 대기 → `contact-escape-moved`까지 `A` 유지 → 자기 폭발 확인 → 두 번째 `Z` 재유도 → `X`, `Esc` 두 번 순서로 진행한다. 고정 지연 대신 Core 사건으로 동기화해 느린 headless WebGL 프레임의 입력 오탐을 피한다. `player-contact-damaged`와 `player-explosion-damaged`는 적용된 피해 원인이 각각 적 `ActorId`와 `BombId`로 확정됐을 때만 기록된다. 나머지 이동·설치·폭발·사망·클리어 표식도 실제 Core 상태 전이에서만 발생한다. `audio-unlocked`는 사용자 입력 수신 marker일 뿐 실제 오디오 출력 검증을 대체하지 않는다.
 
 Playwright를 찾지 못하면 Node의 `CODEX_NODE_MODULES`가 Playwright 모듈을 포함한 경로를 가리키게 하거나 프로젝트 개발 의존성 도입을 별도 승인받는다. 브라우저는 설치된 Edge/Chrome을 자동 탐색하며, 별도 위치는 `BOMBSWAP_BROWSER_PATH`로 지정한다.
 
