@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using BombSwap.Core;
 using NUnit.Framework;
 
@@ -284,6 +285,79 @@ namespace BombSwap.Tests.EditMode
             Assert.That(room.IsBlocked(new GridPosition(2, 0)), Is.True);
             Assert.That(room.IsBlocked(PlayerSpawn), Is.False);
             Assert.That(room.LureLoop, Has.Count.EqualTo(8));
+        }
+
+        [Test]
+        public void Rotation_TransformsWholeAsymmetricDefinitionAtomically()
+        {
+            var wall = new GridPosition(1, 1);
+            var destructible = new GridPosition(-1, -1);
+            var charger = new GridPosition(-3, 2);
+            var armored = new GridPosition(-3, -2);
+            CombatRoomDefinition source = CreateRoom(
+                walls: new[] { wall },
+                destructibleWalls: new[] { destructible },
+                chargerSpawn: charger,
+                armoredSpawn: armored);
+
+            CombatRoomDefinition rotated = CombatRoomRotationUtility.Rotate(
+                source,
+                RoomRotation.Clockwise90);
+
+            Assert.That(rotated.Id, Is.EqualTo(source.Id));
+            Assert.That(rotated.Width, Is.EqualTo(source.Depth));
+            Assert.That(rotated.Depth, Is.EqualTo(source.Width));
+            Assert.That(rotated.PlayerSpawn, Is.EqualTo(new GridPosition(0, 0)));
+            Assert.That(rotated.ChaserSpawn, Is.EqualTo(new GridPosition(-1, -3)));
+            Assert.That(rotated.IndestructibleWalls, Does.Contain(new GridPosition(1, -1)));
+            Assert.That(rotated.DestructibleWalls, Does.Contain(new GridPosition(-1, 1)));
+            Assert.That(rotated.ChargerSpawn, Is.EqualTo(new GridPosition(2, 3)));
+            Assert.That(rotated.ArmoredSpawn, Is.EqualTo(new GridPosition(-2, 3)));
+            Assert.That(
+                rotated.Exits[0].Direction,
+                Is.EqualTo(RoomExitDirection.East));
+            Assert.That(rotated.Exits[0].Cell, Is.EqualTo(new GridPosition(4, 0)));
+            Assert.That(
+                rotated.Exits[1].Direction,
+                Is.EqualTo(RoomExitDirection.West));
+            Assert.That(rotated.Exits[1].Cell, Is.EqualTo(new GridPosition(-4, 0)));
+        }
+
+        [Test]
+        public void Rotation_NoneReusesDefinitionAndFourQuarterTurnsRestoreCells()
+        {
+            CombatRoomDefinition source = CreateRoom(
+                walls: new[] { new GridPosition(1, 1) },
+                destructibleWalls: new[] { new GridPosition(-1, -1) });
+
+            Assert.That(
+                CombatRoomRotationUtility.Rotate(source, RoomRotation.None),
+                Is.SameAs(source));
+
+            CombatRoomDefinition rotated = source;
+            for (int index = 0; index < 4; index++)
+            {
+                rotated = CombatRoomRotationUtility.Rotate(
+                    rotated,
+                    RoomRotation.Clockwise90);
+            }
+
+            Assert.That(rotated.Width, Is.EqualTo(source.Width));
+            Assert.That(rotated.Depth, Is.EqualTo(source.Depth));
+            Assert.That(rotated.PlayerSpawn, Is.EqualTo(source.PlayerSpawn));
+            Assert.That(rotated.ChaserSpawn, Is.EqualTo(source.ChaserSpawn));
+            Assert.That(rotated.IndestructibleWalls, Is.EqualTo(source.IndestructibleWalls));
+            Assert.That(rotated.DestructibleWalls, Is.EqualTo(source.DestructibleWalls));
+            Assert.That(rotated.Exits.Select(exit => exit.Cell),
+                Is.EqualTo(source.Exits.Select(exit => exit.Cell)));
+            Assert.That(rotated.Exits.Select(exit => exit.Direction),
+                Is.EqualTo(source.Exits.Select(exit => exit.Direction)));
+            Assert.Throws<ArgumentNullException>(() =>
+                CombatRoomRotationUtility.Rotate(null, RoomRotation.None));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CombatRoomRotationUtility.Rotate(
+                    new GridPosition(1, 2),
+                    (RoomRotation)999));
         }
 
         private static CombatRoomDefinition CreateRoom(
