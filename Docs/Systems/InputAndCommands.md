@@ -75,13 +75,13 @@
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
 - PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타·동일 frame press-release, 유지 대각선의 최신 축 고정, Input System Keyboard 상태와 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select 상태→이동·폭탄·pause·재시작 명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시, pause 중 이동·설치·교체와 fuse 정지·UI 표시 및 재개 뒤 유지 키 재적용.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 뒤 오른쪽 키를 누른 채 브라우저 `blur`를 발생시켜 `Move(None)`과 셀·motion 정지를 확인하고, 누락 key-up 상태의 `focus` 복귀가 이동을 되살리지 않는지 검증한다. 이어 안전방에서 `Esc`로 실제 pause에 진입하고 `PAUSED` 화면을 캡처한다. pause 중 방향키 유지와 `Z`를 보내도 논리 셀·frame motion·폭탄 설치 수가 변하지 않아야 하며, 두 번째 `Esc`의 `pause-resumed` 뒤 진행을 재개한다. 첫 전투방에서는 `ArrowLeft/ArrowUp`의 즉시 press-release 단타를 여섯 번 교대하고 각 탭이 한 frame의 대응 `move-motion-direction-*`을 만든 뒤 추가 이동 없이 멈춰야 한다. 별도 가상 표준 게임패드 smoke는 브라우저 API 연결부터 스틱·D-pad의 방향/해제, South 설치, West 교체 명령, Start 실제 pause/resume을 확인한다. 보스 격파 뒤 완료 화면과 `R` 재시작을 확인하고, 새 안전방에서 자기 폭발로 사망시킨 뒤 실패 화면과 두 번째 새 run 시작까지 확인한다.
+- WebGL smoke: canvas focus 뒤 오른쪽 키를 누른 채 브라우저 `blur`를 발생시켜 `Move(None)`과 셀·motion 정지를 확인하고, 누락 key-up 상태의 `focus` 복귀가 이동을 되살리지 않는지 검증한다. 이어 안전방에서 `Esc`로 실제 pause에 진입하고 `PAUSED` 화면을 캡처한다. pause 중 방향키 유지와 `Z`를 보내도 논리 셀·frame motion·폭탄 설치 수가 변하지 않아야 하며, 두 번째 `Esc`의 `pause-resumed` 뒤 진행을 재개한다. 첫 전투방에서는 `ArrowLeft/ArrowUp`의 즉시 press-release 단타를 여섯 번 교대하고 각 탭이 한 frame의 대응 `move-motion-direction-*`을 만든 뒤 추가 이동 없이 멈춰야 한다. 별도 가상 표준 게임패드 smoke는 브라우저 API 연결부터 스틱·D-pad의 방향/해제, South 설치·자기폭발 실패, West 교체 명령, Start 실제 pause/resume, Select의 실패 런 재시작을 확인한다. 보스 격파 뒤 완료 화면과 `R` 재시작을 확인하고, 새 안전방에서 자기 폭발로 사망시킨 뒤 실패 화면과 두 번째 새 run 시작까지 확인한다.
 
 ## 미정 사항과 종료 조건
 
 - 동일 크기 두 축에서 새 직교 방향을 우선하는 정책과 frame 연속 이동은 PT-20260814-01 결함 수정으로 채택했다. 기본 5 cells/s, 코너 보정 폭과 셀 경계 판정 가독성은 후속 조작감 비교 전까지 `Proposed`다.
 - 사용자 리바인딩과 UI 전용 action map은 프로토타입 코어 전투 이후 결정한다.
-- 게임패드 binding 구조, 합성 Input System 장치 상태→의미 명령, WebGL 표준 가상 장치의 브라우저 API→Emscripten→Unity Input System→명령·Core 설치 경로는 자동 검증했다. 실제 목표 물리 컨트롤러의 연결·장치별 버튼 표기·deadzone·브라우저/OS 차이·조작감 수동 플레이가 남아 있다.
+- 게임패드 binding 구조, 합성 Input System 장치 상태→의미 명령, WebGL 표준 가상 장치의 브라우저 API→Emscripten→Unity Input System→명령·Core 설치·실패·Select 재시작 경로는 자동 검증했다. 실제 목표 물리 컨트롤러의 연결·장치별 버튼 표기·deadzone·브라우저/OS 차이·조작감 수동 플레이가 남아 있다.
 - application focus 상실 시 입력은 해제하지만 자동 pause는 하지 않는다. 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 현재 범위 밖이다.
 
 ## 관련 문서
