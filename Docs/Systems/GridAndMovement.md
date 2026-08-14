@@ -55,6 +55,7 @@
 - 셀 경계를 통과할 때 `GridState.TryMoveActor`로 정수 점유를 전이하고 `PlayerMovementStep`을 발행한다. 큰 frame은 열린 각 셀을 순서대로 검사해 장애물을 건너뛰지 않는다.
 - 목적 셀이 막히면 플레이어는 현재 셀 중심보다 그 목적지 쪽으로 진행하지 않는다. 반대 경계에서 들어온 진행도만 중심까지 정리할 수 있다.
 - `PrototypeGameSession`은 TestSandbox의 11×9 바닥과 논리 장애물을 이동·폭탄 simulation에 공유하고 연속 위치 변경을 Unity 표현에 알린다. `PrototypePlayerController`는 독립 보간 없이 Core 위치를 직접 표시한다.
+- room asset의 고정 벽은 `IndestructibleWall`, 파괴 가능 벽은 `DestructibleWall`로 초기화된다. 둘 다 이동·설치를 막고, 확정 폭발이 파괴 가능 벽을 `Floor`로 바꾼 뒤부터 같은 셀 전이 규칙으로 통과할 수 있다.
 
 ## 구현된 Unity 좌표 계약
 
@@ -105,6 +106,7 @@
 - 잘못된 수치와 지원 범위 밖 좌표의 거부.
 - 실제 Input System 유지·해제·빠른 방향 반복에서 Core 연속 위치와 placeholder Transform의 동일 frame 반영.
 - 저작된 논리 장애물이 논리 위치와 시각 위치를 함께 차단함.
+- 파괴 가능 벽이 폭발 전 이동을 막고 확정 파괴 뒤 `Floor`가 되어 이동 가능한 상태로 열린다.
 - 실제 `Z` 설치 뒤 소유자가 셀을 빠져나오고 반대 입력으로 폭탄 셀에 재진입하지 못함.
 - 추격자가 플레이어와 공유하는 논리 격자에서 이동하고 presenter가 확정된 적 step을 보간함.
 - 폭발 사망 뒤 추격자 actor 점유가 제거되고 placeholder가 짧은 사망 표시 뒤 비활성화됨.

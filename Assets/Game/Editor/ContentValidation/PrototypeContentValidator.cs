@@ -44,6 +44,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
+        public const string DestructibleWallMaterialPath =
+            "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
 
         public static void Validate(ICollection<string> errors)
         {
@@ -57,8 +59,17 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypePlayerVitals(errors);
             ValidatePrototypeChaserDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
+            ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
             ValidateBuildSettings(errors);
+        }
+
+        private static void ValidateDestructibleWallMaterial(ICollection<string> errors)
+        {
+            if (AssetDatabase.LoadAssetAtPath<Material>(DestructibleWallMaterialPath) == null)
+            {
+                errors.Add($"Missing prototype destructible-wall material: {DestructibleWallMaterialPath}");
+            }
         }
 
         private static void ValidatePrototypeBombDefinitions(ICollection<string> errors)
@@ -507,6 +518,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypePlayerController>(scene);
                 PrototypeBombPresenter[] bombPresenters =
                     FindComponents<PrototypeBombPresenter>(scene);
+                PrototypeDestructibleWallPresenter[] destructibleWallPresenters =
+                    FindComponents<PrototypeDestructibleWallPresenter>(scene);
                 PrototypePlayerHealthPresenter[] healthPresenters =
                     FindComponents<PrototypePlayerHealthPresenter>(scene);
                 PrototypeChaserPresenter[] chaserPresenters =
@@ -540,6 +553,12 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeBombPresenter; found {bombPresenters.Length}.");
+                }
+                if (destructibleWallPresenters.Length != 1)
+                {
+                    errors.Add(
+                        "TestSandbox must contain exactly one " +
+                        $"PrototypeDestructibleWallPresenter; found {destructibleWallPresenters.Length}.");
                 }
                 if (healthPresenters.Length != 1)
                 {
@@ -641,6 +660,20 @@ namespace BombSwap.Editor.ContentValidation
                     if (presenter.BombPoolSize < 0 || presenter.ExplosionPoolSize < 0)
                     {
                         errors.Add("TestSandbox bomb presenter pool sizes cannot be negative.");
+                    }
+                }
+
+                if (destructibleWallPresenters.Length == 1 &&
+                    sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeDestructibleWallPresenter presenter =
+                        destructibleWallPresenters[0];
+                    Transform expectedRoot =
+                        contexts[0].GridRoot.Find("Environment/DestructibleObstacles");
+                    if (presenter.Session != sessions[0] || presenter.WallRoot != expectedRoot)
+                    {
+                        errors.Add(
+                            "TestSandbox destructible-wall presenter has inconsistent scene references.");
                     }
                 }
 
@@ -798,6 +831,57 @@ namespace BombSwap.Editor.ContentValidation
                 if (!seenWalls.Contains(wall))
                 {
                     errors.Add($"TestSandbox is missing an obstacle visual for authored wall {wall}.");
+                }
+            }
+
+
+            Transform destructibleObstacles =
+                context.GridRoot.Find("Environment/DestructibleObstacles");
+            if (destructibleObstacles == null)
+            {
+                errors.Add("TestSandbox is missing Environment/DestructibleObstacles.");
+                return;
+            }
+
+            Material destructibleMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                DestructibleWallMaterialPath);
+            var authoredDestructibleWalls =
+                new HashSet<GridPosition>(room.DestructibleWalls);
+            var seenDestructibleWalls = new HashSet<GridPosition>();
+            for (int index = 0; index < destructibleObstacles.childCount; index++)
+            {
+                Transform obstacle = destructibleObstacles.GetChild(index);
+                GridPosition cell = context.GridSpace.WorldToGrid(obstacle.position);
+                if (!seenDestructibleWalls.Add(cell))
+                {
+                    errors.Add($"TestSandbox has duplicate destructible visuals at {cell}.");
+                }
+                if (!authoredDestructibleWalls.Contains(cell))
+                {
+                    errors.Add(
+                        $"TestSandbox destructible visual {obstacle.name} is not authored at {cell}.");
+                }
+
+                Renderer[] renderers = obstacle.GetComponentsInChildren<Renderer>(true);
+                if (renderers.Length != 4 || destructibleMaterial == null ||
+                    renderers.Any(renderer => renderer.sharedMaterial != destructibleMaterial))
+                {
+                    errors.Add(
+                        $"TestSandbox destructible visual {obstacle.name} must use four segmented blocks and the validated material.");
+                }
+                if (obstacle.GetComponentsInChildren<Collider>(true).Length != 0)
+                {
+                    errors.Add(
+                        $"TestSandbox destructible visual {obstacle.name} must not own logical colliders.");
+                }
+            }
+
+            foreach (GridPosition wall in authoredDestructibleWalls)
+            {
+                if (!seenDestructibleWalls.Contains(wall))
+                {
+                    errors.Add(
+                        $"TestSandbox is missing a destructible visual for authored wall {wall}.");
                 }
             }
         }

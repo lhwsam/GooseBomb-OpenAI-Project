@@ -397,6 +397,15 @@ namespace BombSwap.Editor.ContentValidation
         private static PrototypeCombatRoomDefinitionAsset[] CreatePrototypeCombatRoomContentIfMissing()
         {
             EnsureAssetFolder("Assets/Game/Content/Rooms");
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+            GetOrCreateMaterial(
+                PrototypeContentValidator.DestructibleWallMaterialPath,
+                shader,
+                new Color(0.72f, 0.34f, 0.08f, 1f));
             PrototypeCombatRoomDefinitionAsset loop = GetOrCreateRoomDefinition(
                 PrototypeContentValidator.PrototypeCombatRoomDefinitionPath,
                 "PrototypeCombatLoop");
@@ -445,7 +454,8 @@ namespace BombSwap.Editor.ContentValidation
                     new PrototypeRoomExitData(
                         new Vector2Int(0, -4),
                         RoomExitDirection.South),
-                });
+                },
+                Array.Empty<Vector2Int>());
             EditorUtility.SetDirty(loop);
 
             PrototypeCombatRoomDefinitionAsset lanes = GetOrCreateRoomDefinition(
@@ -488,6 +498,11 @@ namespace BombSwap.Editor.ContentValidation
                     new PrototypeRoomExitData(
                         new Vector2Int(0, -4),
                         RoomExitDirection.South),
+                },
+                new[]
+                {
+                    new Vector2Int(-1, -1),
+                    new Vector2Int(1, -1),
                 });
             EditorUtility.SetDirty(lanes);
 
@@ -530,6 +545,10 @@ namespace BombSwap.Editor.ContentValidation
                     new PrototypeRoomExitData(
                         new Vector2Int(5, 0),
                         RoomExitDirection.East),
+                },
+                new[]
+                {
+                    Vector2Int.zero,
                 });
             EditorUtility.SetDirty(pillars);
 
@@ -720,6 +739,10 @@ namespace BombSwap.Editor.ContentValidation
                 MaterialsPath + "/Player.mat",
                 shader,
                 new Color(1f, 0.69f, 0.12f, 1f));
+            Material destructibleWallMaterial = GetOrCreateMaterial(
+                PrototypeContentValidator.DestructibleWallMaterialPath,
+                shader,
+                new Color(0.72f, 0.34f, 0.08f, 1f));
             CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
             float cellSize = roomDefinition.CellSize;
 
@@ -735,6 +758,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerController playerController =
                 systems.AddComponent<PrototypePlayerController>();
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            PrototypeDestructibleWallPresenter destructibleWallPresenter =
+                systems.AddComponent<PrototypeDestructibleWallPresenter>();
             PrototypePlayerHealthPresenter healthPresenter =
                 systems.AddComponent<PrototypePlayerHealthPresenter>();
             PrototypeChaserPresenter chaserPresenter =
@@ -803,6 +828,17 @@ namespace BombSwap.Editor.ContentValidation
                     true);
             }
 
+            Transform destructibleObstacles = CreateChild("DestructibleObstacles", environment);
+            for (int index = 0; index < room.DestructibleWalls.Count; index++)
+            {
+                CreateDestructibleWallVisual(
+                    destructibleObstacles,
+                    room.DestructibleWalls[index],
+                    cellSize,
+                    destructibleWallMaterial,
+                    index);
+            }
+
             Transform playerSpawn = CreateChild("PlayerSpawn", gridRoot.transform);
             playerSpawn.localPosition = new Vector3(
                 room.PlayerSpawn.X * cellSize,
@@ -849,6 +885,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
             weaponHud.Configure(gameSession);
@@ -888,6 +925,13 @@ namespace BombSwap.Editor.ContentValidation
             {
                 bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
             }
+            PrototypeDestructibleWallPresenter destructibleWallPresenter =
+                systems.GetComponent<PrototypeDestructibleWallPresenter>();
+            if (destructibleWallPresenter == null)
+            {
+                destructibleWallPresenter =
+                    systems.AddComponent<PrototypeDestructibleWallPresenter>();
+            }
             PrototypePlayerHealthPresenter healthPresenter =
                 systems.GetComponent<PrototypePlayerHealthPresenter>();
             if (healthPresenter == null)
@@ -924,6 +968,10 @@ namespace BombSwap.Editor.ContentValidation
             }
             CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
             SynchronizeInteriorObstacles(context.GridRoot, roomDefinition, room);
+            Transform destructibleObstacles = SynchronizeDestructibleObstacles(
+                context.GridRoot,
+                roomDefinition,
+                room);
             var gridSpace = new GridSpace(context.GridRoot.position, roomDefinition.CellSize);
             context.PlayerSpawn.position = gridSpace.GridToWorld(room.PlayerSpawn);
             Vector3 playerPosition = gridSpace.GridToWorld(room.PlayerSpawn);
@@ -954,6 +1002,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
             weaponHud.Configure(gameSession);
@@ -963,6 +1012,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(gameSession);
             EditorUtility.SetDirty(playerController);
             EditorUtility.SetDirty(bombPresenter);
+            EditorUtility.SetDirty(destructibleWallPresenter);
             EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(chaserPresenter);
             EditorUtility.SetDirty(weaponHud);
@@ -1028,6 +1078,111 @@ namespace BombSwap.Editor.ContentValidation
                     wallMaterial,
                     true);
             }
+        }
+
+        private static Transform SynchronizeDestructibleObstacles(
+            Transform gridRoot,
+            PrototypeCombatRoomDefinitionAsset roomDefinition,
+            CombatRoomDefinition room)
+        {
+            Transform environment = gridRoot.Find("Environment");
+            if (environment == null)
+            {
+                throw new InvalidOperationException("TestSandbox is missing its Environment root.");
+            }
+            Transform obstacles = environment.Find("DestructibleObstacles");
+            if (obstacles == null)
+            {
+                obstacles = CreateChild("DestructibleObstacles", environment);
+            }
+
+            var expected = new HashSet<GridPosition>(room.DestructibleWalls);
+            var actual = new HashSet<GridPosition>();
+            var gridSpace = new GridSpace(gridRoot.position, roomDefinition.CellSize);
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeContentValidator.DestructibleWallMaterialPath);
+            if (material == null)
+            {
+                throw new InvalidOperationException("Prototype destructible-wall material is missing.");
+            }
+            bool matches = obstacles.childCount == expected.Count;
+            for (int index = 0; index < obstacles.childCount; index++)
+            {
+                Transform obstacle = obstacles.GetChild(index);
+                GridPosition cell = gridSpace.WorldToGrid(obstacle.position);
+                if (!actual.Add(cell) || !expected.Contains(cell))
+                {
+                    matches = false;
+                }
+                Renderer[] renderers = obstacle.GetComponentsInChildren<Renderer>(true);
+                if (renderers.Length != 4 ||
+                    renderers.Any(renderer => renderer.sharedMaterial != material) ||
+                    obstacle.GetComponentsInChildren<Collider>(true).Length != 0)
+                {
+                    matches = false;
+                }
+            }
+            if (matches && actual.SetEquals(expected))
+            {
+                return obstacles;
+            }
+
+            for (int index = obstacles.childCount - 1; index >= 0; index--)
+            {
+                UnityEngine.Object.DestroyImmediate(obstacles.GetChild(index).gameObject);
+            }
+
+            for (int index = 0; index < room.DestructibleWalls.Count; index++)
+            {
+                CreateDestructibleWallVisual(
+                    obstacles,
+                    room.DestructibleWalls[index],
+                    roomDefinition.CellSize,
+                    material,
+                    index);
+            }
+
+            return obstacles;
+        }
+
+        private static Transform CreateDestructibleWallVisual(
+            Transform parent,
+            GridPosition position,
+            float cellSize,
+            Material material,
+            int index)
+        {
+            Transform root = CreateChild(
+                $"Destructible_{index}_{position.X}_{position.Z}",
+                parent);
+            root.localPosition = new Vector3(
+                position.X * cellSize,
+                0f,
+                position.Z * cellSize);
+
+            float blockOffset = 0.225f * cellSize;
+            float blockWidth = 0.4f * cellSize;
+            Vector3[] offsets =
+            {
+                new Vector3(-blockOffset, 0.36f * cellSize, -blockOffset),
+                new Vector3(blockOffset, 0.4f * cellSize, -blockOffset),
+                new Vector3(-blockOffset, 0.4f * cellSize, blockOffset),
+                new Vector3(blockOffset, 0.36f * cellSize, blockOffset),
+            };
+            for (int blockIndex = 0; blockIndex < offsets.Length; blockIndex++)
+            {
+                float height = blockIndex == 1 || blockIndex == 2 ? 0.8f : 0.72f;
+                CreatePrimitive(
+                    "BreakableBlock_" + blockIndex,
+                    PrimitiveType.Cube,
+                    root,
+                    offsets[blockIndex],
+                    new Vector3(blockWidth, height * cellSize, blockWidth),
+                    material,
+                    false);
+            }
+
+            return root;
         }
 
         private static void EnsureBuildSettings()

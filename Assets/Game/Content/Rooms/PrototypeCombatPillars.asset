@@ -25,6 +25,8 @@ MonoBehaviour:
   - {x: -1, y: 0}
   - {x: 1, y: 1}
   - {x: -1, y: 2}
+  destructibleWalls:
+  - {x: 0, y: 0}
   safePlayerCells:
   - {x: -3, y: -2}
   - {x: -3, y: -1}

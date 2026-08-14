@@ -28,6 +28,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeGameSession _session;
         private PrototypePlayerController _controller;
         private PrototypeBombPresenter _presenter;
+        private PrototypeDestructibleWallPresenter _destructibleWallPresenter;
         private PrototypeInputHarnessProbe _probe;
         private PrototypePlayerHealthPresenter _healthPresenter;
         private PrototypeChaserPresenter _chaserPresenter;
@@ -370,6 +371,41 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(exploded.AffectedCells, Has.Count.EqualTo(9));
             Assert.That(exploded.AffectedCells, Has.Member(new GridPosition(1, 1)));
             Assert.That(exploded.AffectedCells, Has.Member(new GridPosition(-1, -1)));
+        }
+
+        [UnityTest]
+        public IEnumerator DestructibleWallPresenter_RemovesConfirmedWallAndOpensGridCell()
+        {
+            var wall = new Vector2Int(1, 0);
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.05f,
+                destructibleWalls: new[] { wall },
+                includeDestructibleWallPresenter: true);
+            BombExplosion exploded = null;
+            _session.BombExploded += explosion =>
+            {
+                if (explosion.DefinitionId.Value == "test-area")
+                {
+                    exploded = explosion;
+                }
+            };
+            yield return null;
+
+            var coreWall = new GridPosition(wall.x, wall.y);
+            Assert.That(_session.GetCell(coreWall).Terrain, Is.EqualTo(GridTerrain.DestructibleWall));
+            Assert.That(_destructibleWallPresenter.HasWallVisual(coreWall), Is.True);
+
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(exploded, Is.Not.Null);
+            Assert.That(exploded.DestroyedWalls, Has.Member(coreWall));
+            Assert.That(_session.GetCell(coreWall).Terrain, Is.EqualTo(GridTerrain.Floor));
+            Assert.That(_destructibleWallPresenter.HasWallVisual(coreWall), Is.False);
+            Assert.That(_destructibleWallPresenter.ActiveWallVisualCount, Is.Zero);
         }
 
         [UnityTest]
@@ -750,7 +786,9 @@ namespace BombSwap.Tests.PlayMode
             bool includeRoomAdvanceController = false,
             string nextSceneName = "UnusedPlayModeTarget",
             float roomTransitionDelaySeconds =
-                PrototypeRoomAdvanceController.DefaultTransitionDelaySeconds)
+                PrototypeRoomAdvanceController.DefaultTransitionDelaySeconds,
+            Vector2Int[] destructibleWalls = null,
+            bool includeDestructibleWallPresenter = false)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -872,7 +910,8 @@ namespace BombSwap.Tests.PlayMode
                     new PrototypeRoomExitData(
                         new Vector2Int(0, -2),
                         RoomExitDirection.South),
-                });
+                },
+                destructibleWalls ?? new Vector2Int[0]);
 
             BombSwapInputReader reader = _root.AddComponent<BombSwapInputReader>();
             reader.Configure(_inputActions);
@@ -894,12 +933,28 @@ namespace BombSwap.Tests.PlayMode
                 _chaserDefinition,
                 10f,
                 0.05f);
+            Transform destructibleRoot = new GameObject("DestructibleObstacles").transform;
+            destructibleRoot.SetParent(gridRoot, false);
+            Vector2Int[] authoredDestructibleWalls = destructibleWalls ?? new Vector2Int[0];
+            for (int index = 0; index < authoredDestructibleWalls.Length; index++)
+            {
+                Vector2Int wall = authoredDestructibleWalls[index];
+                Transform wallVisual = new GameObject($"Destructible_{wall.x}_{wall.y}").transform;
+                wallVisual.SetParent(destructibleRoot, false);
+                wallVisual.localPosition = new Vector3(wall.x, 0f, wall.y);
+            }
             _controller = _root.AddComponent<PrototypePlayerController>();
             _controller.Configure(_session, _player);
             if (includePresenter)
             {
                 _presenter = _root.AddComponent<PrototypeBombPresenter>();
                 _presenter.Configure(_session, presentationRoot, 1, 5);
+            }
+            if (includeDestructibleWallPresenter)
+            {
+                _destructibleWallPresenter =
+                    _root.AddComponent<PrototypeDestructibleWallPresenter>();
+                _destructibleWallPresenter.Configure(_session, destructibleRoot);
             }
             if (includeHealthPresenter)
             {

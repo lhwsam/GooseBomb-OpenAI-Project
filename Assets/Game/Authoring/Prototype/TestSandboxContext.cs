@@ -47,6 +47,9 @@ namespace BombSwap
         public IReadOnlyList<Vector2Int> BlockedCells =>
             roomDefinition == null ? Array.Empty<Vector2Int>() : roomDefinition.IndestructibleWalls;
 
+        public IReadOnlyList<Vector2Int> DestructibleCells =>
+            roomDefinition == null ? Array.Empty<Vector2Int>() : roomDefinition.DestructibleWalls;
+
         public GridSpace GridSpace => new GridSpace(gridRoot.position, CellSize);
 
         public void Configure(
