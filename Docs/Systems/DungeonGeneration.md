@@ -36,7 +36,7 @@
 - `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·보스 타입의 서로 다른 씬 이름을 제공하며, 실제 catalog asset과 네 특수방 씬을 통해 run session이 모든 노드를 씬으로 해석한다.
 - `PrototypeDungeonRunNavigator`는 씬 이름과 로드 가능성을 검증한 pending 전환을 소유하고, 기대한 씬 완료 뒤에만 `DungeonRunState.TryTravel`을 호출한다. `PrototypeDungeonRunHost`는 이 상태만 방 씬 밖에 유지한다.
 - `DungeonBombLoadoutState`는 한 종류로 시작하는 run loadout과 첫 보상 후보·선택을 소유한다. Unity host와 room binder는 이 상태를 방 로컬 `PrototypeGameSession`에 주입해 scene 전환 뒤에도 선택한 2번 슬롯을 유지한다.
-- `PrototypeDungeonRunSession.IsComplete`는 현재 노드가 보스방이고 그 보스방이 cleared일 때만 참이다. persistent host는 완료 상태와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
+- `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
 
 현재 필수 주 경로는 다음과 같다.
 
@@ -98,4 +98,4 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 첫 전투 잠금, 안전방 비잠금, 클리어 중복, 클리어 전 퇴실 차단, 클리어 뒤 양방향 재방문과 전체 트리 왕복.
 - 카탈로그 순서 무관 배정 재현, 128개 seed 다양성, 사용 횟수 균형, 회전 방향과 활성 출구 호환, 부족한 카탈로그의 명시 실패.
 
-실제 문 GameObject, room 회전·씬 로드·탐색과 첫 폭탄 보상은 Unity runtime/PlayMode에 연결됐다. seed-0 전체 주 경로는 선택한 loadout을 유지한 채 보스 전실·2페이즈 보스 격파·한 층 완료·새 run 재시작까지 Development WebGL 자동 검증을 통과했다. 다음 범위는 선택 가지, 되돌아가기 피로와 보스·완료 흐름을 포함한 사람 플레이테스트다.
+실제 문 GameObject, room 회전·씬 로드·탐색과 첫 폭탄 보상은 Unity runtime/PlayMode에 연결됐다. seed-0 전체 주 경로는 선택한 loadout을 유지한 채 보스 전실·2페이즈 보스 격파·한 층 완료·새 run 재시작까지 Development WebGL 자동 검증을 통과했다. 같은 세션에서 새 안전방 자기 폭발 사망·실패 결과·두 번째 새 run 재시작도 검증했다. 다음 범위는 선택 가지, 되돌아가기 피로와 보스·결과 흐름을 포함한 사람 플레이테스트다.

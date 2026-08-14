@@ -44,6 +44,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(session.Seed, Is.Zero);
             Assert.That(session.Graph.Seed, Is.Zero);
             Assert.That(session.RunState.Graph, Is.SameAs(session.Graph));
+            Assert.That(session.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
+            Assert.That(session.IsFinished, Is.False);
             Assert.That(
                 session.CombatRoomLayout.AssignmentVersion,
                 Is.EqualTo(DungeonCombatRoomAssigner.AssignmentVersion));
@@ -122,6 +124,30 @@ namespace BombSwap.Tests.PlayMode
                 session.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.Cleared));
             Assert.That(session.IsComplete, Is.True);
+            Assert.That(session.IsFinished, Is.True);
+            Assert.That(session.Outcome, Is.EqualTo(DungeonRunOutcome.Completed));
+        }
+
+        [Test]
+        public void Session_FailureIsTerminalAndCannotBecomeCompletion()
+        {
+            var session = new PrototypeDungeonRunSession(
+                31,
+                CreateCatalog(),
+                CreateSpecialCatalog(),
+                CreateBombRewardCatalog());
+
+            Assert.That(session.TryFail(), Is.True);
+            Assert.That(session.TryFail(), Is.False);
+            Assert.That(session.IsFailed, Is.True);
+            Assert.That(session.IsFinished, Is.True);
+            Assert.That(session.IsComplete, Is.False);
+            Assert.That(
+                session.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.RunFinished));
+            Assert.That(
+                session.TryTravelTo(session.Graph.GetNeighbors(session.CurrentRoomId)[0]).Status,
+                Is.EqualTo(DungeonTravelStatus.RunFinished));
         }
 
         [Test]
@@ -845,7 +871,7 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo(DungeonRoomClearStatus.Cleared));
                 Assert.That(originalSession.IsComplete, Is.True);
 
-                host.RestartCompletedRun();
+                host.RestartFinishedRun();
                 yield return null;
 
                 loadedDungeonScene = SceneManager.GetActiveScene();
@@ -858,6 +884,7 @@ namespace BombSwap.Tests.PlayMode
                     host.RunSession.CurrentRoomId,
                     Is.EqualTo(host.RunSession.Graph.StartRoomId));
                 Assert.That(host.RunSession.IsComplete, Is.False);
+                Assert.That(host.RunSession.IsFinished, Is.False);
             }
             finally
             {
@@ -874,6 +901,66 @@ namespace BombSwap.Tests.PlayMode
                     loadedDungeonScene = SceneManager.GetActiveScene();
                 }
                 Scene cleanup = SceneManager.CreateScene("RunRestartPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RunHost_RestartsFailedRunAtStartScene()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                GameObject hostRoot = CreateGameObject("FailedDungeonRunHost");
+                hostRoot.SetActive(false);
+                PrototypeDungeonRunHost host =
+                    hostRoot.AddComponent<PrototypeDungeonRunHost>();
+                host.Configure(
+                    29,
+                    CreateCatalog(),
+                    CreateSpecialCatalog(),
+                    CreateBombRewardCatalog(),
+                    false);
+                hostRoot.SetActive(true);
+                yield return null;
+
+                PrototypeDungeonRunSession originalSession = host.RunSession;
+                Assert.That(host.TryFailCurrentRun(), Is.True);
+                Assert.That(host.TryFailCurrentRun(), Is.False);
+                Assert.That(originalSession.IsFailed, Is.True);
+
+                host.RestartFinishedRun();
+                yield return null;
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+                Assert.That(loadedDungeonScene.name, Is.EqualTo("DungeonStart"));
+                Assert.That(host, Is.Not.Null);
+                Assert.That(host.IsPrimary, Is.True);
+                Assert.That(host.RunSession, Is.Not.SameAs(originalSession));
+                Assert.That(host.RunSession.Seed, Is.EqualTo(29));
+                Assert.That(host.RunSession.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene("RunFailureRestartPlayModeCleanup");
                 SceneManager.SetActiveScene(cleanup);
                 if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
                 {

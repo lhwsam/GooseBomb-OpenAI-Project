@@ -88,6 +88,7 @@ namespace BombSwap
             session.BombExploded += OnBombExploded;
             session.ActiveBombSlotChanged += OnActiveBombSlotChanged;
             session.PlayerDamaged += OnPlayerDamaged;
+            session.PlayerDied += OnPlayerDied;
             session.ChaserMoved += OnChaserMoved;
             session.ChargerAdvanced += OnChargerAdvanced;
             session.ArmoredMoved += OnArmoredMoved;
@@ -118,6 +119,7 @@ namespace BombSwap
                 session.BombExploded -= OnBombExploded;
                 session.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
                 session.PlayerDamaged -= OnPlayerDamaged;
+                session.PlayerDied -= OnPlayerDied;
                 session.ChaserMoved -= OnChaserMoved;
                 session.ChargerAdvanced -= OnChargerAdvanced;
                 session.ArmoredMoved -= OnArmoredMoved;
@@ -253,6 +255,11 @@ namespace BombSwap
                         result.SourceKind,
                         "Unsupported player damage source kind.");
             }
+        }
+
+        private void OnPlayerDied(PlayerDamageResult _)
+        {
+            WebGlHarnessReporter.Report("player-died");
         }
 
         private void OnChaserMoved(EnemyMovementStep step)

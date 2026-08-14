@@ -115,6 +115,7 @@ namespace BombSwap
 
             _runHost.RoomCommitted += OnRoomCommitted;
             roomSession.RoomCleared += OnRoomCleared;
+            roomSession.PlayerDied += OnPlayerDied;
             roomSession.PlayerMoved += OnPlayerMoved;
         }
 
@@ -148,6 +149,7 @@ namespace BombSwap
             if (roomSession != null)
             {
                 roomSession.RoomCleared -= OnRoomCleared;
+                roomSession.PlayerDied -= OnPlayerDied;
                 roomSession.PlayerMoved -= OnPlayerMoved;
             }
         }
@@ -260,11 +262,18 @@ namespace BombSwap
         {
             DungeonRoomClearStatus status = _runHost.TryClearCurrentRoom();
             if (status != DungeonRoomClearStatus.Cleared &&
-                status != DungeonRoomClearStatus.AlreadyCleared)
+                status != DungeonRoomClearStatus.AlreadyCleared &&
+                status != DungeonRoomClearStatus.RunFinished)
             {
                 throw new InvalidOperationException(
                     $"Room session cleared a non-clearable dungeon room: {status}.");
             }
+            RefreshDoors();
+        }
+
+        private void OnPlayerDied(PlayerDamageResult _)
+        {
+            _runHost.TryFailCurrentRun();
             RefreshDoors();
         }
 

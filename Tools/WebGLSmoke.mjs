@@ -333,6 +333,10 @@ async function main() {
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-boss-telegraph.png`,
   );
+  const runFailureScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-run-failed.png`,
+  );
   const { chromium } = await loadPlaywright();
   const { server, url } = await startStaticServer(buildPath);
   const consoleErrors = [];
@@ -752,6 +756,60 @@ async function main() {
       detail: "R restarted the completed seed-0 run in a fresh start room without reloading the browser page.",
     });
 
+    for (let hit = 0; hit < 5; hit++) {
+      const placementsBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-cross",
+      );
+      const explosionsBefore = await eventCount(page, "bomb-exploded");
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+        count: placementsBefore + 1,
+        timeout: 5_000,
+      });
+      await waitForEvent(page, "bomb-exploded", {
+        count: explosionsBefore + 1,
+        timeout: 5_000,
+      });
+    }
+    await waitForEvent(page, "player-died", { timeout: 5_000 });
+    await waitForEvent(page, "run-failed", { timeout: 5_000 });
+    fs.mkdirSync(path.dirname(runFailureScreenshotPath), { recursive: true });
+    await page.screenshot({ path: runFailureScreenshotPath });
+    checks.push({
+      name: "failed-run-result",
+      status: "passed",
+      detail: "Five self explosions in the restarted safe room produced one player death and the run-failed result.",
+    });
+
+    const failureRestartRequestsBefore = await eventCount(
+      page,
+      "run-restart-requested",
+    );
+    const failureRestartsBefore = await eventCount(page, "dungeon-run-restarted");
+    const failureStartReadyBefore = await eventCount(
+      page,
+      "dungeon-room-ready-1-start-safe",
+    );
+    await page.keyboard.press("KeyR");
+    await waitForEvent(page, "run-restart-requested", {
+      count: failureRestartRequestsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "dungeon-run-restarted", {
+      count: failureRestartsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
+      count: failureStartReadyBefore + 1,
+      timeout: 20_000,
+    });
+    checks.push({
+      name: "failed-run-restart",
+      status: "passed",
+      detail: "R restarted the failed run from a fresh same-seed start session without reloading the browser page.",
+    });
+
     const requiredEvents = [
       "probe-ready",
       "room-ready-prototype-combat-loop",
@@ -786,6 +844,8 @@ async function main() {
       "boss-phase-two",
       "boss-defeated",
       "run-completed",
+      "player-died",
+      "run-failed",
       "run-restart-requested",
       "dungeon-run-restarted",
       "swap-bomb",
@@ -827,6 +887,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });
@@ -856,6 +917,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });

@@ -17,6 +17,8 @@ namespace BombSwap.Tests.EditMode
             Assert.That(run.Graph, Is.SameAs(graph));
             Assert.That(run.CurrentRoomId, Is.EqualTo(graph.StartRoomId));
             Assert.That(run.PreviousRoomId.IsValid, Is.False);
+            Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
+            Assert.That(run.IsTerminal, Is.False);
             Assert.That(run.IsVisited(graph.StartRoomId), Is.True);
             Assert.That(run.IsCleared(graph.StartRoomId), Is.False);
             Assert.That(run.IsCurrentRoomLocked, Is.False);
@@ -214,19 +216,69 @@ namespace BombSwap.Tests.EditMode
             DungeonGraph graph = DungeonGenerator.Generate(144);
             var run = new DungeonRunState(graph);
 
-            foreach (DungeonRoomNode room in graph.Rooms)
+            foreach (DungeonRoomNode room in graph.Rooms.Where(
+                room => room.Id != graph.BossRoomId))
             {
                 TraversePath(run, graph.GetShortestPath(run.CurrentRoomId, room.Id));
             }
-            TraversePath(run, graph.GetShortestPath(run.CurrentRoomId, graph.StartRoomId));
+            TraversePath(run, graph.GetShortestPath(run.CurrentRoomId, graph.BossRoomId));
 
-            Assert.That(run.CurrentRoomId, Is.EqualTo(graph.StartRoomId));
+            Assert.That(run.CurrentRoomId, Is.EqualTo(graph.BossRoomId));
+            Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Completed));
             Assert.That(run.GetVisitedRooms(), Is.EqualTo(graph.Rooms.Select(room => room.Id)));
             Assert.That(
                 run.GetClearedRooms(),
                 Is.EqualTo(graph.Rooms
                     .Where(room => DungeonRunState.RequiresClear(room.RoomType))
                     .Select(room => room.Id)));
+        }
+
+        [Test]
+        public void BossClear_CompletesRunAndRejectsFurtherMutation()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(377);
+            var run = new DungeonRunState(graph);
+            TraverseToBoss(run, graph);
+
+            Assert.That(
+                run.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.Cleared));
+
+            Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Completed));
+            Assert.That(run.IsTerminal, Is.True);
+            Assert.That(run.TryFail(), Is.False);
+            Assert.That(
+                run.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.RunFinished));
+            DungeonRoomNodeId neighbor = graph.GetNeighbors(graph.BossRoomId)[0];
+            Assert.That(
+                run.TryTravelTo(neighbor).Status,
+                Is.EqualTo(DungeonTravelStatus.RunFinished));
+            Assert.That(
+                run.GetCurrentExitStates()
+                    .Where(exit => exit.IsConnected)
+                    .Select(exit => exit.Status),
+                Is.All.EqualTo(DungeonRoomExitStatus.Locked));
+        }
+
+        [Test]
+        public void Failure_IsIdempotentAndWinsBeforeSameFrameBossClear()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(610);
+            var run = new DungeonRunState(graph);
+            TraverseToBoss(run, graph);
+
+            Assert.That(run.TryFail(), Is.True);
+            Assert.That(run.TryFail(), Is.False);
+            Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Failed));
+            Assert.That(run.IsTerminal, Is.True);
+            Assert.That(
+                run.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.RunFinished));
+            Assert.That(run.IsCleared(graph.BossRoomId), Is.False);
+            Assert.That(
+                run.TryTravelTo(graph.GetNeighbors(graph.BossRoomId)[0]).Status,
+                Is.EqualTo(DungeonTravelStatus.RunFinished));
         }
 
         [Test]
@@ -270,6 +322,25 @@ namespace BombSwap.Tests.EditMode
                 Assert.That(
                     run.TryClearCurrentRoom(),
                     Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            }
+        }
+
+        private static void TraverseToBoss(DungeonRunState run, DungeonGraph graph)
+        {
+            IReadOnlyList<DungeonRoomNodeId> path = graph.GetShortestPath(
+                run.CurrentRoomId,
+                graph.BossRoomId);
+            Assert.That(path[0], Is.EqualTo(run.CurrentRoomId));
+            for (int index = 1; index < path.Count; index++)
+            {
+                if (run.IsCurrentRoomLocked)
+                {
+                    Assert.That(
+                        run.TryClearCurrentRoom(),
+                        Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                }
+
+                Assert.That(run.TryTravelTo(path[index]).Moved, Is.True);
             }
         }
 
