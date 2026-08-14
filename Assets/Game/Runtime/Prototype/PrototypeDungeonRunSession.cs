@@ -85,6 +85,8 @@ namespace BombSwap
 
         public DungeonRunOutcome Outcome => RunState.Outcome;
 
+        public PlayerDamageResult? FailureDamage => RunState.FailureDamage;
+
         public bool IsComplete => Outcome == DungeonRunOutcome.Completed;
 
         public bool IsFailed => Outcome == DungeonRunOutcome.Failed;
@@ -106,9 +108,9 @@ namespace BombSwap
             return RunState.TryClearCurrentRoom();
         }
 
-        public bool TryFail()
+        public bool TryFail(PlayerDamageResult fatalDamage)
         {
-            return RunState.TryFail();
+            return RunState.TryFail(fatalDamage);
         }
 
         public DungeonBombRewardSelectionStatus TrySelectBombReward(

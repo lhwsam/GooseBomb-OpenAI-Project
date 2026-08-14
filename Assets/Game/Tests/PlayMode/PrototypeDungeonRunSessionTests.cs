@@ -137,17 +137,91 @@ namespace BombSwap.Tests.PlayMode
                 CreateSpecialCatalog(),
                 CreateBombRewardCatalog());
 
-            Assert.That(session.TryFail(), Is.True);
-            Assert.That(session.TryFail(), Is.False);
+            PlayerDamageResult fatal = CreateFatalContactDamage();
+            Assert.That(session.TryFail(fatal), Is.True);
+            Assert.That(session.TryFail(fatal), Is.False);
             Assert.That(session.IsFailed, Is.True);
             Assert.That(session.IsFinished, Is.True);
             Assert.That(session.IsComplete, Is.False);
+            Assert.That(session.FailureDamage, Is.EqualTo(fatal));
             Assert.That(
                 session.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.RunFinished));
             Assert.That(
                 session.TryTravelTo(session.Graph.GetNeighbors(session.CurrentRoomId)[0]).Status,
                 Is.EqualTo(DungeonTravelStatus.RunFinished));
+        }
+
+        [Test]
+        public void DeathCauseFormatter_MapsCoreSourceAndPrototypeEnemyActors()
+        {
+            ActorId chaser = new ActorId(2);
+            ActorId charger = new ActorId(3);
+            ActorId armored = new ActorId(4);
+
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    PlayerDamageSourceKind.Explosion,
+                    default,
+                    chaser,
+                    charger,
+                    armored),
+                Is.EqualTo(PrototypePlayerDeathCause.BombExplosion));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    PlayerDamageSourceKind.EnemyContact,
+                    chaser,
+                    chaser,
+                    charger,
+                    armored),
+                Is.EqualTo(PrototypePlayerDeathCause.ChaserContact));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    PlayerDamageSourceKind.EnemyContact,
+                    charger,
+                    chaser,
+                    charger,
+                    armored),
+                Is.EqualTo(PrototypePlayerDeathCause.ChargerCharge));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    PlayerDamageSourceKind.EnemyContact,
+                    armored,
+                    chaser,
+                    charger,
+                    armored),
+                Is.EqualTo(PrototypePlayerDeathCause.ArmoredContact));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    PlayerDamageSourceKind.EnemyContact,
+                    new ActorId(99),
+                    chaser,
+                    charger,
+                    armored),
+                Is.EqualTo(PrototypePlayerDeathCause.EnemyContact));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    PlayerDamageSourceKind.BossPattern,
+                    new ActorId(5),
+                    chaser,
+                    charger,
+                    armored),
+                Is.EqualTo(PrototypePlayerDeathCause.BossAttack));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.GetDisplayText(
+                    PrototypePlayerDeathCause.BombExplosion),
+                Is.EqualTo("CAUSE: BOMB EXPLOSION"));
+            Assert.That(
+                PrototypePlayerDeathCauseFormatter.GetHarnessEvent(
+                    PrototypePlayerDeathCause.BombExplosion),
+                Is.EqualTo("run-failed-cause-bomb-explosion"));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PrototypePlayerDeathCauseFormatter.Resolve(
+                    (PlayerDamageSourceKind)999,
+                    default,
+                    chaser,
+                    charger,
+                    armored));
         }
 
         [Test]
@@ -931,9 +1005,11 @@ namespace BombSwap.Tests.PlayMode
                 yield return null;
 
                 PrototypeDungeonRunSession originalSession = host.RunSession;
-                Assert.That(host.TryFailCurrentRun(), Is.True);
-                Assert.That(host.TryFailCurrentRun(), Is.False);
+                PlayerDamageResult fatal = CreateFatalContactDamage();
+                Assert.That(host.TryFailCurrentRun(fatal), Is.True);
+                Assert.That(host.TryFailCurrentRun(fatal), Is.False);
                 Assert.That(originalSession.IsFailed, Is.True);
+                Assert.That(originalSession.FailureDamage, Is.EqualTo(fatal));
 
                 host.RestartFinishedRun();
                 yield return null;
@@ -1212,6 +1288,15 @@ namespace BombSwap.Tests.PlayMode
                         roomType,
                         null);
             }
+        }
+
+        private static PlayerDamageResult CreateFatalContactDamage()
+        {
+            var health = new PlayerHealthSimulation(
+                new ActorId(1),
+                new ManualGameClock(),
+                new PlayerHealthDefinition(1, TimeSpan.FromSeconds(0.75)));
+            return health.ApplyContactDamage(new ActorId(2), 1);
         }
 
         private static RoomExitDirection Opposite(RoomExitDirection direction)

@@ -5,6 +5,107 @@ using UnityEngine.UI;
 
 namespace BombSwap
 {
+    public enum PrototypePlayerDeathCause
+    {
+        Unknown = 0,
+        BombExplosion = 1,
+        ChaserContact = 2,
+        ChargerCharge = 3,
+        ArmoredContact = 4,
+        EnemyContact = 5,
+        BossAttack = 6,
+    }
+
+    public static class PrototypePlayerDeathCauseFormatter
+    {
+        public static PrototypePlayerDeathCause Resolve(
+            PlayerDamageSourceKind sourceKind,
+            ActorId sourceActorId,
+            ActorId chaserActorId,
+            ActorId chargerActorId,
+            ActorId armoredActorId)
+        {
+            switch (sourceKind)
+            {
+                case PlayerDamageSourceKind.Explosion:
+                    return PrototypePlayerDeathCause.BombExplosion;
+                case PlayerDamageSourceKind.EnemyContact:
+                    if (sourceActorId == chaserActorId)
+                    {
+                        return PrototypePlayerDeathCause.ChaserContact;
+                    }
+                    if (sourceActorId == chargerActorId)
+                    {
+                        return PrototypePlayerDeathCause.ChargerCharge;
+                    }
+                    if (sourceActorId == armoredActorId)
+                    {
+                        return PrototypePlayerDeathCause.ArmoredContact;
+                    }
+                    return PrototypePlayerDeathCause.EnemyContact;
+                case PlayerDamageSourceKind.BossPattern:
+                    return PrototypePlayerDeathCause.BossAttack;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(sourceKind),
+                        sourceKind,
+                        "Unsupported player death source kind.");
+            }
+        }
+
+        public static string GetDisplayText(PrototypePlayerDeathCause cause)
+        {
+            switch (cause)
+            {
+                case PrototypePlayerDeathCause.Unknown:
+                    return "CAUSE: UNKNOWN";
+                case PrototypePlayerDeathCause.BombExplosion:
+                    return "CAUSE: BOMB EXPLOSION";
+                case PrototypePlayerDeathCause.ChaserContact:
+                    return "CAUSE: CHASER CONTACT";
+                case PrototypePlayerDeathCause.ChargerCharge:
+                    return "CAUSE: CHARGER CHARGE";
+                case PrototypePlayerDeathCause.ArmoredContact:
+                    return "CAUSE: ARMORED ENEMY CONTACT";
+                case PrototypePlayerDeathCause.EnemyContact:
+                    return "CAUSE: ENEMY CONTACT";
+                case PrototypePlayerDeathCause.BossAttack:
+                    return "CAUSE: BOSS ATTACK";
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(cause),
+                        cause,
+                        "Unsupported prototype player death cause.");
+            }
+        }
+
+        public static string GetHarnessEvent(PrototypePlayerDeathCause cause)
+        {
+            switch (cause)
+            {
+                case PrototypePlayerDeathCause.Unknown:
+                    return "run-failed-cause-unknown";
+                case PrototypePlayerDeathCause.BombExplosion:
+                    return "run-failed-cause-bomb-explosion";
+                case PrototypePlayerDeathCause.ChaserContact:
+                    return "run-failed-cause-chaser-contact";
+                case PrototypePlayerDeathCause.ChargerCharge:
+                    return "run-failed-cause-charger-charge";
+                case PrototypePlayerDeathCause.ArmoredContact:
+                    return "run-failed-cause-armored-contact";
+                case PrototypePlayerDeathCause.EnemyContact:
+                    return "run-failed-cause-enemy-contact";
+                case PrototypePlayerDeathCause.BossAttack:
+                    return "run-failed-cause-boss-attack";
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(cause),
+                        cause,
+                        "Unsupported prototype player death cause.");
+            }
+        }
+    }
+
     [DisallowMultipleComponent]
     public sealed class PrototypeRunCompletionPresenter : MonoBehaviour
     {
@@ -15,6 +116,7 @@ namespace BombSwap
         private BombSwapInputReader inputReader;
 
         private Text _statusLabel;
+        private Text _failureCauseLabel;
         private bool _checkResultNextFrame;
         private bool _restartRequested;
 
@@ -29,6 +131,11 @@ namespace BombSwap
         public int FailureCount { get; private set; }
 
         public int RestartRequestCount { get; private set; }
+
+        public PrototypePlayerDeathCause? FailureCause { get; private set; }
+
+        public string FailureCauseText =>
+            _failureCauseLabel != null ? _failureCauseLabel.text : string.Empty;
 
         public string StatusText => _statusLabel != null ? _statusLabel.text : string.Empty;
 
@@ -179,6 +286,27 @@ namespace BombSwap
                 return;
             }
 
+            if (failed)
+            {
+                PlayerDamageResult? failureDamage = host.RunSession.FailureDamage;
+                if (!failureDamage.HasValue)
+                {
+                    throw new InvalidOperationException(
+                        "A failed dungeon run is missing its fatal damage result.");
+                }
+
+                FailureCause = PrototypePlayerDeathCauseFormatter.Resolve(
+                    failureDamage.Value.SourceKind,
+                    failureDamage.Value.SourceActorId,
+                    session.ChaserActorId,
+                    session.ChargerActorId,
+                    session.ArmoredActorId);
+            }
+            else
+            {
+                FailureCause = null;
+            }
+
             CreateUi(failed);
             IsVisible = true;
             if (failed)
@@ -191,6 +319,12 @@ namespace BombSwap
             }
             session.enabled = false;
             WebGlHarnessReporter.Report(failed ? "run-failed" : "run-completed");
+            if (failed)
+            {
+                WebGlHarnessReporter.Report(
+                    PrototypePlayerDeathCauseFormatter.GetHarnessEvent(
+                        FailureCause.Value));
+            }
         }
 
         private void CreateUi(bool failed)
@@ -235,9 +369,31 @@ namespace BombSwap
                 ? new Color(1f, 0.32f, 0.26f, 1f)
                 : new Color(0.22f, 0.95f, 0.5f, 1f);
 
+            if (failed)
+            {
+                _failureCauseLabel = CreateText(
+                    "FailureCause",
+                    backdrop,
+                    font,
+                    24,
+                    FontStyle.Bold);
+                _failureCauseLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.42f);
+                _failureCauseLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.53f);
+                _failureCauseLabel.rectTransform.offsetMin = Vector2.zero;
+                _failureCauseLabel.rectTransform.offsetMax = Vector2.zero;
+                _failureCauseLabel.text =
+                    PrototypePlayerDeathCauseFormatter.GetDisplayText(
+                        FailureCause.Value);
+                _failureCauseLabel.color = new Color(1f, 0.72f, 0.42f, 1f);
+            }
+
             _statusLabel = CreateText("Restart", backdrop, font, 26, FontStyle.Normal);
-            _statusLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.34f);
-            _statusLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.48f);
+            _statusLabel.rectTransform.anchorMin = failed
+                ? new Vector2(0.1f, 0.29f)
+                : new Vector2(0.1f, 0.34f);
+            _statusLabel.rectTransform.anchorMax = failed
+                ? new Vector2(0.9f, 0.41f)
+                : new Vector2(0.9f, 0.48f);
             _statusLabel.rectTransform.offsetMin = Vector2.zero;
             _statusLabel.rectTransform.offsetMax = Vector2.zero;
             _statusLabel.text = "R / GAMEPAD SELECT - RESTART RUN";
