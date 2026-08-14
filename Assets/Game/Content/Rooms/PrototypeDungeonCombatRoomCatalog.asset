@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36b14c12c8ae5d447bdab42c0f046603, type: 3}
+  m_Name: PrototypeDungeonCombatRoomCatalog
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeDungeonCombatRoomCatalogAsset
+  entries:
+  - roomDefinition: {fileID: 11400000, guid: 8008bfb53324b274789da665f7db2d8c, type: 2}
+    sceneName: TestSandbox
+  - roomDefinition: {fileID: 11400000, guid: d1b94e1c7d8765d4fb3b3b6803c49ed5, type: 2}
+    sceneName: TestSandboxLanes
+  - roomDefinition: {fileID: 11400000, guid: 6ea6a6577252e034d81b4f3e26eeed31, type: 2}
+    sceneName: TestSandboxPillars
+  - roomDefinition: {fileID: 11400000, guid: 45d9508772be0744696d9304b9d63b4b, type: 2}
+    sceneName: TestSandboxArmor

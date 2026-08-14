@@ -91,6 +91,8 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - 이동 요청은 연결된 노드 ID 또는 그래프 XZ 좌표에서 해석한 `RoomExitDirection`이며, 씬 이름·Transform·realtime 전환 지연은 Core 계약에 들어가지 않는다.
 - `DungeonCombatRoomAssigner`는 같은 run seed에서 고정 salt로 분리한 결정적 흐름을 사용한다. 카탈로그를 안정 room ID로 정렬하고 그래프 연결을 지원하는 회전·정의를 선택하므로 입력 배열 순서나 topology RNG 호출 순서 변화와 결합하지 않는다.
 - 방 정의의 cardinal 출구는 잠재 후보이며 배정의 활성 출구 부분집합만 실제 문으로 열어야 한다. Unity 어댑터는 선택된 `RoomRotation`을 Y축 회전에 적용하고 미사용 출구를 닫힌 경계로 표현한다.
+- `PrototypeDungeonRunSession`은 전역 상태 없이 명시 seed와 검증된 `PrototypeDungeonCombatRoomCatalogAsset`에서 그래프·전투방 배정·탐색 상태를 조합한다. 전투 노드는 Unity room asset·씬 이름으로 조회하고 이동·클리어는 Core 상태에 그대로 위임한다.
+- 실제 씬 수명, 세션 지속 bootstrap, 입장 spawn과 문 trigger는 아직 이 세션을 소비하지 않는다.
 - Core에서 `UnityEngine.Random`을 사용하지 않는다.
 - seed, 생성 버전, 게임 정의 버전, 필요 최소한의 명령 로그로 실패 상황을 재현할 수 있어야 한다.
 - 시각적 파티클 랜덤은 규칙 결과에 영향을 주지 않는 한 재현 대상이 아니다.
