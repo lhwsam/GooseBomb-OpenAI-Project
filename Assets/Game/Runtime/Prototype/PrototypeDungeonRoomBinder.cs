@@ -26,6 +26,8 @@ namespace BombSwap
         private RoomRotation _roomRotation;
         private bool _transitionRequested;
 
+        public event Action<int> CombatRewardTokenCountChanged;
+
         public PrototypeDungeonRunHost RunHost => _runHost;
 
         public PrototypeGameSession RoomSession => roomSession;
@@ -39,6 +41,9 @@ namespace BombSwap
         public DungeonRoomNodeId RuntimeRoomId => _runtimeRoomId;
 
         public RoomType RuntimeRoomType => _runtimeRoomType;
+
+        public int CombatRewardTokenCount =>
+            _runHost != null ? _runHost.RunSession.CombatRewardTokenCount : 0;
 
         public DungeonBombRewardSelectionStatus TrySelectBombReward(
             BombDefinitionId candidateId)
@@ -250,6 +255,8 @@ namespace BombSwap
                 room.RoomType,
                 combatEnabledForVisit,
                 run.RunState.IsCleared(roomId));
+            WebGlHarnessReporter.Report(
+                "combat-reward-tokens-" + run.CombatRewardTokenCount);
         }
 
         private void OnRoomCommitted()
@@ -267,6 +274,13 @@ namespace BombSwap
             {
                 throw new InvalidOperationException(
                     $"Room session cleared a non-clearable dungeon room: {status}.");
+            }
+            if (status == DungeonRoomClearStatus.Cleared &&
+                _runtimeRoomType == RoomType.Combat)
+            {
+                int tokenCount = _runHost.RunSession.CombatRewardTokenCount;
+                CombatRewardTokenCountChanged?.Invoke(tokenCount);
+                WebGlHarnessReporter.Report("combat-reward-tokens-" + tokenCount);
             }
             RefreshDoors();
         }

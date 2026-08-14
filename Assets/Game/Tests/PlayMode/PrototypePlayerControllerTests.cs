@@ -727,6 +727,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthHud.PlayerHealthFillFraction, Is.EqualTo(1f));
             Assert.That(_healthHud.PlayerHealthText, Does.Contain("5 / 5"));
             Assert.That(_healthHud.IsBossPanelVisible, Is.False);
+            Assert.That(_healthHud.DisplayedCombatRewardTokenCount, Is.Zero);
+            Assert.That(_healthHud.CombatRewardText, Is.EqualTo("ROOM TOKENS  0"));
 
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.15f);

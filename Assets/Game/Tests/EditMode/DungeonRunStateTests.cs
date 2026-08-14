@@ -19,6 +19,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(run.PreviousRoomId.IsValid, Is.False);
             Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
             Assert.That(run.FailureDamage.HasValue, Is.False);
+            Assert.That(run.CombatRewardTokenCount, Is.Zero);
             Assert.That(run.IsTerminal, Is.False);
             Assert.That(run.IsVisited(graph.StartRoomId), Is.True);
             Assert.That(run.IsCleared(graph.StartRoomId), Is.False);
@@ -61,9 +62,11 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            Assert.That(run.CombatRewardTokenCount, Is.EqualTo(1));
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.AlreadyCleared));
+            Assert.That(run.CombatRewardTokenCount, Is.EqualTo(1));
             Assert.That(run.IsCurrentRoomLocked, Is.False);
             Assert.That(run.TryTravelTo(graph.StartRoomId).Moved, Is.True);
 
@@ -85,13 +88,18 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.NotClearable));
+            Assert.That(run.CombatRewardTokenCount, Is.Zero);
             TraversePath(run, graph.GetShortestPath(graph.StartRoomId, graph.BombRewardRoomId));
 
             Assert.That(run.CurrentRoomId, Is.EqualTo(graph.BombRewardRoomId));
             Assert.That(run.IsCurrentRoomLocked, Is.False);
+            int tokensBeforeSafeRoomClear = run.CombatRewardTokenCount;
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.NotClearable));
+            Assert.That(
+                run.CombatRewardTokenCount,
+                Is.EqualTo(tokensBeforeSafeRoomClear));
         }
 
         [Test]
@@ -232,6 +240,9 @@ namespace BombSwap.Tests.EditMode
                 Is.EqualTo(graph.Rooms
                     .Where(room => DungeonRunState.RequiresClear(room.RoomType))
                     .Select(room => room.Id)));
+            Assert.That(
+                run.CombatRewardTokenCount,
+                Is.EqualTo(graph.Rooms.Count(room => room.RoomType == RoomType.Combat)));
         }
 
         [Test]
@@ -241,6 +252,8 @@ namespace BombSwap.Tests.EditMode
             var run = new DungeonRunState(graph);
             TraverseToBoss(run, graph);
 
+            int tokensBeforeBossClear = run.CombatRewardTokenCount;
+
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.Cleared));
@@ -248,6 +261,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Completed));
             Assert.That(run.IsTerminal, Is.True);
             Assert.That(run.FailureDamage.HasValue, Is.False);
+            Assert.That(run.CombatRewardTokenCount, Is.EqualTo(tokensBeforeBossClear));
             Assert.That(run.TryFail(CreateContactDamage(1, 1)), Is.False);
             Assert.That(
                 run.TryClearCurrentRoom(),
@@ -270,6 +284,8 @@ namespace BombSwap.Tests.EditMode
             var run = new DungeonRunState(graph);
             TraverseToBoss(run, graph);
 
+            int tokensBeforeFailure = run.CombatRewardTokenCount;
+
             PlayerDamageResult nonFatal = CreateContactDamage(2, 1);
             PlayerDamageResult fatal = CreateContactDamage(1, 1);
             Assert.Throws<ArgumentException>(() => run.TryFail(nonFatal));
@@ -284,6 +300,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.RunFinished));
+            Assert.That(run.CombatRewardTokenCount, Is.EqualTo(tokensBeforeFailure));
             Assert.That(run.IsCleared(graph.BossRoomId), Is.False);
             Assert.That(
                 run.TryTravelTo(graph.GetNeighbors(graph.BossRoomId)[0]).Status,

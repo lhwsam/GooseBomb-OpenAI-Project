@@ -87,6 +87,8 @@ namespace BombSwap
 
         public PlayerDamageResult? FailureDamage => RunState.FailureDamage;
 
+        public int CombatRewardTokenCount => RunState.CombatRewardTokenCount;
+
         public bool IsComplete => Outcome == DungeonRunOutcome.Completed;
 
         public bool IsFailed => Outcome == DungeonRunOutcome.Failed;

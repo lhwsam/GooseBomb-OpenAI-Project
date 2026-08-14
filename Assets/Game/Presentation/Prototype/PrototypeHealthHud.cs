@@ -24,6 +24,8 @@ namespace BombSwap
         private Image _bossHealthFill;
         private Text _playerHealthLabel;
         private Text _bossHealthLabel;
+        private Text _combatRewardLabel;
+        private PrototypeDungeonRoomBinder _roomBinder;
         private bool _isSubscribed;
 
         public PrototypeGameSession Session => session;
@@ -40,6 +42,8 @@ namespace BombSwap
 
         public BossPhase DisplayedBossPhase { get; private set; }
 
+        public int DisplayedCombatRewardTokenCount { get; private set; }
+
         public bool IsBossPanelVisible =>
             _bossPanelObject != null && _bossPanelObject.activeSelf;
 
@@ -54,6 +58,9 @@ namespace BombSwap
 
         public string BossHealthText =>
             _bossHealthLabel != null ? _bossHealthLabel.text : string.Empty;
+
+        public string CombatRewardText =>
+            _combatRewardLabel != null ? _combatRewardLabel.text : string.Empty;
 
         public void Configure(PrototypeGameSession gameSession)
         {
@@ -77,6 +84,8 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "PrototypeHealthHud requires a game-session reference.");
             }
+
+            _roomBinder = GetComponent<PrototypeDungeonRoomBinder>();
 
             Subscribe();
             if (session.IsReady)
@@ -102,6 +111,11 @@ namespace BombSwap
             session.PlayerDied += OnPlayerDied;
             session.BossDamaged += OnBossDamaged;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
+            if (_roomBinder != null)
+            {
+                _roomBinder.CombatRewardTokenCountChanged +=
+                    OnCombatRewardTokenCountChanged;
+            }
             _isSubscribed = true;
         }
 
@@ -117,6 +131,11 @@ namespace BombSwap
             session.PlayerDied -= OnPlayerDied;
             session.BossDamaged -= OnBossDamaged;
             session.BossPatternTransitioned -= OnBossPatternTransitioned;
+            if (_roomBinder != null)
+            {
+                _roomBinder.CombatRewardTokenCountChanged -=
+                    OnCombatRewardTokenCountChanged;
+            }
             _isSubscribed = false;
         }
 
@@ -148,6 +167,11 @@ namespace BombSwap
                 transition.Phase);
         }
 
+        private void OnCombatRewardTokenCountChanged(int tokenCount)
+        {
+            RefreshCombatRewardTokens(tokenCount);
+        }
+
         private void Initialize()
         {
             if (!IsInitialized)
@@ -157,6 +181,8 @@ namespace BombSwap
             }
 
             RefreshPlayer(session.CurrentHealth, session.MaxHealth);
+            RefreshCombatRewardTokens(
+                _roomBinder != null ? _roomBinder.CombatRewardTokenCount : 0);
             if (session.HasBoss)
             {
                 _bossPanelObject.SetActive(true);
@@ -204,6 +230,17 @@ namespace BombSwap
                 : "BOSS DEFEATED  ·  0 / " + maxHealth;
         }
 
+        private void RefreshCombatRewardTokens(int tokenCount)
+        {
+            if (tokenCount < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(tokenCount));
+            }
+
+            DisplayedCombatRewardTokenCount = tokenCount;
+            _combatRewardLabel.text = "ROOM TOKENS  " + tokenCount;
+        }
+
         private void CreateUi()
         {
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -238,6 +275,16 @@ namespace BombSwap
                 new Vector2(310f, 78f));
             _playerHealthLabel = CreateLabel(playerPanel, font, 21);
             _playerHealthFill = CreateBar(playerPanel, PlayerHealthColor);
+
+            RectTransform rewardPanel = CreatePanel(
+                "CombatRewardPanel",
+                _canvasObject.transform,
+                new Vector2(1f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(-24f, -24f),
+                new Vector2(250f, 58f));
+            _combatRewardLabel = CreateLabel(rewardPanel, font, 21);
 
             RectTransform bossPanel = CreatePanel(
                 "BossHealthPanel",

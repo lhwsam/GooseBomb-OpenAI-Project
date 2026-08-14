@@ -507,6 +507,13 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(wallPresenter.ActiveWallVisualCount, Is.EqualTo(2));
                 Assert.That(healthHud.IsInitialized, Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.False);
+                Assert.That(run.CombatRewardTokenCount, Is.GreaterThan(0));
+                Assert.That(
+                    healthHud.DisplayedCombatRewardTokenCount,
+                    Is.EqualTo(run.CombatRewardTokenCount));
+                Assert.That(
+                    healthHud.CombatRewardText,
+                    Is.EqualTo("ROOM TOKENS  " + run.CombatRewardTokenCount));
 
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
@@ -1055,6 +1062,7 @@ namespace BombSwap.Tests.PlayMode
                     originalSession.TryClearCurrentRoom(),
                     Is.EqualTo(DungeonRoomClearStatus.Cleared));
                 Assert.That(originalSession.IsComplete, Is.True);
+                Assert.That(originalSession.CombatRewardTokenCount, Is.GreaterThan(0));
 
                 host.RestartFinishedRun();
                 yield return null;
@@ -1070,6 +1078,7 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo(host.RunSession.Graph.StartRoomId));
                 Assert.That(host.RunSession.IsComplete, Is.False);
                 Assert.That(host.RunSession.IsFinished, Is.False);
+                Assert.That(host.RunSession.CombatRewardTokenCount, Is.Zero);
             }
             finally
             {
@@ -1132,6 +1141,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(host.RunSession, Is.Not.SameAs(originalSession));
                 Assert.That(host.RunSession.Seed, Is.EqualTo(29));
                 Assert.That(host.RunSession.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
+                Assert.That(host.RunSession.CombatRewardTokenCount, Is.Zero);
             }
             finally
             {
