@@ -129,6 +129,66 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void StartRoomExitSnapshot_UsesStableFourDirectionOrder()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(34);
+            var run = new DungeonRunState(graph);
+            DungeonRoomNodeId firstCombat = graph.GetNeighbors(graph.StartRoomId)[0];
+            RoomExitDirection connectedDirection =
+                graph.GetExitDirection(graph.StartRoomId, firstCombat);
+
+            IReadOnlyList<DungeonRoomExitState> exits = run.GetCurrentExitStates();
+
+            Assert.That(
+                exits.Select(exit => exit.Direction),
+                Is.EqualTo(new[]
+                {
+                    RoomExitDirection.North,
+                    RoomExitDirection.East,
+                    RoomExitDirection.South,
+                    RoomExitDirection.West,
+                }));
+            Assert.That(exits.Count(exit => exit.IsConnected), Is.EqualTo(1));
+            DungeonRoomExitState connected =
+                exits.Single(exit => exit.Direction == connectedDirection);
+            Assert.That(connected.TargetRoomId, Is.EqualTo(firstCombat));
+            Assert.That(connected.Status, Is.EqualTo(DungeonRoomExitStatus.Open));
+            Assert.That(connected.CanTravel, Is.True);
+            Assert.Throws<NotSupportedException>(
+                () => ((IList<DungeonRoomExitState>)exits).Clear());
+        }
+
+        [Test]
+        public void CombatExitSnapshot_LocksEveryConnectionUntilRoomClear()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(91);
+            var run = new DungeonRunState(graph);
+            DungeonRoomNodeId firstCombat = graph.GetNeighbors(graph.StartRoomId)[0];
+            Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+
+            IReadOnlyList<DungeonRoomExitState> locked = run.GetCurrentExitStates();
+
+            Assert.That(locked.Where(exit => exit.IsConnected), Is.Not.Empty);
+            Assert.That(
+                locked.Where(exit => exit.IsConnected).Select(exit => exit.Status),
+                Is.All.EqualTo(DungeonRoomExitStatus.Locked));
+            Assert.That(locked.Any(exit => exit.CanTravel), Is.False);
+
+            Assert.That(
+                run.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            IReadOnlyList<DungeonRoomExitState> opened = run.GetCurrentExitStates();
+
+            Assert.That(
+                opened.Where(exit => exit.IsConnected).Select(exit => exit.Status),
+                Is.All.EqualTo(DungeonRoomExitStatus.Open));
+            Assert.That(
+                opened.Where(exit => exit.IsConnected).Select(exit => exit.TargetRoomId),
+                Is.EqualTo(locked.Where(exit => exit.IsConnected)
+                    .Select(exit => exit.TargetRoomId)));
+        }
+
+        [Test]
         public void GraphDirections_AreOppositeAcrossEveryConnection()
         {
             DungeonGraph graph = DungeonGenerator.Generate(55);
@@ -181,6 +241,8 @@ namespace BombSwap.Tests.EditMode
                 () => run.TryTravelTo(new DungeonRoomNodeId(graph.Rooms.Count + 1)));
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => run.TryTravel((RoomExitDirection)999));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => run.GetCurrentExitState((RoomExitDirection)999));
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => DungeonRunState.RequiresClear((RoomType)999));
             Assert.That(run.CurrentRoomId, Is.EqualTo(graph.StartRoomId));

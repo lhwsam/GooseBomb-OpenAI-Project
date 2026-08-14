@@ -44,6 +44,14 @@ namespace BombSwap.Core
 
     public sealed class DungeonRunState
     {
+        private static readonly RoomExitDirection[] ExitDirectionOrder =
+        {
+            RoomExitDirection.North,
+            RoomExitDirection.East,
+            RoomExitDirection.South,
+            RoomExitDirection.West,
+        };
+
         private readonly bool[] _visited;
         private readonly bool[] _cleared;
 
@@ -88,6 +96,34 @@ namespace BombSwap.Core
         public IReadOnlyList<DungeonRoomNodeId> GetClearedRooms()
         {
             return CreateRoomIdSnapshot(_cleared);
+        }
+
+        public DungeonRoomExitState GetCurrentExitState(RoomExitDirection direction)
+        {
+            if (!Graph.TryGetNeighbor(CurrentRoomId, direction, out DungeonRoomNodeId target))
+            {
+                return new DungeonRoomExitState(
+                    direction,
+                    default,
+                    DungeonRoomExitStatus.Inactive);
+            }
+
+            return new DungeonRoomExitState(
+                direction,
+                target,
+                IsCurrentRoomLocked
+                    ? DungeonRoomExitStatus.Locked
+                    : DungeonRoomExitStatus.Open);
+        }
+
+        public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()
+        {
+            var exits = new DungeonRoomExitState[ExitDirectionOrder.Length];
+            for (int index = 0; index < ExitDirectionOrder.Length; index++)
+            {
+                exits[index] = GetCurrentExitState(ExitDirectionOrder[index]);
+            }
+            return Array.AsReadOnly(exits);
         }
 
         public DungeonTravelResult TryTravelTo(DungeonRoomNodeId targetRoomId)

@@ -28,6 +28,7 @@
 - 조회 API는 방, 정렬된 이웃, 최단 경로와 거리를 제공한다. 반환 컬렉션은 read-only이며 호출자가 생성 결과를 변경할 수 없다.
 - `DungeonGraph`는 연결된 두 노드의 XZ 좌표에서 `RoomExitDirection`을 계산하고, 현재 방과 방향으로 이웃을 조회한다. 연결되지 않은 노드나 정의되지 않은 방향은 상태를 만들지 않는다.
 - `DungeonRunState`는 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방과 보스방은 첫 입장 뒤 클리어 전까지 퇴실을 막고, 클리어한 전투방은 재방문 때 다시 잠그지 않는다.
+- 현재 방의 문 조회는 북·동·남·서 고정 순서로 연결 없음 `Inactive`, 미클리어 전투·보스방 연결 `Locked`, 이동 가능한 연결 `Open`을 반환한다. 연결 상태는 대상 방 ID를 포함하며 read-only snapshot이다.
 - `DungeonCombatRoomAssigner`는 그래프 seed에서 topology와 분리된 고정 salt RNG를 만들고, 안정 ID로 정렬한 전투방 카탈로그를 `prototype-combat-assignment-v1`로 배정한다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
 - 호환성은 회전된 잠재 출구가 노드의 모든 연결 방향을 포함하는지로 판단한다. 후보 중 사용 횟수가 가장 적은 정의를 우선해 네 방을 한 번씩 쓰기 전 불필요한 중복을 막는다.
@@ -53,7 +54,8 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 7. Core `DungeonRunState`가 인접 이동, 최초 방문, 전투 잠금·클리어와 양방향 재방문을 처리한다.
 8. 전투 노드별 활성 출구와 호환되는 수제 방 정의·회전을 결정적으로 배정한다.
 9. Unity 런 카탈로그가 배정된 definition ID를 실제 room asset·씬 이름으로 해석한다.
-10. 후속 Unity 단계에서 배정 결과에 맞춰 실제 room prefab과 활성·비활성 문을 표현한다. 이 단계는 아직 구현되지 않았다.
+10. Core 탐색 상태가 그래프 연결과 클리어 여부에서 네 방향 문의 비활성·잠금·개방 snapshot을 계산한다.
+11. 후속 Unity 단계에서 배정 결과와 문 상태에 맞춰 실제 room prefab과 활성·비활성 문을 표현한다. 이 단계는 아직 구현되지 않았다.
 
 ## 불변식
 
