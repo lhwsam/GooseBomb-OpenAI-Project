@@ -12,8 +12,10 @@ namespace BombSwap
         public const float DefaultCellsPerSecond = 5f;
         public const float DefaultChainDelaySeconds = 0.15f;
         public const int DefaultExplosionDamage = 1;
+        public const int DefaultEnemyExplosionDamage = 1;
 
         private static readonly ActorId PrototypePlayerActorId = new ActorId(1);
+        private static readonly ActorId PrototypeChaserActorId = new ActorId(2);
 
         [SerializeField]
         private TestSandboxContext context;
@@ -28,6 +30,9 @@ namespace BombSwap
         private PrototypePlayerVitalsAsset playerVitals;
 
         [SerializeField]
+        private PrototypeChaserDefinitionAsset chaserDefinition;
+
+        [SerializeField]
         private float cellsPerSecond = DefaultCellsPerSecond;
 
         [SerializeField]
@@ -38,9 +43,15 @@ namespace BombSwap
         private PlayerMovementSimulation _movement;
         private BombSimulation _bombs;
         private PlayerHealthSimulation _health;
+        private ChaserEnemySimulation _chaser;
+        private EnemyHealthSimulation _chaserHealth;
         private BombDefinition _coreBombDefinition;
+        private ChaserEnemyDefinition _coreChaserDefinition;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
+        private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
+            new List<EnemyDamageResult>();
+        private bool _roomCleared;
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
@@ -52,6 +63,14 @@ namespace BombSwap
 
         public event Action<PlayerDamageResult> PlayerDied;
 
+        public event Action<EnemyMovementStep> ChaserMoved;
+
+        public event Action<EnemyDamageResult> EnemyDamaged;
+
+        public event Action<EnemyDamageResult> EnemyDied;
+
+        public event Action RoomCleared;
+
         public event Action Ready;
 
         public TestSandboxContext Context => context;
@@ -62,11 +81,14 @@ namespace BombSwap
 
         public PrototypePlayerVitalsAsset PlayerVitals => playerVitals;
 
+        public PrototypeChaserDefinitionAsset ChaserDefinition => chaserDefinition;
+
         public float CellsPerSecond => cellsPerSecond;
 
         public float ChainDelaySeconds => chainDelaySeconds;
 
-        public bool IsInitialized => _movement != null && _bombs != null && _health != null;
+        public bool IsInitialized => _movement != null && _bombs != null && _health != null &&
+            _chaser != null && _chaserHealth != null;
 
         public bool IsReady { get; private set; }
 
@@ -78,6 +100,16 @@ namespace BombSwap
         public int CurrentHealth => _health != null ? _health.CurrentHealth : 0;
 
         public int MaxHealth => _health != null ? _health.MaxHealth : 0;
+
+        public ActorId ChaserActorId => _chaser != null ? _chaser.ActorId : default;
+
+        public GridPosition CurrentChaserGridPosition =>
+            _chaser != null ? _chaser.CurrentPosition : default;
+
+        public int EnemyActiveCount =>
+            _chaserHealth != null && !_chaserHealth.IsDead ? 1 : 0;
+
+        public bool IsRoomCleared => _roomCleared;
 
         public bool IsPlayerDead => _health != null && _health.IsDead;
 
@@ -104,6 +136,7 @@ namespace BombSwap
             BombSwapInputReader reader,
             PrototypeBombDefinitionAsset startingBomb,
             PrototypePlayerVitalsAsset startingPlayerVitals,
+            PrototypeChaserDefinitionAsset startingChaser,
             float movementCellsPerSecond = DefaultCellsPerSecond,
             float bombChainDelaySeconds = DefaultChainDelaySeconds)
         {
@@ -128,6 +161,10 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(startingPlayerVitals));
             }
+            if (startingChaser == null)
+            {
+                throw new ArgumentNullException(nameof(startingChaser));
+            }
 
             ValidateFinitePositive(movementCellsPerSecond, nameof(movementCellsPerSecond));
             ValidateFinitePositive(bombChainDelaySeconds, nameof(bombChainDelaySeconds));
@@ -136,6 +173,7 @@ namespace BombSwap
             inputReader = reader;
             bombDefinition = startingBomb;
             playerVitals = startingPlayerVitals;
+            chaserDefinition = startingChaser;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
         }
@@ -207,9 +245,14 @@ namespace BombSwap
             {
                 PlayerMoved?.Invoke(step);
             }
+            if (!_chaserHealth.IsDead && _chaser.TryAdvance(out EnemyMovementStep chaserStep))
+            {
+                ChaserMoved?.Invoke(chaserStep);
+            }
 
             var explosions = _bombs.ProcessDueBombs();
             _appliedDamageResults.Clear();
+            _appliedEnemyDamageResults.Clear();
             for (int index = 0; index < explosions.Count; index++)
             {
                 BombExplosion explosion = explosions[index];
@@ -222,6 +265,23 @@ namespace BombSwap
                     if (damage.WasApplied)
                     {
                         _appliedDamageResults.Add(damage);
+                    }
+                }
+                if (!_chaserHealth.IsDead &&
+                    _grid.TryGetActorPosition(_chaser.ActorId, out GridPosition chaserPosition) &&
+                    Contains(explosion.AffectedCells, chaserPosition))
+                {
+                    EnemyDamageResult enemyDamage = _chaserHealth.ApplyExplosionDamage(
+                        explosion.BombId,
+                        DefaultEnemyExplosionDamage);
+                    if (enemyDamage.WasApplied)
+                    {
+                        _appliedEnemyDamageResults.Add(enemyDamage);
+                    }
+                    if (enemyDamage.WasFatal && !_grid.TryRemoveActor(_chaser.ActorId))
+                    {
+                        throw new InvalidOperationException(
+                            "Dead prototype chaser could not be removed from the logical grid.");
                     }
                 }
             }
@@ -240,15 +300,29 @@ namespace BombSwap
                     PlayerDied?.Invoke(damage);
                 }
             }
+            for (int index = 0; index < _appliedEnemyDamageResults.Count; index++)
+            {
+                EnemyDamageResult damage = _appliedEnemyDamageResults[index];
+                EnemyDamaged?.Invoke(damage);
+                if (damage.WasFatal)
+                {
+                    EnemyDied?.Invoke(damage);
+                    if (!_roomCleared && EnemyActiveCount == 0)
+                    {
+                        _roomCleared = true;
+                        RoomCleared?.Invoke();
+                    }
+                }
+            }
         }
 
         private void Initialize()
         {
             if (context == null || inputReader == null || bombDefinition == null ||
-                playerVitals == null)
+                playerVitals == null || chaserDefinition == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeGameSession requires context, input reader, bomb definition, and player vitals references.");
+                    "PrototypeGameSession requires context, input reader, bomb, player-vitals, and chaser references.");
             }
 
             ValidateFinitePositive(cellsPerSecond, nameof(cellsPerSecond));
@@ -271,6 +345,21 @@ namespace BombSwap
                 _movement.ActorId,
                 _clock,
                 playerVitals.CreateCoreDefinition());
+
+            _coreChaserDefinition = chaserDefinition.CreateCoreDefinition();
+            GridPosition chaserStart = context.GridSpace.WorldToGrid(
+                context.ChaserSpawn.position);
+            _chaser = new ChaserEnemySimulation(
+                _grid,
+                _clock,
+                _coreChaserDefinition,
+                PrototypeChaserActorId,
+                _movement.ActorId,
+                chaserStart);
+            _chaserHealth = new EnemyHealthSimulation(
+                _chaser.ActorId,
+                _coreChaserDefinition.MaxHealth);
+            _roomCleared = false;
 
             _coreBombDefinition = bombDefinition.CreateCoreDefinition();
         }

@@ -1030,6 +1030,7 @@ MonoBehaviour:
   gridRoot: {fileID: 1165390088}
   playerSpawn: {fileID: 1034727587}
   playerPlaceholder: {fileID: 317508116}
+  chaserSpawn: {fileID: 2013815863}
   gridWidth: 11
   gridDepth: 9
   cellSize: 1
@@ -1184,6 +1185,7 @@ GameObject:
   - component: {fileID: 549228485}
   - component: {fileID: 549228484}
   - component: {fileID: 549228486}
+  - component: {fileID: 549228487}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1279,6 +1281,7 @@ MonoBehaviour:
   inputReader: {fileID: 549228480}
   bombDefinition: {fileID: 11400000, guid: 2c0c58c2234aaff49882136fa86b6228, type: 2}
   playerVitals: {fileID: 11400000, guid: f596c4b9706477042b040e90f2f7ce5d, type: 2}
+  chaserDefinition: {fileID: 11400000, guid: d5e3ca0a7af7a3740b3ca2574b0cd87e, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15
 --- !u!114 &549228486
@@ -1298,6 +1301,21 @@ MonoBehaviour:
   damagePulseSeconds: 0.12
   damageColor: {r: 1, g: 0.12, b: 0.04, a: 1}
   deadColor: {r: 0.16, g: 0.17, b: 0.2, a: 1}
+--- !u!114 &549228487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a3324658c76ffb4fbfa4e29b48a6f72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChaserPresenter
+  session: {fileID: 549228485}
+  presentationRoot: {fileID: 550081171}
+  deathColor: {r: 1, g: 0.08, b: 0.03, a: 1}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
@@ -2139,6 +2157,7 @@ Transform:
   - {fileID: 1034727587}
   - {fileID: 317508116}
   - {fileID: 550081171}
+  - {fileID: 2013815863}
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1180217955
@@ -3704,6 +3723,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2013411832}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &2013815862
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2013815863}
+  m_Layer: 0
+  m_Name: ChaserSpawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2013815863
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013815862}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1, y: 0, z: -1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1165390088}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2064047009
 GameObject:
   m_ObjectHideFlags: 0

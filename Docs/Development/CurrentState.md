@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 플레이어 자기 폭발 피해·무적·사망 피드백 수직 슬라이스
+- 단계: 기본 추격자 유도·폭발 처치·방 클리어 수직 슬라이스
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -39,6 +39,10 @@
 - 주입 시계 기반 `PlayerHealthSimulation`과 최대 체력 5·무적 0.75초의 검증된 `PrototypePlayerVitalsAsset`을 구현.
 - 폭발 영향 셀과 현재 플레이어 논리 셀을 비교해 자기 폭발 피해 1을 적용하고, 같은 폭발 중복·무적 중 별도 폭발·사망 뒤 명령을 차단.
 - `PrototypePlayerHealthPresenter`가 공유 material을 복제하지 않고 피격 pulse와 사망 색을 표시하도록 TestSandbox에 연결.
+- 안정 `EnemyDefinitionId`, 주입 시계 cadence, 결정론적 국소 Manhattan 선택, 두 칸 방향 유지를 소유하는 `ChaserEnemySimulation` 구현.
+- 내구도 1, 폭발 ID별 중복 차단과 단일 치명 결과를 소유하는 `EnemyHealthSimulation` 구현.
+- 검증된 `PrototypeChaserDefinitionAsset`, collider 없는 chaser prefab, 논리 spawn과 `PrototypeChaserPresenter`를 TestSandbox에 연결.
+- 추격자 폭발 사망 시 논리 actor 점유를 한 번 제거하고 `EnemyDied`와 단일 `RoomCleared`를 발행하는 첫 유도→처치 루프 구현.
 
 ## 현재 저장소 사실
 
@@ -48,10 +52,12 @@
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다.
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다.
 - `PlayerHealthSimulation`은 폭발 ID별 처리 여부, 체력 하한, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. `PrototypeGameSession`은 적용된 피해와 사망만 표현 이벤트로 발행한다.
+- `ChaserEnemySimulation`은 현재 단일 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
+- 기본 추격자는 내구도 1이며 영향 셀 폭발 한 번에 사망한다. 세션은 마지막 적 사망을 단일 방 클리어로 집계하지만 문 개방·보상은 아직 없다.
 - TestSandbox의 `prototype-cross` ScriptableObject는 현재 fuse 2초, 범위 2와 bomb/explosion-cell prefab을 소유한다.
-- EditMode 테스트 107개가 하네스 발견성, 좌표·격자·시계, actor 식별, 폭탄 설치·폭발·벽·연쇄, 플레이어 명령과 이동 cadence·점유 전이·설치자 한정 통과, 플레이어 체력·피해·무적 경계 계약을 검증한다.
+- EditMode 테스트 126개가 하네스 발견성, 좌표·격자·시계, actor 식별, 폭탄 설치·폭발·벽·연쇄, 플레이어 명령과 이동 cadence·점유 전이·설치자 한정 통과, 플레이어 체력·피해·무적 경계, 추격자 결정론·cadence·방향 유지·폭탄 차단·단일 피격 계약을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 42개가 `GridSpace`, cardinal 입력 해석, 실제 Input System 키→명령→공유 격자 이동·폭탄 설치·한 번 탈출·재진입 차단·fuse 폭발·자기 피해·무적·사망 명령 차단, Transform 보간, pooled 표현과 피격 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
+- PlayMode 전체 44개가 `GridSpace`, cardinal 입력 해석, 실제 Input System 키→명령→공유 격자 플레이어·추격자 이동, 폭탄 설치·한 번 탈출·재진입 차단·fuse 폭발·플레이어 피해·적 사망·방 클리어, Transform 보간, pooled 표현과 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
 - TestSandbox의 네 내부 장애물은 Transform/Collider와 별개인 명시적 논리 blocked cell로 저작되어 있다.
 - Build Settings의 첫 enabled 씬은 `Assets/Game/Scenes/TestSandbox/TestSandbox.unity`이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
@@ -66,16 +72,17 @@
 
 ## 바로 다음 권장 작업
 
-1. 기본 추격자를 추가해 폭탄 설치→유도→회피→적중의 프로토타입 가설 A 첫 플레이 루프를 만든다.
-2. 적 `ActorId` 수명 주기와 논리 추격 cadence, 폭발 1회 피격·사망, 최소 placeholder 표현을 검증한다.
-3. 5 cells/s, 선형 보간, fuse 2초, 폭발 표시 0.25초, 체력 5·무적 0.75초를 실제 플레이로 평가한다.
+1. 추격자 cardinal 인접 접촉을 플레이어 피해·무적 계약에 연결해 실제 공간 압력을 만든다.
+2. 단일 적 고정 ID를 다중 적 컬렉션과 결정론적 이동 순서로 확장하기 전, 수제 전투방 1개의 spawn·퇴로·유도 경로를 저작하고 검증한다.
+3. GDD 개발 순서의 두 슬롯·독립 설치 쿨타임으로 진행할지, 기본 폭탄+추격자 플레이테스트를 먼저 할지 결정한다.
 
 ## 알려진 위험과 미정
 
 - 이동은 현재 기본 5 cells/s, step 시작 시 목적 셀 점유, 선형 보간을 사용한다. 최종 속도·곡선·셀 경계 감각은 플레이테스트 전까지 `Proposed`다.
-- 프로토타입은 현재 플레이어 `ActorId` 하나를 고정 생성한다. 여러 actor의 수명 주기와 ID 발급 정책은 바로 다음 적 수직 슬라이스에서 추가해야 한다.
+- 프로토타입은 플레이어 `ActorId(1)`과 단일 추격자 `ActorId(2)`를 고정 생성한다. 여러 적의 ID 발급, 이동 순서와 동일 목적 셀 경합 정책은 아직 없다.
 - 현재 폭탄 정의와 Unity 저작 데이터는 기본 십자 모양만 지원하며 쿨타임, 폭탄별 위력, 적 피해, 직선·광역 폭탄은 아직 없다.
 - 최대 체력 5, 자기 폭발 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 접촉 피해, 부활·재시작, 완성 HUD·오디오는 아직 없다.
+- 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. 현재 접촉 피해가 없어 추격의 실제 압박감은 아직 검증할 수 없다.
 - 개발 WebGL 기준 빌드는 약 140.0 MB이며 현재 설치된 AI Inference·vendor 패키지와 셰이더가 빌드 크기, 전체 재빌드 시간과 경고 수를 크게 차지한다. 실제 배포 예산과 패키지 정리는 피해·적 수직 슬라이스 이후 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치 명령은 실제 게임 상태를 바꾸지만 교체·pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
@@ -86,7 +93,7 @@
 ## 최근 검증
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
-- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-085326-static/`.
+- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-092702-static/`.
 - `skill-creator` 공식 `quick_validate.py`: 프로젝트 스킬 4종 모두 통과.
 - PowerShell AST parse와 `node --check Tools/WebGLSmoke.mjs`: 통과.
 - 하네스 C# 3개를 Unity 6000.5.3f1 설치 어셈블리 기준으로 외부 컴파일: 경고 0, 오류 0.
@@ -98,12 +105,12 @@
 - 루트 AGENTS 크기: 약 9 KB로 Codex 기본 합산 제한 32 KiB 이내.
 - 공식 Unity MCP 연결과 활성 씬 `Assets/Scenes/SampleScene.unity` 확인.
 - Unity Editor import/compile: 격자·시계·폭탄 Core, Unity 좌표 어댑터와 테스트 스크립트 임포트 후 Console 오류 0.
-- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 107개 통과, 실패/건너뜀/불확정 0. 체력·동일 폭발 중복·무적 경계·사망·시계 역행 테스트 포함.
+- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 126개 통과, 실패/건너뜀/불확정 0. 추격 정의·결정론적 동률·방향 유지·장애물 재판단·인접 정지·단일 폭발 사망 테스트 포함.
 - `Tools/Verify.ps1 -Tier Fast`: 실행 중인 동일 프로젝트 Editor 잠금 때문에 별도 batchmode로는 미실행. Unity 컴파일과 EditMode 테스트는 연결된 MCP로 수행.
 - PlayMode: 공식 Unity MCP로 `GridSpaceTests` 18개 통과, 실패/건너뜀/불확정 0. 테스트 어셈블리 내부 리포터로 도메인 리로드 후 결과 확인.
-- PlayMode 전체 회귀: `BombSwap.Unity.Tests` 42개 통과, 실패/건너뜀/불확정 0. 실제 입력 이동·장애물 차단, 공유 격자 폭탄 설치·소유자 탈출·재진입 차단·fuse 폭발·피해·무적·사망, pooled 표현과 material property block 생명주기, WebGL probe 초기화 순서 포함.
-- `PrototypeContentValidator`: 게임 전용 Input Actions, 기본 십자 폭탄과 플레이어 vitals ScriptableObject·prefab, TestSandbox 공유 session·이동/presentation/health/probe 참조, 카메라·조명, Build Settings 검증 통과.
+- PlayMode 전체 회귀: `BombSwap.Unity.Tests` 44개 통과, 실패/건너뜀/불확정 0. 실제 입력 이동·장애물 차단, 공유 격자 추격, 폭탄 설치·fuse 폭발·플레이어 피해·적 사망·점유 제거·방 클리어, pooled 표현과 material property block 생명주기, WebGL probe 초기화 순서 포함.
+- `PrototypeContentValidator`: 게임 전용 Input Actions, 기본 십자 폭탄·플레이어 vitals·추격자 ScriptableObject와 collider 없는 prefab, TestSandbox 공유 session·spawn·presentation/health/probe 참조, 카메라·조명, Build Settings 검증 통과.
 - TestSandbox 실제 재생과 Scene View 시각 확인: `Z` 설치 성공 뒤 플레이어 셀의 검은 구형 폭탄 placeholder, 11×9 격자·경계 벽·네 장애물·플레이어를 탑다운 구도에서 식별.
-- Development WebGL 자기 피해 빌드: TestSandbox 단일 씬으로 성공. 140,321,275 bytes, 282.492초, 오류 0. 기존 AI Inference·Feel·TextMeshPro에서 셰이더/에셋 경고 359개가 보고됐다.
-- 실제 Edge headless browser smoke: load, canvas focus, 입력 구독 완료 `probe-ready`, Core 이동까지 W 유지, Z/X/Esc×2, resize, `move/place-bomb/bomb-exploded/player-damaged/swap-bomb/pause-resume/audio-unlocked` 관측, browser Console/page error 0.
-- 최신 검증 증거: `Artifacts/Verification/20260814-084456-web-connected/` (Git 제외). 빌드 후 자동 생성된 URP/ProjectSettings/Burst 부산물은 작업 diff에서 제거했다.
+- Development WebGL 기본 추격자 빌드: TestSandbox 단일 씬으로 성공. 140,461,366 bytes, 278.370초, 오류 0. 기존 AI Inference·Feel·TextMeshPro에서 셰이더/에셋 경고 359개가 보고됐다.
+- 실제 Edge headless browser smoke: load, canvas focus, 입력 구독 완료 `probe-ready`, Core 이동까지 W 유지, Z/X/Esc×2, resize, `move/chaser-moved/place-bomb/bomb-exploded/player-damaged/enemy-died/room-cleared/swap-bomb/pause-resume/audio-unlocked` 관측, browser Console/page error 0.
+- 최신 WebGL 검증 증거: `Artifacts/Verification/20260814-091812-web-connected/` (Git 제외). 빌드 후 자동 생성된 URP/ProjectSettings/Burst 부산물은 작업 diff에서 제거한다.

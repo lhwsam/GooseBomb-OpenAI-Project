@@ -21,6 +21,9 @@ namespace BombSwap
         private Transform playerPlaceholder;
 
         [SerializeField]
+        private Transform chaserSpawn;
+
+        [SerializeField]
         private int gridWidth = 11;
 
         [SerializeField]
@@ -40,6 +43,8 @@ namespace BombSwap
 
         public Transform PlayerPlaceholder => playerPlaceholder;
 
+        public Transform ChaserSpawn => chaserSpawn;
+
         public int GridWidth => gridWidth;
 
         public int GridDepth => gridDepth;
@@ -55,6 +60,7 @@ namespace BombSwap
             Transform grid,
             Transform spawn,
             Transform player,
+            Transform enemySpawn,
             int width,
             int depth,
             float size,
@@ -75,6 +81,10 @@ namespace BombSwap
             if (player == null)
             {
                 throw new ArgumentNullException(nameof(player));
+            }
+            if (enemySpawn == null)
+            {
+                throw new ArgumentNullException(nameof(enemySpawn));
             }
             if (width <= 0 || (width & 1) == 0)
             {
@@ -98,6 +108,21 @@ namespace BombSwap
             var uniqueBlockers = new HashSet<Vector2Int>();
             var gridSpace = new GridSpace(grid.position, size);
             GridPosition spawnCell = gridSpace.WorldToGrid(spawn.position);
+            GridPosition enemySpawnCell = gridSpace.WorldToGrid(enemySpawn.position);
+            if (enemySpawnCell.X < -halfWidth || enemySpawnCell.X > halfWidth ||
+                enemySpawnCell.Z < -halfDepth || enemySpawnCell.Z > halfDepth)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(enemySpawn),
+                    enemySpawnCell,
+                    "Chaser spawn cell must be inside the TestSandbox grid.");
+            }
+            if (enemySpawnCell == spawnCell)
+            {
+                throw new ArgumentException(
+                    "Player and chaser cannot share a spawn cell.",
+                    nameof(enemySpawn));
+            }
             foreach (Vector2Int blocker in blockers)
             {
                 if (blocker.x < -halfWidth || blocker.x > halfWidth ||
@@ -118,12 +143,19 @@ namespace BombSwap
                         $"Player spawn cell cannot also be blocked: {blocker}.",
                         nameof(blockers));
                 }
+                if (enemySpawnCell == new GridPosition(blocker.x, blocker.y))
+                {
+                    throw new ArgumentException(
+                        $"Chaser spawn cell cannot also be blocked: {blocker}.",
+                        nameof(blockers));
+                }
             }
 
             inputReader = reader;
             gridRoot = grid;
             playerSpawn = spawn;
             playerPlaceholder = player;
+            chaserSpawn = enemySpawn;
             gridWidth = width;
             gridDepth = depth;
             cellSize = size;

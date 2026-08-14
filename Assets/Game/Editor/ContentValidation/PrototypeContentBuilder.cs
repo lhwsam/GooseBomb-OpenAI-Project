@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using BombSwap.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -29,12 +31,18 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombDefinitionAsset bombDefinition =
                 CreatePrototypeBombContentIfMissing();
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
-            bool sceneCreated = EnsureTestSandbox(inputActions, bombDefinition, playerVitals);
+            PrototypeChaserDefinitionAsset chaserDefinition =
+                CreatePrototypeChaserContentIfMissing();
+            bool sceneCreated = EnsureTestSandbox(
+                inputActions,
+                bombDefinition,
+                playerVitals,
+                chaserDefinition);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
             return sceneCreated
-                ? "Created BombSwap Input Actions, bomb content, TestSandbox, and Build Settings entry."
+                ? "Created BombSwap Input Actions, bomb/enemy content, TestSandbox, and Build Settings entry."
                 : "BombSwap prototype content exists; upgraded TestSandbox runtime references and Build Settings entry.";
         }
 
@@ -206,14 +214,65 @@ namespace BombSwap.Editor.ContentValidation
             return vitals;
         }
 
+        private static PrototypeChaserDefinitionAsset CreatePrototypeChaserContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Enemies");
+            Material chaserMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/Chaser.mat",
+                shader,
+                new Color(0.18f, 0.82f, 0.38f, 1f));
+            GameObject chaserPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ChaserPrefabPath,
+                "ChaserPlaceholder",
+                PrimitiveType.Capsule,
+                Vector3.zero,
+                new Vector3(0.36f, 0.45f, 0.36f),
+                chaserMaterial);
+
+            PrototypeChaserDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeChaserDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            if (definition != null)
+            {
+                return definition;
+            }
+
+            definition = ScriptableObject.CreateInstance<PrototypeChaserDefinitionAsset>();
+            definition.name = "PrototypeChaser";
+            definition.Configure(
+                "prototype-chaser",
+                1,
+                2f,
+                2,
+                chaserPrefab,
+                0.45f,
+                0.12f);
+            AssetDatabase.CreateAsset(
+                definition,
+                PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            return definition;
+        }
+
         private static bool EnsureTestSandbox(
             InputActionAsset inputActions,
             PrototypeBombDefinitionAsset bombDefinition,
-            PrototypePlayerVitalsAsset playerVitals)
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(PrototypeContentValidator.TestSandboxScenePath) == null)
             {
-                CreateTestSandbox(inputActions, bombDefinition, playerVitals);
+                CreateTestSandbox(
+                    inputActions,
+                    bombDefinition,
+                    playerVitals,
+                    chaserDefinition);
                 return true;
             }
 
@@ -228,7 +287,11 @@ namespace BombSwap.Editor.ContentValidation
 
             try
             {
-                UpgradeTestSandbox(scene, bombDefinition, playerVitals);
+                UpgradeTestSandbox(
+                    scene,
+                    bombDefinition,
+                    playerVitals,
+                    chaserDefinition);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -249,7 +312,8 @@ namespace BombSwap.Editor.ContentValidation
         private static void CreateTestSandbox(
             InputActionAsset inputActions,
             PrototypeBombDefinitionAsset bombDefinition,
-            PrototypePlayerVitalsAsset playerVitals)
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -288,6 +352,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
             PrototypePlayerHealthPresenter healthPresenter =
                 systems.AddComponent<PrototypePlayerHealthPresenter>();
+            PrototypeChaserPresenter chaserPresenter =
+                systems.AddComponent<PrototypeChaserPresenter>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
 
             var gridRoot = new GameObject("GridRoot");
@@ -347,6 +413,8 @@ namespace BombSwap.Editor.ContentValidation
             CreatePrimitive("Obstacle_South", PrimitiveType.Cube, obstacles, new Vector3(0f, 0.5f, -2f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
 
             Transform playerSpawn = CreateChild("PlayerSpawn", gridRoot.transform);
+            Transform chaserSpawn = CreateChild("ChaserSpawn", gridRoot.transform);
+            chaserSpawn.localPosition = new Vector3(1f, 0f, -1f);
             GameObject player = CreatePrimitive(
                 "PlayerPlaceholder",
                 PrimitiveType.Capsule,
@@ -370,14 +438,21 @@ namespace BombSwap.Editor.ContentValidation
                 gridRoot.transform,
                 playerSpawn,
                 player.transform,
+                chaserSpawn,
                 11,
                 9,
                 1f,
                 blockedCells);
-            gameSession.Configure(context, inputReader, bombDefinition, playerVitals);
+            gameSession.Configure(
+                context,
+                inputReader,
+                bombDefinition,
+                playerVitals,
+                chaserDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
+            chaserPresenter.Configure(gameSession, runtimePresentation);
             harnessProbe.Configure(inputReader, gameSession);
             systems.SetActive(true);
 
@@ -392,7 +467,8 @@ namespace BombSwap.Editor.ContentValidation
         private static void UpgradeTestSandbox(
             Scene scene,
             PrototypeBombDefinitionAsset bombDefinition,
-            PrototypePlayerVitalsAsset playerVitals)
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
@@ -416,12 +492,24 @@ namespace BombSwap.Editor.ContentValidation
             {
                 healthPresenter = systems.AddComponent<PrototypePlayerHealthPresenter>();
             }
+            PrototypeChaserPresenter chaserPresenter =
+                systems.GetComponent<PrototypeChaserPresenter>();
+            if (chaserPresenter == null)
+            {
+                chaserPresenter = systems.AddComponent<PrototypeChaserPresenter>();
+            }
 
             Transform runtimePresentation = context.GridRoot.Find("RuntimePresentation");
             if (runtimePresentation == null)
             {
                 runtimePresentation = CreateChild("RuntimePresentation", context.GridRoot);
             }
+            Transform chaserSpawn = context.GridRoot.Find("ChaserSpawn");
+            if (chaserSpawn == null)
+            {
+                chaserSpawn = CreateChild("ChaserSpawn", context.GridRoot);
+            }
+            chaserSpawn.position = context.GridSpace.GridToWorld(new GridPosition(1, -1));
 
             Renderer playerRenderer =
                 context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
@@ -431,15 +519,33 @@ namespace BombSwap.Editor.ContentValidation
                     "TestSandbox player placeholder requires a renderer.");
             }
 
-            gameSession.Configure(context, inputReader, bombDefinition, playerVitals);
+            context.Configure(
+                inputReader,
+                context.GridRoot,
+                context.PlayerSpawn,
+                context.PlayerPlaceholder,
+                chaserSpawn,
+                context.GridWidth,
+                context.GridDepth,
+                context.CellSize,
+                context.BlockedCells.ToArray());
+            gameSession.Configure(
+                context,
+                inputReader,
+                bombDefinition,
+                playerVitals,
+                chaserDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
             healthPresenter.Configure(gameSession, playerRenderer);
+            chaserPresenter.Configure(gameSession, runtimePresentation);
             harnessProbe.Configure(inputReader, gameSession);
+            EditorUtility.SetDirty(context);
             EditorUtility.SetDirty(gameSession);
             EditorUtility.SetDirty(playerController);
             EditorUtility.SetDirty(bombPresenter);
             EditorUtility.SetDirty(healthPresenter);
+            EditorUtility.SetDirty(chaserPresenter);
             EditorUtility.SetDirty(harnessProbe);
         }
 
