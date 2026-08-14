@@ -18,11 +18,11 @@
 | 2 | Combat | `(-1,0)` | `prototype-combat-pillars` / `TestSandboxPillars` | Clockwise90 |
 | 3 | BombReward | `(-1,1)` | `DungeonReward` | - |
 | 4 | Combat | `(-1,2)` | `prototype-combat-loop` / `TestSandbox` | Clockwise90 |
-| 5 | Combat | `(0,2)` | `prototype-combat-lanes` / `TestSandboxLanes` | None |
+| 5 | Combat | `(0,2)` | `prototype-combat-gates` / `TestSandboxGates` | None |
 | 6 | BossAntechamber | `(1,2)` | `DungeonBossAnte` | - |
 | 7 | Boss | `(1,1)` | `DungeonBoss` | - |
 
-3번 보상방에서 갈라지는 8번 선택 전투방은 이 주 경로 smoke의 대상이 아니다.
+3번 보상방에서 갈라지는 8번 선택 전투방은 `prototype-combat-lanes` / `TestSandboxLanes`, None 회전으로 배정되며 이 주 경로 smoke의 대상이 아니다. 현재 seed 0에서는 `prototype-combat-armor`가 배정되지 않는다.
 
 ## 자동 계약
 
@@ -30,7 +30,7 @@
 2. 시작 십자 폭탄 두 번으로 첫 전투를 클리어한다.
 3. 보상방 왼쪽 후보 `prototype-area`를 수집한다.
 4. 첫 전투방으로 되돌아가 `cleared` 상태와 적 사건 미발생을 확인한 뒤 보상방에 재진입한다.
-5. 4·5번 전투방을 광역 폭탄으로 클리어한다. `player-cell-*`와 `chaser-cell-*`을 이용해 실제 논리 인접 상태를 기준으로 폭탄 설치와 퇴로를 동기화한다.
+5. 4번 회전 루프와 5번 중앙 게이트 전투방을 광역 폭탄으로 클리어한다. `player-cell-*`와 `chaser-cell-*`을 이용해 실제 논리 인접 상태를 기준으로 폭탄 설치와 퇴로를 동기화하며, 게이트 방에서는 서쪽 우회로를 사용한다.
 6. 보스 전실의 `safe`, 보스 placeholder의 `active` 상태를 확인한다.
 7. 보스방에서 2번 슬롯을 활성화하고 광역 폭탄을 설치해 선택 결과가 전체 경로 동안 유지됐음을 확인한다.
 8. 전환 시작 8회와 commit 8회, 전투 클리어 3회, Console/page error 0, pause/resume, viewport resize와 최종 screenshot을 요구한다.
@@ -49,17 +49,17 @@
 
 ## 검증 증거
 
-- 전체 EditMode 251/251: `Artifacts/Verification/ConnectedTests/20260814-154600-181.json`.
-- 전체 PlayMode 95/95: `Artifacts/Verification/ConnectedTests/20260814-153109-903.json`.
+- 전체 EditMode 267/267: `Artifacts/Verification/ConnectedTests/20260814-200957-559.json`.
+- 전체 PlayMode 110/110: `Artifacts/Verification/ConnectedTests/20260814-201015-022.json`.
 - `PrototypeContentValidator` 오류 0, Unity Console Error 0.
-- Development WebGL 8개 씬 빌드: `Artifacts/Verification/20260815-003200-full-boss-path-web/`, 137,501,446 bytes, 51.950초, warning 3, error 0.
-- Edge headless: 21/21, transition/commit 각 8회, room clear 3회, reward selection 1회, area placement 4회, Console/page error 0.
-- 최종 화면: 같은 폴더의 `webgl-boss-path.png`에서 보스 placeholder, 잠긴 문, 플레이어·추격자와 두 슬롯 HUD를 확인했다.
-- 최종 StaticOnly와 WebGL 정적 서버 회귀: `Artifacts/Verification/20260815-005044-static/`, 통과.
+- Development WebGL 9개 씬 증분 완료 빌드: `Artifacts/Verification/20260815-052000-fifth-combat-room-web/`, 141,882,145 bytes, 8.155초, warning 0, error 0.
+- Edge headless: 27/27, transition/commit 각 8회, room clear 3회, reward selection 1회, 게이트 방 캡처와 Console/page error 0.
+- 게이트 화면: 같은 폴더의 `webgl-fifth-combat-room-gates-room.png`에서 회색 장벽 2열, 중앙 파괴 문 2개, 좌우 우회와 체력·무기 HUD 비중첩을 확인했다.
+- 최종 StaticOnly와 WebGL 정적 서버 회귀: `Artifacts/Verification/20260815-053211-static/`, 통과.
 
 ## 비목표
 
-- 실제 보스 AI, 보스 승리와 다음 층 전환.
+- 다음 층 전환.
 - 8번 선택 가지 자동 탐색.
 - 추격자의 동률 순환 정책 수정.
 - 탐색 피로, 폭탄 선택과 전투 감각에 대한 사람 판정.

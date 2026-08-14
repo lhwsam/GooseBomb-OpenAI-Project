@@ -83,6 +83,33 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Assign_FiveRoomCatalogAndFiveCombatGraph_UsesEveryDefinitionOnce()
+        {
+            DungeonGraph graph = Enumerable.Range(0, 128)
+                .Select(DungeonGenerator.Generate)
+                .First(candidate => candidate.CombatRoomCount == 5);
+            CombatRoomDefinition[] catalog = CreateFiveWayCatalog();
+
+            DungeonCombatRoomLayout layout =
+                DungeonCombatRoomAssigner.Assign(graph, catalog);
+
+            Assert.That(layout.Assignments, Has.Count.EqualTo(5));
+            Assert.That(
+                layout.Assignments
+                    .Select(assignment => assignment.DefinitionId)
+                    .Distinct()
+                    .Count(),
+                Is.EqualTo(5));
+            foreach (CombatRoomDefinition definition in catalog)
+            {
+                Assert.That(
+                    layout.Assignments.Count(assignment =>
+                        assignment.DefinitionId == definition.Id),
+                    Is.EqualTo(1));
+            }
+        }
+
+        [Test]
         public void Assign_ManySeedsProduceVariedDeterministicLayouts()
         {
             CombatRoomDefinition[] catalog = CreateFourWayCatalog();
@@ -216,6 +243,18 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition("room-bravo", CreateFourWayExits()),
                 CreateDefinition("room-charlie", CreateFourWayExits()),
                 CreateDefinition("room-delta", CreateFourWayExits()),
+            };
+        }
+
+        private static CombatRoomDefinition[] CreateFiveWayCatalog()
+        {
+            return new[]
+            {
+                CreateDefinition("room-alpha", CreateFourWayExits()),
+                CreateDefinition("room-bravo", CreateFourWayExits()),
+                CreateDefinition("room-charlie", CreateFourWayExits()),
+                CreateDefinition("room-delta", CreateFourWayExits()),
+                CreateDefinition("room-echo", CreateFourWayExits()),
             };
         }
 
