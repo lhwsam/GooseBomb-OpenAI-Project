@@ -61,6 +61,48 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Definition_StoresDestructibleWallsAsInitiallyBlockedCells()
+        {
+            var destructible = new GridPosition(0, -2);
+
+            CombatRoomDefinition room = CreateRoom(
+                destructibleWalls: new[] { destructible });
+
+            Assert.That(room.DestructibleWalls, Is.EqualTo(new[] { destructible }));
+            Assert.That(room.IsBlocked(destructible), Is.True);
+            Assert.That(room.IsDestructibleWall(destructible), Is.True);
+            Assert.That(room.IsIndestructibleWall(destructible), Is.False);
+        }
+
+        [Test]
+        public void Definition_RejectsDuplicateOrOverlappingDestructibleWalls()
+        {
+            var wall = new GridPosition(1, 1);
+
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(destructibleWalls: new[] { wall, wall }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    walls: new[] { wall },
+                    destructibleWalls: new[] { wall }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(destructibleWalls: new[] { PlayerSpawn }));
+        }
+
+        [Test]
+        public void Definition_RejectsDestructibleWallThatDisconnectsInitialPlayableArea()
+        {
+            var separatingWall = new GridPosition[9];
+            for (int index = 0; index < separatingWall.Length; index++)
+            {
+                separatingWall[index] = new GridPosition(1, index - 4);
+            }
+
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(destructibleWalls: separatingWall));
+        }
+
+        [Test]
         public void Definition_RejectsSpawnOverlappingWallOrImmediateContact()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -177,6 +219,7 @@ namespace BombSwap.Tests.EditMode
             int width = 11,
             GridPosition? chaserSpawn = null,
             GridPosition[] walls = null,
+            GridPosition[] destructibleWalls = null,
             GridPosition[] safeCells = null,
             GridPosition[] lureLoop = null,
             RoomExit[] exits = null)
@@ -201,7 +244,8 @@ namespace BombSwap.Tests.EditMode
                     new GridPosition(3, 1),
                 },
                 lureLoop ?? CreateLureLoop(),
-                exits ?? CreateExits());
+                exits ?? CreateExits(),
+                destructibleWalls ?? Array.Empty<GridPosition>());
         }
 
         private static GridPosition[] CreateLureLoop()

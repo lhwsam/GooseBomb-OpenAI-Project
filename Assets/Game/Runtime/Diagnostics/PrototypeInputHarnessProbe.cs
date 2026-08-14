@@ -19,6 +19,7 @@ namespace BombSwap
         private bool _contactEscapeMovedReported;
         private bool _placeBombReported;
         private bool _bombExplosionReported;
+        private bool _destructibleWallDestroyedReported;
         private bool _playerDamagedReported;
         private bool _playerExplosionDamagedReported;
         private bool _playerContactDamagedReported;
@@ -181,6 +182,12 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
+            if (!_destructibleWallDestroyedReported && explosion.DestroyedWalls.Count > 0)
+            {
+                WebGlHarnessReporter.Report("destructible-wall-destroyed");
+                _destructibleWallDestroyedReported = true;
+            }
+
             if (_bombExplosionReported)
             {
                 return;

@@ -80,6 +80,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 확정된 폭발 셀에 현재 플레이어 논리 셀이 포함되면 체력 시스템에 해당 `BombId`의 피해를 한 번 전달하고, 무적 계약을 통과한 결과만 `PlayerDamaged`로 발행한다.
 - 확정된 폭발 셀에 살아 있는 기본 추격자의 논리 셀이 포함되면 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 내구도 1 추격자는 같은 결과에서 사망하고 논리 점유에서 제거된다.
 - `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
+- `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. 같은 시각의 여러 폭발이 같은 벽을 보고해도 표현 제거는 멱등이다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
 - 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자와 3×3 광역 폭발을 포함한다. 다중 적·중형 적 피해 단계와 방향성 직선 폭발은 아직 없다.
 

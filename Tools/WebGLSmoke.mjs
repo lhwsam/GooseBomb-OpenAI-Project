@@ -90,6 +90,10 @@ async function main() {
     args.screenshotPath ??
       path.join(path.dirname(path.resolve(args.reportPath)), "webgl-gameplay.png"),
   );
+  const wallScreenshotPath = path.resolve(
+    args.wallScreenshotPath ??
+      path.join(path.dirname(path.resolve(args.reportPath)), "webgl-destructible-walls.png"),
+  );
   let browser;
 
   try {
@@ -256,8 +260,38 @@ async function main() {
           names.includes("room-ready-prototype-combat-lanes");
       }, undefined, { timeout: 60_000 });
 
+      try {
+        fs.mkdirSync(path.dirname(wallScreenshotPath), { recursive: true });
+        await page.waitForTimeout(100);
+        await page.screenshot({ path: wallScreenshotPath });
+        checks.push({
+          name: "destructible-wall-screenshot",
+          status: "passed",
+          detail: wallScreenshotPath,
+        });
+      } catch (error) {
+        checks.push({
+          name: "destructible-wall-screenshot",
+          status: "failed",
+          detail: String(error),
+        });
+      }
+
       await canvas.click({ position: { x: 20, y: 20 } });
+      await page.keyboard.press("KeyX");
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        const names = events.map((event) => typeof event === "string" ? event : event?.name);
+        return names.filter((name) => name === "active-bomb-slot-1").length >= 2;
+      }, undefined, { timeout: 5_000 });
       await page.keyboard.press("KeyZ");
+      await page.waitForFunction(() => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) && events.some((event) =>
+          (typeof event === "string" ? event : event?.name) ===
+            "destructible-wall-destroyed");
+      }, undefined, { timeout: 30_000 });
       await page.waitForFunction(() => {
         const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
         if (!Array.isArray(events)) return false;
@@ -355,7 +389,7 @@ async function main() {
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "place-bomb", "place-bomb-definition-prototype-cross", "active-bomb-slot-1", "place-bomb-definition-prototype-area", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-motion-direction-north", "move-motion-direction-east", "move-step-direction-north", "chaser-moved", "place-bomb", "place-bomb-definition-prototype-cross", "active-bomb-slot-1", "place-bomb-definition-prototype-area", "destructible-wall-destroyed", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;
@@ -405,6 +439,7 @@ async function main() {
       consoleErrors,
       pageErrors,
       screenshotPath,
+      wallScreenshotPath,
       generatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(path.dirname(path.resolve(args.reportPath)), { recursive: true });

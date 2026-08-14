@@ -31,7 +31,7 @@ sequenceDiagram
 - `CardinalInputInterpreter`는 아날로그·복합 입력을 결정론적인 단일 상하좌우 방향으로 바꾸며, 동일 크기 두 축에 현재 방향이 포함되면 이전 축에 직교하는 새 전환 축을 우선한다.
 - `PlayerMovementSimulation`은 주입 시계 경과량 × cells/s로 Core `GridSubcellPosition`을 매 frame 진행한다. 방향 해제는 위치를 즉시 멈추고, 새 방향은 다음 frame 변위 축에 적용하며 정수 점유는 셀 경계에서만 전이한다.
 - TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, `ChaserEnemySimulation`, `BombSimulation`, `BombWeaponLoadout`, 플레이어·적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`과 `SwapBomb`은 활성 폭탄 슬롯으로 전달한다.
-- `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정 벽·플레이어/추격자 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
+- `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정/파괴 가능 벽·플레이어/추격자 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
 - `PrototypePlayerController`는 Core 플레이어 연속 위치를 직접 표시한다. `PrototypeChaserPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 확정된 적 이동, 정의별 설치·폭발, 피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. `PrototypeWeaponHud`는 Core 슬롯 snapshot을 표시한다. pause 명령의 실제 규칙 소비자는 아직 없다.
 - 플레이테스트 전용 `PrototypeRoomAdvanceController`는 `RoomCleared`를 한 번 받은 뒤 1.25초 realtime 지연으로 다음 TestSandbox 씬을 단일 로드한다. 중앙 루프→평행 통로→엇갈린 기둥 순서이며 마지막 씬은 다음 이름이 비어 있어 머문다. 이 Unity 어댑터는 Core 규칙이나 room asset의 mutable 상태가 아니며, 보상·방 그래프가 생기면 그 흐름으로 대체한다.
 
@@ -51,6 +51,8 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 8. 도메인 이벤트와 읽기 전용 상태 delta를 내보낸다.
 
 연쇄 폭발은 resolver 안에서 즉시 재귀 호출하지 않는다. `ChainReactionScheduler`에 짧은 고정 지연 사건으로 등록해 폭발 순서와 VFX 가독성을 보장한다.
+
+파괴 가능 벽은 5단계의 같은 시각 폭발 묶음 계산이 모두 끝난 뒤 Core에서 `Floor`가 된다. 8단계의 `PrototypeDestructibleWallPresenter`는 `DestroyedWalls` 결과만 소비해 시각 블록을 숨기며, 씬 Collider나 GameObject 제거가 규칙을 선행하지 않는다.
 
 ## 시간
 

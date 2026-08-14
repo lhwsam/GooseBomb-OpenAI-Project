@@ -514,6 +514,17 @@ namespace BombSwap
                 }
             }
 
+            foreach (Vector2Int blocker in sandboxContext.DestructibleCells)
+            {
+                if (!grid.TrySetTerrain(
+                    new GridPosition(blocker.x, blocker.y),
+                    GridTerrain.DestructibleWall))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not author destructible cell {blocker}.");
+                }
+            }
+
             return grid;
         }
 

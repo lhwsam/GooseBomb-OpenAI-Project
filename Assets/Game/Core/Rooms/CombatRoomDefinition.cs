@@ -13,7 +13,9 @@ namespace BombSwap.Core
             new GridPosition(-1, 0),
         };
 
-        private readonly HashSet<GridPosition> _wallSet;
+        private readonly HashSet<GridPosition> _indestructibleWallSet;
+        private readonly HashSet<GridPosition> _destructibleWallSet;
+        private readonly HashSet<GridPosition> _blockedSet;
 
         public CombatRoomDefinition(
             RoomDefinitionId id,
@@ -26,7 +28,8 @@ namespace BombSwap.Core
             IReadOnlyList<GridPosition> safePlayerCells,
             IReadOnlyList<GridPosition> retreatAnchors,
             IReadOnlyList<GridPosition> lureLoop,
-            IReadOnlyList<RoomExit> exits)
+            IReadOnlyList<RoomExit> exits,
+            IReadOnlyList<GridPosition> destructibleWalls = null)
         {
             if (!id.IsValid)
             {
@@ -50,7 +53,23 @@ namespace BombSwap.Core
                 indestructibleWalls,
                 nameof(indestructibleWalls),
                 false);
-            _wallSet = new HashSet<GridPosition>(wallArray);
+            GridPosition[] destructibleWallArray = CopyUniquePositions(
+                destructibleWalls ?? Array.Empty<GridPosition>(),
+                nameof(destructibleWalls),
+                false);
+            _indestructibleWallSet = new HashSet<GridPosition>(wallArray);
+            _destructibleWallSet = new HashSet<GridPosition>(destructibleWallArray);
+            foreach (GridPosition position in destructibleWallArray)
+            {
+                if (_indestructibleWallSet.Contains(position))
+                {
+                    throw new ArgumentException(
+                        $"Destructible wall {position} overlaps an indestructible wall.",
+                        nameof(destructibleWalls));
+                }
+            }
+            _blockedSet = new HashSet<GridPosition>(_indestructibleWallSet);
+            _blockedSet.UnionWith(_destructibleWallSet);
             GridPosition[] safeArray = CopyUniquePositions(
                 safePlayerCells,
                 nameof(safePlayerCells),
@@ -100,6 +119,7 @@ namespace BombSwap.Core
             ValidateDistinctRetreatRoutes(playerSpawn, retreatArray);
 
             IndestructibleWalls = Array.AsReadOnly(wallArray);
+            DestructibleWalls = Array.AsReadOnly(destructibleWallArray);
             SafePlayerCells = Array.AsReadOnly(safeArray);
             RetreatAnchors = Array.AsReadOnly(retreatArray);
             LureLoop = Array.AsReadOnly(lureArray);
@@ -120,6 +140,8 @@ namespace BombSwap.Core
 
         public IReadOnlyList<GridPosition> IndestructibleWalls { get; }
 
+        public IReadOnlyList<GridPosition> DestructibleWalls { get; }
+
         public IReadOnlyList<GridPosition> SafePlayerCells { get; }
 
         public IReadOnlyList<GridPosition> RetreatAnchors { get; }
@@ -138,7 +160,17 @@ namespace BombSwap.Core
 
         public bool IsBlocked(GridPosition position)
         {
-            return _wallSet.Contains(position);
+            return _blockedSet.Contains(position);
+        }
+
+        public bool IsIndestructibleWall(GridPosition position)
+        {
+            return _indestructibleWallSet.Contains(position);
+        }
+
+        public bool IsDestructibleWall(GridPosition position)
+        {
+            return _destructibleWallSet.Contains(position);
         }
 
         private static void ValidateDimension(int value, string parameterName)
@@ -240,9 +272,9 @@ namespace BombSwap.Core
                     position,
                     "Cell must be inside the room grid.");
             }
-            if (_wallSet.Contains(position))
+            if (_blockedSet.Contains(position))
             {
-                throw new ArgumentException($"Cell {position} overlaps an indestructible wall.", parameterName);
+                throw new ArgumentException($"Cell {position} overlaps a wall.", parameterName);
             }
         }
 
@@ -309,7 +341,7 @@ namespace BombSwap.Core
         private void ValidatePlayableAreaConnected(GridPosition origin)
         {
             HashSet<GridPosition> reachable = CollectReachable(origin, default, false);
-            int playableCellCount = (Width * Depth) - _wallSet.Count;
+            int playableCellCount = (Width * Depth) - _blockedSet.Count;
             if (reachable.Count != playableCellCount)
             {
                 throw new ArgumentException("All playable room cells must be connected.");
