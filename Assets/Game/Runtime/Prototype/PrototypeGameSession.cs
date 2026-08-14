@@ -392,6 +392,8 @@ namespace BombSwap
 
         private void Update()
         {
+            inputReader.RefreshMoveIntent();
+
             float elapsedSeconds = Time.deltaTime;
             if (elapsedSeconds < 0f || float.IsNaN(elapsedSeconds) || float.IsInfinity(elapsedSeconds))
             {

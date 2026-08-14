@@ -11,6 +11,7 @@
 - 이동 키를 누르는 동안 매 Unity frame의 경과 시간만큼 Core 위치가 진행한다.
 - 이동 키를 놓으면 이미 확정된 한 칸을 마저 재생하지 않고 다음 관찰 frame부터 위치가 멈춘다.
 - `상 → 우 → 상 → 우 → 상 → 우`를 frame마다 바꾸면 각 방향이 같은 순서의 실제 위치 변화로 나타난다.
+- 세션은 이동 계산 직전에 Input Action의 최신 값을 다시 샘플링한다. 같은 대각선 입력이 유지되는 동안에는 마지막으로 전환한 축을 고정하고, 입력 벡터가 바뀔 때만 축 우선순위를 다시 계산한다.
 - 벽·폭탄·actor 점유와 설치자 한정 폭탄 셀 탈출은 기존 정수 `GridState`가 계속 판정한다.
 
 ## 수정 전 결함 증거
@@ -51,6 +52,10 @@
 - Development WebGL 빌드 성공: 140,634,127 bytes, 266.945초, 오류 0. TextMeshPro IL2CPP 대형 메서드 분할 경고 3건은 기존 범주다.
 - 실제 Edge headless에서 기존 폭탄·피해·3방 전환과 `North/East` 단타 6회의 release 전 실제 motion, 마지막 방 자기 폭발 피해, resize, browser Console/page error 0을 확인했다.
 - 증거: `Artifacts/Verification/20260814-151702-continuous-movement-web-connected/` (Git 제외).
+- 후속 frame 재샘플링 회귀: EditMode 244개, PlayMode 88개 통과. 대상 PlayMode 10개에는 변하지 않은 대각선 입력을 여러 frame 유지해도 마지막 전환 축이 고정되는 검사가 포함된다.
+- 후속 Development WebGL 빌드 성공: 141,557,482 bytes, 57.290초, 오류 0. TextMeshPro IL2CPP 대형 메서드 분할 경고 3건은 기존 범주다.
+- 후속 Edge headless에서 `North → West`, 두 키 유지 중 West 고정, West 해제 뒤 North 복귀와 `West/North` 빠른 단타 6회가 모두 실제 motion으로 관측됐고 browser Console/page error는 0이었다.
+- 후속 증거: `Artifacts/Verification/20260814-223500-frame-input-web/` (Git 제외).
 - 자동 검증은 계약 준수를 증명하지만 최종 조작감 개선 판정은 다음 수동 재플레이가 소유한다.
 
 ## 위험과 롤백

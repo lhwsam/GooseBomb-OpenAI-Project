@@ -19,6 +19,8 @@ namespace BombSwap
         private InputAction _pauseAction;
         private bool _isSubscribed;
         private bool _hasInputFocus = true;
+        private bool _hasSampledMoveValue;
+        private Vector2 _lastSampledMoveValue;
 
         public event Action<PlayerCommand> CommandIssued;
 
@@ -27,6 +29,16 @@ namespace BombSwap
         public CardinalDirection CurrentMoveDirection { get; private set; }
 
         public bool IsReady => _isSubscribed;
+
+        public void RefreshMoveIntent()
+        {
+            if (!_isSubscribed || !_hasInputFocus)
+            {
+                return;
+            }
+
+            ApplyMoveValue(_moveAction.ReadValue<Vector2>());
+        }
 
         public void Configure(InputActionAsset actions)
         {
@@ -174,10 +186,7 @@ namespace BombSwap
 
         private void OnMoveChanged(InputAction.CallbackContext context)
         {
-            CardinalDirection nextDirection = CardinalInputInterpreter.Resolve(
-                context.ReadValue<Vector2>(),
-                CurrentMoveDirection);
-            SetMoveDirection(nextDirection);
+            ApplyMoveValue(context.ReadValue<Vector2>());
         }
 
         private void OnPlaceBomb(InputAction.CallbackContext context)
@@ -206,8 +215,25 @@ namespace BombSwap
             Issue(PlayerCommand.Move(direction));
         }
 
+        private void ApplyMoveValue(Vector2 value)
+        {
+            if (_hasSampledMoveValue && value == _lastSampledMoveValue)
+            {
+                return;
+            }
+
+            _lastSampledMoveValue = value;
+            _hasSampledMoveValue = true;
+            CardinalDirection nextDirection = CardinalInputInterpreter.Resolve(
+                value,
+                CurrentMoveDirection);
+            SetMoveDirection(nextDirection);
+        }
+
         private void ReleaseMovement()
         {
+            _lastSampledMoveValue = Vector2.zero;
+            _hasSampledMoveValue = true;
             SetMoveDirection(CardinalDirection.None);
         }
 
@@ -223,6 +249,8 @@ namespace BombSwap
             _placeBombAction = null;
             _swapBombAction = null;
             _pauseAction = null;
+            _lastSampledMoveValue = Vector2.zero;
+            _hasSampledMoveValue = false;
         }
 
         private void ResetBoundDevices()

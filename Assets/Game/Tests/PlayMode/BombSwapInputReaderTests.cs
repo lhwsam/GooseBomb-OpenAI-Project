@@ -89,6 +89,24 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void RefreshMoveIntent_UnchangedDiagonalKeepsLatestPressedAxis()
+        {
+            QueueKeyboardState(Key.UpArrow);
+            QueueKeyboardState(Key.UpArrow, Key.RightArrow);
+            _commands.Clear();
+
+            _reader.RefreshMoveIntent();
+            _reader.RefreshMoveIntent();
+            _reader.RefreshMoveIntent();
+
+            Assert.That(_reader.CurrentMoveDirection, Is.EqualTo(CardinalDirection.East));
+            Assert.That(
+                _commands,
+                Is.Empty,
+                "Unchanged held keys must not be reinterpreted or emit duplicate commands each frame.");
+        }
+
+        [Test]
         public void GameplayButtons_EmitSemanticCommands()
         {
             QueueKeyboardState(Key.Z);
