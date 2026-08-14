@@ -15,7 +15,8 @@ namespace BombSwap.Core
                 throw new ArgumentException("Bomb definition ID must be valid.", nameof(id));
             }
 
-            if (explosionShape != BombExplosionShape.Cross)
+            if (explosionShape != BombExplosionShape.Cross &&
+                explosionShape != BombExplosionShape.SquareArea)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(explosionShape),

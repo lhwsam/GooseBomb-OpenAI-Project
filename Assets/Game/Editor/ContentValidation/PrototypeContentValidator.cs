@@ -20,8 +20,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
-        public const string PrototypeQuickBombDefinitionPath =
-            "Assets/Game/Content/Bombs/PrototypeQuickCrossBomb.asset";
+        public const string PrototypeAreaBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeAreaBomb.asset";
         public const string PrototypeBombLoadoutPath =
             "Assets/Game/Content/Bombs/PrototypeBombLoadout.asset";
         public const string PrototypePlayerVitalsPath =
@@ -38,10 +38,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ExplosionCellPlaceholder.prefab";
-        public const string QuickBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/QuickBombPlaceholder.prefab";
-        public const string QuickExplosionCellPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/QuickExplosionCellPlaceholder.prefab";
+        public const string AreaBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/AreaBombPlaceholder.prefab";
+        public const string AreaExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
 
@@ -67,11 +67,17 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeBombDefinitionPath,
                 BombPrefabPath,
                 ExplosionCellPrefabPath,
+                "prototype-cross",
+                BombExplosionShape.Cross,
+                null,
                 errors);
             PrototypeBombDefinitionAsset secondDefinition = ValidatePrototypeBombDefinition(
-                PrototypeQuickBombDefinitionPath,
-                QuickBombPrefabPath,
-                QuickExplosionCellPrefabPath,
+                PrototypeAreaBombDefinitionPath,
+                AreaBombPrefabPath,
+                AreaExplosionCellPrefabPath,
+                "prototype-area",
+                BombExplosionShape.SquareArea,
+                1,
                 errors);
             PrototypeBombLoadoutAsset loadout =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
@@ -95,12 +101,31 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add("Prototype bomb loadout must reference the validated first and second bomb assets.");
             }
+
+            string[] legacyPaths =
+            {
+                "Assets/Game/Content/Bombs/PrototypeQuickCrossBomb.asset",
+                "Assets/Game/Content/Materials/Prototype/QuickBomb.mat",
+                "Assets/Game/Content/Materials/Prototype/QuickExplosion.mat",
+                "Assets/Game/Content/Prefabs/Prototype/QuickBombPlaceholder.prefab",
+                "Assets/Game/Content/Prefabs/Prototype/QuickExplosionCellPlaceholder.prefab"
+            };
+            for (int index = 0; index < legacyPaths.Length; index++)
+            {
+                if (AssetDatabase.LoadMainAssetAtPath(legacyPaths[index]) != null)
+                {
+                    errors.Add($"Legacy quick-cross prototype asset still exists: {legacyPaths[index]}");
+                }
+            }
         }
 
         private static PrototypeBombDefinitionAsset ValidatePrototypeBombDefinition(
             string definitionPath,
             string expectedBombPrefabPath,
             string expectedExplosionPrefabPath,
+            string expectedDefinitionId,
+            BombExplosionShape expectedShape,
+            int? expectedRange,
             ICollection<string> errors)
         {
             PrototypeBombDefinitionAsset definition =
@@ -120,6 +145,19 @@ namespace BombSwap.Editor.ContentValidation
             catch (Exception exception)
             {
                 errors.Add($"Invalid prototype bomb definition: {exception.Message}");
+            }
+
+            if (!string.Equals(
+                    definition.DefinitionId,
+                    expectedDefinitionId,
+                    StringComparison.Ordinal) ||
+                definition.ExplosionShape != expectedShape ||
+                (expectedRange.HasValue && definition.Range != expectedRange.Value))
+            {
+                errors.Add(
+                    $"Prototype bomb definition '{definitionPath}' must be " +
+                    $"ID '{expectedDefinitionId}', shape {expectedShape}" +
+                    (expectedRange.HasValue ? $", range {expectedRange.Value}." : "."));
             }
 
             string bombPrefabPath = AssetDatabase.GetAssetPath(definition.BombPrefab);

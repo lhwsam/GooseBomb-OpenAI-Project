@@ -33,7 +33,7 @@
 - `PrototypeGameSession`: `PlaceBomb`을 활성 슬롯에, `SwapBomb`을 Core loadout에 전달하고 성공한 교체만 `ActiveBombSlotChanged`로 발행한다.
 - `PrototypeWeaponHud`: Core snapshot을 표시한다. 왼쪽 아래 두 슬롯의 활성 상태, 설치 준비 bar/시간과 교체 준비 시간을 보여준다.
 
-현재 검증용 저작값은 1번 `prototype-cross`(설치 1.5초)와 2번 `prototype-quick-cross`(설치 0.75초), 교체 2초다. 두 번째 폭탄은 파란색 prefab, fuse 1.25초, 범위 1인 빠른 십자 placeholder이며 정확한 수치는 모두 `Proposed`다. 직선·광역 resolver가 추가되기 전에는 가설 B의 공간 역할 차이를 판정하지 않는다.
+현재 검증용 저작값은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초), 교체 2초다. 광역 폭탄은 보라색 설치체와 자홍색 폭발 셀로 기본 십자와 구분하며 정확한 수치는 모두 `Proposed`다. 십자는 cardinal 통로 제어, 광역은 열린 공간의 주변 군집과 자기 위험이라는 다른 위치 선택을 만들 수 있어 가설 B를 플레이테스트할 구조가 마련됐다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
 
 ## 불변식
 

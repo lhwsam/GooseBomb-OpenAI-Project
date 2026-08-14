@@ -143,6 +143,36 @@ namespace BombSwap.Tests.EditMode
             Assert.That(target.ScheduledCause, Is.EqualTo(BombDetonationCause.Fuse));
         }
 
+        [Test]
+        public void SquareAreaExplosion_SchedulesDiagonalBombWithTheSharedChainDelay()
+        {
+            var grid = new GridState();
+            grid.TrySetTerrain(SourcePosition, GridTerrain.Floor);
+            var diagonal = new GridPosition(1, 1);
+            grid.TrySetTerrain(diagonal, GridTerrain.Floor);
+            var clock = new ManualGameClock();
+            var simulation = new BombSimulation(grid, clock, ChainDelay);
+            simulation.TryPlaceBomb(
+                CreateDefinition("area-source", 1, 1, BombExplosionShape.SquareArea),
+                SourcePosition,
+                Owner,
+                out BombId sourceId);
+            simulation.TryPlaceBomb(
+                CreateDefinition("cross-target", 10, 0),
+                diagonal,
+                Owner,
+                out BombId targetId);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            IReadOnlyList<BombExplosion> explosions = simulation.ProcessDueBombs();
+            simulation.TryGetBomb(targetId, out BombSnapshot target);
+
+            Assert.That(explosions, Has.Count.EqualTo(1));
+            Assert.That(explosions[0].BombId, Is.EqualTo(sourceId));
+            Assert.That(target.DetonatesAt, Is.EqualTo(TimeSpan.FromSeconds(1) + ChainDelay));
+            Assert.That(target.ScheduledCause, Is.EqualTo(BombDetonationCause.Chain));
+        }
+
         private static ChainFixture CreateChainFixture()
         {
             GridState grid = CreateLineFloor(0, 2);
@@ -172,11 +202,15 @@ namespace BombSwap.Tests.EditMode
             return grid;
         }
 
-        private static BombDefinition CreateDefinition(string id, double fuseSeconds, int range)
+        private static BombDefinition CreateDefinition(
+            string id,
+            double fuseSeconds,
+            int range,
+            BombExplosionShape shape = BombExplosionShape.Cross)
         {
             return new BombDefinition(
                 new BombDefinitionId(id),
-                BombExplosionShape.Cross,
+                shape,
                 TimeSpan.FromSeconds(fuseSeconds),
                 range);
         }
