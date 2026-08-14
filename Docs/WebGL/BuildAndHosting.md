@@ -40,7 +40,7 @@
 
 최소 루프는 로드→canvas focus→이동→폭탄 설치→교체→폭발→피해/적 처치→pause/resume이다. 자동화 가능한 이벤트는 `HARNESS|event|json` 같은 안정된 개발 로그 형식을 검토하되 게임 규칙의 권위 API로 사용하지 않는다.
 
-기본 `Tools/WebGLSmoke.mjs`는 다섯 전투방 카탈로그에서 seed 0 주 경로에 배정된 기둥·루프·게이트 방의 입력·전투·전환 회귀와 게이트 방 시각 캡처를 확인한다. `Tools/ArmoredWebGLSmoke.mjs`는 갑옷 실험 씬을 첫 enabled 씬으로 만든 별도 development 빌드에서 실제 폭발 2회의 `Armored → Broken → Dead` 상태 순서와 browser Console을 확인한다. `Tools/DirectionalLineWebGLSmoke.mjs`는 기본 던전 빌드에서 오른쪽 보상 후보를 골라 동쪽으로 설치한 직선 폭탄이 이후 북쪽 이동 명령에도 동쪽으로 폭발하는지 marker 순서와 캡처로 확인한다. `Tools/GamepadWebGLSmoke.mjs`는 표준 가상 Gamepad 연결을 브라우저 API에 주입해 스틱·D-pad·South/West/Start/Select가 Unity Input System과 의미 명령·실패 뒤 재시작까지 도달하는지 확인하며 표준 Web tier에 포함된다. 이 스모크들은 논리 사건과 자동 입력 경로의 정확성을 증명하지만 물리 장치별 조작감이나 사람에게 상태 변화가 충분히 읽히거나 재미있다는 판정은 대신하지 않는다.
+기본 `Tools/WebGLSmoke.mjs`는 다섯 전투방 카탈로그에서 seed 0 주 경로에 배정된 기둥·루프·게이트 방의 입력·전투·전환 회귀와 게이트 방 시각 캡처를 확인한다. `Tools/ArmoredWebGLSmoke.mjs`는 갑옷 실험 씬을 첫 enabled 씬으로 만든 별도 development 빌드에서 실제 폭발 2회의 `Armored → Broken → Dead` 상태 순서와 browser Console을 확인한다. `Tools/DirectionalLineWebGLSmoke.mjs`는 기본 던전 빌드에서 오른쪽 보상 후보를 골라 동쪽으로 설치한 직선 폭탄이 이후 북쪽 이동 명령에도 동쪽으로 폭발하는지 marker 순서와 캡처로 확인한다. `Tools/GamepadWebGLSmoke.mjs`는 표준 가상 Gamepad 연결을 브라우저 API에 주입해 스틱·D-pad·South/West/Start/Select가 Unity Input System과 의미 명령, pause 차단·유지 스틱 재개, 실패 뒤 재시작까지 도달하는지 확인하며 표준 Web tier에 포함된다. 이 스모크들은 논리 사건과 자동 입력 경로의 정확성을 증명하지만 물리 장치별 조작감이나 사람에게 상태 변화가 충분히 읽히거나 재미있다는 판정은 대신하지 않는다.
 
 ## 공식 참고
 

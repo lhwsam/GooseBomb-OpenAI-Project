@@ -153,6 +153,19 @@ async function waitForEvent(page, name, options = {}) {
   }, { expectedName: name, expectedCount: count }, { timeout });
 }
 
+async function getLastPlayerCell(page) {
+  return page.evaluate(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      const match = /^player-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+      if (match) return { x: Number(match[1]), z: Number(match[2]) };
+    }
+    return null;
+  });
+}
+
 async function setAxis(page, index, value) {
   await page.evaluate(({ axisIndex, axisValue }) => {
     globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__.setAxis(axisIndex, axisValue);
@@ -283,6 +296,13 @@ async function main() {
       detail: "Standard button 2 reached the SwapBomb command probe.",
     });
 
+    const heldEastBefore = await eventCount(page, "move-direction-east");
+    await setAxis(page, 0, 1);
+    await waitForEvent(page, "move-direction-east", {
+      count: heldEastBefore + 1,
+      timeout: 5_000,
+    });
+
     const pauseEnteredBefore = await eventCount(page, "pause-entered");
     await setButton(page, StandardButton.Start, 1);
     await waitForEvent(page, "pause-entered", {
@@ -294,18 +314,65 @@ async function main() {
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath });
 
+    const pausedCell = await getLastPlayerCell(page);
+    if (!pausedCell) throw new Error("The gameplay probe did not report a paused player cell.");
+    const pausedEastSteps = await eventCount(page, "move-step-direction-east");
+    const pausedPlacements = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    await setButton(page, StandardButton.South, 1);
+    await page.waitForTimeout(100);
+    await setButton(page, StandardButton.South, 0);
+    await page.waitForTimeout(400);
+    const pausedCellAfterInput = await getLastPlayerCell(page);
+    const pausedEastStepsAfterInput = await eventCount(page, "move-step-direction-east");
+    const pausedPlacementsAfterInput = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    if (JSON.stringify(pausedCellAfterInput) !== JSON.stringify(pausedCell) ||
+        pausedEastStepsAfterInput !== pausedEastSteps ||
+        pausedPlacementsAfterInput !== pausedPlacements) {
+      throw new Error(
+        `Gamepad input advanced while paused: cell ${JSON.stringify(pausedCell)} -> ` +
+        `${JSON.stringify(pausedCellAfterInput)}, east steps ${pausedEastSteps} -> ` +
+        `${pausedEastStepsAfterInput}, placements ${pausedPlacements} -> ` +
+        `${pausedPlacementsAfterInput}.`,
+      );
+    }
+    checks.push({
+      name: "pause-blocks-held-stick-and-south",
+      status: "passed",
+      detail: "A held east stick and South press left the authoritative cell, east-step count, and bomb placements unchanged for 400ms.",
+    });
+
     const pauseResumedBefore = await eventCount(page, "pause-resumed");
+    const resumedEastBefore = await eventCount(page, "move-direction-east");
     await setButton(page, StandardButton.Start, 1);
     await waitForEvent(page, "pause-resumed", {
       count: pauseResumedBefore + 1,
       timeout: 5_000,
     });
     await setButton(page, StandardButton.Start, 0);
-    await page.waitForTimeout(100);
+    await waitForEvent(page, "move-direction-east", {
+      count: resumedEastBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "move-step-direction-east", {
+      count: pausedEastSteps + 1,
+      timeout: 5_000,
+    });
+    const noneBeforeResumeRelease = await eventCount(page, "move-direction-none");
+    await setAxis(page, 0, 0);
+    await waitForEvent(page, "move-direction-none", {
+      count: noneBeforeResumeRelease + 1,
+      timeout: 5_000,
+    });
     checks.push({
-      name: "start-button-pause-resume",
+      name: "start-button-resumes-held-stick",
       status: "passed",
-      detail: "Standard button 9 entered and resumed the authoritative session pause state.",
+      detail: "Standard button 9 resumed the session, reapplied the held east stick, advanced one east cell, then stopped on stick neutral.",
     });
 
     for (let hit = 0; hit < 5; hit++) {
