@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-15
-- 단계: 수제 전투방 최소 5개와 실제 일시정지·한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어→보스 전실→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
+- 단계: 수제 전투방 최소 5개와 실제 일시정지·한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어·토큰 보상→보스 전실→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -115,7 +115,7 @@
 - `BombWeaponLoadout`은 필수 1번 슬롯과 선택적 빈 2번 슬롯, 각 장착 슬롯의 다음 설치 가능 시각과 다음 교체 가능 시각을 소유한다. 빈 슬롯에서는 교체를 거부하고 첫 보상으로 서로 다른 정의를 한 번 장착할 수 있다. 쿨타임은 매 frame 감소시키지 않고 `IGameClock.Now`와 종료 시각의 차이로 계산한다.
 - `DungeonGenerator`는 모든 `int` seed와 불변 정의에서 `prototype-tree-v1` 그래프를 만든다. 기본 정의는 전투방 4~5개, 보스 주 경로 3개와 보상 이후 선택 가지 1~2개이며 `System.Random`, `UnityEngine.Random`, 시간과 호출 순서를 읽지 않는다.
 - `DungeonGraph`는 `Start`, `Combat`, `BombReward`, `BossAntechamber`, `Boss` 노드, 고유 정수 방 좌표와 연결 트리를 검증하고 read-only 이웃·최단 경로를 제공한다. 실제 아홉 Unity 씬의 binder와 host가 이 그래프를 소비한다.
-- `DungeonRunState`는 시작방을 최초 방문으로 시작하고, 연결된 방만 이동하며 전투·보스방 클리어 전 퇴실을 막는다. 안전방은 잠기지 않고 클리어한 전투방은 다시 잠기지 않으며, 네 방향 문 snapshot이 실제 문 presenter와 scene travel의 권위다. 보스방 클리어는 `Completed`, 플레이어 사망은 치명 피해 snapshot을 보존한 `Failed`를 만들고 terminal 결과 뒤에는 이동·추가 클리어를 거부한다.
+- `DungeonRunState`는 시작방을 최초 방문으로 시작하고, 연결된 방만 이동하며 전투·보스방 클리어 전 퇴실을 막는다. 안전방은 잠기지 않고 클리어한 전투방은 다시 잠기지 않으며, 네 방향 문 snapshot이 실제 문 presenter와 scene travel의 권위다. 일반 전투방 최초 클리어는 현재 런의 임시 토큰을 정확히 1 지급하고 중복·안전·보스 클리어는 지급하지 않는다. 보스방 클리어는 `Completed`, 플레이어 사망은 치명 피해 snapshot을 보존한 `Failed`를 만들고 terminal 결과 뒤에는 이동·추가 클리어를 거부한다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 회전과 그래프 연결 방향인 활성 출구를 read-only로 소유한다. 같은 그래프·카탈로그는 입력 배열 순서와 무관하게 같은 배정을 만들며 호환 출구가 없으면 명시적으로 실패한다.
 - `PrototypeDungeonRunSession`은 combat/special/reward catalog asset을 mutable run 상태와 분리하고 모든 그래프 노드를 실제 scene으로 해석하며 `DungeonRunState`에 이동·클리어를, `DungeonBombLoadoutState`에 첫 보상 선택을 위임한다.
 - `PrototypeGameSession`은 저작된 전투 가능 여부와 방문별 활성 여부를 분리한다. 안전방과 이미 클리어한 전투·보스방 방문은 적 actor·simulation·presenter를 생성하지 않고 `EnemyActiveCount=0`, `IsRoomCleared=true`로 시작하지만 플레이어 이동, 현재 run의 한두 폭탄 슬롯, 자기 피해와 표현 사건은 유지한다.
@@ -124,7 +124,7 @@
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다. `IsPaused`일 때는 입력 재샘플링과 `ManualGameClock.Advance` 전에 `Update`를 끝내며, `Time.timeScale`을 바꾸지 않고 모든 논리 진행을 정지한다. 재개 시 현재 유지 방향을 다시 샘플링한다.
 - 플레이어 연속 위치와 방향은 매 Unity frame Core에서 갱신된다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
 - `PlayerHealthSimulation`은 폭발 ID별 처리 여부, 체력 하한, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발·적 접촉·보스 패턴은 원본 source를 구분해 보존하면서 같은 무적을 공유하고, `PrototypeGameSession`은 적용된 피해와 사망만 표현 이벤트로 발행한다.
-- `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·보스 phase 사건에만 반응한다. 플레이어 panel은 모든 방, 보스 panel은 보스 활성 방에서만 보이며 보스 취약 상태는 의도적으로 표시하지 않는다.
+- `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 모든 방, `ROOM TOKENS`는 우상단에서 현재 런 값을 표시하고, 보스 panel은 보스 활성 방에서만 보이며 보스 취약 상태는 의도적으로 표시하지 않는다.
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 같은 행/열의 빈 가시선에서 0.75초 예고 뒤 8 cells/s cadence로 잠근 방향을 돌진하고 0.75초 회복한다. 수치는 `Proposed`다.
 - 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 첫 서로 다른 폭발에 갑옷만 파괴하고 1→3 cells/s로 빨라지며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
@@ -163,11 +163,12 @@
 - 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. 일반 키 해제는 다음 frame에 즉시 정지하고, 같은 frame 안에 끝난 짧은 탭만 한 frame 보존한다. 빠른 `North/East` 반복은 자동 검증됐지만 최종 속도, 벽 모서리 코너 보정과 셀 경계 판정 가독성은 수동 재확인 전까지 `Proposed`다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`를 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 범위 3 십자 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. `prototype-long-cross`는 아직 새로운 폭발 shape가 아니라 기존 십자의 범위 변형이다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 관찰해야 한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
+- 전투방당 `+1`과 `ROOM TOKENS`는 GDD의 작은 클리어 보상을 관찰하기 위한 소비처 없는 `Proposed` 임시 점수다. 상점·아이템 드롭·메타 재화·저장과 최종 경제 밸런스를 뜻하지 않으며 실제 반복 동기를 높이는지는 사람 플레이테스트가 필요하다.
 - 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하다. 기본 체력 HUD와 source 기반 사망 원인 문구·재시작은 구현됐지만 공격 이름·위치·시간을 포함한 상세 타임라인, 최종 HUD 아트·오디오는 아직 없다.
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. seed-0 4번 전투방에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합이 `(1,-3)↔(1,-4)↔(1,-5)` 동률 순환을 만들었다. 자동 smoke는 플레이어 위치를 바꿔 진행하지만 AI가 수정된 것은 아니며 실제 공정성·유도 재미와 최소 수정은 사람 플레이 뒤 결정한다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 던전 9개 씬 최신 Development WebGL 빌드는 141,882,145 bytes이며 최종 증분 BuildReport 기준 warning/error 0이다. 이 development·증분 수치를 release 성능이나 cold build 시간으로 해석하지 않는다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
+- 던전 9개 씬 최신 Development WebGL 빌드는 137,745,798 bytes, 383.960초이며 BuildReport 오류 0, 전체 shader 재컴파일에 따른 기존 Sentis·vendor·TextMeshPro 범주의 경고 351건이다. 이 development 수치와 빌드 시간을 release 성능이나 cold build 예산으로 해석하지 않는다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 Core 테스트의 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 빠른 상태 경계 fixture다. 실제 Unity asset은 체력 4·phase 임계 2·패턴 피해 1과 1.0/0.25/2.75초→0.75/0.25/2.75초를 사용한다. 기본 보스 체력·phase HUD와 완료 화면은 구현됐지만 수치·패턴 가독성과 최종 아트·연출은 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
@@ -259,3 +260,4 @@
 - 실제 pause 최종 코드로 `PrototypePlayerControllerTests` 35/35, 전체 EditMode 266/266와 PlayMode 107/107이 실패·건너뜀 0으로 통과했고 콘텐츠 validator·Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,725,298 bytes, 63.243초, 오류 0, TextMeshPro IL2CPP 경고 3건으로 성공했다. Edge headless smoke 26/26이 안전방 pause 진입 뒤 400ms 동안 논리 셀·frame motion·폭탄 설치 불변과 재개, `PAUSED` 화면, 기존 전체 seed-0 보스 완료·재시작·자기 폭발 실패 원인·두 번째 재시작, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-191350-643.json`, `Artifacts/Verification/ConnectedTests/20260814-191504-198.json`, `Artifacts/Verification/ConnectedTests/20260814-191520-937.json`, `Artifacts/Verification/20260815-041700-pause-web/`.
 - 체력 HUD 최종 코드로 `PrototypePlayerControllerTests` 37/37, 전체 EditMode 266/266와 PlayMode 109/109가 실패·건너뜀 0으로 통과했고 `PrototypeContentValidator`는 여덟 씬의 단일 HUD·session 참조를 포함해 오류 0이었다. Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,742,803 bytes, 107.893초, 오류 0으로 성공했고 전체 shader 재컴파일로 기존 Sentis·vendor·TextMeshPro 범주의 경고 351건이 기록됐다. Edge headless smoke 26/26이 기존 전체 경로와 pause·완료·실패·재시작 회귀를 통과했고 Console/page error는 0이었다. 실제 캡처에서 좌상단 플레이어 HP, 보스방 상단 보스 HP·phase, overlay와 무기 HUD의 비중첩을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-193824-384.json`, `Artifacts/Verification/ConnectedTests/20260814-194001-094.json`, `Artifacts/Verification/ConnectedTests/20260814-194027-791.json`, `Artifacts/Verification/20260815-044200-health-hud-web/`, 최종 정적 검증 `Artifacts/Verification/20260815-045106-static/`.
 - 다섯 번째 중앙 게이트 전투방 연결 뒤 집중 EditMode 1/1·PlayMode 1/1, 전체 EditMode 267/267·PlayMode 110/110, 콘텐츠 validator·Unity Console 오류 0, StaticOnly과 정적 서버 회귀가 통과했다. 9씬 Development WebGL은 141,882,145 bytes, warning/error 0으로 성공했고 Edge headless 27/27이 새 `room-ready-prototype-combat-gates`, 서쪽 우회 유도·클리어, 전체 보스 완료·실패·재시작과 Console/page error 0을 확인했다. 게이트 방 캡처에서 장벽 2열·중앙 파괴 문 2개·좌우 우회·HUD 비중첩을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-200852-552.json`, `Artifacts/Verification/ConnectedTests/20260814-200908-696.json`, `Artifacts/Verification/ConnectedTests/20260814-200957-559.json`, `Artifacts/Verification/ConnectedTests/20260814-201015-022.json`, `Artifacts/Verification/20260815-053211-static/`, `Artifacts/Verification/20260815-052000-fifth-combat-room-web/`.
+- 일반 전투방 클리어 토큰 연결 뒤 `DungeonRunStateTests` 13/13, 관련 PlayMode 2/2, 전체 EditMode 267/267·PlayMode 110/110이 통과했고 콘텐츠 validator와 Unity Console 오류는 0이다. 9씬 Development WebGL은 137,745,798 bytes, 383.960초, 오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge headless 27/27이 세 일반 전투 클리어의 `combat-reward-tokens-1 → 2 → 3`, 보스 비지급, 완료·실패 재시작의 추가 `tokens-0`, 완료 화면의 우상단 `ROOM TOKENS 3`, 실패 화면의 `ROOM TOKENS 0`과 browser Console/page error 0을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-204552-280.json`, `Artifacts/Verification/ConnectedTests/20260814-204644-700.json`, `Artifacts/Verification/ConnectedTests/20260814-204733-261.json`, `Artifacts/Verification/ConnectedTests/20260814-204750-021.json`, `Artifacts/Verification/ConnectedTests/20260814-205534-081.json`, `Artifacts/Verification/ConnectedTests/20260814-210932-320.json`, `Artifacts/Verification/20260815-060000-combat-clear-reward-web/`.

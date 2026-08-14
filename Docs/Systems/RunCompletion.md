@@ -14,7 +14,7 @@
 - 어느 방에서든 플레이어 체력이 0이 되면 런이 실패하고 `RUN FAILED`와 사망 원인을 표시한다. 현재 원인 문구는 `BOMB EXPLOSION`, `CHASER CONTACT`, `CHARGER CHARGE`, `ARMORED ENEMY CONTACT`, 일반 `ENEMY CONTACT`, `BOSS ATTACK`이다.
 - 결과가 확정되면 현재 방 simulation을 멈춘다.
 - 키보드 `R` 또는 게임패드 Select를 한 번 누르면 같은 브라우저 페이지에서 새 런을 시작한다.
-- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·보상 선택·두 번째 폭탄·플레이어 체력은 모두 초기 상태다.
+- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·전투 보상 토큰·보상 선택·두 번째 폭탄·플레이어 체력은 모두 초기 상태다.
 - 완료 또는 실패 전의 `RestartRun` 명령은 게임 상태를 바꾸지 않는다.
 
 ## 책임과 상태 전이
@@ -28,7 +28,7 @@
 7. `RestartRun`을 받으면 presenter가 중복 요청을 잠그고 `PrototypeDungeonRunHost.RestartFinishedRun()`을 호출한다.
 8. host는 pending 전환이 없고 기존 run이 terminal인지 확인한 뒤 같은 seed와 검증된 세 catalog로 새 run session·navigator를 만든다.
 9. 시작 씬의 로드 가능성을 먼저 확인하고 navigator를 교체한 뒤 `DungeonStart`를 단일 로드한다. 로드 호출이 실패하면 이전 navigator를 복구한다.
-10. 새 씬의 중복 bootstrap은 기존 primary host를 발견하고 제거되며, 새 room binder는 새 run state와 시작 폭탄 한 종류를 주입한다.
+10. 새 씬의 중복 bootstrap은 기존 primary host를 발견하고 제거되며, 새 room binder는 토큰 0의 새 run state와 시작 폭탄 한 종류를 주입한다.
 
 ## 불변식
 
@@ -39,7 +39,7 @@
 - terminal run은 방 이동과 추가 방 클리어를 거부하며 연결 문 snapshot은 잠김으로 보인다.
 - 결과 UI와 재시작 요청은 한 번만 발생한다.
 - pending 씬 전환 중이거나 진행 중인 run은 재시작할 수 없다.
-- 재시작은 기존 `DungeonRunState` 또는 `DungeonBombLoadoutState`를 재사용하거나 부분 초기화하지 않는다.
+- 재시작은 기존 `DungeonRunState` 또는 `DungeonBombLoadoutState`를 재사용하거나 부분 초기화하지 않으며 전투 보상 토큰은 새 상태의 0에서 시작한다.
 - 페이지 reload, 전역 mutable singleton, 별도 스레드나 동기 대기를 사용하지 않는다.
 - 결과 UI는 규칙을 판정하지 않고 Core 결과 snapshot을 표현하며 입력을 host 명령으로 전달한다.
 
@@ -50,7 +50,7 @@
 - Input Actions의 `Gameplay/RestartRun`은 Button이며 `<Keyboard>/r`, `<Gamepad>/select` binding을 가진다.
 - Editor builder와 validator는 action·binding·컴포넌트 수·참조를 검사한다.
 - EditMode는 결과 단방향 전이, terminal 이동·클리어 거부와 사망 우선 순서를 검증한다.
-- PlayMode는 session 위임, 치명 피해 snapshot 보존, source와 고정 적 ID의 사망 원인 매핑, 완료·실패 상태에서 새 run과 시작 씬 로드를 검증한다.
+- PlayMode는 session 위임, 치명 피해 snapshot 보존, source와 고정 적 ID의 사망 원인 매핑, 완료·실패 상태에서 새 run과 시작 씬 로드·전투 보상 토큰 0 초기화를 검증한다.
 - Development WebGL smoke는 실제 보스 격파와 완료 재시작 뒤 안전방 자기 폭발 5회로 `player-died → run-failed → run-failed-cause-bomb-explosion`을 관찰하고, `CAUSE: BOMB EXPLOSION` 실패 화면을 캡처한 뒤 다시 `R`로 새 시작방까지 확인한다.
 
 ## 범위 밖

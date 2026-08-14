@@ -64,6 +64,8 @@ namespace BombSwap.Core
         private readonly bool[] _visited;
         private readonly bool[] _cleared;
 
+        private const int CombatRoomTokenReward = 1;
+
         public DungeonRunState(DungeonGraph graph)
         {
             Graph = graph ?? throw new ArgumentNullException(nameof(graph));
@@ -82,6 +84,8 @@ namespace BombSwap.Core
         public DungeonRunOutcome Outcome { get; private set; }
 
         public PlayerDamageResult? FailureDamage { get; private set; }
+
+        public int CombatRewardTokenCount { get; private set; }
 
         public bool IsTerminal => Outcome != DungeonRunOutcome.InProgress;
 
@@ -216,6 +220,10 @@ namespace BombSwap.Core
             }
 
             _cleared[index] = true;
+            if (current.RoomType == RoomType.Combat)
+            {
+                CombatRewardTokenCount += CombatRoomTokenReward;
+            }
             if (CurrentRoomId == Graph.BossRoomId)
             {
                 Outcome = DungeonRunOutcome.Completed;

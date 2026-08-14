@@ -496,6 +496,7 @@ async function main() {
     await moveToCell(page, 3, 0);
     await waitForEvent(page, "bomb-exploded", { count: 2, timeout: 15_000 });
     await waitForEvent(page, "room-cleared", { timeout: 5_000 });
+    await waitForEvent(page, "combat-reward-tokens-1", { timeout: 5_000 });
     checks.push({
       name: "bomb-input",
       status: "passed",
@@ -629,6 +630,7 @@ async function main() {
       count: room4ClearsBefore + 1,
       timeout: 5_000,
     });
+    await waitForEvent(page, "combat-reward-tokens-2", { timeout: 5_000 });
     checks.push({
       name: "second-main-path-combat-clear",
       status: "passed",
@@ -705,6 +707,7 @@ async function main() {
       count: room5ClearsBefore + 1,
       timeout: 5_000,
     });
+    await waitForEvent(page, "combat-reward-tokens-3", { timeout: 5_000 });
     checks.push({
       name: "third-main-path-combat-clear",
       status: "passed",
@@ -799,12 +802,20 @@ async function main() {
       page,
       "dungeon-room-ready-1-start-safe",
     );
+    const zeroTokenEventsBeforeCompletedRestart = await eventCount(
+      page,
+      "combat-reward-tokens-0",
+    );
     await page.keyboard.press("KeyR");
     await waitForEvent(page, "run-restart-requested", { timeout: 5_000 });
     await waitForEvent(page, "dungeon-run-restarted", { timeout: 5_000 });
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
       count: restartedStartReadyBefore + 1,
       timeout: 20_000,
+    });
+    await waitForEvent(page, "combat-reward-tokens-0", {
+      count: zeroTokenEventsBeforeCompletedRestart + 1,
+      timeout: 5_000,
     });
     checks.push({
       name: "completed-run-restart",
@@ -850,6 +861,10 @@ async function main() {
       page,
       "dungeon-room-ready-1-start-safe",
     );
+    const zeroTokenEventsBeforeFailureRestart = await eventCount(
+      page,
+      "combat-reward-tokens-0",
+    );
     await page.keyboard.press("KeyR");
     await waitForEvent(page, "run-restart-requested", {
       count: failureRestartRequestsBefore + 1,
@@ -862,6 +877,10 @@ async function main() {
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
       count: failureStartReadyBefore + 1,
       timeout: 20_000,
+    });
+    await waitForEvent(page, "combat-reward-tokens-0", {
+      count: zeroTokenEventsBeforeFailureRestart + 1,
+      timeout: 5_000,
     });
     checks.push({
       name: "failed-run-restart",
@@ -888,6 +907,10 @@ async function main() {
       "active-bomb-slot-1",
       "place-bomb-definition-prototype-area",
       "room-cleared",
+      "combat-reward-tokens-0",
+      "combat-reward-tokens-1",
+      "combat-reward-tokens-2",
+      "combat-reward-tokens-3",
       "dungeon-room-ready-3-bomb-reward-safe",
       "bomb-reward-selected-prototype-area",
       "dungeon-room-ready-2-combat-cleared",
