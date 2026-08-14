@@ -23,6 +23,8 @@
 5. 네 방향 외곽 벽을 문 폭만큼 분할하고 `Inactive`·`Locked`·`Open` presenter와 출구 감지를 연결한다.
 6. 시작방·폭탄 보상방·보스 전실·보스방 placeholder 씬을 Unity Editor builder로 만들고 Build Settings에 포함한다.
 
+현재 1~2번, 3번의 catalog 스키마와 4번의 host·pending 전환은 구현됐다. 실제 special catalog asset 생성, room-local binder, 문 presenter와 씬 저작은 3~6번의 남은 Editor 연결 범위다.
+
 ## placeholder 범위
 
 - 시작방은 현재 두 슬롯 loadout을 임시로 유지해 이동·설치·자기 폭발을 확인할 수 있게 한다. 첫 보상에서 실제 두 번째 슬롯 선택으로 바꾸는 작업은 후속이다.

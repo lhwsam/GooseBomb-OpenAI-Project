@@ -33,12 +33,23 @@ namespace BombSwap
     public sealed class PrototypeDungeonRunSession
     {
         private readonly PrototypeDungeonCombatRoomCatalogAsset _catalog;
+        private readonly PrototypeDungeonSpecialRoomCatalogAsset _specialRoomCatalog;
 
         public PrototypeDungeonRunSession(
             int seed,
             PrototypeDungeonCombatRoomCatalogAsset catalog)
+            : this(seed, catalog, null)
+        {
+        }
+
+        public PrototypeDungeonRunSession(
+            int seed,
+            PrototypeDungeonCombatRoomCatalogAsset catalog,
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _specialRoomCatalog = specialRoomCatalog;
+            _specialRoomCatalog?.Validate();
             Seed = seed;
             Graph = DungeonGenerator.Generate(seed);
             CombatRoomLayout = DungeonCombatRoomAssigner.Assign(
@@ -75,6 +86,32 @@ namespace BombSwap
         public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()
         {
             return RunState.GetCurrentExitStates();
+        }
+
+        public bool TryGetCurrentSceneName(out string sceneName)
+        {
+            return TryGetSceneName(CurrentRoomId, out sceneName);
+        }
+
+        public bool TryGetSceneName(
+            DungeonRoomNodeId roomId,
+            out string sceneName)
+        {
+            DungeonRoomNode room = Graph.GetRoom(roomId);
+            if (room.RoomType == RoomType.Combat)
+            {
+                TryGetCombatRoom(roomId, out PrototypeDungeonCombatRoomSelection selection);
+                sceneName = selection.SceneName;
+                return true;
+            }
+            if (_specialRoomCatalog == null)
+            {
+                sceneName = string.Empty;
+                return false;
+            }
+
+            sceneName = _specialRoomCatalog.GetSceneName(room.RoomType);
+            return true;
         }
 
         public bool TryGetCurrentCombatRoom(
