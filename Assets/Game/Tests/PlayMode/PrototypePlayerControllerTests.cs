@@ -15,14 +15,18 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _root;
         private GameObject _bombPrefab;
         private GameObject _explosionPrefab;
+        private GameObject _chaserPrefab;
         private PrototypeBombDefinitionAsset _definition;
         private PrototypePlayerVitalsAsset _vitals;
+        private PrototypeChaserDefinitionAsset _chaserDefinition;
         private Material _playerMaterial;
+        private Material _chaserMaterial;
         private PrototypeGameSession _session;
         private PrototypePlayerController _controller;
         private PrototypeBombPresenter _presenter;
         private PrototypeInputHarnessProbe _probe;
         private PrototypePlayerHealthPresenter _healthPresenter;
+        private PrototypeChaserPresenter _chaserPresenter;
         private Transform _player;
 
         [TearDown]
@@ -40,6 +44,10 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_explosionPrefab);
             }
+            if (_chaserPrefab != null)
+            {
+                Object.DestroyImmediate(_chaserPrefab);
+            }
             if (_definition != null)
             {
                 Object.DestroyImmediate(_definition);
@@ -48,9 +56,17 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_vitals);
             }
+            if (_chaserDefinition != null)
+            {
+                Object.DestroyImmediate(_chaserDefinition);
+            }
             if (_playerMaterial != null)
             {
                 Object.DestroyImmediate(_playerMaterial);
+            }
+            if (_chaserMaterial != null)
+            {
+                Object.DestroyImmediate(_chaserMaterial);
             }
             if (_inputActions != null)
             {
@@ -287,6 +303,78 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Chaser_UsesSharedGridAndPresenterInterpolatesFirstStep()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeChaserPresenter: true);
+
+            yield return null;
+
+            var expected = new GridPosition(1, 0);
+            Assert.That(_session.ChaserActorId, Is.EqualTo(new ActorId(2)));
+            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(expected));
+            Assert.That(_session.GetCell(expected).HasActor, Is.True);
+            Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
+            Assert.That(_chaserPresenter.MoveCount, Is.EqualTo(1));
+            Assert.That(_chaserPresenter.IsEnemyVisible, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.55f);
+
+            Assert.That(_chaserPresenter.Instance.transform.position.x, Is.EqualTo(1f).Within(0.02f));
+            Assert.That(_chaserPresenter.Instance.transform.position.y, Is.EqualTo(0.45f).Within(0.02f));
+            Assert.That(_chaserPresenter.Instance.transform.position.z, Is.EqualTo(0f).Within(0.02f));
+        }
+
+        [UnityTest]
+        public IEnumerator Explosion_KillsChaserRemovesOccupancyAndClearsRoomOnce()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeChaserPresenter: true,
+                fuseSeconds: 0.08f,
+                chaserDeathVisualSeconds: 0.4f);
+            int damagedCount = 0;
+            int diedCount = 0;
+            int roomClearedCount = 0;
+            EnemyDamageResult fatal = default;
+            _session.EnemyDamaged += result => damagedCount++;
+            _session.EnemyDied += result =>
+            {
+                fatal = result;
+                diedCount++;
+            };
+            _session.RoomCleared += () => roomClearedCount++;
+            yield return null;
+            GridPosition occupiedCell = _session.CurrentChaserGridPosition;
+            Color normalColor = _chaserMaterial.color;
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(damagedCount, Is.EqualTo(1));
+            Assert.That(diedCount, Is.EqualTo(1));
+            Assert.That(roomClearedCount, Is.EqualTo(1));
+            Assert.That(fatal.ActorId, Is.EqualTo(_session.ChaserActorId));
+            Assert.That(fatal.WasFatal, Is.True);
+            Assert.That(_session.EnemyActiveCount, Is.Zero);
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(_session.GetCell(occupiedCell).HasActor, Is.False);
+            Assert.That(_chaserPresenter.DeathCount, Is.EqualTo(1));
+            Assert.That(_chaserPresenter.IsEnemyVisible, Is.True);
+            Assert.That(_chaserPresenter.CurrentColor, Is.Not.EqualTo(normalColor));
+            Assert.That(_chaserMaterial.color, Is.EqualTo(normalColor));
+
+            yield return new WaitForSecondsRealtime(0.4f);
+
+            Assert.That(_chaserPresenter.IsEnemyVisible, Is.False);
+            Assert.That(diedCount, Is.EqualTo(1));
+            Assert.That(roomClearedCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator HarnessProbe_RemainsEnabledAcrossSessionInitializationOrder()
         {
             CreateRuntime(Vector2Int.zero, false, includeProbe: true);
@@ -307,11 +395,14 @@ namespace BombSwap.Tests.PlayMode
             bool includeProbe = false,
             bool includePresenter = false,
             bool includeHealthPresenter = false,
+            bool includeChaserPresenter = false,
             float fuseSeconds = 1f,
             float explosionVisualSeconds = 0.25f,
             int maxHealth = 5,
             float invulnerabilitySeconds = 0.75f,
-            float healthDamagePulseSeconds = PrototypePlayerHealthPresenter.DefaultDamagePulseSeconds)
+            float healthDamagePulseSeconds = PrototypePlayerHealthPresenter.DefaultDamagePulseSeconds,
+            float chaserCellsPerSecond = 2f,
+            float chaserDeathVisualSeconds = 0.12f)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -351,6 +442,26 @@ namespace BombSwap.Tests.PlayMode
             _player = playerObject.transform;
             _player.SetParent(gridRoot, false);
             _player.position = new Vector3(0f, 0.5f, 0f);
+            var chaserSpawn = new GameObject("ChaserSpawn").transform;
+            chaserSpawn.SetParent(gridRoot, false);
+            chaserSpawn.localPosition = new Vector3(1f, 0f, -1f);
+            _chaserPrefab = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            _chaserPrefab.name = "ChaserVisualPrefab";
+            Collider chaserCollider = _chaserPrefab.GetComponent<Collider>();
+            Object.DestroyImmediate(chaserCollider);
+            _chaserMaterial = new Material(playerShader);
+            _chaserMaterial.color = new Color(0.18f, 0.82f, 0.38f, 1f);
+            _chaserPrefab.GetComponent<Renderer>().sharedMaterial = _chaserMaterial;
+            _chaserPrefab.SetActive(false);
+            _chaserDefinition = ScriptableObject.CreateInstance<PrototypeChaserDefinitionAsset>();
+            _chaserDefinition.Configure(
+                "test-chaser",
+                1,
+                chaserCellsPerSecond,
+                2,
+                _chaserPrefab,
+                0.45f,
+                chaserDeathVisualSeconds);
 
             BombSwapInputReader reader = _root.AddComponent<BombSwapInputReader>();
             reader.Configure(_inputActions);
@@ -360,13 +471,21 @@ namespace BombSwap.Tests.PlayMode
                 gridRoot,
                 spawn,
                 _player,
+                chaserSpawn,
                 3,
                 3,
                 1f,
                 includeBlocker ? new[] { blocker } : new Vector2Int[0]);
 
             _session = _root.AddComponent<PrototypeGameSession>();
-            _session.Configure(context, reader, _definition, _vitals, 10f, 0.05f);
+            _session.Configure(
+                context,
+                reader,
+                _definition,
+                _vitals,
+                _chaserDefinition,
+                10f,
+                0.05f);
             _controller = _root.AddComponent<PrototypePlayerController>();
             _controller.Configure(_session, _player);
             if (includePresenter)
@@ -381,6 +500,11 @@ namespace BombSwap.Tests.PlayMode
                     _session,
                     playerObject.GetComponent<Renderer>(),
                     healthDamagePulseSeconds);
+            }
+            if (includeChaserPresenter)
+            {
+                _chaserPresenter = _root.AddComponent<PrototypeChaserPresenter>();
+                _chaserPresenter.Configure(_session, presentationRoot);
             }
             if (includeProbe)
             {

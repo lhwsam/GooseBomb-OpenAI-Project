@@ -29,8 +29,8 @@ sequenceDiagram
 - `BombSwapInputReader`는 게임 전용 `Gameplay` action map을 enable/disable 생명주기에 맞춰 대칭으로 구독한다.
 - focus 또는 application pause 상실 시 활성 이동을 `Move(None)`으로 해제하고 action map과 바인딩 장치 상태를 초기화한다.
 - `CardinalInputInterpreter`는 아날로그·복합 입력을 결정론적인 단일 상하좌우 방향으로 바꾼다.
-- TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, `BombSimulation`, `PlayerHealthSimulation`에 공유한다. `Move`는 이동 simulation으로, `PlaceBomb`은 현재 논리 셀의 폭탄 simulation으로 전달한다.
-- `PrototypePlayerController`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 세션의 확정된 이동·설치·폭발·피해 결과를 Transform, pooled placeholder, material property block으로 표현한다. 교체·pause 명령의 실제 규칙 소비자는 아직 없다.
+- TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, `ChaserEnemySimulation`, `BombSimulation`, 플레이어·적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`은 현재 논리 셀의 폭탄 simulation으로 전달한다.
+- `PrototypePlayerController`, `PrototypeChaserPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 세션의 확정된 플레이어·적 이동, 설치·폭발·피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. 교체·pause 명령의 실제 규칙 소비자는 아직 없다.
 
 binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 
@@ -70,6 +70,8 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 첫 폭탄 수직 슬라이스도 같은 시계를 사용한다. 기본 십자 폭탄의 현재 저작 값은 fuse 2초, 범위 2, 연쇄 지연 0.15초이며 `PrototypeBombDefinitionAsset`과 세션 설정이 소유한다. 이 값은 플레이테스트 전까지 `Proposed`다.
 
 플레이어 체력 수직 슬라이스는 같은 시계에서 0.75초 무적 종료 시각을 계산한다. 프레임에서는 시계를 먼저 전진하고 이동 전이를 처리한 뒤 만료 폭탄을 계산하며, 폭발 셀에 그 시점의 플레이어 논리 셀이 포함되면 피해를 적용한다. 이후 `BombExploded`, 적용된 `PlayerDamaged`, 치명 결과의 `PlayerDied` 순으로 표현 계층에 알린다. 최대 체력 5, 폭발 피해 1, 무적 0.75초는 플레이테스트 전까지 `Proposed`다.
+
+기본 추격자도 같은 시계를 사용한다. 한 프레임에서 시계를 전진한 뒤 플레이어 이동, 추격자 이동, 만료 폭탄 순서로 논리 상태를 확정한다. 폭발은 플레이어와 추격자의 현재 논리 셀을 각각 평가하고, 표현 사건은 `BombExploded → PlayerDamaged/PlayerDied → EnemyDamaged/EnemyDied → RoomCleared` 순서로 전달한다. 추격자 2 cells/s와 두 칸 방향 유지는 플레이테스트 전까지 `Proposed`다.
 
 ## 랜덤과 재현
 

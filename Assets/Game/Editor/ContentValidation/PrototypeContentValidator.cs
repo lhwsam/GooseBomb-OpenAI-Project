@@ -18,10 +18,14 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypePlayerVitalsPath =
             "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
+        public const string PrototypeChaserDefinitionPath =
+            "Assets/Game/Content/Enemies/PrototypeChaser.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ExplosionCellPlaceholder.prefab";
+        public const string ChaserPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
 
         public static void Validate(ICollection<string> errors)
         {
@@ -33,6 +37,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinition(errors);
             ValidatePrototypePlayerVitals(errors);
+            ValidatePrototypeChaserDefinition(errors);
             ValidateTestSandbox(errors);
             ValidateBuildSettings(errors);
         }
@@ -90,6 +95,40 @@ namespace BombSwap.Editor.ContentValidation
             catch (Exception exception)
             {
                 errors.Add($"Invalid prototype player vitals: {exception.Message}");
+            }
+        }
+
+        private static void ValidatePrototypeChaserDefinition(ICollection<string> errors)
+        {
+            PrototypeChaserDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeChaserDefinitionAsset>(
+                    PrototypeChaserDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype chaser definition: {PrototypeChaserDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                definition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype chaser definition: {exception.Message}");
+            }
+
+            string prefabPath = AssetDatabase.GetAssetPath(definition.ChaserPrefab);
+            if (!string.Equals(prefabPath, ChaserPrefabPath, StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype chaser definition must reference '{ChaserPrefabPath}', found '{prefabPath}'.");
+            }
+            if (definition.ChaserPrefab != null &&
+                definition.ChaserPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                errors.Add("Prototype chaser prefab must not contain a Collider; logical grid owns collision.");
             }
         }
 
@@ -276,6 +315,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeBombPresenter>(scene);
                 PrototypePlayerHealthPresenter[] healthPresenters =
                     FindComponents<PrototypePlayerHealthPresenter>(scene);
+                PrototypeChaserPresenter[] chaserPresenters =
+                    FindComponents<PrototypeChaserPresenter>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
@@ -308,6 +349,11 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypePlayerHealthPresenter; found {healthPresenters.Length}.");
                 }
+                if (chaserPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeChaserPresenter; found {chaserPresenters.Length}.");
+                }
                 if (probes.Length != 1)
                 {
                     errors.Add($"TestSandbox must contain exactly one PrototypeInputHarnessProbe; found {probes.Length}.");
@@ -336,6 +382,8 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeGameSession session = sessions[0];
                     string definitionPath = AssetDatabase.GetAssetPath(session.BombDefinition);
                     string playerVitalsPath = AssetDatabase.GetAssetPath(session.PlayerVitals);
+                    string chaserDefinitionPath = AssetDatabase.GetAssetPath(
+                        session.ChaserDefinition);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
                         !string.Equals(
                             definitionPath,
@@ -344,6 +392,10 @@ namespace BombSwap.Editor.ContentValidation
                         !string.Equals(
                             playerVitalsPath,
                             PrototypePlayerVitalsPath,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            chaserDefinitionPath,
+                            PrototypeChaserDefinitionPath,
                             StringComparison.Ordinal))
                     {
                         errors.Add("TestSandbox game session has inconsistent runtime references.");
@@ -399,6 +451,17 @@ namespace BombSwap.Editor.ContentValidation
                     }
                 }
 
+                if (chaserPresenters.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeChaserPresenter presenter = chaserPresenters[0];
+                    Transform runtimePresentation = contexts[0].GridRoot.Find("RuntimePresentation");
+                    if (presenter.Session != sessions[0] ||
+                        presenter.PresentationRoot != runtimePresentation)
+                    {
+                        errors.Add("TestSandbox chaser presenter has inconsistent scene references.");
+                    }
+                }
+
                 if (probes.Length == 1 && readers.Length == 1 && sessions.Length == 1 &&
                     (probes[0].InputReader != readers[0] ||
                      probes[0].Session != sessions[0]))
@@ -410,7 +473,8 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     TestSandboxContext context = contexts[0];
                     if (context.InputReader == null || context.GridRoot == null ||
-                        context.PlayerSpawn == null || context.PlayerPlaceholder == null)
+                        context.PlayerSpawn == null || context.PlayerPlaceholder == null ||
+                        context.ChaserSpawn == null)
                     {
                         errors.Add("TestSandboxContext has missing required references.");
                     }
@@ -475,9 +539,34 @@ namespace BombSwap.Editor.ContentValidation
             if (context.PlayerSpawn != null)
             {
                 GridPosition spawn = context.GridSpace.WorldToGrid(context.PlayerSpawn.position);
+                if (spawn.X < -halfWidth || spawn.X > halfWidth ||
+                    spawn.Z < -halfDepth || spawn.Z > halfDepth)
+                {
+                    errors.Add($"TestSandbox player spawn cell is outside the grid: {spawn}.");
+                }
                 if (seen.Contains(new Vector2Int(spawn.X, spawn.Z)))
                 {
                     errors.Add($"TestSandbox player spawn cell is blocked: {spawn}.");
+                }
+            }
+            if (context.ChaserSpawn != null)
+            {
+                GridPosition chaserSpawn = context.GridSpace.WorldToGrid(
+                    context.ChaserSpawn.position);
+                if (chaserSpawn.X < -halfWidth || chaserSpawn.X > halfWidth ||
+                    chaserSpawn.Z < -halfDepth || chaserSpawn.Z > halfDepth)
+                {
+                    errors.Add(
+                        $"TestSandbox chaser spawn cell is outside the grid: {chaserSpawn}.");
+                }
+                if (seen.Contains(new Vector2Int(chaserSpawn.X, chaserSpawn.Z)))
+                {
+                    errors.Add($"TestSandbox chaser spawn cell is blocked: {chaserSpawn}.");
+                }
+                if (context.PlayerSpawn != null &&
+                    chaserSpawn == context.GridSpace.WorldToGrid(context.PlayerSpawn.position))
+                {
+                    errors.Add("TestSandbox player and chaser spawn cells must be different.");
                 }
             }
         }

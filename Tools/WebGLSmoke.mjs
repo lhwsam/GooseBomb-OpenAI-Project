@@ -223,7 +223,7 @@ async function main() {
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["move", "place-bomb", "bomb-exploded", "player-damaged", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["move", "chaser-moved", "place-bomb", "bomb-exploded", "player-damaged", "enemy-died", "room-cleared", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

@@ -27,6 +27,8 @@
 
 `BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 진행하고 `PrototypePlayerController`가 확정된 이동을 placeholder Transform 보간으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
+같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence와 두 칸 방향 유지로 플레이어를 추격한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, `PrototypeChaserPresenter`는 확정된 step만 3D placeholder에 보간한다.
+
 ## 구현된 최소 Core 계약
 
 - `GridPosition`은 부호 있는 정수 `X`, `Z`를 보존하는 불변 값이며 값 동등성과 오프셋 계산을 제공한다.
@@ -72,6 +74,8 @@
 - 기본 5 cells/s와 선형 보간의 최종 감각.
 - 논리 점유를 step 시작 시 목적 셀로 옮기는 정책과 더 연속적인 셀 경계 전이 정책의 비교.
 - actor끼리의 밀기/겹침 허용 정책.
+- 여러 적의 이동 순서, ID 발급과 동일 목적 셀 경합 정책.
+- 국소 Manhattan 추격이 실제 수제 방에서 막힐 때 사용할 경로 탐색 범위.
 
 첫 기본 폭탄 수직 슬라이스에서 조작성과 폭발 회피 가독성을 비교해 확정한다.
 
@@ -97,6 +101,8 @@
 - 실제 Input System 유지 입력에서 논리 셀 전이와 placeholder Transform 보간.
 - 저작된 논리 장애물이 논리 위치와 시각 위치를 함께 차단함.
 - 실제 `Z` 설치 뒤 소유자가 셀을 빠져나오고 반대 입력으로 폭탄 셀에 재진입하지 못함.
+- 추격자가 플레이어와 공유하는 논리 격자에서 이동하고 presenter가 확정된 적 step을 보간함.
+- 폭발 사망 뒤 추격자 actor 점유가 제거되고 placeholder가 짧은 사망 표시 뒤 비활성화됨.
 
 다음 항목은 방 콘텐츠 구현 이후 추가한다.
 

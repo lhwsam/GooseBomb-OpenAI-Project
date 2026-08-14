@@ -19,6 +19,9 @@ namespace BombSwap
         private bool _placeBombReported;
         private bool _bombExplosionReported;
         private bool _playerDamagedReported;
+        private bool _chaserMovedReported;
+        private bool _enemyDiedReported;
+        private bool _roomClearedReported;
         private bool _swapBombReported;
         private bool _pauseReported;
         private bool _isPaused;
@@ -70,6 +73,9 @@ namespace BombSwap
             session.BombPlaced += OnBombPlaced;
             session.BombExploded += OnBombExploded;
             session.PlayerDamaged += OnPlayerDamaged;
+            session.ChaserMoved += OnChaserMoved;
+            session.EnemyDied += OnEnemyDied;
+            session.RoomCleared += OnRoomCleared;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -90,6 +96,9 @@ namespace BombSwap
                 session.BombPlaced -= OnBombPlaced;
                 session.BombExploded -= OnBombExploded;
                 session.PlayerDamaged -= OnPlayerDamaged;
+                session.ChaserMoved -= OnChaserMoved;
+                session.EnemyDied -= OnEnemyDied;
+                session.RoomCleared -= OnRoomCleared;
                 session.Ready -= OnSessionReady;
             }
         }
@@ -152,6 +161,39 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("player-damaged");
             _playerDamagedReported = true;
+        }
+
+        private void OnChaserMoved(EnemyMovementStep step)
+        {
+            if (_chaserMovedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("chaser-moved");
+            _chaserMovedReported = true;
+        }
+
+        private void OnEnemyDied(EnemyDamageResult result)
+        {
+            if (_enemyDiedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("enemy-died");
+            _enemyDiedReported = true;
+        }
+
+        private void OnRoomCleared()
+        {
+            if (_roomClearedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("room-cleared");
+            _roomClearedReported = true;
         }
 
         private void OnCommandIssued(PlayerCommand command)
