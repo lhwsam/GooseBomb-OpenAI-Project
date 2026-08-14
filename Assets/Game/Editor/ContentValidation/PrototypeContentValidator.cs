@@ -20,6 +20,14 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string TestSandboxArmorScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity";
+        public const string DungeonStartScenePath =
+            "Assets/Game/Scenes/Dungeon/DungeonStart.unity";
+        public const string DungeonRewardScenePath =
+            "Assets/Game/Scenes/Dungeon/DungeonReward.unity";
+        public const string DungeonBossAnteScenePath =
+            "Assets/Game/Scenes/Dungeon/DungeonBossAnte.unity";
+        public const string DungeonBossScenePath =
+            "Assets/Game/Scenes/Dungeon/DungeonBoss.unity";
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypeAreaBombDefinitionPath =
@@ -60,6 +68,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
         public const string PrototypeDungeonCombatRoomCatalogPath =
             "Assets/Game/Content/Rooms/PrototypeDungeonCombatRoomCatalog.asset";
+        public const string PrototypeDungeonSpecialRoomCatalogPath =
+            "Assets/Game/Content/Rooms/PrototypeDungeonSpecialRoomCatalog.asset";
 
         public static void Validate(ICollection<string> errors)
         {
@@ -76,6 +86,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeArmoredDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
             ValidatePrototypeDungeonCombatRoomCatalog(errors);
+            ValidatePrototypeDungeonSpecialRoomCatalog(errors);
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
             ValidateBuildSettings(errors);
@@ -497,6 +508,68 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static void ValidatePrototypeDungeonSpecialRoomCatalog(
+            ICollection<string> errors)
+        {
+            PrototypeDungeonSpecialRoomCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonSpecialRoomCatalogAsset>(
+                    PrototypeDungeonSpecialRoomCatalogPath);
+            if (catalog == null)
+            {
+                errors.Add(
+                    $"Missing prototype dungeon special-room catalog: " +
+                    PrototypeDungeonSpecialRoomCatalogPath);
+                return;
+            }
+
+            RoomType[] expectedTypes =
+            {
+                RoomType.Start,
+                RoomType.BombReward,
+                RoomType.BossAntechamber,
+                RoomType.Boss,
+            };
+            string[] expectedSceneNames =
+            {
+                "DungeonStart",
+                "DungeonReward",
+                "DungeonBossAnte",
+                "DungeonBoss",
+            };
+            if (catalog.Entries.Count != expectedTypes.Length)
+            {
+                errors.Add(
+                    "Prototype dungeon special-room catalog must contain four entries.");
+                return;
+            }
+
+            try
+            {
+                for (int index = 0; index < expectedTypes.Length; index++)
+                {
+                    if (catalog.Entries[index].RoomType != expectedTypes[index] ||
+                        !string.Equals(
+                            catalog.Entries[index].SceneName,
+                            expectedSceneNames[index],
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            catalog.GetSceneName(expectedTypes[index]),
+                            expectedSceneNames[index],
+                            StringComparison.Ordinal))
+                    {
+                        errors.Add(
+                            $"Prototype dungeon special catalog entry {index} must map " +
+                            $"{expectedTypes[index]} to '{expectedSceneNames[index]}'.");
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add(
+                    $"Invalid prototype dungeon special-room catalog: {exception.Message}");
+            }
+        }
+
         private static void ValidateInputActions(ICollection<string> errors)
         {
             InputActionAsset asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
@@ -659,36 +732,56 @@ namespace BombSwap.Editor.ContentValidation
             ValidateTestSandboxScene(
                 TestSandboxScenePath,
                 PrototypeCombatRoomDefinitionPath,
-                "TestSandboxLanes",
+                true,
                 errors);
             ValidateTestSandboxScene(
                 TestSandboxLanesScenePath,
                 PrototypeCombatLanesDefinitionPath,
-                "TestSandboxPillars",
+                true,
                 errors);
             ValidateTestSandboxScene(
                 TestSandboxPillarsScenePath,
                 PrototypeCombatPillarsDefinitionPath,
-                "TestSandboxArmor",
+                true,
                 errors);
             ValidateTestSandboxScene(
                 TestSandboxArmorScenePath,
                 PrototypeCombatArmorDefinitionPath,
-                string.Empty,
+                true,
+                errors);
+            ValidateTestSandboxScene(
+                DungeonStartScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                false,
+                errors);
+            ValidateTestSandboxScene(
+                DungeonRewardScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                false,
+                errors);
+            ValidateTestSandboxScene(
+                DungeonBossAnteScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                false,
+                errors);
+            ValidateTestSandboxScene(
+                DungeonBossScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                true,
                 errors);
         }
 
         private static void ValidateTestSandboxScene(
             string scenePath,
             string expectedRoomPath,
-            string expectedNextSceneName,
+            bool expectedCombatEnabled,
             ICollection<string> errors)
         {
             var sceneErrors = new List<string>();
             ValidateTestSandboxSceneContents(
                 scenePath,
                 expectedRoomPath,
-                expectedNextSceneName,
+                expectedCombatEnabled,
                 sceneErrors);
             foreach (string error in sceneErrors)
             {
@@ -699,7 +792,7 @@ namespace BombSwap.Editor.ContentValidation
         private static void ValidateTestSandboxSceneContents(
             string scenePath,
             string expectedRoomPath,
-            string expectedNextSceneName,
+            bool expectedCombatEnabled,
             ICollection<string> errors)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
@@ -738,6 +831,12 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 PrototypeRoomAdvanceController[] roomAdvanceControllers =
                     FindComponents<PrototypeRoomAdvanceController>(scene);
+                PrototypeDungeonRunHost[] runHosts =
+                    FindComponents<PrototypeDungeonRunHost>(scene);
+                PrototypeDungeonRoomBinder[] roomBinders =
+                    FindComponents<PrototypeDungeonRoomBinder>(scene);
+                PrototypeDungeonDoorPresenter[] doorPresenters =
+                    FindComponents<PrototypeDungeonDoorPresenter>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
 
@@ -799,10 +898,25 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add($"TestSandbox must contain exactly one PrototypeInputHarnessProbe; found {probes.Length}.");
                 }
-                if (roomAdvanceControllers.Length != 1)
+                if (roomAdvanceControllers.Length != 0)
                 {
                     errors.Add(
-                        $"TestSandbox must contain exactly one PrototypeRoomAdvanceController; found {roomAdvanceControllers.Length}.");
+                        $"Dungeon room must not contain legacy PrototypeRoomAdvanceController; found {roomAdvanceControllers.Length}.");
+                }
+                if (runHosts.Length != 1)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain exactly one PrototypeDungeonRunHost; found {runHosts.Length}.");
+                }
+                if (roomBinders.Length != 1)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain exactly one PrototypeDungeonRoomBinder; found {roomBinders.Length}.");
+                }
+                if (doorPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain exactly one PrototypeDungeonDoorPresenter; found {doorPresenters.Length}.");
                 }
                 if (!cameras.Any(camera => camera.enabled && camera.CompareTag("MainCamera")))
                 {
@@ -862,6 +976,12 @@ namespace BombSwap.Editor.ContentValidation
                         !IsFinitePositive(session.ChainDelaySeconds))
                     {
                         errors.Add("TestSandbox game session timing values must be finite and positive.");
+                    }
+                    if (session.HasChaser != expectedCombatEnabled)
+                    {
+                        errors.Add(
+                            $"Dungeon room combat mode must be {expectedCombatEnabled}; " +
+                            $"found {session.HasChaser}.");
                     }
                 }
 
@@ -969,19 +1089,48 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add("TestSandbox harness probe has inconsistent runtime references.");
                 }
 
-                if (roomAdvanceControllers.Length == 1 && sessions.Length == 1)
+                if (runHosts.Length == 1)
                 {
-                    PrototypeRoomAdvanceController controller = roomAdvanceControllers[0];
-                    if (controller.Session != sessions[0] ||
-                        !string.Equals(
-                            controller.NextSceneName,
-                            expectedNextSceneName,
-                            StringComparison.Ordinal) ||
-                        !IsFinitePositive(controller.TransitionDelaySeconds))
+                    PrototypeDungeonRunHost host = runHosts[0];
+                    PrototypeDungeonCombatRoomCatalogAsset expectedCombatCatalog =
+                        AssetDatabase.LoadAssetAtPath<
+                            PrototypeDungeonCombatRoomCatalogAsset>(
+                            PrototypeDungeonCombatRoomCatalogPath);
+                    PrototypeDungeonSpecialRoomCatalogAsset expectedSpecialCatalog =
+                        AssetDatabase.LoadAssetAtPath<
+                            PrototypeDungeonSpecialRoomCatalogAsset>(
+                            PrototypeDungeonSpecialRoomCatalogPath);
+                    if (host.transform.parent != null || host.Seed != 0 ||
+                        host.CombatRoomCatalog != expectedCombatCatalog ||
+                        host.SpecialRoomCatalog != expectedSpecialCatalog ||
+                        !host.RequireInitialSceneMatch)
                     {
                         errors.Add(
-                            "TestSandbox room advance controller has inconsistent session, next scene, or timing.");
+                            "Dungeon run host must be a seed-0 root using both validated catalogs and initial-scene matching.");
                     }
+                }
+
+                if (roomBinders.Length == 1 && sessions.Length == 1 &&
+                    doorPresenters.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeDungeonRoomBinder binder = roomBinders[0];
+                    if (binder.RoomSession != sessions[0] ||
+                        binder.DoorPresenter != doorPresenters[0] ||
+                        binder.transform != sessions[0].transform ||
+                        binder.RoomSession.Context != contexts[0] ||
+                        binder.GridRoot != contexts[0].GridRoot)
+                    {
+                        errors.Add(
+                            "Dungeon room binder has inconsistent session, presenter, or grid references.");
+                    }
+                }
+
+                if (doorPresenters.Length == 1 && contexts.Length == 1)
+                {
+                    ValidateDungeonDoors(
+                        doorPresenters[0],
+                        contexts[0],
+                        errors);
                 }
 
                 if (contexts.Length == 1)
@@ -1001,6 +1150,77 @@ namespace BombSwap.Editor.ContentValidation
                 if (openedForValidation && scene.IsValid())
                 {
                     EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static void ValidateDungeonDoors(
+            PrototypeDungeonDoorPresenter presenter,
+            TestSandboxContext context,
+            ICollection<string> errors)
+        {
+            if (!presenter.IsConfigured || context.GridRoot == null)
+            {
+                errors.Add("Dungeon door presenter is missing one or more door renderers.");
+                return;
+            }
+
+            Renderer[] doors =
+            {
+                presenter.NorthDoor,
+                presenter.EastDoor,
+                presenter.SouthDoor,
+                presenter.WestDoor,
+            };
+            string[] expectedNames =
+            {
+                "NorthDoor",
+                "EastDoor",
+                "SouthDoor",
+                "WestDoor",
+            };
+            if (new HashSet<Renderer>(doors).Count != doors.Length)
+            {
+                errors.Add("Dungeon door presenter requires four distinct renderers.");
+            }
+
+            Transform boundary = context.GridRoot.Find("Environment/BoundaryWalls");
+            if (boundary == null || boundary.childCount != 12)
+            {
+                errors.Add(
+                    "Dungeon boundary must contain eight split walls and four door panels.");
+                return;
+            }
+            for (int index = 0; index < doors.Length; index++)
+            {
+                Renderer door = doors[index];
+                if (door == null || door.transform.parent != boundary ||
+                    !string.Equals(
+                        door.gameObject.name,
+                        expectedNames[index],
+                        StringComparison.Ordinal) ||
+                    door.GetComponent<Collider>() != null)
+                {
+                    errors.Add(
+                        $"Dungeon {expectedNames[index]} must be a collider-free panel under BoundaryWalls.");
+                }
+            }
+
+            string[] splitWallNames =
+            {
+                "NorthWallWest", "NorthWallEast",
+                "SouthWallWest", "SouthWallEast",
+                "EastWallSouth", "EastWallNorth",
+                "WestWallSouth", "WestWallNorth",
+            };
+            for (int index = 0; index < splitWallNames.Length; index++)
+            {
+                Transform wall = boundary.Find(splitWallNames[index]);
+                if (wall == null || wall.GetComponent<Renderer>() == null ||
+                    wall.GetComponent<Collider>() == null)
+                {
+                    errors.Add(
+                        $"Dungeon boundary wall '{splitWallNames[index]}' is missing its renderer or collider.");
                 }
             }
         }
@@ -1203,6 +1423,10 @@ namespace BombSwap.Editor.ContentValidation
         {
             string[] expectedScenePaths =
             {
+                DungeonStartScenePath,
+                DungeonRewardScenePath,
+                DungeonBossAnteScenePath,
+                DungeonBossScenePath,
                 TestSandboxScenePath,
                 TestSandboxLanesScenePath,
                 TestSandboxPillarsScenePath,
@@ -1213,7 +1437,8 @@ namespace BombSwap.Editor.ContentValidation
                 .ToArray();
             if (enabledScenes.Length < expectedScenePaths.Length)
             {
-                errors.Add("Build Settings must enable all four playtest room scenes first.");
+                errors.Add(
+                    "Build Settings must enable the Start placeholder first, followed by every dungeon room scene.");
                 return;
             }
 

@@ -23,9 +23,21 @@ namespace BombSwap
 
         private PrototypeDungeonRunNavigator _navigator;
 
+        public event Action RoomCommitted;
+
+        public event Action<PrototypeDungeonPendingTransition> TransitionStarted;
+
         public bool IsPrimary { get; private set; }
 
         public int Seed => seed;
+
+        public PrototypeDungeonCombatRoomCatalogAsset CombatRoomCatalog =>
+            combatRoomCatalog;
+
+        public PrototypeDungeonSpecialRoomCatalogAsset SpecialRoomCatalog =>
+            specialRoomCatalog;
+
+        public bool RequireInitialSceneMatch => requireInitialSceneMatch;
 
         public PrototypeDungeonRunSession RunSession =>
             _navigator != null ? _navigator.RunSession : null;
@@ -71,6 +83,8 @@ namespace BombSwap
 
             try
             {
+                TransitionStarted?.Invoke(result.Transition);
+                WebGlHarnessReporter.Report("dungeon-transition-started");
                 SceneManager.LoadScene(
                     result.Transition.TargetSceneName,
                     LoadSceneMode.Single);
@@ -102,8 +116,7 @@ namespace BombSwap
             }
 
             PrototypeDungeonRunHost[] hosts = FindObjectsByType<PrototypeDungeonRunHost>(
-                FindObjectsInactive.Include,
-                FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             for (int index = 0; index < hosts.Length; index++)
             {
                 PrototypeDungeonRunHost host = hosts[index];
@@ -164,7 +177,11 @@ namespace BombSwap
                 Debug.LogError(
                     $"Dungeon transition commit failed for scene '{scene.name}': {status}.",
                     this);
+                return;
             }
+
+            WebGlHarnessReporter.Report("dungeon-room-committed");
+            RoomCommitted?.Invoke();
         }
 
         private void RequirePrimary()

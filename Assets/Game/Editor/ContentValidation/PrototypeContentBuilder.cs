@@ -52,7 +52,10 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeArmoredContentIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
-            CreatePrototypeDungeonCombatRoomCatalog(roomDefinitions);
+            PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog =
+                CreatePrototypeDungeonCombatRoomCatalog(roomDefinitions);
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog =
+                CreatePrototypeDungeonSpecialRoomCatalog();
             bool sceneCreated = EnsureTestSandbox(
                 inputActions,
                 bombLoadout,
@@ -89,12 +92,78 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 roomDefinitions[3],
                 string.Empty);
+            EnsureDungeonRoomBinding(
+                PrototypeContentValidator.TestSandboxScenePath,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                true);
+            EnsureDungeonRoomBinding(
+                PrototypeContentValidator.TestSandboxLanesScenePath,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                true);
+            EnsureDungeonRoomBinding(
+                PrototypeContentValidator.TestSandboxPillarsScenePath,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                true);
+            EnsureDungeonRoomBinding(
+                PrototypeContentValidator.TestSandboxArmorScenePath,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                true);
+            bool startSceneCreated = EnsureDungeonSpecialRoom(
+                PrototypeContentValidator.DungeonStartScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                roomDefinitions[0],
+                combatRoomCatalog,
+                specialRoomCatalog,
+                false);
+            bool rewardSceneCreated = EnsureDungeonSpecialRoom(
+                PrototypeContentValidator.DungeonRewardScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                roomDefinitions[0],
+                combatRoomCatalog,
+                specialRoomCatalog,
+                false);
+            bool bossAnteSceneCreated = EnsureDungeonSpecialRoom(
+                PrototypeContentValidator.DungeonBossAnteScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                roomDefinitions[0],
+                combatRoomCatalog,
+                specialRoomCatalog,
+                false);
+            bool bossSceneCreated = EnsureDungeonSpecialRoom(
+                PrototypeContentValidator.DungeonBossScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                roomDefinitions[0],
+                combatRoomCatalog,
+                specialRoomCatalog,
+                true);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
-            return sceneCreated || lanesSceneCreated || pillarsSceneCreated || armorSceneCreated
-                ? "Created BombSwap prototype content and the four-room TestSandbox playtest sequence."
-                : "BombSwap prototype content exists; synchronized four room scenes, transitions, references, and Build Settings.";
+            return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
+                armorSceneCreated || startSceneCreated || rewardSceneCreated ||
+                bossAnteSceneCreated || bossSceneCreated
+                ? "Created BombSwap prototype dungeon content and eight graph room scenes."
+                : "BombSwap prototype dungeon content exists; synchronized room scenes, graph bindings, references, and Build Settings.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -735,6 +804,37 @@ namespace BombSwap.Editor.ContentValidation
             return catalog;
         }
 
+        private static PrototypeDungeonSpecialRoomCatalogAsset
+            CreatePrototypeDungeonSpecialRoomCatalog()
+        {
+            PrototypeDungeonSpecialRoomCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonSpecialRoomCatalogAsset>(
+                    PrototypeContentValidator.PrototypeDungeonSpecialRoomCatalogPath);
+            if (catalog == null)
+            {
+                catalog = ScriptableObject.CreateInstance<
+                    PrototypeDungeonSpecialRoomCatalogAsset>();
+                catalog.name = "PrototypeDungeonSpecialRoomCatalog";
+                AssetDatabase.CreateAsset(
+                    catalog,
+                    PrototypeContentValidator.PrototypeDungeonSpecialRoomCatalogPath);
+            }
+
+            catalog.Configure(new[]
+            {
+                new PrototypeDungeonSpecialRoomEntry(RoomType.Start, "DungeonStart"),
+                new PrototypeDungeonSpecialRoomEntry(
+                    RoomType.BombReward,
+                    "DungeonReward"),
+                new PrototypeDungeonSpecialRoomEntry(
+                    RoomType.BossAntechamber,
+                    "DungeonBossAnte"),
+                new PrototypeDungeonSpecialRoomEntry(RoomType.Boss, "DungeonBoss"),
+            });
+            EditorUtility.SetDirty(catalog);
+            return catalog;
+        }
+
         private static Vector2Int[] CreateRectangleLoop(
             int minX,
             int maxX,
@@ -901,6 +1001,361 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             return created;
+        }
+
+        private static void EnsureDungeonRoomBinding(
+            string scenePath,
+            PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            bool combatEnabled)
+        {
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                SynchronizeDungeonSceneBindings(
+                    scene,
+                    combatRoomCatalog,
+                    specialRoomCatalog,
+                    combatEnabled);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save dungeon-bound room scene '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static bool EnsureDungeonSpecialRoom(
+            string scenePath,
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeCombatRoomDefinitionAsset shellRoomDefinition,
+            PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            bool combatEnabled)
+        {
+            EnsureAssetFolder("Assets/Game/Scenes/Dungeon");
+            bool created = false;
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                if (!AssetDatabase.CopyAsset(
+                        PrototypeContentValidator.TestSandboxScenePath,
+                        scenePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to create dungeon special-room scene '{scenePath}'.");
+                }
+                AssetDatabase.ImportAsset(scenePath, ImportAssetOptions.ForceSynchronousImport);
+                created = true;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                UpgradeTestSandbox(
+                    scene,
+                    bombLoadout,
+                    playerVitals,
+                    chaserDefinition,
+                    chargerDefinition,
+                    armoredDefinition,
+                    shellRoomDefinition,
+                    string.Empty);
+                ConfigureDungeonCombatMode(
+                    scene,
+                    bombLoadout,
+                    playerVitals,
+                    chaserDefinition,
+                    chargerDefinition,
+                    armoredDefinition,
+                    combatEnabled);
+                SynchronizeDungeonSceneBindings(
+                    scene,
+                    combatRoomCatalog,
+                    specialRoomCatalog,
+                    combatEnabled);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save dungeon special-room scene '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+
+            return created;
+        }
+
+        private static void ConfigureDungeonCombatMode(
+            Scene scene,
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            bool combatEnabled)
+        {
+            TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
+            BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
+            PrototypeGameSession gameSession = FindExactlyOne<PrototypeGameSession>(scene);
+            gameSession.Configure(
+                context,
+                inputReader,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                startingCharger: chargerDefinition,
+                startingArmored: armoredDefinition,
+                startingCombatEnabled: combatEnabled);
+            EditorUtility.SetDirty(gameSession);
+        }
+
+        private static void SynchronizeDungeonSceneBindings(
+            Scene scene,
+            PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            bool combatEnabled)
+        {
+            TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
+            PrototypeGameSession gameSession = FindExactlyOne<PrototypeGameSession>(scene);
+            if (gameSession.HasChaser != combatEnabled)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon scene '{scene.path}' combat mode was not configured consistently.");
+            }
+
+            context.GridRoot.localRotation = Quaternion.identity;
+            Renderer[] doors = SynchronizeDungeonBoundary(context);
+            GameObject systems = gameSession.gameObject;
+            PrototypeRoomAdvanceController[] legacyControllers =
+                systems.GetComponents<PrototypeRoomAdvanceController>();
+            for (int index = 0; index < legacyControllers.Length; index++)
+            {
+                UnityEngine.Object.DestroyImmediate(legacyControllers[index]);
+            }
+
+            PrototypeDungeonDoorPresenter doorPresenter =
+                systems.GetComponent<PrototypeDungeonDoorPresenter>();
+            if (doorPresenter == null)
+            {
+                doorPresenter = systems.AddComponent<PrototypeDungeonDoorPresenter>();
+            }
+            doorPresenter.Configure(doors[0], doors[1], doors[2], doors[3]);
+
+            PrototypeDungeonRoomBinder binder =
+                systems.GetComponent<PrototypeDungeonRoomBinder>();
+            if (binder == null)
+            {
+                binder = systems.AddComponent<PrototypeDungeonRoomBinder>();
+            }
+            binder.Configure(gameSession, doorPresenter, context.GridRoot);
+
+            PrototypeDungeonRunHost[] hosts = scene.GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<PrototypeDungeonRunHost>(true))
+                .ToArray();
+            if (hosts.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon scene '{scene.path}' contains multiple run hosts.");
+            }
+
+            PrototypeDungeonRunHost host;
+            if (hosts.Length == 0)
+            {
+                var hostObject = new GameObject("DungeonRunBootstrap");
+                SceneManager.MoveGameObjectToScene(hostObject, scene);
+                host = hostObject.AddComponent<PrototypeDungeonRunHost>();
+            }
+            else
+            {
+                host = hosts[0];
+                host.gameObject.name = "DungeonRunBootstrap";
+                host.transform.SetParent(null);
+            }
+            host.Configure(0, combatRoomCatalog, specialRoomCatalog, true);
+
+            EditorUtility.SetDirty(context.GridRoot);
+            EditorUtility.SetDirty(doorPresenter);
+            EditorUtility.SetDirty(binder);
+            EditorUtility.SetDirty(host);
+        }
+
+        private static Renderer[] SynchronizeDungeonBoundary(
+            TestSandboxContext context)
+        {
+            Transform environment = context.GridRoot.Find("Environment");
+            if (environment == null)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon room is missing its Environment root.");
+            }
+            Transform boundary = environment.Find("BoundaryWalls");
+            if (boundary == null)
+            {
+                boundary = CreateChild("BoundaryWalls", environment);
+            }
+
+            string[] expectedNames =
+            {
+                "NorthWallWest", "NorthWallEast",
+                "SouthWallWest", "SouthWallEast",
+                "EastWallSouth", "EastWallNorth",
+                "WestWallSouth", "WestWallNorth",
+                "NorthDoor", "EastDoor", "SouthDoor", "WestDoor",
+            };
+            var expected = new HashSet<string>(expectedNames, StringComparer.Ordinal);
+            for (int index = boundary.childCount - 1; index >= 0; index--)
+            {
+                Transform child = boundary.GetChild(index);
+                if (!expected.Contains(child.name))
+                {
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                }
+            }
+
+            PrototypeCombatRoomDefinitionAsset definition = context.RoomDefinition;
+            CombatRoomDefinition room = definition.CreateCoreDefinition();
+            float cellSize = definition.CellSize;
+            float boundaryX = ((room.Width / 2) + 1) * cellSize;
+            float boundaryZ = ((room.Depth / 2) + 1) * cellSize;
+            float horizontalLength = ((room.Width + 2) * cellSize - cellSize) * 0.5f;
+            float verticalLength = (room.Depth * cellSize - cellSize) * 0.5f;
+            float horizontalCenter = (cellSize + horizontalLength) * 0.5f;
+            float verticalCenter = (cellSize + verticalLength) * 0.5f;
+            Material wallMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                MaterialsPath + "/Wall.mat");
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Material doorMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/DungeonDoor.mat",
+                shader,
+                new Color(0.18f, 0.22f, 0.27f, 1f));
+
+            EnsureBoundaryPrimitive(
+                boundary, "NorthWallWest",
+                new Vector3(-horizontalCenter, 0.5f, boundaryZ),
+                new Vector3(horizontalLength, 1f, cellSize), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "NorthWallEast",
+                new Vector3(horizontalCenter, 0.5f, boundaryZ),
+                new Vector3(horizontalLength, 1f, cellSize), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "SouthWallWest",
+                new Vector3(-horizontalCenter, 0.5f, -boundaryZ),
+                new Vector3(horizontalLength, 1f, cellSize), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "SouthWallEast",
+                new Vector3(horizontalCenter, 0.5f, -boundaryZ),
+                new Vector3(horizontalLength, 1f, cellSize), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "EastWallSouth",
+                new Vector3(boundaryX, 0.5f, -verticalCenter),
+                new Vector3(cellSize, 1f, verticalLength), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "EastWallNorth",
+                new Vector3(boundaryX, 0.5f, verticalCenter),
+                new Vector3(cellSize, 1f, verticalLength), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "WestWallSouth",
+                new Vector3(-boundaryX, 0.5f, -verticalCenter),
+                new Vector3(cellSize, 1f, verticalLength), wallMaterial, true);
+            EnsureBoundaryPrimitive(
+                boundary, "WestWallNorth",
+                new Vector3(-boundaryX, 0.5f, verticalCenter),
+                new Vector3(cellSize, 1f, verticalLength), wallMaterial, true);
+
+            Renderer north = EnsureBoundaryPrimitive(
+                boundary, "NorthDoor", new Vector3(0f, 0.45f, boundaryZ),
+                new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
+                doorMaterial, false);
+            Renderer east = EnsureBoundaryPrimitive(
+                boundary, "EastDoor", new Vector3(boundaryX, 0.45f, 0f),
+                new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
+                doorMaterial, false);
+            Renderer south = EnsureBoundaryPrimitive(
+                boundary, "SouthDoor", new Vector3(0f, 0.45f, -boundaryZ),
+                new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
+                doorMaterial, false);
+            Renderer west = EnsureBoundaryPrimitive(
+                boundary, "WestDoor", new Vector3(-boundaryX, 0.45f, 0f),
+                new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
+                doorMaterial, false);
+            return new[] { north, east, south, west };
+        }
+
+        private static Renderer EnsureBoundaryPrimitive(
+            Transform parent,
+            string name,
+            Vector3 localPosition,
+            Vector3 localScale,
+            Material material,
+            bool keepCollider)
+        {
+            Transform existing = parent.Find(name);
+            GameObject instance = existing != null
+                ? existing.gameObject
+                : CreatePrimitive(
+                    name,
+                    PrimitiveType.Cube,
+                    parent,
+                    localPosition,
+                    localScale,
+                    material,
+                    keepCollider);
+            instance.transform.localPosition = localPosition;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = localScale;
+            Renderer renderer = instance.GetComponent<Renderer>();
+            if (renderer == null)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon boundary primitive '{name}' requires a renderer.");
+            }
+            renderer.sharedMaterial = material;
+            Collider collider = instance.GetComponent<Collider>();
+            if (keepCollider && collider == null)
+            {
+                instance.AddComponent<BoxCollider>();
+            }
+            else if (!keepCollider && collider != null)
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+            if (!keepCollider)
+            {
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            return renderer;
         }
 
         private static void CreateTestSandbox(
@@ -1471,6 +1926,18 @@ namespace BombSwap.Editor.ContentValidation
         {
             var scenes = new List<EditorBuildSettingsScene>
             {
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.DungeonStartScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.DungeonRewardScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.DungeonBossAnteScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.DungeonBossScenePath,
+                    true),
                 new EditorBuildSettingsScene(PrototypeContentValidator.TestSandboxScenePath, true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.TestSandboxLanesScenePath,

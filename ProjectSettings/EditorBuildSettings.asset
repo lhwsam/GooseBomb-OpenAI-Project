@@ -6,6 +6,18 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Game/Scenes/Dungeon/DungeonStart.unity
+    guid: 7286cb87e40b5a841b1348daee9b49e2
+  - enabled: 1
+    path: Assets/Game/Scenes/Dungeon/DungeonReward.unity
+    guid: 5121cbf843ffa8b45bc2746cc016e529
+  - enabled: 1
+    path: Assets/Game/Scenes/Dungeon/DungeonBossAnte.unity
+    guid: 93d2d13dc612bf843842519e6763806f
+  - enabled: 1
+    path: Assets/Game/Scenes/Dungeon/DungeonBoss.unity
+    guid: d4a3cc54431c17849aa8f968ada09e3b
+  - enabled: 1
     path: Assets/Game/Scenes/TestSandbox/TestSandbox.unity
     guid: 3dffb047c2f16df4fb8b5211136f7f17
   - enabled: 1
