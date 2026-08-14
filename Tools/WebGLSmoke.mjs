@@ -234,14 +234,13 @@ async function main() {
         : roomSequenceWaitError,
     });
 
-    let overlappingTurnObserved = false;
-    let overlappingTurnWaitError = null;
+    let bufferedTurnObserved = false;
+    let bufferedTurnWaitError = null;
     const turnEventStartIndex = await page.evaluate(() =>
       Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
         ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
         : 0);
     await page.keyboard.down("ArrowUp");
-    await page.keyboard.down("ArrowRight");
     try {
       await page.waitForFunction((startIndex) => {
         const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -249,30 +248,55 @@ async function main() {
         const names = events
           .slice(startIndex)
           .map((event) => typeof event === "string" ? event : event?.name);
-        const northIndex = names.indexOf("move-direction-north");
-        const eastIndex = names.indexOf("move-direction-east");
-        return northIndex >= 0 && eastIndex > northIndex;
+        return names.includes("move-step-direction-north");
       }, turnEventStartIndex, { timeout: 10_000 });
-      overlappingTurnObserved = true;
+
+      await page.keyboard.down("ArrowRight");
+      await page.waitForFunction((startIndex) => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        return events
+          .slice(startIndex)
+          .map((event) => typeof event === "string" ? event : event?.name)
+          .includes("move-direction-east");
+      }, turnEventStartIndex, { timeout: 10_000 });
+      await page.keyboard.up("ArrowRight");
+
+      await page.waitForFunction((startIndex) => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        const names = events
+          .slice(startIndex)
+          .map((event) => typeof event === "string" ? event : event?.name);
+        const eastCommandIndex = names.indexOf("move-direction-east");
+        const fallbackCommandIndex = names.indexOf("move-direction-north", eastCommandIndex + 1);
+        const eastStepIndex = names.indexOf("move-step-direction-east");
+        const resumedNorthStepIndex = names.indexOf("move-step-direction-north", eastStepIndex + 1);
+        return eastCommandIndex >= 0 &&
+          fallbackCommandIndex > eastCommandIndex &&
+          eastStepIndex > fallbackCommandIndex &&
+          resumedNorthStepIndex > eastStepIndex;
+      }, turnEventStartIndex, { timeout: 10_000 });
+      bufferedTurnObserved = true;
     } catch (error) {
-      overlappingTurnWaitError = String(error);
+      bufferedTurnWaitError = String(error);
     } finally {
       await page.keyboard.up("ArrowRight");
       await page.keyboard.up("ArrowUp");
     }
     checks.push({
-      name: "overlapping-cardinal-turn",
-      status: overlappingTurnObserved ? "passed" : "failed",
-      detail: overlappingTurnObserved
-        ? "ArrowRight replaced held ArrowUp before ArrowUp was released"
-        : overlappingTurnWaitError,
+      name: "buffered-cardinal-turn",
+      status: bufferedTurnObserved ? "passed" : "failed",
+      detail: bufferedTurnObserved
+        ? "A released ArrowRight tap produced one east step before held ArrowUp resumed"
+        : bufferedTurnWaitError,
     });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "move-step-direction-north", "move-step-direction-east", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

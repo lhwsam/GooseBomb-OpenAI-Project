@@ -29,6 +29,7 @@ sequenceDiagram
 - `BombSwapInputReader`는 게임 전용 `Gameplay` action map을 enable/disable 생명주기에 맞춰 대칭으로 구독한다.
 - focus 또는 application pause 상실 시 활성 이동을 `Move(None)`으로 해제하고 action map과 바인딩 장치 상태를 초기화한다.
 - `CardinalInputInterpreter`는 아날로그·복합 입력을 결정론적인 단일 상하좌우 방향으로 바꾸며, 동일 크기 두 축에 현재 방향이 포함되면 이전 축에 직교하는 새 전환 축을 우선한다.
+- `PlayerMovementSimulation`은 현재 유지 방향과 최신 pending turn 1개를 분리한다. 짧게 눌렀다 뗀 전환은 다음 셀 step에서 한 번 소비하고 유지 방향으로 복귀한다.
 - TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, `ChaserEnemySimulation`, `BombSimulation`, 플레이어·적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`은 현재 논리 셀의 폭탄 simulation으로 전달한다.
 - `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정 벽·플레이어/추격자 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
 - `PrototypePlayerController`, `PrototypeChaserPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 세션의 확정된 플레이어·적 이동, 설치·폭발·피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. 교체·pause 명령의 실제 규칙 소비자는 아직 없다.
