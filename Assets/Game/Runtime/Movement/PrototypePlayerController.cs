@@ -15,12 +15,6 @@ namespace BombSwap
 
         private GridSpace _gridSpace;
         private float _presentationHeight;
-        private Vector3 _visualStart;
-        private Vector3 _visualTarget;
-        private float _visualElapsed;
-        private float _visualDuration;
-        private bool _isInterpolating;
-
         public PrototypeGameSession Session => session;
 
         public Transform PlayerTransform => playerTransform;
@@ -64,7 +58,7 @@ namespace BombSwap
                     "PrototypePlayerController requires session and player Transform references.");
             }
 
-            session.PlayerMoved += OnPlayerMoved;
+            session.PlayerPositionChanged += OnPlayerPositionChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -76,25 +70,8 @@ namespace BombSwap
         {
             if (session != null)
             {
-                session.PlayerMoved -= OnPlayerMoved;
+                session.PlayerPositionChanged -= OnPlayerPositionChanged;
                 session.Ready -= OnSessionReady;
-            }
-        }
-
-        private void Update()
-        {
-            if (!_isInterpolating)
-            {
-                return;
-            }
-
-            _visualElapsed += Time.deltaTime;
-            float progress = Mathf.Clamp01(_visualElapsed / _visualDuration);
-            playerTransform.position = Vector3.LerpUnclamped(_visualStart, _visualTarget, progress);
-            if (progress >= 1f)
-            {
-                playerTransform.position = _visualTarget;
-                _isInterpolating = false;
             }
         }
 
@@ -111,28 +88,24 @@ namespace BombSwap
             }
 
             _gridSpace = session.GridSpace;
-            _visualDuration = 1f / session.CellsPerSecond;
             _presentationHeight = playerTransform.position.y - _gridSpace.Origin.y;
-            playerTransform.position = ToPresentationPosition(session.CurrentGridPosition);
-            _visualStart = playerTransform.position;
-            _visualTarget = playerTransform.position;
+            playerTransform.position = ToPresentationPosition(session.CurrentMovementPosition);
             IsInitialized = true;
         }
 
-        private void OnPlayerMoved(PlayerMovementStep step)
+        private void OnPlayerPositionChanged(
+            GridSubcellPosition position,
+            CardinalDirection _)
         {
             if (!IsInitialized)
             {
                 InitializePresentation();
             }
 
-            _visualStart = playerTransform.position;
-            _visualTarget = ToPresentationPosition(step.To);
-            _visualElapsed = 0f;
-            _isInterpolating = true;
+            playerTransform.position = ToPresentationPosition(position);
         }
 
-        private Vector3 ToPresentationPosition(GridPosition position)
+        private Vector3 ToPresentationPosition(GridSubcellPosition position)
         {
             return _gridSpace.GridToWorld(position) + (Vector3.up * _presentationHeight);
         }

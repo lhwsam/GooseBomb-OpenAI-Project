@@ -25,7 +25,7 @@
 
 카메라, 애니메이션, 발자국 VFX는 이 시스템의 권위 상태가 아니다.
 
-`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 진행하고 `PrototypePlayerController`가 확정된 이동을 placeholder Transform 보간으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
+`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 매 frame 진행하고 `PrototypePlayerController`가 Core 연속 위치를 placeholder Transform으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
 같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence와 두 칸 방향 유지로 플레이어를 추격한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, `PrototypeChaserPresenter`는 확정된 step만 3D placeholder에 보간한다.
 
@@ -46,20 +46,21 @@
 - `GridState.TryMoveActor`는 `ActorId`로 현재 셀을 찾고 상하좌우로 인접한 한 셀 사이에서 해당 actor의 점유와 양방향 위치 색인을 원자적으로 옮긴다.
 - 목적지가 `Floor`가 아니거나 actor/bomb 점유가 있으면 출발 셀을 바꾸지 않고 이동을 거부한다.
 - `GridState`는 정책과 분리된 원자적 전이 계층이므로 출발 셀에 actor와 bomb가 함께 있으면 actor만 옮기고 bomb는 남긴다. 통과 허용 여부는 `PlayerMovementSimulation`이 먼저 판정한다.
-- `PlayerMovementSimulation`은 `ActorId`, 주입된 `IGameClock`, 현재 셀, 유지 중인 네 방향, 다음 step 시각을 소유한다.
+- `GridSubcellPosition`은 셀 중심을 정수 값으로 갖는 연속 XZ 위치다. 플레이어의 셀 내부 진행도는 Core가 이 값으로 소유하며 Unity Transform은 권위 상태가 아니다.
+- `PlayerMovementSimulation`은 `ActorId`, 주입된 `IGameClock`, 현재 정수 셀, 연속 위치, 유지 중인 네 방향과 cells/s를 소유한다.
 - 성공한 설치 직후 소유자·현재 셀·활성 폭탄을 확인해 `ActorId`·`BombId`·설치 셀 한 쌍의 통과 권한을 부여한다. 이 권한이 없으면 출발 셀의 폭탄도 이동을 막는다.
 - 권한은 설치 셀에서 처음 성공적으로 나가거나 해당 폭탄이 먼저 제거되는 순간 종료한다. 셀 이탈 후에는 목적지 폭탄 차단 규칙 때문에 원래 폭탄 셀로 재진입할 수 없다.
-- 최초 방향 입력은 즉시 한 step을 시도한다. 누르고 있으면 기본 0.2초 간격으로 반복한다. 입력 의도는 두 직교 키가 겹친 순간 새 방향으로 즉시 바뀌지만, 논리 이동과 표현의 실제 꺾임은 현재 셀 이동이 끝나는 다음 예약 step에서 적용한다.
-- 이동 cadence 사이에 눌렀다 뗀 최신 방향 1개는 pending turn으로 보존한다. 다음 예약 step에서 한 번 소비한 뒤 현재 유지 방향으로 복귀하며, 더 최신 방향은 기존 pending을 교체하고 `Move(None)`은 pending을 지운다.
-- pending 목적지가 막히면 같은 step에서 현재 유지 방향을 시도하고 pending은 폐기한다. 실패한 이전 입력을 여러 셀 뒤에 실행하지 않는다.
-- 정지 후 즉시 재입력해도 기존 cadence를 우회해 이동 횟수를 늘릴 수 없다.
-- `PrototypeGameSession`은 TestSandbox의 11×9 바닥과 네 논리 장애물을 Core 격자로 만들고 이동과 폭탄 simulation에 공유한다. `PrototypePlayerController`는 기본 5 cells/s로 확정된 논리 셀 중심 사이를 선형 보간한다.
-- 논리 점유는 step 시작 시 목적 셀로 전이하며 Transform은 그 결과를 뒤따라 표현한다. 정확한 속도와 시각 곡선은 플레이테스트 대상이다.
+- 유지 방향은 다음 Unity frame에서 주입 시계의 경과 시간 × 기본 5 cells/s만큼 연속 위치를 진행한다. `Move(None)` 동안 위치는 변하지 않고 정지 중 시간도 다음 입력에 누적하지 않는다.
+- 방향 변경은 별도 셀 cadence나 pending queue 없이 다음 관찰 frame의 이동 축에 적용한다. 상하좌우만 허용하므로 한 frame의 변위는 한 축에만 생긴다.
+- 셀 경계를 통과할 때 `GridState.TryMoveActor`로 정수 점유를 전이하고 `PlayerMovementStep`을 발행한다. 큰 frame은 열린 각 셀을 순서대로 검사해 장애물을 건너뛰지 않는다.
+- 목적 셀이 막히면 플레이어는 현재 셀 중심보다 그 목적지 쪽으로 진행하지 않는다. 반대 경계에서 들어온 진행도만 중심까지 정리할 수 있다.
+- `PrototypeGameSession`은 TestSandbox의 11×9 바닥과 논리 장애물을 이동·폭탄 simulation에 공유하고 연속 위치 변경을 Unity 표현에 알린다. `PrototypePlayerController`는 독립 보간 없이 Core 위치를 직접 표시한다.
 
 ## 구현된 Unity 좌표 계약
 
 - `GridSpace`는 논리 `(0, 0)` 셀 중심에 대응하는 3D 원점과 양수 셀 크기를 값으로 소유한다.
 - `GridToWorld`는 정수 XZ를 셀 중심의 Unity `Vector3`로 바꾸고 Y는 격자 원점 높이를 사용한다.
+- `GridToWorld(GridSubcellPosition)`은 같은 원점·셀 크기로 Core 연속 XZ를 Unity 월드 위치로 바꾼다.
 - `WorldToGrid`는 Y를 논리 판정에서 제외하고 XZ만 변환한다.
 - 각 셀은 중심 기준 반열린 구간 `[n - 0.5, n + 0.5)`을 소유한다. 따라서 정확한 양의 반 칸 경계는 다음 셀, 정확한 음의 반 칸 경계는 0번 셀에 속한다.
 - NaN/무한대 원점·셀 크기·월드 위치와 `int`/Unity float 좌표 범위를 벗어나는 변환은 예외로 거부한다.
@@ -75,8 +76,8 @@
 
 ## 미정 사항
 
-- 기본 5 cells/s와 선형 보간의 최종 감각.
-- 논리 점유를 step 시작 시 목적 셀로 옮기는 정책과 더 연속적인 셀 경계 전이 정책의 비교.
+- 기본 5 cells/s와 Core 연속 위치 직접 표시의 최종 감각.
+- 플레이어 충돌 반경과 벽 모서리 코너 스냅 허용 폭.
 - actor끼리의 밀기/겹침 허용 정책.
 - 여러 적의 이동 순서, ID 발급과 동일 목적 셀 경합 정책.
 - 국소 Manhattan 추격이 실제 수제 방에서 막힐 때 사용할 경로 탐색 범위.
@@ -94,7 +95,7 @@
 - 점유 중 지형 변경 실패의 원자성.
 - 정의되지 않은 지형과 유효하지 않은 actor ID의 거부.
 - 인접 actor 점유의 원자적 전이, 벽·폭탄 차단, 출발 셀 bomb 보존.
-- 주입 시계 기반 최초/반복 cadence, 다음 셀 경계 방향 변경, 최신 1개 pending 소비·교체·막힘 fallback, 정지·재개 우회 방지.
+- 주입 시계 기반 frame 연속 진행, 해제 즉시 정지·시간 비누적, 빠른 방향 반복, 다중 셀 경계 순회와 막힌 셀 중심 제한.
 - 설치자 권한 없는 출발 차단, 소유자 한 번 탈출, 이탈 후 재진입 차단, 비소유자 권한 거부, 폭탄 제거 시 미사용 권한 종료.
 
 현재 PlayMode 테스트는 다음 Unity 연결 계약을 고정한다.
@@ -102,7 +103,7 @@
 - 임의 원점·셀 크기의 격자↔3D XZ 왕복 변환과 Y 분리.
 - 음수/양수 반 칸 경계의 반열린 구간 판정.
 - 잘못된 수치와 지원 범위 밖 좌표의 거부.
-- 실제 Input System 유지 입력에서 논리 셀 전이와 placeholder Transform 보간.
+- 실제 Input System 유지·해제·빠른 방향 반복에서 Core 연속 위치와 placeholder Transform의 동일 frame 반영.
 - 저작된 논리 장애물이 논리 위치와 시각 위치를 함께 차단함.
 - 실제 `Z` 설치 뒤 소유자가 셀을 빠져나오고 반대 입력으로 폭탄 셀에 재진입하지 못함.
 - 추격자가 플레이어와 공유하는 논리 격자에서 이동하고 presenter가 확정된 적 step을 보간함.

@@ -18,6 +18,16 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void GridToWorld_MapsContinuousSubcellCoordinates()
+        {
+            var gridSpace = new GridSpace(new Vector3(10f, 2.5f, -4f), 2f);
+
+            Vector3 world = gridSpace.GridToWorld(new GridSubcellPosition(0.25d, -0.4d));
+
+            Assert.That(world, Is.EqualTo(new Vector3(10.5f, 2.5f, -4.8f)));
+        }
+
+        [Test]
         public void WorldToGrid_MapsCellCenterBackToGridPosition()
         {
             var gridSpace = new GridSpace(new Vector3(10f, 2.5f, -4f), 1.5f);

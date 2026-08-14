@@ -31,8 +31,13 @@ namespace BombSwap
 
         public Vector3 GridToWorld(GridPosition position)
         {
-            double worldX = Origin.x + ((double)position.X * CellSize);
-            double worldZ = Origin.z + ((double)position.Z * CellSize);
+            return GridToWorld(GridSubcellPosition.AtCellCenter(position));
+        }
+
+        public Vector3 GridToWorld(GridSubcellPosition position)
+        {
+            double worldX = Origin.x + (position.X * CellSize);
+            double worldZ = Origin.z + (position.Z * CellSize);
 
             if (worldX < -float.MaxValue || worldX > float.MaxValue ||
                 worldZ < -float.MaxValue || worldZ > float.MaxValue)
@@ -40,7 +45,7 @@ namespace BombSwap
                 throw new ArgumentOutOfRangeException(
                     nameof(position),
                     position,
-                    "Grid position maps outside the supported Unity world coordinate range.");
+                    "Grid subcell position maps outside the supported Unity world coordinate range.");
             }
 
             return new Vector3((float)worldX, Origin.y, (float)worldZ);

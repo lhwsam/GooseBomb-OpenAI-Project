@@ -28,7 +28,7 @@
 - `CardinalInputInterpreter`: `Vector2`를 네 방향 이동 의도로 축소한다.
 - `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 의미와 이동 방향을 보존하는 Core 값이다.
 - `PrototypeGameSession`: TestSandbox에서 공유 시계·격자를 소유하고 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`을 `BombSimulation`에 전달한다.
-- `PrototypePlayerController`: 확정된 이동 결과만 받아 placeholder Transform을 보간한다.
+- `PrototypePlayerController`: Core 연속 위치 변경을 받아 placeholder Transform에 직접 표시한다.
 - 향후 세션 확장: 교체·pause 명령도 논리 시간과 함께 소유 simulation에 전달한다.
 
 입력 계층은 이동 가능 여부, 폭탄 설치 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에서 이동과 설치 성공은 공유 Core simulation이 판정하고 Transform/prefab이 그 결과를 표현한다. 교체·pause 소비자는 아직 없다.
@@ -37,7 +37,7 @@
 
 - `Move` performed/canceled에서 방향이 바뀔 때만 새 이동 명령을 발행한다.
 - 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
-- 입력 어댑터가 발행하는 `Move`는 현재 유지 방향이다. 이동 cadence 사이의 짧은 전환을 한 번 보존하는 책임은 [격자와 이동](GridAndMovement.md)의 Core pending turn이 소유한다.
+- 입력 어댑터가 발행하는 `Move`는 현재 유지 방향이다. Core 이동은 별도 0.2초 입력 cadence나 방향 queue 없이 다음 관찰 frame의 연속 위치에 이 방향을 적용한다.
 - 이동 해제는 `Move(None)`으로 표현한다.
 - 설치·교체·pause는 버튼의 performed 시점에 한 번 발행한다.
 - 컴포넌트 비활성화 또는 application focus/pause 상실 시 활성 이동을 즉시 `None`으로 해제한다.
@@ -58,20 +58,20 @@
 ## WebGL 고려사항
 
 - canvas focus 상실 중 key-up이 누락되어도 `SetInputFocus(false)` 경계에서 이동을 해제한다.
-- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 게임 세션이 입력 구독을 완료한 뒤 `probe-ready`와 `room-ready-<room-id>`를 보내고, 입력 방향 변경 `move-direction-<direction>`, 최초로 성공한 논리 셀 이동·폭탄 설치·폭발과 관찰한 swap, pause→resume 한 쌍을 브라우저 검증 배열에 기록한다.
+- 개발 WebGL 빌드의 `PrototypeInputHarnessProbe`는 게임 세션이 입력 구독을 완료한 뒤 `probe-ready`와 `room-ready-<room-id>`를 보내고, 입력 방향 `move-direction-*`, 실제 frame 이동 `move-motion-direction-*`, 논리 셀 경계 전이 `move-step-direction-*`, 폭탄·전투와 swap·pause 사건을 브라우저 검증 배열에 기록한다.
 - `audio-unlocked` probe는 사용자 입력을 게임이 수신한 시점을 표시할 뿐 실제 오디오 클립 재생을 증명하지 않는다. 실제 오디오 연결 후 브라우저에서 별도로 확인해야 한다.
 - probe와 `.jslib` 브리지는 개발 빌드 검증용이며 게임 규칙의 권위 API가 아니다.
 
 ## 자동 테스트
 
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
-- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침 중 새 방향 명령, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지 입력→논리 셀→Transform 보간.
+- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서는 `ArrowUp` 실제 step 직후 `ArrowRight`를 짧게 눌렀다 떼고, 명령이 North로 복귀한 뒤에도 확정 이동이 `East → North` 순서인지 확인한다.
+- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서는 `ArrowUp/ArrowRight` 단타를 여섯 번 교대하고 각 key release 전에 대응하는 실제 `move-motion-direction-*`이 발생해야 하며, 정지 상태 폭탄으로 자기 폭발 피해도 별도 확인한다.
 
 ## 미정 사항과 종료 조건
 
-- 동일 크기 두 축에서 새 직교 방향을 우선하는 입력 정책은 PT-20260814-01 결함 수정으로 채택했다. 기본 5 cells/s, 선형 보간과 셀 경계 방향 적용 시점은 후속 조작감 비교 전까지 `Proposed`다.
+- 동일 크기 두 축에서 새 직교 방향을 우선하는 정책과 frame 연속 이동은 PT-20260814-01 결함 수정으로 채택했다. 기본 5 cells/s, 코너 보정 폭과 셀 경계 판정 가독성은 후속 조작감 비교 전까지 `Proposed`다.
 - 사용자 리바인딩과 UI 전용 action map은 프로토타입 코어 전투 이후 결정한다.
 - 게임패드 binding은 자동 구조 검증만 완료했으며 목표 기기 수동 플레이가 남아 있다.
 - pause 명령이 논리 시계와 UI를 실제로 멈추는 연결은 아직 없다.

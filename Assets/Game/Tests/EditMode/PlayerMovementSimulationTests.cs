@@ -8,162 +8,165 @@ namespace BombSwap.Tests.EditMode
     {
         private static readonly ActorId PlayerActor = new ActorId(1);
         private static readonly ActorId OtherActor = new ActorId(2);
-        private static readonly TimeSpan StepInterval = TimeSpan.FromMilliseconds(200);
         private static readonly GridPosition Start = new GridPosition(0, 0);
+        private const double CellsPerSecond = 5d;
 
         [Test]
-        public void Constructor_ClaimsStartingCellAsAuthoritativeActorPosition()
+        public void Constructor_ClaimsStartingCellAndSubcellCenterAsAuthority()
         {
             GridState grid = CreateFloorGrid();
 
-            var movement = CreateMovement(grid, new ManualGameClock());
+            PlayerMovementSimulation movement = CreateMovement(
+                grid,
+                new ManualGameClock());
 
             Assert.That(movement.ActorId, Is.EqualTo(PlayerActor));
             Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+            Assert.That(movement.Position, Is.EqualTo(GridSubcellPosition.AtCellCenter(Start)));
+            Assert.That(movement.CellsPerSecond, Is.EqualTo(CellsPerSecond));
             Assert.That(grid.GetCell(Start).HasActor, Is.True);
             Assert.That(grid.TryGetActorPosition(PlayerActor, out GridPosition stored), Is.True);
             Assert.That(stored, Is.EqualTo(Start));
         }
 
         [Test]
-        public void FirstHeldDirection_MovesImmediatelyThenObservesCadence()
+        public void HeldDirection_AdvancesEveryObservedFrameWithoutCadenceGate()
         {
             GridState grid = CreateFloorGrid();
             var clock = new ManualGameClock();
             PlayerMovementSimulation movement = CreateMovement(grid, clock);
             movement.SetMoveDirection(CardinalDirection.North);
 
-            bool firstMoved = movement.TryAdvance(out PlayerMovementStep firstStep);
-            bool repeatedImmediately = movement.TryAdvance(out _);
-            clock.Advance(StepInterval - TimeSpan.FromMilliseconds(1));
-            bool repeatedTooEarly = movement.TryAdvance(out _);
-            clock.Advance(TimeSpan.FromMilliseconds(1));
-            bool secondMoved = movement.TryAdvance(out PlayerMovementStep secondStep);
-
-            Assert.That(firstMoved, Is.True);
-            Assert.That(firstStep, Is.EqualTo(new PlayerMovementStep(Start, Start.Offset(0, 1), CardinalDirection.North)));
-            Assert.That(repeatedImmediately, Is.False);
-            Assert.That(repeatedTooEarly, Is.False);
-            Assert.That(secondMoved, Is.True);
-            Assert.That(secondStep.To, Is.EqualTo(Start.Offset(0, 2)));
-        }
-
-        [Test]
-        public void DirectionChange_UsesNewDirectionAtNextScheduledStep()
-        {
-            GridState grid = CreateFloorGrid();
-            var clock = new ManualGameClock();
-            PlayerMovementSimulation movement = CreateMovement(grid, clock);
-            movement.SetMoveDirection(CardinalDirection.North);
-            movement.TryAdvance(out _);
-
-            movement.SetMoveDirection(CardinalDirection.East);
-            clock.Advance(StepInterval);
-
-            Assert.That(movement.TryAdvance(out PlayerMovementStep step), Is.True);
-            Assert.That(step.To, Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(step.Direction, Is.EqualTo(CardinalDirection.East));
-        }
-
-        [Test]
-        public void ShortPerpendicularTap_IsConsumedOnceBeforeHeldDirectionResumes()
-        {
-            GridState grid = CreateFloorGrid();
-            var clock = new ManualGameClock();
-            PlayerMovementSimulation movement = CreateMovement(grid, clock);
-            movement.SetMoveDirection(CardinalDirection.North);
-            Assert.That(movement.TryAdvance(out _), Is.True);
+            Assert.That(movement.Advance(), Is.False);
 
             clock.Advance(TimeSpan.FromMilliseconds(50));
-            movement.SetMoveDirection(CardinalDirection.East);
+            Assert.That(movement.Advance(), Is.True);
+            Assert.That(movement.Position.X, Is.Zero);
+            Assert.That(movement.Position.Z, Is.EqualTo(0.25d).Within(0.000001d));
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+            Assert.That(movement.LastCellSteps, Is.Empty);
+
             clock.Advance(TimeSpan.FromMilliseconds(50));
-            movement.SetMoveDirection(CardinalDirection.North);
-            clock.Advance(TimeSpan.FromMilliseconds(100));
-
-            Assert.That(movement.TryAdvance(out PlayerMovementStep bufferedTurn), Is.True);
-            Assert.That(bufferedTurn.Direction, Is.EqualTo(CardinalDirection.East));
-            Assert.That(bufferedTurn.To, Is.EqualTo(new GridPosition(1, 1)));
-
-            clock.Advance(StepInterval);
-
-            Assert.That(movement.TryAdvance(out PlayerMovementStep resumedHold), Is.True);
-            Assert.That(resumedHold.Direction, Is.EqualTo(CardinalDirection.North));
-            Assert.That(resumedHold.To, Is.EqualTo(new GridPosition(1, 2)));
+            Assert.That(movement.Advance(), Is.True);
+            Assert.That(movement.Position.Z, Is.EqualTo(0.5d).Within(0.000001d));
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start.Offset(0, 1)));
+            Assert.That(movement.LastCellSteps, Has.Count.EqualTo(1));
+            Assert.That(movement.LastCellSteps[0].Direction, Is.EqualTo(CardinalDirection.North));
         }
 
         [Test]
-        public void LatestTurn_ReplacesOlderBufferedTurn()
+        public void ReleasedDirection_StopsImmediatelyWithoutCompletingOrAccumulatingDistance()
         {
             GridState grid = CreateFloorGrid();
             var clock = new ManualGameClock();
             PlayerMovementSimulation movement = CreateMovement(grid, clock);
             movement.SetMoveDirection(CardinalDirection.North);
-            Assert.That(movement.TryAdvance(out _), Is.True);
-
-            movement.SetMoveDirection(CardinalDirection.East);
-            movement.SetMoveDirection(CardinalDirection.South);
-            clock.Advance(StepInterval);
-
-            Assert.That(movement.TryAdvance(out PlayerMovementStep step), Is.True);
-            Assert.That(step.Direction, Is.EqualTo(CardinalDirection.South));
-            Assert.That(step.To, Is.EqualTo(Start));
-        }
-
-        [Test]
-        public void BlockedBufferedTurn_FallsBackToStillHeldDirectionInSameStep()
-        {
-            GridState grid = CreateFloorGrid();
-            var clock = new ManualGameClock();
-            PlayerMovementSimulation movement = CreateMovement(grid, clock);
-            movement.SetMoveDirection(CardinalDirection.North);
-            Assert.That(movement.TryAdvance(out _), Is.True);
-            Assert.That(
-                grid.TrySetTerrain(new GridPosition(1, 1), GridTerrain.IndestructibleWall),
-                Is.True);
-
-            movement.SetMoveDirection(CardinalDirection.East);
-            movement.SetMoveDirection(CardinalDirection.North);
-            clock.Advance(StepInterval);
-
-            Assert.That(movement.TryAdvance(out PlayerMovementStep step), Is.True);
-            Assert.That(step.Direction, Is.EqualTo(CardinalDirection.North));
-            Assert.That(step.To, Is.EqualTo(new GridPosition(0, 2)));
-        }
-
-        [Test]
-        public void StopAndImmediateResume_DoesNotBypassExistingCadence()
-        {
-            GridState grid = CreateFloorGrid();
-            var clock = new ManualGameClock();
-            PlayerMovementSimulation movement = CreateMovement(grid, clock);
-            movement.SetMoveDirection(CardinalDirection.North);
-            movement.TryAdvance(out _);
+            clock.Advance(TimeSpan.FromMilliseconds(50));
+            Assert.That(movement.Advance(), Is.True);
+            GridSubcellPosition released = movement.Position;
 
             movement.SetMoveDirection(CardinalDirection.None);
-            movement.SetMoveDirection(CardinalDirection.North);
+            clock.Advance(TimeSpan.FromSeconds(1));
 
-            Assert.That(movement.TryAdvance(out _), Is.False);
-            clock.Advance(StepInterval);
-            Assert.That(movement.TryAdvance(out _), Is.True);
+            Assert.That(movement.Advance(), Is.False);
+            Assert.That(movement.Position, Is.EqualTo(released));
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+
+            movement.SetMoveDirection(CardinalDirection.East);
+            Assert.That(movement.Advance(), Is.False);
+            clock.Advance(TimeSpan.FromMilliseconds(20));
+            Assert.That(movement.Advance(), Is.True);
+            Assert.That(movement.Position.X, Is.EqualTo(0.1d).Within(0.000001d));
+            Assert.That(movement.Position.Z, Is.EqualTo(released.Z).Within(0.000001d));
         }
 
         [Test]
-        public void WallAndBombDestinations_BlockWithoutChangingCurrentPosition()
+        public void DirectionChange_AppliesDuringNextObservedFrame()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            movement.SetMoveDirection(CardinalDirection.North);
+            clock.Advance(TimeSpan.FromMilliseconds(40));
+            movement.Advance();
+
+            movement.SetMoveDirection(CardinalDirection.East);
+            clock.Advance(TimeSpan.FromMilliseconds(40));
+
+            Assert.That(movement.Advance(), Is.True);
+            Assert.That(movement.Position.X, Is.EqualTo(0.2d).Within(0.000001d));
+            Assert.That(movement.Position.Z, Is.EqualTo(0.2d).Within(0.000001d));
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+        }
+
+        [Test]
+        public void RapidAlternatingDirections_PreserveEveryFrameSizedIntent()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            CardinalDirection[] directions =
+            {
+                CardinalDirection.North,
+                CardinalDirection.East,
+                CardinalDirection.North,
+                CardinalDirection.East,
+                CardinalDirection.North,
+                CardinalDirection.East,
+            };
+
+            for (int index = 0; index < directions.Length; index++)
+            {
+                movement.SetMoveDirection(directions[index]);
+                clock.Advance(TimeSpan.FromMilliseconds(20));
+                Assert.That(movement.Advance(), Is.True);
+            }
+
+            Assert.That(movement.Position.X, Is.EqualTo(0.3d).Within(0.000001d));
+            Assert.That(movement.Position.Z, Is.EqualTo(0.3d).Within(0.000001d));
+            Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+        }
+
+        [Test]
+        public void LargeAdvance_CrossesEveryOpenBoundaryAndStopsAtLastCellCenter()
+        {
+            GridState grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+            movement.SetMoveDirection(CardinalDirection.North);
+            clock.Advance(TimeSpan.FromMilliseconds(500));
+
+            Assert.That(movement.Advance(), Is.True);
+            Assert.That(movement.CurrentPosition, Is.EqualTo(new GridPosition(0, 2)));
+            Assert.That(movement.Position.Z, Is.EqualTo(2d).Within(0.000001d));
+            Assert.That(movement.LastCellSteps, Has.Count.EqualTo(2));
+            Assert.That(movement.LastCellSteps[0].To, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(movement.LastCellSteps[1].To, Is.EqualTo(new GridPosition(0, 2)));
+        }
+
+        [Test]
+        public void WallAndBombDestinations_BlockWithoutMovingFromCellCenter()
         {
             GridState wallGrid = CreateFloorGrid();
             wallGrid.TrySetTerrain(Start.Offset(0, 1), GridTerrain.IndestructibleWall);
-            PlayerMovementSimulation wallMovement = CreateMovement(wallGrid, new ManualGameClock());
+            var wallClock = new ManualGameClock();
+            PlayerMovementSimulation wallMovement = CreateMovement(wallGrid, wallClock);
             wallMovement.SetMoveDirection(CardinalDirection.North);
+            wallClock.Advance(TimeSpan.FromMilliseconds(100));
 
             GridState bombGrid = CreateFloorGrid();
             bombGrid.TryAddBomb(Start.Offset(1, 0));
-            PlayerMovementSimulation bombMovement = CreateMovement(bombGrid, new ManualGameClock());
+            var bombClock = new ManualGameClock();
+            PlayerMovementSimulation bombMovement = CreateMovement(bombGrid, bombClock);
             bombMovement.SetMoveDirection(CardinalDirection.East);
+            bombClock.Advance(TimeSpan.FromMilliseconds(100));
 
-            Assert.That(wallMovement.TryAdvance(out _), Is.False);
+            Assert.That(wallMovement.Advance(), Is.False);
             Assert.That(wallMovement.CurrentPosition, Is.EqualTo(Start));
-            Assert.That(bombMovement.TryAdvance(out _), Is.False);
+            Assert.That(wallMovement.Position, Is.EqualTo(GridSubcellPosition.AtCellCenter(Start)));
+            Assert.That(bombMovement.Advance(), Is.False);
             Assert.That(bombMovement.CurrentPosition, Is.EqualTo(Start));
+            Assert.That(bombMovement.Position, Is.EqualTo(GridSubcellPosition.AtCellCenter(Start)));
         }
 
         [Test]
@@ -175,16 +178,18 @@ namespace BombSwap.Tests.EditMode
             BombSimulation bombs = CreateBombSimulation(grid, clock);
             Assert.That(bombs.TryPlaceBomb(CreateBombDefinition(), Start, PlayerActor, out _), Is.True);
             movement.SetMoveDirection(CardinalDirection.North);
+            clock.Advance(TimeSpan.FromMilliseconds(100));
 
-            bool moved = movement.TryAdvance(out _);
+            bool moved = movement.Advance();
 
             Assert.That(moved, Is.False);
             Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
+            Assert.That(movement.Position, Is.EqualTo(GridSubcellPosition.AtCellCenter(Start)));
             Assert.That(movement.HasBombPassThrough, Is.False);
         }
 
         [Test]
-        public void OwnerPassThrough_AllowsOneExitThenBombBlocksReentry()
+        public void OwnerPassThrough_AllowsOneBoundaryExitThenBombBlocksReentry()
         {
             GridState grid = CreateFloorGrid();
             var clock = new ManualGameClock();
@@ -195,15 +200,19 @@ namespace BombSwap.Tests.EditMode
             movement.GrantBombPassThrough(bomb);
 
             movement.SetMoveDirection(CardinalDirection.North);
-            bool exited = movement.TryAdvance(out _);
+            clock.Advance(TimeSpan.FromMilliseconds(110));
+            bool exited = movement.Advance();
+            GridSubcellPosition exitedPosition = movement.Position;
+
             movement.SetMoveDirection(CardinalDirection.South);
-            clock.Advance(StepInterval);
-            bool reentered = movement.TryAdvance(out _);
+            clock.Advance(TimeSpan.FromMilliseconds(200));
+            bool reentered = movement.Advance();
 
             Assert.That(exited, Is.True);
             Assert.That(movement.HasBombPassThrough, Is.False);
             Assert.That(reentered, Is.False);
             Assert.That(movement.CurrentPosition, Is.EqualTo(Start.Offset(0, 1)));
+            Assert.That(movement.Position, Is.EqualTo(exitedPosition));
             Assert.That(grid.GetCell(Start).HasBomb, Is.True);
         }
 
@@ -238,7 +247,22 @@ namespace BombSwap.Tests.EditMode
             movement.SetMoveDirection(CardinalDirection.North);
 
             Assert.That(movement.HasBombPassThrough, Is.False);
-            Assert.That(movement.TryAdvance(out _), Is.True);
+            Assert.That(movement.Advance(), Is.True);
+        }
+
+        [TestCase(0d)]
+        [TestCase(-1d)]
+        [TestCase(double.NaN)]
+        [TestCase(double.PositiveInfinity)]
+        public void Constructor_RejectsInvalidMovementSpeed(double cellsPerSecond)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerMovementSimulation(
+                    CreateFloorGrid(),
+                    new ManualGameClock(),
+                    PlayerActor,
+                    Start,
+                    cellsPerSecond));
         }
 
         [Test]
@@ -251,6 +275,15 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 movement.SetMoveDirection((CardinalDirection)99));
             Assert.That(movement.MoveDirection, Is.EqualTo(CardinalDirection.None));
+        }
+
+        [Test]
+        public void GridSubcellPosition_RejectsNonFiniteCoordinates()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new GridSubcellPosition(double.NaN, 0d));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new GridSubcellPosition(0d, double.PositiveInfinity));
         }
 
         [Test]
@@ -269,7 +302,7 @@ namespace BombSwap.Tests.EditMode
                 clock,
                 PlayerActor,
                 Start,
-                StepInterval);
+                CellsPerSecond);
         }
 
         private static BombSimulation CreateBombSimulation(

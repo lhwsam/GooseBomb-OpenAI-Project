@@ -1,6 +1,6 @@
 # 방향 전환 응답성 수직 슬라이스
 
-- 상태: 2차 입력 버퍼 구현 및 자동 검증 완료, 참가자 수동 재확인 대기
+- 상태: `Superseded` — 후속 체감에서 0.2초 cadence 자체가 원인으로 확인되어 [프레임 반응형 플레이어 이동](ContinuousPlayerMovementSlice.md)으로 대체
 - 근거 세션: [PT-20260814-01](../Playtesting/Results/PT-20260814-01.md)
 - 적용 계층: `BombSwap.Core` 이동 simulation, `BombSwap.Unity` 입력 어댑터와 WebGL 개발 검증 하네스
 
