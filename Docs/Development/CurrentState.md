@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 결정론적 던전 Core와 실제 Start→전투방 WebGL 수직 슬라이스 완료, 전투 클리어 뒤 보상방·왕복 탐색 확장 전
+- 단계: Start→첫 전투 클리어→보상방→왕복→다음 전투방 WebGL 탐색 수직 슬라이스 완료, 실제 보상 선택 연결 전
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -94,6 +94,7 @@
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.
 - `PrototypeDungeonRoomBinder`가 저작된 전투 가능 여부와 Core 클리어 상태에서 방문별 전투 활성 여부를 분리해, 클리어한 전투·보스방 재입장에서는 적 simulation·표현을 생성하지 않고 열린 문을 유지하도록 구현.
+- WebGL 자동 smoke가 첫 전투를 실제 두 폭탄으로 클리어하고 보상방·클리어 전투방·보상방·다음 전투방을 왕복해, 방 node·타입·활성/클리어 상태와 적 미재생성을 한 세션에서 검증하도록 확장.
 
 ## 현재 저장소 사실
 
@@ -134,13 +135,13 @@
 ## 진행 중
 
 - 최신 4방 WebGL에서 파괴 블록·돌진형·갑옷 적이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
-- 첫 전투방 클리어→보상 placeholder→다음 전투와 이전 방 왕복을 한 세션에서 검증하고 special room의 실제 역할을 점진적으로 교체한다.
+- 검증된 탐색 수명 위에서 `DungeonReward` placeholder를 첫 실제 폭탄 선택과 두 슬롯 loadout persistence로 교체한다.
 
 ## 바로 다음 권장 작업
 
 1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
-2. seed-0 Start→첫 전투 자동 스모크를 전투 클리어→보상방→다음 전투·이전 방 왕복까지 확장하고, 구현된 클리어 방 재입장 정책을 실제 WebGL에서 확인한다.
-3. `DungeonReward`에 첫 실제 폭탄 선택을 연결하고 선택 결과를 두 슬롯 loadout persistence로 넘긴다.
+2. `DungeonReward`에 첫 실제 폭탄 선택을 연결하고 선택 결과를 두 슬롯 loadout persistence로 넘긴다.
+3. 선택한 loadout을 유지한 채 보스 전실·보스 placeholder까지 seed-0 전체 주 경로 탐색 회귀를 확장한다.
 
 ## 알려진 위험과 미정
 
@@ -151,7 +152,7 @@
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. 접촉 압력은 연결됐지만 실제 공정성과 유도 재미는 아직 플레이테스트하지 않았다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 던전 8개 씬 Development WebGL 빌드는 약 141.6 MB이며 최종 연결 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
+- 던전 8개 씬 Development WebGL 빌드는 137,444,848 bytes이며 최종 연결 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
@@ -220,4 +221,6 @@
 - 특수방 catalog·navigator·host 대상 `PrototypeDungeonRunSessionTests` 10/10 통과. 직렬화 catalog 시작 검증, 필수 타입과 고유 씬, 로드 불가·중복·씬 불일치의 Core 불변, 기대 씬 단일 commit과 host primary 단일성을 포함한다. 최종 증거 `Artifacts/Verification/ConnectedTests/20260814-122518-725.json`.
 - 전환 host 연결 뒤 전체 EditMode 244/244, PlayMode 84/84 통과, 실패·건너뜀 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-122150-723.json`, `Artifacts/Verification/ConnectedTests/20260814-122207-191.json`. Unity Console Error 0, 정적 검증 `Artifacts/Verification/20260814-212627-static/` 통과. 실제 씬·Build Settings는 아직 변경하지 않아 WebGL 재빌드는 문/씬 authoring 슬라이스에 남겼다.
 - 프레임 입력 재샘플링과 던전 씬 연결 뒤 전체 EditMode 244/244, PlayMode 88/88 통과. 실제 8씬 Development WebGL에서 빠른 방향 반복, Start→첫 전투, 폭탄·Console 회귀를 확인했다. 증거 `Artifacts/Verification/20260814-223500-frame-input-web/`.
-- 클리어 방 재입장 대상 PlayMode 3/3과 전체 PlayMode 91/91 통과. 실제 `DungeonStart`·seed-0 첫 전투 씬을 왕복해 첫 입장의 적·잠긴 문과 재입장의 적 0·미생성 chaser presenter·열린 문을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-134758-245.json`, `Artifacts/Verification/ConnectedTests/20260814-134906-797.json`. 브라우저 연속 왕복 검증은 다음 슬라이스에서 수행한다.
+- 클리어 방 재입장 대상 PlayMode 3/3과 전체 PlayMode 91/91 통과. 실제 `DungeonStart`·seed-0 첫 전투 씬을 왕복해 첫 입장의 적·잠긴 문과 재입장의 적 0·미생성 chaser presenter·열린 문을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-134758-245.json`, `Artifacts/Verification/ConnectedTests/20260814-141950-343.json`.
+- 던전 탐색 최종 코드로 EditMode 244/244 통과, Unity Console Error 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-142631-807.json`.
+- Development WebGL 8개 씬 빌드 성공: 137,444,848 bytes, 49.082초, 오류 0, 경고 3. Edge headless smoke 15개 검사가 Start→첫 전투 클리어→보상방→클리어 전투방 재입장(적 사건 0)→보상방→다음 전투방의 다섯 transition/commit, 방향 입력·두 폭탄·pause/resize와 Console/page error 0을 확인했다. 정적 서버 회귀도 통과했으며 증거는 `Artifacts/Verification/20260814-231000-dungeon-traversal-web/`에 남겼다.

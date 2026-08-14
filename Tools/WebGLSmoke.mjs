@@ -104,6 +104,72 @@ async function moveSteps(page, key, direction, count) {
   }
 }
 
+async function getLastPlayerCell(page) {
+  return page.evaluate(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      const match = /^player-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+      if (match) return { x: Number(match[1]), z: Number(match[2]) };
+    }
+    return null;
+  });
+}
+
+async function moveToCell(page, targetX, targetZ, order = "xz") {
+  const axes = order === "zx" ? ["z", "x"] : ["x", "z"];
+  for (const axis of axes) {
+    const current = await getLastPlayerCell(page);
+    if (!current) throw new Error("The gameplay probe did not report a player cell.");
+    const target = axis === "x" ? targetX : targetZ;
+    const delta = target - current[axis];
+    if (delta === 0) continue;
+    const positive = delta > 0;
+    const key = axis === "x"
+      ? positive ? "ArrowRight" : "ArrowLeft"
+      : positive ? "ArrowUp" : "ArrowDown";
+    const direction = axis === "x"
+      ? positive ? "east" : "west"
+      : positive ? "north" : "south";
+    await moveSteps(page, key, direction, Math.abs(delta));
+  }
+
+  const finalCell = await getLastPlayerCell(page);
+  if (!finalCell || finalCell.x !== targetX || finalCell.z !== targetZ) {
+    throw new Error(
+      `Expected player cell (${targetX}, ${targetZ}), observed ${JSON.stringify(finalCell)}.`,
+    );
+  }
+}
+
+async function triggerBoundaryTransition(page, key, expectedRoomEvent, expectedCount = 1) {
+  const transitionsBefore = await eventCount(page, "dungeon-transition-started");
+  const commitsBefore = await eventCount(page, "dungeon-room-committed");
+  const probesBefore = await eventCount(page, "probe-ready");
+  await page.keyboard.down(key);
+  try {
+    await waitForEvent(page, "dungeon-transition-started", {
+      count: transitionsBefore + 1,
+      timeout: 30_000,
+    });
+    await waitForEvent(page, expectedRoomEvent, {
+      count: expectedCount,
+      timeout: 60_000,
+    });
+    await waitForEvent(page, "dungeon-room-committed", {
+      count: commitsBefore + 1,
+      timeout: 60_000,
+    });
+    await waitForEvent(page, "probe-ready", {
+      count: probesBefore + 1,
+      timeout: 60_000,
+    });
+  } finally {
+    await page.keyboard.up(key);
+  }
+}
+
 async function verifyRapidCardinalTurns(page) {
   const startIndex = await page.evaluate(() =>
     Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
@@ -205,6 +271,7 @@ async function main() {
   const pageErrors = [];
   const checks = [];
   let browser;
+  let page;
 
   try {
     const executablePath = resolveBrowserExecutable();
@@ -212,7 +279,7 @@ async function main() {
       headless: true,
       ...(executablePath ? { executablePath } : {}),
     });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
@@ -238,6 +305,9 @@ async function main() {
     await waitForEvent(page, "room-ready-prototype-combat-loop", {
       timeout: 120_000,
     });
+    await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
+      timeout: 120_000,
+    });
     checks.push({
       name: "dungeon-start-ready",
       status: "passed",
@@ -255,17 +325,15 @@ async function main() {
       detail: "Moved around the authored blockers to the deterministic west Start exit.",
     });
 
-    await page.keyboard.down("ArrowLeft");
-    try {
-      await waitForEvent(page, "dungeon-transition-started", { timeout: 30_000 });
-      await waitForEvent(page, "dungeon-room-committed", { timeout: 60_000 });
-      await waitForEvent(page, "room-ready-prototype-combat-pillars", {
-        timeout: 60_000,
-      });
-      await waitForEvent(page, "probe-ready", { count: 2, timeout: 60_000 });
-    } finally {
-      await page.keyboard.up("ArrowLeft");
-    }
+    await triggerBoundaryTransition(
+      page,
+      "ArrowLeft",
+      "dungeon-room-ready-2-combat-active",
+    );
+    await waitForEvent(page, "room-ready-prototype-combat-pillars", {
+      timeout: 60_000,
+    });
+    await waitForEvent(page, "probe-ready", { count: 2, timeout: 60_000 });
     checks.push({
       name: "graph-scene-transition",
       status: "passed",
@@ -291,16 +359,85 @@ async function main() {
       timeout: 5_000,
     });
     await waitForEvent(page, "bomb-exploded", { timeout: 15_000 });
+    await moveToCell(page, 3, 2);
     await page.keyboard.press("KeyX");
     await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
       timeout: 5_000,
     });
+    await waitForEvent(page, "bomb-exploded", { count: 2, timeout: 15_000 });
+    await waitForEvent(page, "room-cleared", { timeout: 5_000 });
     checks.push({
       name: "bomb-input",
       status: "passed",
-      detail: "Placed the cross bomb, switched Core slots, and placed the area bomb.",
+      detail: "Placed both bomb definitions and cleared the first combat room through actual explosions.",
+    });
+
+    const combatCell = await getLastPlayerCell(page);
+    await moveToCell(page, 3, combatCell.z);
+    await moveToCell(page, 3, 5);
+    await moveToCell(page, 0, 5);
+    const rewardReadyBefore = await eventCount(
+      page,
+      "dungeon-room-ready-3-bomb-reward-safe",
+    );
+    await triggerBoundaryTransition(
+      page,
+      "ArrowUp",
+      "dungeon-room-ready-3-bomb-reward-safe",
+      rewardReadyBefore + 1,
+    );
+    checks.push({
+      name: "combat-clear-to-reward",
+      status: "passed",
+      detail: "Clearing room 2 opened its north exit and committed the safe BombReward room 3.",
+    });
+
+    await triggerBoundaryTransition(
+      page,
+      "ArrowDown",
+      "dungeon-room-ready-2-combat-cleared",
+    );
+    const clearedReentryStart = await page.evaluate(() =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__.length);
+    await page.waitForTimeout(500);
+    const clearedReentryEnemyEvents = await page.evaluate((startIndex) =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__
+        .slice(startIndex)
+        .map((event) => typeof event === "string" ? event : event?.name)
+        .filter((name) => name === "chaser-moved" || name?.startsWith("charger-") ||
+          name?.startsWith("armored-")), clearedReentryStart);
+    if (clearedReentryEnemyEvents.length > 0) {
+      throw new Error(
+        `Cleared room reentry produced enemy events: ${clearedReentryEnemyEvents.join(", ")}`,
+      );
+    }
+    await triggerBoundaryTransition(
+      page,
+      "ArrowUp",
+      "dungeon-room-ready-3-bomb-reward-safe",
+      rewardReadyBefore + 2,
+    );
+    checks.push({
+      name: "cleared-combat-backtrack",
+      status: "passed",
+      detail: "Room 2 reentered as cleared, emitted no enemy activity, and allowed immediate travel back to reward room 3.",
+    });
+
+    await moveToCell(page, 0, -3);
+    await moveToCell(page, -1, -3);
+    await moveToCell(page, -1, 4);
+    await moveToCell(page, 0, 4);
+    await triggerBoundaryTransition(
+      page,
+      "ArrowUp",
+      "dungeon-room-ready-4-combat-active",
+    );
+    checks.push({
+      name: "reward-to-next-combat",
+      status: "passed",
+      detail: "The reward room north exit committed the next uncleared combat room 4.",
     });
 
     await page.keyboard.press("Escape");
@@ -317,12 +454,14 @@ async function main() {
     const requiredEvents = [
       "probe-ready",
       "room-ready-prototype-combat-loop",
+      "dungeon-room-ready-1-start-safe",
       "move",
       "move-step-direction-north",
       "move-step-direction-west",
       "move-step-direction-south",
       "dungeon-transition-started",
       "dungeon-room-committed",
+      "dungeon-room-ready-2-combat-active",
       "room-ready-prototype-combat-pillars",
       "move-motion-direction-west",
       "move-motion-direction-north",
@@ -330,6 +469,10 @@ async function main() {
       "bomb-exploded",
       "active-bomb-slot-1",
       "place-bomb-definition-prototype-area",
+      "room-cleared",
+      "dungeon-room-ready-3-bomb-reward-safe",
+      "dungeon-room-ready-2-combat-cleared",
+      "dungeon-room-ready-4-combat-active",
       "swap-bomb",
       "pause-resume",
       "audio-unlocked",
@@ -374,6 +517,35 @@ async function main() {
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });
     fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     if (failedChecks.length > 0) process.exitCode = 1;
+  } catch (error) {
+    let harnessEvents = null;
+    if (page) {
+      try {
+        harnessEvents = await page.evaluate(() =>
+          globalThis.__BOMBSWAP_HARNESS_EVENTS__ ?? null);
+      } catch {
+        // Preserve the original smoke failure when the page is already unavailable.
+      }
+    }
+    checks.push({
+      name: "smoke-execution",
+      status: "failed",
+      detail: String(error?.stack ?? error),
+    });
+    const report = {
+      schemaVersion: 2,
+      status: "failed",
+      url,
+      checks,
+      consoleErrors,
+      pageErrors,
+      harnessEvents,
+      screenshotPath,
+      generatedAt: new Date().toISOString(),
+    };
+    fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+    fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    throw error;
   } finally {
     if (browser) await browser.close();
     await new Promise((resolve) => server.close(resolve));

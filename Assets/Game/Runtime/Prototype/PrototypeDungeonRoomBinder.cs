@@ -184,6 +184,11 @@ namespace BombSwap
                 _runtimeRoomDefinition,
                 playerStart,
                 combatEnabledForVisit);
+            WebGlHarnessReporter.ReportDungeonRoomReady(
+                roomId,
+                room.RoomType,
+                combatEnabledForVisit,
+                run.RunState.IsCleared(roomId));
         }
 
         private void OnRoomCommitted()
