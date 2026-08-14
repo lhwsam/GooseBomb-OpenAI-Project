@@ -275,6 +275,32 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator HeldDiagonal_RemainsOnLatestPressedAxisAcrossFrames()
+        {
+            CreateRuntime(Vector2Int.zero, false);
+            yield return null;
+
+            QueueKeyboardState(Key.W);
+            yield return null;
+            QueueKeyboardState(Key.W, Key.D);
+            yield return null;
+
+            double eastStart = _session.CurrentMovementPosition.X;
+            double northStart = _session.CurrentMovementPosition.Z;
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(eastStart));
+            Assert.That(
+                _session.CurrentMovementPosition.Z,
+                Is.EqualTo(northStart).Within(0.000001d),
+                "Holding the unchanged diagonal must keep moving east instead of alternating axes each frame.");
+
+            QueueKeyboardState();
+        }
+
+        [UnityTest]
         public IEnumerator RapidAlternatingTaps_ApplyEachDirectionOnTheNextFrame()
         {
             CreateRuntime(Vector2Int.zero, false);

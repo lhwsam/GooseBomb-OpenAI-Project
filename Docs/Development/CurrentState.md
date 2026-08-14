@@ -27,12 +27,12 @@
 - 정수 XZ 논리 격자와 Unity 3D 셀 중심을 변환하는 `GridSpace` 구현.
 - 공식 Unity MCP EditMode/PlayMode 실행 결과를 실행 요청 수명·도메인 리로드와 분리해 Console에서 확인하는 테스트 전용 리포터 구현.
 - 게임 전용 `Gameplay/Move·PlaceBomb·SwapBomb·Pause` Input Actions와 Keyboard/Gamepad control scheme 구현.
-- 장치 입력을 Core `PlayerCommand`로 변환하고 focus 상실 시 이동을 해제하는 `BombSwapInputReader` 구현.
+- 장치 입력을 Core `PlayerCommand`로 변환하고, 세션 이동 계산 직전 최신 Move 값을 frame 단위로 재확인하며, focus 상실 시 이동을 해제하는 `BombSwapInputReader` 구현.
 - 11×9 격자, 경계 벽, 내부 장애물, 플레이어 placeholder, 탑다운 카메라를 가진 `TestSandbox` 씬 구현.
 - Input Actions·TestSandbox·Build Settings를 재생성/검증하는 Editor builder와 validator 구현.
 - 개발 WebGL에서 입력 사건을 브라우저 smoke에 전달하는 제한된 harness probe 구현.
 - 주입 시계의 frame 경과 시간, Core 연속 `GridSubcellPosition`, 셀 경계의 원자적 actor 점유 전이, 벽·폭탄 차단을 소유하는 `PlayerMovementSimulation` 구현.
-- TestSandbox 유지 입력을 기본 5 cells/s 연속 논리 이동과 같은 frame의 placeholder Transform 직접 표시에 연결.
+- TestSandbox 유지 입력을 기본 5 cells/s 연속 논리 이동과 같은 frame의 placeholder Transform 직접 표시에 연결. 변하지 않은 대각선 입력은 마지막 전환 축을 유지해 frame별 재샘플링에서도 방향이 교번하지 않는다.
 - `PrototypeGameSession`이 하나의 논리 격자·수동 시계를 이동과 폭탄 simulation에 공유하도록 런타임 상태 소유를 통합.
 - 검증된 `PrototypeBombDefinitionAsset`과 기본 십자 폭탄/폭발 셀 prefab을 만들고 TestSandbox `Z` 입력을 실제 Core 설치·fuse·폭발에 연결.
 - `PrototypeBombPresenter`가 설치 폭탄과 영향 셀 placeholder를 풀링해 3D로 표현하도록 연결.

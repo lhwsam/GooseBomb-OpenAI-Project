@@ -143,6 +143,48 @@ async function verifyRapidCardinalTurns(page) {
   }
 }
 
+async function verifyHeldDiagonalLatestAxis(page) {
+  const northEvent = "move-motion-direction-north";
+  const westEvent = "move-motion-direction-west";
+  const initialNorthCount = await eventCount(page, northEvent);
+  const initialWestCount = await eventCount(page, westEvent);
+  await page.keyboard.down("ArrowUp");
+  try {
+    await waitForEvent(page, northEvent, {
+      count: initialNorthCount + 1,
+      timeout: 2_000,
+    });
+    await page.keyboard.down("ArrowLeft");
+    await waitForEvent(page, westEvent, {
+      count: initialWestCount + 1,
+      timeout: 2_000,
+    });
+    const stableStartIndex = await page.evaluate(() =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__.length);
+    await page.waitForTimeout(150);
+    const heldMotion = await page.evaluate((eventStartIndex) =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__
+        .slice(eventStartIndex)
+        .map((event) => typeof event === "string" ? event : event?.name)
+        .filter((name) => name?.startsWith("move-motion-direction-")), stableStartIndex);
+    if (heldMotion.some((name) => name !== westEvent)) {
+      throw new Error(
+        `Held diagonal changed away from the latest west axis: ${heldMotion.join(", ")}`,
+      );
+    }
+
+    const northBeforeRelease = await eventCount(page, northEvent);
+    await page.keyboard.up("ArrowLeft");
+    await waitForEvent(page, northEvent, {
+      count: northBeforeRelease + 1,
+      timeout: 2_000,
+    });
+  } finally {
+    await page.keyboard.up("ArrowLeft");
+    await page.keyboard.up("ArrowUp");
+  }
+}
+
 async function main() {
   const args = parseArguments(process.argv.slice(2));
   if (!args.buildPath || !args.reportPath) {
@@ -228,6 +270,13 @@ async function main() {
       name: "graph-scene-transition",
       status: "passed",
       detail: "The seed-0 Start exit loaded and committed the assigned pillars combat scene.",
+    });
+
+    await verifyHeldDiagonalLatestAxis(page);
+    checks.push({
+      name: "held-diagonal-latest-axis",
+      status: "passed",
+      detail: "North changed to west immediately, stayed west while both keys were held, then resumed north on west release.",
     });
 
     await verifyRapidCardinalTurns(page);

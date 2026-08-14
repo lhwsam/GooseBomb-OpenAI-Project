@@ -24,7 +24,7 @@
 ## 책임과 비책임
 
 - `BombSwapInputActions.inputactions`: 장치 경로, 액션 타입, control scheme의 권위 에셋.
-- `BombSwapInputReader`: 액션 callback을 구독하고 `PlayerCommand`를 발행하며 focus/생명주기를 정리한다.
+- `BombSwapInputReader`: 액션 callback을 구독하고 `PlayerCommand`를 발행하며 focus/생명주기를 정리한다. 세션의 이동 계산 직전에는 현재 Move 값을 다시 읽어 callback 시점과 frame 실행 순서 사이의 지연 가능성을 없앤다.
 - `CardinalInputInterpreter`: `Vector2`를 네 방향 이동 의도로 축소한다.
 - `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 의미와 이동 방향을 보존하는 Core 값이다.
 - `PrototypeGameSession`: TestSandbox에서 공유 시계·격자를 소유하고 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`과 `SwapBomb`을 `BombWeaponLoadout`에 전달한다.
@@ -36,6 +36,7 @@
 ## 상태와 전이
 
 - `Move` performed/canceled에서 방향이 바뀔 때만 새 이동 명령을 발행한다.
+- `PrototypeGameSession`은 매 `Update`의 이동 계산 전에 최신 Move 값을 다시 샘플링한다. 입력 벡터가 실제로 바뀐 경우에만 방향 규칙을 다시 평가하므로, 같은 대각선 두 키를 유지해도 선택 축이 frame마다 번갈아 바뀌거나 중복 명령이 발생하지 않는다.
 - 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
 - 입력 어댑터가 발행하는 `Move`는 현재 유지 방향이다. Core 이동은 별도 0.2초 입력 cadence나 방향 queue 없이 다음 관찰 frame의 연속 위치에 이 방향을 적용한다.
 - 이동 해제는 `Move(None)`으로 표현한다.
@@ -65,7 +66,7 @@
 ## 자동 테스트
 
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
-- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시.
+- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타, 유지 대각선의 최신 축 고정, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
 - WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서는 `ArrowUp/ArrowRight` 단타를 여섯 번 교대하고 각 key release 전에 대응하는 실제 `move-motion-direction-*`이 발생해야 하며, 정지 상태 폭탄으로 자기 폭발 피해도 별도 확인한다.
 
