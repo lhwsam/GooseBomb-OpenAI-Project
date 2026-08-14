@@ -197,16 +197,46 @@ namespace BombSwap.Editor.ContentValidation
 
         private static InputActionAsset CreateInputActionsIfMissing()
         {
+            string absolutePath = Path.Combine(
+                Application.dataPath,
+                "Game/Content/Input/BombSwapInputActions.inputactions");
             InputActionAsset imported = AssetDatabase.LoadAssetAtPath<InputActionAsset>(
                 PrototypeContentValidator.InputActionsPath);
             if (imported != null)
             {
+                InputActionMap gameplay = imported.FindActionMap(
+                    BombSwapInputActionNames.GameplayMap,
+                    false);
+                if (gameplay == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Input Actions asset is missing map '{BombSwapInputActionNames.GameplayMap}'.");
+                }
+                if (gameplay.FindAction(BombSwapInputActionNames.RestartRun, false) == null)
+                {
+                    AddButtonBindings(
+                        gameplay,
+                        BombSwapInputActionNames.RestartRun,
+                        "<Keyboard>/r",
+                        "<Gamepad>/select");
+                    File.WriteAllText(
+                        absolutePath,
+                        imported.ToJson(),
+                        new UTF8Encoding(false));
+                    AssetDatabase.ImportAsset(
+                        PrototypeContentValidator.InputActionsPath,
+                        ImportAssetOptions.ForceSynchronousImport);
+                    imported = AssetDatabase.LoadAssetAtPath<InputActionAsset>(
+                        PrototypeContentValidator.InputActionsPath);
+                    if (imported == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Unity could not reimport upgraded Input Actions: {PrototypeContentValidator.InputActionsPath}");
+                    }
+                }
                 return imported;
             }
 
-            string absolutePath = Path.Combine(
-                Application.dataPath,
-                "Game/Content/Input/BombSwapInputActions.inputactions");
             if (File.Exists(absolutePath))
             {
                 throw new InvalidOperationException(
@@ -254,6 +284,11 @@ namespace BombSwap.Editor.ContentValidation
                     BombSwapInputActionNames.Pause,
                     "<Keyboard>/escape",
                     "<Gamepad>/start");
+                AddButtonBindings(
+                    gameplay,
+                    BombSwapInputActionNames.RestartRun,
+                    "<Keyboard>/r",
+                    "<Gamepad>/select");
 
                 asset.AddControlScheme("Keyboard").WithRequiredDevice("<Keyboard>");
                 asset.AddControlScheme("Gamepad").WithRequiredDevice("<Gamepad>");
@@ -1397,6 +1432,25 @@ namespace BombSwap.Editor.ContentValidation
             }
             binder.Configure(gameSession, doorPresenter, context.GridRoot);
 
+            BombSwapInputReader inputReader =
+                systems.GetComponent<BombSwapInputReader>();
+            if (inputReader == null)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon scene '{scene.path}' is missing its input reader.");
+            }
+            PrototypeRunCompletionPresenter completionPresenter =
+                systems.GetComponent<PrototypeRunCompletionPresenter>();
+            if (completionPresenter == null)
+            {
+                completionPresenter =
+                    systems.AddComponent<PrototypeRunCompletionPresenter>();
+            }
+            completionPresenter.Configure(binder, inputReader);
+            SetSerializedObjectName(
+                completionPresenter,
+                nameof(PrototypeRunCompletionPresenter));
+
             PrototypeDungeonRunHost[] hosts = scene.GetRootGameObjects()
                 .SelectMany(root =>
                     root.GetComponentsInChildren<PrototypeDungeonRunHost>(true))
@@ -1430,6 +1484,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(context.GridRoot);
             EditorUtility.SetDirty(doorPresenter);
             EditorUtility.SetDirty(binder);
+            EditorUtility.SetDirty(completionPresenter);
             EditorUtility.SetDirty(host);
         }
 

@@ -740,6 +740,12 @@ namespace BombSwap.Editor.ContentValidation
                 InputActionType.Button,
                 "Button",
                 errors);
+            ValidateAction(
+                gameplay,
+                BombSwapInputActionNames.RestartRun,
+                InputActionType.Button,
+                "Button",
+                errors);
 
             RequireBindings(gameplay, BombSwapInputActionNames.Move, errors,
                 "<Keyboard>/w",
@@ -761,6 +767,9 @@ namespace BombSwap.Editor.ContentValidation
             RequireBindings(gameplay, BombSwapInputActionNames.Pause, errors,
                 "<Keyboard>/escape",
                 "<Gamepad>/start");
+            RequireBindings(gameplay, BombSwapInputActionNames.RestartRun, errors,
+                "<Keyboard>/r",
+                "<Gamepad>/select");
 
             RequireControlScheme(asset, "Keyboard", "<Keyboard>", errors);
             RequireControlScheme(asset, "Gamepad", "<Gamepad>", errors);
@@ -980,6 +989,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeDungeonRoomBinder>(scene);
                 PrototypeDungeonDoorPresenter[] doorPresenters =
                     FindComponents<PrototypeDungeonDoorPresenter>(scene);
+                PrototypeRunCompletionPresenter[] completionPresenters =
+                    FindComponents<PrototypeRunCompletionPresenter>(scene);
                 PrototypeBombRewardPresenter[] bombRewardPresenters =
                     FindComponents<PrototypeBombRewardPresenter>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
@@ -1067,6 +1078,12 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"Dungeon room must contain exactly one PrototypeDungeonDoorPresenter; found {doorPresenters.Length}.");
+                }
+                if (completionPresenters.Length != 1)
+                {
+                    errors.Add(
+                        "Dungeon room must contain exactly one " +
+                        $"PrototypeRunCompletionPresenter; found {completionPresenters.Length}.");
                 }
                 int expectedBombRewardPresenterCount = string.Equals(
                     scenePath,
@@ -1317,6 +1334,15 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         "Bomb reward presenter has an inconsistent dungeon room binder reference.");
+                }
+
+                if (completionPresenters.Length == 1 && roomBinders.Length == 1 &&
+                    readers.Length == 1 &&
+                    (completionPresenters[0].RoomBinder != roomBinders[0] ||
+                     completionPresenters[0].InputReader != readers[0]))
+                {
+                    errors.Add(
+                        "Run completion presenter has inconsistent dungeon room or input references.");
                 }
 
                 if (doorPresenters.Length == 1 && contexts.Length == 1)

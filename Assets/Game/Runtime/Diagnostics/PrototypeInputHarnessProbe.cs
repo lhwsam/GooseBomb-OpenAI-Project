@@ -408,6 +408,8 @@ namespace BombSwap
                         _pauseReported = true;
                     }
                     break;
+                case PlayerCommandKind.RestartRun:
+                    break;
             }
         }
 

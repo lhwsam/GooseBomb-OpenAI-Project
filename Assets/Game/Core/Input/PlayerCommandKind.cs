@@ -7,5 +7,6 @@ namespace BombSwap.Core
         PlaceBomb = 2,
         SwapBomb = 3,
         Pause = 4,
+        RestartRun = 5,
     }
 }

@@ -28,6 +28,7 @@ namespace BombSwap.Tests.PlayMode
             _reader.Configure(_inputActions);
             _reader.CommandIssued += _commands.Add;
             _gameObject.SetActive(true);
+            _reader.SetInputFocus(true);
         }
 
         [TearDown]
@@ -114,10 +115,13 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState(Key.X);
             QueueKeyboardState();
             QueueKeyboardState(Key.Escape);
+            QueueKeyboardState();
+            QueueKeyboardState(Key.R);
 
             Assert.That(_commands, Has.Member(PlayerCommand.PlaceBomb()));
             Assert.That(_commands, Has.Member(PlayerCommand.SwapBomb()));
             Assert.That(_commands, Has.Member(PlayerCommand.Pause()));
+            Assert.That(_commands, Has.Member(PlayerCommand.RestartRun()));
         }
 
         [Test]
@@ -200,6 +204,7 @@ namespace BombSwap.Tests.PlayMode
             gameplay.AddAction(BombSwapInputActionNames.PlaceBomb, InputActionType.Button, "<Keyboard>/z");
             gameplay.AddAction(BombSwapInputActionNames.SwapBomb, InputActionType.Button, "<Keyboard>/x");
             gameplay.AddAction(BombSwapInputActionNames.Pause, InputActionType.Button, "<Keyboard>/escape");
+            gameplay.AddAction(BombSwapInputActionNames.RestartRun, InputActionType.Button, "<Keyboard>/r");
             return asset;
         }
     }
