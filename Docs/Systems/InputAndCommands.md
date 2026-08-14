@@ -37,6 +37,7 @@
 
 - `Move` performed/canceled에서 방향이 바뀔 때만 새 이동 명령을 발행한다.
 - 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
+- 입력 어댑터가 발행하는 `Move`는 현재 유지 방향이다. 이동 cadence 사이의 짧은 전환을 한 번 보존하는 책임은 [격자와 이동](GridAndMovement.md)의 Core pending turn이 소유한다.
 - 이동 해제는 `Move(None)`으로 표현한다.
 - 설치·교체·pause는 버튼의 performed 시점에 한 번 발행한다.
 - 컴포넌트 비활성화 또는 application focus/pause 상실 시 활성 이동을 즉시 `None`으로 해제한다.
@@ -66,7 +67,7 @@
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
 - PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침 중 새 방향 명령, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지 입력→논리 셀→Transform 보간.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서 `ArrowUp`을 유지한 채 `ArrowRight`를 눌러 `ArrowUp` 해제 전에 `move-direction-east`가 오는지도 확인한다.
+- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서는 `ArrowUp` 실제 step 직후 `ArrowRight`를 짧게 눌렀다 떼고, 명령이 North로 복귀한 뒤에도 확정 이동이 `East → North` 순서인지 확인한다.
 
 ## 미정 사항과 종료 조건
 

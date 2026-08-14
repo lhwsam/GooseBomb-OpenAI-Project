@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using BombSwap.Core;
 using NUnit.Framework;
 using UnityEngine;
@@ -121,6 +122,30 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_player.position.x, Is.EqualTo(0f).Within(0.001f));
             Assert.That(_player.position.y, Is.EqualTo(0.5f).Within(0.001f));
             Assert.That(_player.position.z, Is.EqualTo(1f).Within(0.05f));
+        }
+
+        [UnityTest]
+        public IEnumerator ShortPerpendicularTap_MovesOnceThenResumesStillHeldDirection()
+        {
+            CreateRuntime(Vector2Int.zero, false);
+            var directions = new List<CardinalDirection>();
+            _session.PlayerMoved += step => directions.Add(step.Direction);
+            yield return null;
+
+            QueueKeyboardState(Key.W);
+            yield return null;
+            QueueKeyboardState(Key.W, Key.D);
+            QueueKeyboardState(Key.W);
+            yield return new WaitForSecondsRealtime(0.25f);
+
+            Assert.That(
+                directions,
+                Has.Count.GreaterThanOrEqualTo(3),
+                "The held direction should produce a first step, one buffered turn, and a resumed step.");
+            Assert.That(directions[0], Is.EqualTo(CardinalDirection.North));
+            Assert.That(directions[1], Is.EqualTo(CardinalDirection.East));
+            Assert.That(directions[2], Is.EqualTo(CardinalDirection.North));
+            Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(1, 2)));
         }
 
         [UnityTest]

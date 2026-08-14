@@ -129,6 +129,8 @@ namespace BombSwap
 
         private void OnPlayerMoved(PlayerMovementStep step)
         {
+            ReportMovementStepDirection(step.Direction);
+
             if (!_moveReported)
             {
                 WebGlHarnessReporter.Report("move");
@@ -286,6 +288,30 @@ namespace BombSwap
                         nameof(direction),
                         direction,
                         "Unsupported move direction for the WebGL harness.");
+            }
+        }
+
+        private static void ReportMovementStepDirection(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    WebGlHarnessReporter.Report("move-step-direction-north");
+                    break;
+                case CardinalDirection.East:
+                    WebGlHarnessReporter.Report("move-step-direction-east");
+                    break;
+                case CardinalDirection.South:
+                    WebGlHarnessReporter.Report("move-step-direction-south");
+                    break;
+                case CardinalDirection.West:
+                    WebGlHarnessReporter.Report("move-step-direction-west");
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Unsupported movement-step direction for the WebGL harness.");
             }
         }
     }

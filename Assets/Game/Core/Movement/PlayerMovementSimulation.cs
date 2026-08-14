@@ -10,6 +10,8 @@ namespace BombSwap.Core
         private TimeSpan lastObservedTime;
         private BombId passThroughBombId;
         private GridPosition passThroughPosition;
+        private CardinalDirection bufferedTurnDirection;
+        private CardinalDirection bufferedFallbackDirection;
         private bool hasCadence;
 
         public PlayerMovementSimulation(
@@ -68,12 +70,29 @@ namespace BombSwap.Core
                 return;
             }
 
+            CardinalDirection previousDirection = MoveDirection;
             MoveDirection = direction;
-            if (direction != CardinalDirection.None && !hasCadence)
+            if (direction == CardinalDirection.None)
+            {
+                ClearBufferedTurn();
+                return;
+            }
+
+            if (!hasCadence)
             {
                 nextStepAt = clock.Now;
                 hasCadence = true;
+                return;
             }
+
+            if (bufferedTurnDirection != CardinalDirection.None &&
+                direction == bufferedFallbackDirection)
+            {
+                return;
+            }
+
+            bufferedTurnDirection = direction;
+            bufferedFallbackDirection = previousDirection;
         }
 
         public void GrantBombPassThrough(BombSnapshot bomb)
@@ -130,6 +149,7 @@ namespace BombSwap.Core
             }
 
             nextStepAt = now.Add(StepInterval);
+            CardinalDirection stepDirection = ConsumeBufferedTurn();
             GridCellState source = grid.GetCell(CurrentPosition);
             if (HasBombPassThrough && !source.HasBomb)
             {
@@ -142,13 +162,24 @@ namespace BombSwap.Core
             }
 
             GridPosition from = CurrentPosition;
-            GridPosition target = GetTarget(from, MoveDirection);
+            GridPosition target = GetTarget(from, stepDirection);
             if (!grid.TryMoveActor(ActorId, target))
             {
-                return false;
+                if (stepDirection == MoveDirection ||
+                    MoveDirection == CardinalDirection.None)
+                {
+                    return false;
+                }
+
+                stepDirection = MoveDirection;
+                target = GetTarget(from, stepDirection);
+                if (!grid.TryMoveActor(ActorId, target))
+                {
+                    return false;
+                }
             }
 
-            step = new PlayerMovementStep(from, target, MoveDirection);
+            step = new PlayerMovementStep(from, target, stepDirection);
             CurrentPosition = target;
             if (HasBombPassThrough && from == passThroughPosition)
             {
@@ -156,6 +187,24 @@ namespace BombSwap.Core
             }
 
             return true;
+        }
+
+        private CardinalDirection ConsumeBufferedTurn()
+        {
+            if (bufferedTurnDirection == CardinalDirection.None)
+            {
+                return MoveDirection;
+            }
+
+            CardinalDirection direction = bufferedTurnDirection;
+            ClearBufferedTurn();
+            return direction;
+        }
+
+        private void ClearBufferedTurn()
+        {
+            bufferedTurnDirection = CardinalDirection.None;
+            bufferedFallbackDirection = CardinalDirection.None;
         }
 
         private void ClearBombPassThrough()
