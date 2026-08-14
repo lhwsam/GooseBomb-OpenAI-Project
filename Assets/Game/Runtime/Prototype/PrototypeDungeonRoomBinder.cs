@@ -271,9 +271,9 @@ namespace BombSwap
             RefreshDoors();
         }
 
-        private void OnPlayerDied(PlayerDamageResult _)
+        private void OnPlayerDied(PlayerDamageResult result)
         {
-            _runHost.TryFailCurrentRun();
+            _runHost.TryFailCurrentRun(result);
             RefreshDoors();
         }
 

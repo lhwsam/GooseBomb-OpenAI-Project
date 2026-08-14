@@ -18,6 +18,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(run.CurrentRoomId, Is.EqualTo(graph.StartRoomId));
             Assert.That(run.PreviousRoomId.IsValid, Is.False);
             Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
+            Assert.That(run.FailureDamage.HasValue, Is.False);
             Assert.That(run.IsTerminal, Is.False);
             Assert.That(run.IsVisited(graph.StartRoomId), Is.True);
             Assert.That(run.IsCleared(graph.StartRoomId), Is.False);
@@ -246,7 +247,8 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Completed));
             Assert.That(run.IsTerminal, Is.True);
-            Assert.That(run.TryFail(), Is.False);
+            Assert.That(run.FailureDamage.HasValue, Is.False);
+            Assert.That(run.TryFail(CreateContactDamage(1, 1)), Is.False);
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.RunFinished));
@@ -268,10 +270,17 @@ namespace BombSwap.Tests.EditMode
             var run = new DungeonRunState(graph);
             TraverseToBoss(run, graph);
 
-            Assert.That(run.TryFail(), Is.True);
-            Assert.That(run.TryFail(), Is.False);
+            PlayerDamageResult nonFatal = CreateContactDamage(2, 1);
+            PlayerDamageResult fatal = CreateContactDamage(1, 1);
+            Assert.Throws<ArgumentException>(() => run.TryFail(nonFatal));
+            Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
+            Assert.That(run.FailureDamage.HasValue, Is.False);
+
+            Assert.That(run.TryFail(fatal), Is.True);
+            Assert.That(run.TryFail(fatal), Is.False);
             Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Failed));
             Assert.That(run.IsTerminal, Is.True);
+            Assert.That(run.FailureDamage, Is.EqualTo(fatal));
             Assert.That(
                 run.TryClearCurrentRoom(),
                 Is.EqualTo(DungeonRoomClearStatus.RunFinished));
@@ -342,6 +351,17 @@ namespace BombSwap.Tests.EditMode
 
                 Assert.That(run.TryTravelTo(path[index]).Moved, Is.True);
             }
+        }
+
+        private static PlayerDamageResult CreateContactDamage(
+            int maxHealth,
+            int damage)
+        {
+            var health = new PlayerHealthSimulation(
+                new ActorId(1),
+                new ManualGameClock(),
+                new PlayerHealthDefinition(maxHealth, TimeSpan.FromSeconds(0.75)));
+            return health.ApplyContactDamage(new ActorId(2), damage);
         }
 
         private static RoomExitDirection Opposite(RoomExitDirection direction)

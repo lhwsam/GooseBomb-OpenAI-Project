@@ -774,12 +774,15 @@ async function main() {
     }
     await waitForEvent(page, "player-died", { timeout: 5_000 });
     await waitForEvent(page, "run-failed", { timeout: 5_000 });
+    await waitForEvent(page, "run-failed-cause-bomb-explosion", {
+      timeout: 5_000,
+    });
     fs.mkdirSync(path.dirname(runFailureScreenshotPath), { recursive: true });
     await page.screenshot({ path: runFailureScreenshotPath });
     checks.push({
       name: "failed-run-result",
       status: "passed",
-      detail: "Five self explosions in the restarted safe room produced one player death and the run-failed result.",
+      detail: "Five self explosions in the restarted safe room produced one player death, the run-failed result, and the BOMB EXPLOSION cause.",
     });
 
     const failureRestartRequestsBefore = await eventCount(
@@ -846,6 +849,7 @@ async function main() {
       "run-completed",
       "player-died",
       "run-failed",
+      "run-failed-cause-bomb-explosion",
       "run-restart-requested",
       "dungeon-run-restarted",
       "swap-bomb",

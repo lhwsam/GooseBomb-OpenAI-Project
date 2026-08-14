@@ -112,10 +112,10 @@ namespace BombSwap
             return RunSession.TryClearCurrentRoom();
         }
 
-        public bool TryFailCurrentRun()
+        public bool TryFailCurrentRun(PlayerDamageResult fatalDamage)
         {
             RequirePrimary();
-            return RunSession.TryFail();
+            return RunSession.TryFail(fatalDamage);
         }
 
         public void RestartFinishedRun()

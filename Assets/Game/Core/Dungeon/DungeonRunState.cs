@@ -81,6 +81,8 @@ namespace BombSwap.Core
 
         public DungeonRunOutcome Outcome { get; private set; }
 
+        public PlayerDamageResult? FailureDamage { get; private set; }
+
         public bool IsTerminal => Outcome != DungeonRunOutcome.InProgress;
 
         public bool IsCurrentRoomLocked => IsTerminal || IsRoomLocked(CurrentRoomId);
@@ -221,14 +223,21 @@ namespace BombSwap.Core
             return DungeonRoomClearStatus.Cleared;
         }
 
-        public bool TryFail()
+        public bool TryFail(PlayerDamageResult fatalDamage)
         {
+            if (!fatalDamage.WasFatal)
+            {
+                throw new ArgumentException(
+                    "A failed dungeon run requires an applied fatal damage result.",
+                    nameof(fatalDamage));
+            }
             if (IsTerminal)
             {
                 return false;
             }
 
             Outcome = DungeonRunOutcome.Failed;
+            FailureDamage = fatalDamage;
             return true;
         }
 
