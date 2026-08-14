@@ -95,9 +95,11 @@ PlayMode 표식:
 
 `Tools/ArmoredWebGLSmoke.mjs`는 `TestSandboxArmor`를 첫 enabled 씬으로 재정렬한 별도 development 빌드에서 갑옷 가설만 검증한다. canvas focus와 `room-ready-prototype-combat-armor` 뒤 실제 두 폭탄을 설치하고, 첫 폭발의 `armored-broken`과 그 전후 `armored-moved`, 두 번째 폭발의 `armored-died`, 일반 `enemy-died`, `room-cleared` 순서를 확인한다. 전용 screenshot, browser Console/page error 0과 함께 구조화된 JSON 결과를 남긴다.
 
+`Tools/DirectionalLineWebGLSmoke.mjs`는 기본 던전 development 빌드에서 첫 전투를 실제로 클리어한 뒤 `BombReward`의 오른쪽 `prototype-line` 후보를 수집한다. 슬롯 2로 교체하고 동쪽을 바라본 상태에서 설치한 뒤 북쪽 이동 명령을 보내도 `bomb-reward-selected-prototype-line → active-bomb-slot-1 → line-bomb-placed-east → move-direction-north → line-bomb-exploded-east` 순서가 유지돼야 한다. 전용 screenshot과 `directional-line-smoke.json`에 browser Console/page error 0을 함께 기록한다. 이 smoke는 설치 방향 고정을 증명하지만 네 방향 전체 셀 집합은 EditMode 테스트가 소유한다.
+
 Playwright를 찾지 못하면 Node의 `CODEX_NODE_MODULES`가 Playwright 모듈을 포함한 경로를 가리키게 하거나 프로젝트 개발 의존성 도입을 별도 승인받는다. 브라우저는 설치된 Edge/Chrome을 자동 탐색하며, 별도 위치는 `BOMBSWAP_BROWSER_PATH`로 지정한다.
 
-정적 서버만 빠르게 회귀 검사하려면 `node Tools/WebGLStaticServerTests.mjs`를 실행한다. 표준 `-Tier Web`은 이 테스트를 browser smoke 직전에 자동 실행하고 같은 `browser-smoke.log`에 결과를 남긴다. StaticOnly는 필수 서버·CLI·테스트·갑옷 smoke 파일의 존재와 일반 텍스트 계약만 확인하며 Node 런타임 테스트를 통과했다는 의미가 아니다. 수동 서버에서 게임이 열리는 사실도 Web 검증 통과가 아니며, 기본 Start→배정 전투방 graph 자동 입력 회귀와 별도 갑옷 시작 씬·Console 검증은 각 browser smoke 결과로 증명해야 한다. 사람 관찰 실행법은 [로컬 WebGL 관찰 세션](../Playtesting/ManualWebGLRun.md)을 따른다.
+정적 서버만 빠르게 회귀 검사하려면 `node Tools/WebGLStaticServerTests.mjs`를 실행한다. 표준 `-Tier Web`은 이 테스트를 browser smoke 직전에 자동 실행하고 같은 `browser-smoke.log`에 결과를 남긴다. StaticOnly는 필수 서버·CLI·테스트·전용 smoke 파일의 존재와 일반 텍스트 계약만 확인하며 Node 런타임 테스트를 통과했다는 의미가 아니다. 수동 서버에서 게임이 열리는 사실도 Web 검증 통과가 아니며, 기본 Start→배정 전투방 graph 자동 입력 회귀와 별도 갑옷 시작 씬·방향성 직선 폭탄·Console 검증은 각 browser smoke 결과로 증명해야 한다. 사람 관찰 실행법은 [로컬 WebGL 관찰 세션](../Playtesting/ManualWebGLRun.md)을 따른다.
 
 ## 공식 참고
 

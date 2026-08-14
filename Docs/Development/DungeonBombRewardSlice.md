@@ -11,7 +11,7 @@
 - 새 던전 run은 `prototype-cross` 한 종류만 1번 슬롯에 장착하고 2번 슬롯은 비운 채 시작한다.
 - 빈 2번 슬롯에서는 `X` 교체가 실패하고 HUD는 `EMPTY — FIND A BOMB`과 `SWAP LOCKED`를 표시한다.
 - 첫 전투를 클리어해 `BombReward` 방에 들어가면 두 후보가 보행 가능한 논리 셀에 나타난다.
-- 왼쪽 `(-1, 0)`의 `prototype-area` 또는 오른쪽 `(1, 0)`의 `prototype-long-cross` 위로 이동하면 해당 후보가 빈 2번 슬롯에 장착된다.
+- 왼쪽 `(-1, 0)`의 `prototype-area` 또는 오른쪽 `(1, 0)`의 `prototype-line` 위로 이동하면 해당 후보가 빈 2번 슬롯에 장착된다.
 - 선택은 한 run에서 한 번만 성공한다. 선택 결과는 방 로컬 씬이 아니라 지속 run 상태에 저장되어 전투방 왕복과 `LoadSceneMode.Single` 뒤에도 유지된다.
 - 선택 뒤에는 기존 `X` 교체와 슬롯별 독립 설치 쿨타임 계약을 그대로 사용한다.
 
@@ -31,9 +31,9 @@
 |---|---|---|---:|---:|---:|---|
 | 시작 폭탄 | `prototype-cross` | `Cross` | 2.0초 | 2 | 1.5초 | 검정 구체·주황 폭발 |
 | 왼쪽 후보 | `prototype-area` | `SquareArea` | 1.75초 | 1(3×3) | 2.5초 | 보라 원통·자홍 폭발 |
-| 오른쪽 후보 | `prototype-long-cross` | `Cross` | 2.25초 | 3 | 2.25초 | 청록 캡슐·청록 폭발 |
+| 오른쪽 후보 | `prototype-line` | `ForwardLine` | 2.25초 | 3 | 2.25초 | 비대칭 청록 방향 표시체·청록 폭발 |
 
-교체 쿨타임은 2초다. 모든 수치는 `Proposed`다. `prototype-long-cross`는 선택 UI와 장거리 위험 비교를 위한 현재 후보이며, GDD의 방향성 직선 폭탄을 완성한 것으로 간주하지 않는다.
+교체 쿨타임은 2초다. 모든 수치는 `Proposed`다. `prototype-line`은 설치 순간의 마지막 cardinal 바라보기 방향 앞으로만 폭발한다. 방향·벽·연쇄 계약은 [방향성 직선 폭탄 수직 슬라이스](DirectionalLineBombSlice.md)가 소유하며, 선택의 재미와 체감 위력은 아직 사람 플레이테스트 전이다.
 
 ## 검증과 증거
 

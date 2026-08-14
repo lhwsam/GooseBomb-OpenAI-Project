@@ -1058,6 +1058,7 @@ namespace BombSwap
                 _bombs,
                 _movement.CurrentPosition,
                 _movement.ActorId,
+                _movement.FacingDirection,
                 out BombSnapshot snapshot))
             {
                 return;

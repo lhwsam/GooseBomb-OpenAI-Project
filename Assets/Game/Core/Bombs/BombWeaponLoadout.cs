@@ -109,6 +109,21 @@ namespace BombSwap.Core
             ActorId ownerId,
             out BombSnapshot snapshot)
         {
+            return TryPlaceActiveBomb(
+                bombs,
+                position,
+                ownerId,
+                CardinalDirection.None,
+                out snapshot);
+        }
+
+        public bool TryPlaceActiveBomb(
+            BombSimulation bombs,
+            GridPosition position,
+            ActorId ownerId,
+            CardinalDirection placementDirection,
+            out BombSnapshot snapshot)
+        {
             if (bombs == null)
             {
                 throw new ArgumentNullException(nameof(bombs));
@@ -121,7 +136,12 @@ namespace BombSwap.Core
             }
 
             BombWeaponDefinition definition = slots[activeSlotIndex];
-            if (!bombs.TryPlaceBomb(definition.Bomb, position, ownerId, out BombId bombId))
+            if (!bombs.TryPlaceBomb(
+                    definition.Bomb,
+                    position,
+                    ownerId,
+                    placementDirection,
+                    out BombId bombId))
             {
                 return false;
             }

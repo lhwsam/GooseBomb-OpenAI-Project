@@ -67,6 +67,92 @@ namespace BombSwap.Tests.EditMode
             Assert.That(explosion.DestroyedWalls, Is.Empty);
         }
 
+        [TestCase(CardinalDirection.North, 0, 1)]
+        [TestCase(CardinalDirection.East, 1, 0)]
+        [TestCase(CardinalDirection.South, 0, -1)]
+        [TestCase(CardinalDirection.West, -1, 0)]
+        public void ForwardLine_AffectsOnlyThePlacedDirectionInStableOrder(
+            CardinalDirection direction,
+            int deltaX,
+            int deltaZ)
+        {
+            var grid = new GridState();
+            grid.TrySetTerrain(Origin, GridTerrain.Floor);
+            for (int distance = 1; distance <= 3; distance++)
+            {
+                grid.TrySetTerrain(
+                    Origin.Offset(deltaX * distance, deltaZ * distance),
+                    GridTerrain.Floor);
+            }
+            grid.TrySetTerrain(Origin.Offset(-deltaX, -deltaZ), GridTerrain.Floor);
+            grid.TrySetTerrain(Origin.Offset(deltaZ, deltaX), GridTerrain.Floor);
+            var clock = new ManualGameClock();
+            var simulation = new BombSimulation(
+                grid,
+                clock,
+                TimeSpan.FromMilliseconds(200));
+            simulation.TryPlaceBomb(
+                CreateDefinition(
+                    "forward-line",
+                    TimeSpan.FromSeconds(1),
+                    3,
+                    BombExplosionShape.ForwardLine),
+                Origin,
+                Owner,
+                direction,
+                out _);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            BombExplosion explosion = simulation.ProcessDueBombs()[0];
+
+            Assert.That(explosion.PlacementDirection, Is.EqualTo(direction));
+            Assert.That(explosion.AffectedCells, Is.EqualTo(new[]
+            {
+                Origin,
+                Origin.Offset(deltaX, deltaZ),
+                Origin.Offset(deltaX * 2, deltaZ * 2),
+                Origin.Offset(deltaX * 3, deltaZ * 3),
+            }));
+            Assert.That(explosion.AffectedCells, Has.No.Member(Origin.Offset(-deltaX, -deltaZ)));
+            Assert.That(explosion.AffectedCells, Has.No.Member(Origin.Offset(deltaZ, deltaX)));
+        }
+
+        [Test]
+        public void ForwardLine_DestructibleWallIsIncludedDestroyedAndStopsItsRay()
+        {
+            var grid = new GridState();
+            var near = Origin.Offset(1, 0);
+            var wall = Origin.Offset(2, 0);
+            var behind = Origin.Offset(3, 0);
+            grid.TrySetTerrain(Origin, GridTerrain.Floor);
+            grid.TrySetTerrain(near, GridTerrain.Floor);
+            grid.TrySetTerrain(wall, GridTerrain.DestructibleWall);
+            grid.TrySetTerrain(behind, GridTerrain.Floor);
+            var clock = new ManualGameClock();
+            var simulation = new BombSimulation(
+                grid,
+                clock,
+                TimeSpan.FromMilliseconds(200));
+            simulation.TryPlaceBomb(
+                CreateDefinition(
+                    "forward-line",
+                    TimeSpan.FromSeconds(1),
+                    3,
+                    BombExplosionShape.ForwardLine),
+                Origin,
+                Owner,
+                CardinalDirection.East,
+                out _);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            BombExplosion explosion = simulation.ProcessDueBombs()[0];
+
+            Assert.That(explosion.AffectedCells, Is.EqualTo(new[] { Origin, near, wall }));
+            Assert.That(explosion.AffectedCells, Has.No.Member(behind));
+            Assert.That(explosion.DestroyedWalls, Is.EqualTo(new[] { wall }));
+            Assert.That(grid.GetCell(wall).Terrain, Is.EqualTo(GridTerrain.Floor));
+        }
+
         [Test]
         public void SquareAreaRangeOne_AffectsEveryFloorCellInThreeByThreeOrder()
         {

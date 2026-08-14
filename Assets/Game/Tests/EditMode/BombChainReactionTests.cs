@@ -173,6 +173,34 @@ namespace BombSwap.Tests.EditMode
             Assert.That(target.ScheduledCause, Is.EqualTo(BombDetonationCause.Chain));
         }
 
+        [Test]
+        public void ForwardLineExplosion_SchedulesReachedBombWithTheSharedChainDelay()
+        {
+            GridState grid = CreateLineFloor(0, 3);
+            var clock = new ManualGameClock();
+            var simulation = new BombSimulation(grid, clock, ChainDelay);
+            simulation.TryPlaceBomb(
+                CreateDefinition("line-source", 1, 3, BombExplosionShape.ForwardLine),
+                SourcePosition,
+                Owner,
+                CardinalDirection.East,
+                out BombId sourceId);
+            simulation.TryPlaceBomb(
+                CreateDefinition("area-target", 10, 0, BombExplosionShape.SquareArea),
+                TargetPosition,
+                Owner,
+                out BombId targetId);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            IReadOnlyList<BombExplosion> explosions = simulation.ProcessDueBombs();
+            simulation.TryGetBomb(targetId, out BombSnapshot target);
+
+            Assert.That(explosions, Has.Count.EqualTo(1));
+            Assert.That(explosions[0].BombId, Is.EqualTo(sourceId));
+            Assert.That(target.DetonatesAt, Is.EqualTo(TimeSpan.FromSeconds(1) + ChainDelay));
+            Assert.That(target.ScheduledCause, Is.EqualTo(BombDetonationCause.Chain));
+        }
+
         private static ChainFixture CreateChainFixture()
         {
             GridState grid = CreateLineFloor(0, 2);

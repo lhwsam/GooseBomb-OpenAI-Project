@@ -23,6 +23,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(movement.ActorId, Is.EqualTo(PlayerActor));
             Assert.That(movement.CurrentPosition, Is.EqualTo(Start));
             Assert.That(movement.Position, Is.EqualTo(GridSubcellPosition.AtCellCenter(Start)));
+            Assert.That(movement.FacingDirection, Is.EqualTo(CardinalDirection.North));
             Assert.That(movement.CellsPerSecond, Is.EqualTo(CellsPerSecond));
             Assert.That(grid.GetCell(Start).HasActor, Is.True);
             Assert.That(grid.TryGetActorPosition(PlayerActor, out GridPosition stored), Is.True);
@@ -78,6 +79,25 @@ namespace BombSwap.Tests.EditMode
             Assert.That(movement.Advance(), Is.True);
             Assert.That(movement.Position.X, Is.EqualTo(0.1d).Within(0.000001d));
             Assert.That(movement.Position.Z, Is.EqualTo(released.Z).Within(0.000001d));
+        }
+
+        [Test]
+        public void FacingDirection_RetainsLastCardinalIntentAfterReleaseAndBlockedMovement()
+        {
+            var grid = new GridState();
+            grid.TrySetTerrain(Start, GridTerrain.Floor);
+            var clock = new ManualGameClock();
+            PlayerMovementSimulation movement = CreateMovement(grid, clock);
+
+            movement.SetMoveDirection(CardinalDirection.West);
+            clock.Advance(TimeSpan.FromMilliseconds(50));
+            Assert.That(movement.Advance(), Is.False);
+            Assert.That(movement.FacingDirection, Is.EqualTo(CardinalDirection.West));
+
+            movement.SetMoveDirection(CardinalDirection.None);
+
+            Assert.That(movement.MoveDirection, Is.EqualTo(CardinalDirection.None));
+            Assert.That(movement.FacingDirection, Is.EqualTo(CardinalDirection.West));
         }
 
         [Test]

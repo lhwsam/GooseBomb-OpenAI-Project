@@ -50,6 +50,7 @@ namespace BombSwap.Core
             ActorId = actorId;
             CurrentPosition = startPosition;
             Position = GridSubcellPosition.AtCellCenter(startPosition);
+            FacingDirection = CardinalDirection.North;
             CellsPerSecond = cellsPerSecond;
             lastObservedTime = clock.Now;
         }
@@ -61,6 +62,8 @@ namespace BombSwap.Core
         public GridSubcellPosition Position { get; private set; }
 
         public CardinalDirection MoveDirection { get; private set; }
+
+        public CardinalDirection FacingDirection { get; private set; }
 
         public double CellsPerSecond { get; }
 
@@ -74,6 +77,10 @@ namespace BombSwap.Core
         {
             ValidateDirection(direction);
             MoveDirection = direction;
+            if (direction != CardinalDirection.None)
+            {
+                FacingDirection = direction;
+            }
         }
 
         public bool Advance()

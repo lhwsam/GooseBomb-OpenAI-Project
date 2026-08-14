@@ -32,9 +32,9 @@
 
 중복 스탯을 늘리지 않는다. 공간 역할 차이를 수치 차이보다 먼저 만든다.
 
-현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 구현된 모양은 cardinal 네 방향으로 전파하는 `Cross`와 원점을 포함한 Chebyshev 정사각 영역을 평가하는 `SquareArea`다. 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
+현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 구현된 모양은 cardinal 네 방향으로 전파하는 `Cross`, 원점을 포함한 Chebyshev 정사각 영역을 평가하는 `SquareArea`, 설치 순간의 cardinal 방향 한 ray만 전파하는 `ForwardLine`이다. 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
 
-TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 두 수치 집합은 플레이테스트 전까지 `Proposed`다.
+TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 던전 보상 후보 `prototype-line`은 `ForwardLine`·fuse 2.25초·범위 3·설치 2.25초다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 세 수치 집합은 플레이테스트 전까지 `Proposed`다.
 
 ## 폭발 전파 규칙
 
@@ -47,6 +47,8 @@ TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양,
 5. 폭탄이 있으면 연쇄 스케줄러에 등록한다. 동일 폭탄을 두 번 예약하지 않는다.
 
 `SquareArea`는 원점을 먼저 포함한 뒤 `deltaZ`, `deltaX` 오름차순으로 정사각 영역의 각 셀을 독립 평가한다. `Void`와 파괴 불가 벽은 영향 셀에서 제외하고, 파괴 가능 벽은 영향·파괴 목록에 포함한다. ray 전파가 아니므로 한 셀의 벽이 다른 영역 셀을 가리지 않는다. 같은 시각 폭발 묶음의 벽 파괴 지연과 연쇄 예약 규칙은 `Cross`와 동일하다.
+
+`ForwardLine`은 원점 뒤 설치 순간에 고정된 `North`·`East`·`South`·`West` 한 방향만 가까운 셀부터 평가한다. 방향은 플레이어가 나중에 이동하거나 키를 떼어도 바뀌지 않는다. `CardinalDirection.None`으로는 이 모양을 설치할 수 없고, 벽 차단·파괴와 연쇄 예약은 `Cross`의 각 ray와 같은 규칙을 사용한다.
 
 ## 상태와 전이
 
@@ -62,7 +64,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 
 ## 구현된 최소 Core 계약
 
-- `BombSimulation`이 세션 내 증가하는 `BombId`, 설치자 `ActorId`, 활성 폭탄, 위치별 폭탄 점유, fuse와 연쇄 예약을 소유한다.
+- `BombSimulation`이 세션 내 증가하는 `BombId`, 설치자 `ActorId`, 설치 순간 방향, 활성 폭탄, 위치별 폭탄 점유, fuse와 연쇄 예약을 소유한다.
 - 폭탄은 `Floor`에만 설치할 수 있고 같은 셀에 두 개를 설치할 수 없다. 설치자 actor와 새 폭탄의 동시 점유는 허용한다.
 - 설치 실패는 ID를 소비하거나 격자 점유를 남기지 않는다.
 - `ProcessDueBombs`는 주입된 `IGameClock`의 현재 시각까지 도달한 사건을 예약된 논리 시각 순서로 처리한다.
@@ -70,19 +72,19 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - `Void`와 파괴 불가 벽은 효과 없이 해당 방향을 끝낸다. 파괴 가능 벽은 폭발 셀과 파괴 목록에 포함한 후 해당 방향을 끝낸다.
 - 폭발 셀의 다른 활성 폭탄은 폭탄 정의와 관계없이 주입된 양수 고정 지연으로 한 번만 앞당겨 예약한다.
 - 시계가 여러 사건 시각을 한 번에 지나가도 각 폭발은 원래 예약된 논리 시각으로 처리되어 프레임 호출 빈도에 따라 결과가 달라지지 않는다.
-- 설치 직후 snapshot과 폭발 결과는 폭탄/정의 ID, 설치자 ID, 원점, 논리 시각, fuse/chain 원인, 영향 셀, 파괴 벽을 읽기 전용으로 제공한다.
+- 설치 직후 snapshot과 폭발 결과는 폭탄/정의 ID, 설치자 ID, 설치 방향, 원점, 논리 시각, fuse/chain 원인, 영향 셀, 파괴 벽을 읽기 전용으로 제공한다.
 
 ## 구현된 Unity 수직 슬라이스
 
-- `PrototypeGameSession`은 이동·폭탄·두 슬롯이 공유하는 하나의 논리 격자·시계를 소유하고 `PlaceBomb` 명령을 활성 슬롯과 현재 플레이어 셀에 적용한다.
+- `PrototypeGameSession`은 이동·폭탄·두 슬롯이 공유하는 하나의 논리 격자·시계를 소유하고 `PlaceBomb` 명령을 활성 슬롯, 현재 플레이어 셀과 Core의 마지막 바라보기 방향에 적용한다.
 - 설치가 성공할 때만 `BombPlaced`, fuse 또는 연쇄 처리 결과가 확정될 때만 `BombExploded`를 발행한다.
 - `PrototypeGameSession`은 설치 snapshot의 소유자가 현재 셀의 플레이어임을 근거로 한 번의 탈출 권한을 부여하고, 폭발로 폭탄이 제거되면 남은 권한을 종료한다.
 - 확정된 폭발 셀에 현재 플레이어 논리 셀이 포함되면 체력 시스템에 해당 `BombId`의 피해를 한 번 전달하고, 무적 계약을 통과한 결과만 `PlayerDamaged`로 발행한다.
 - 확정된 폭발 셀에 살아 있는 기본 추격자 또는 선택적 돌진형의 논리 셀이 포함되면 각 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 두 적은 모두 내구도 1이며 같은 결과에서 사망하면 각 논리 점유가 제거된다.
-- `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
+- `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 직선 폭탄의 비대칭 설치체를 확정된 방향으로 회전한다. 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
 - `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. 같은 시각의 여러 폭발이 같은 벽을 보고해도 표현 제거는 멱등이다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
-- 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자·돌진형 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자와 3×3 광역 폭발을 포함한다. 추격자 뒤 돌진형 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 범용 다중 적 목록·중형 적 피해 단계와 방향성 직선 폭발은 아직 없다.
+- 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자·돌진형 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자·3×3 광역·앞쪽 직선 폭발을 포함한다. 추격자 뒤 돌진형 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 범용 다중 적 목록·중형 적 피해 단계는 아직 없다.
 
 ## 불변식
 
@@ -100,6 +102,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 바닥 설치, 설치자 ID 보존, actor 동시 점유, 중복/비바닥 설치 실패의 원자성, 세션 ID 증가.
 - 십자 범위 0과 2의 셀 집합.
 - 광역 범위 1의 결정론적 3×3 셀 순서, `Void`·고정 벽 제외, 파괴 벽 포함과 비차폐 평가.
+- 직선 범위 3의 네 cardinal 셀 순서, 옆·뒤 제외, 설치 방향 고정과 방향 누락 거부.
 - `Void`·고정 벽 앞 종료와 파괴 벽 셀 포함 후 종료 및 실제 지형 변경.
 - 같은 시각 폭발의 ID 순서와 벽 파괴 지연 적용.
 - 서로 다른 정의 간 연쇄, 양수 고정 지연, 중복 예약 방지.
@@ -108,7 +111,6 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 
 다음 항목은 후속 폭탄·피해 시스템에서 추가한다.
 
-- 방향성 직선 패턴 셀 집합과 방향 계약.
 - 검증된 콘텐츠가 정한 최대 범위 경계.
 - 범용 다중 적 목록의 피해 후보 수집과 대상별 중복 제거.
 

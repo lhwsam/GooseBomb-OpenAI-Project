@@ -73,7 +73,7 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 
 현재 이동 수직 슬라이스는 기본 5 cells/s를 유지하되 별도 한 셀 cadence를 두지 않는다. Runtime이 `Time.deltaTime`을 `ManualGameClock`에 전달하면 Core가 이전 관찰 시각 이후의 거리만큼 `GridSubcellPosition`을 진행하고, 셀 경계를 지날 때 정수 점유를 전이한다. 키 해제 중 시간은 다음 입력에 누적하지 않으며 Unity 표현은 별도 0.2초 보간 없이 같은 Core 위치를 직접 표시한다. 속도와 코너 보정 감각은 후속 플레이테스트 전까지 `Proposed`다.
 
-폭탄과 슬롯 수직 슬라이스도 같은 시계를 사용한다. `BombSimulation`은 정의의 모양에 따라 cardinal ray인 `CrossExplosionResolver` 또는 각 셀을 독립 평가하는 `SquareAreaExplosionResolver`를 선택하고, 결과는 같은 지연 연쇄 스케줄러로 합류한다. 기본 십자 폭탄의 현재 저작 값은 fuse 2초·범위 2·설치 1.5초, 3×3 광역 폭탄은 fuse 1.75초·범위 1·설치 2.5초, 교체 2초, 연쇄 지연 0.15초다. `PrototypeBombDefinitionAsset`, `PrototypeBombLoadoutAsset`과 세션 설정이 소유하며 플레이테스트 전까지 `Proposed`다.
+폭탄과 슬롯 수직 슬라이스도 같은 시계를 사용한다. `BombSimulation`은 정의의 모양에 따라 cardinal 네 ray인 `CrossExplosionResolver`, 각 셀을 독립 평가하는 `SquareAreaExplosionResolver`, 설치 순간의 바라보기 한 ray인 `ForwardLineExplosionResolver`를 선택하고 결과를 같은 지연 연쇄 스케줄러로 합류시킨다. `PlayerMovementSimulation`은 이동 해제와 분리된 마지막 바라보기 방향을 소유하고 세션이 설치 요청에 전달하며, 활성 폭탄은 이 값을 폭발까지 고정한다. 기본 십자는 fuse 2초·범위 2·설치 1.5초, 3×3 광역은 fuse 1.75초·범위 1·설치 2.5초, 직선은 fuse 2.25초·범위 3·설치 2.25초, 교체는 2초, 연쇄 지연은 0.15초다. `PrototypeBombDefinitionAsset`, loadout/reward catalog과 세션 설정이 소유하며 플레이테스트 전까지 `Proposed`다.
 
 플레이어 체력 수직 슬라이스는 같은 시계에서 0.75초 무적 종료 시각을 계산한다. 프레임에서는 시계를 먼저 전진하고 이동 전이를 처리한 뒤 만료 폭탄을 계산하며, 폭발 셀에 그 시점의 플레이어 논리 셀이 포함되면 피해를 적용한다. 최대 체력 5, 폭발 피해 1, 접촉 피해 1, 무적 0.75초는 플레이테스트 전까지 `Proposed`다.
 

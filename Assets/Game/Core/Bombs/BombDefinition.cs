@@ -16,7 +16,8 @@ namespace BombSwap.Core
             }
 
             if (explosionShape != BombExplosionShape.Cross &&
-                explosionShape != BombExplosionShape.SquareArea)
+                explosionShape != BombExplosionShape.SquareArea &&
+                explosionShape != BombExplosionShape.ForwardLine)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(explosionShape),

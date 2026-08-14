@@ -28,6 +28,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(snapshot.DefinitionId, Is.EqualTo(definition.Id));
             Assert.That(snapshot.Position, Is.EqualTo(Position));
             Assert.That(snapshot.OwnerId, Is.EqualTo(Owner));
+            Assert.That(snapshot.PlacementDirection, Is.EqualTo(CardinalDirection.None));
             Assert.That(snapshot.DetonatesAt, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(snapshot.ScheduledCause, Is.EqualTo(BombDetonationCause.Fuse));
         }
@@ -124,6 +125,48 @@ namespace BombSwap.Tests.EditMode
 
             Assert.Throws<ArgumentException>(() =>
                 simulation.TryPlaceBomb(CreateDefinition(), Position, default, out BombId _));
+        }
+
+        [Test]
+        public void TryPlaceBomb_ForwardLineRequiresDirectionWithoutChangingGrid()
+        {
+            var grid = CreateGridWithTerrain(GridTerrain.Floor);
+            var simulation = CreateSimulation(grid);
+            var definition = new BombDefinition(
+                new BombDefinitionId("forward-line"),
+                BombExplosionShape.ForwardLine,
+                TimeSpan.FromSeconds(1),
+                3);
+
+            Assert.Throws<ArgumentException>(() => simulation.TryPlaceBomb(
+                definition,
+                Position,
+                Owner,
+                out BombId _));
+            Assert.That(simulation.ActiveBombCount, Is.Zero);
+            Assert.That(grid.GetCell(Position).HasBomb, Is.False);
+        }
+
+        [Test]
+        public void TryPlaceBomb_ForwardLineStoresItsCardinalDirection()
+        {
+            var grid = CreateGridWithTerrain(GridTerrain.Floor);
+            var simulation = CreateSimulation(grid);
+            var definition = new BombDefinition(
+                new BombDefinitionId("forward-line"),
+                BombExplosionShape.ForwardLine,
+                TimeSpan.FromSeconds(1),
+                3);
+
+            Assert.That(simulation.TryPlaceBomb(
+                definition,
+                Position,
+                Owner,
+                CardinalDirection.West,
+                out BombId bombId), Is.True);
+
+            Assert.That(simulation.TryGetBomb(bombId, out BombSnapshot snapshot), Is.True);
+            Assert.That(snapshot.PlacementDirection, Is.EqualTo(CardinalDirection.West));
         }
 
         [Test]

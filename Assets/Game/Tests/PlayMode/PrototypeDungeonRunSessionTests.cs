@@ -841,16 +841,18 @@ namespace BombSwap.Tests.PlayMode
             PrototypeBombDefinitionAsset area = CreateBombDefinition(
                 "area",
                 BombExplosionShape.SquareArea);
-            PrototypeBombDefinitionAsset longCross = CreateBombDefinition("long-cross");
+            PrototypeBombDefinitionAsset line = CreateBombDefinition(
+                "line",
+                BombExplosionShape.ForwardLine);
             PrototypeBombRewardCatalogAsset catalog = CreateBombRewardCatalogAsset();
-            var source = new[] { area, longCross };
+            var source = new[] { area, line };
 
             catalog.Configure(starter, source, 2f);
             source[0] = starter;
             DungeonBombLoadoutState state = catalog.CreateRunLoadoutState();
 
             Assert.That(catalog.FirstSlot, Is.SameAs(starter));
-            Assert.That(catalog.RewardCandidates, Is.EqualTo(new[] { area, longCross }));
+            Assert.That(catalog.RewardCandidates, Is.EqualTo(new[] { area, line }));
             Assert.That(state.FirstSlot.Value, Is.EqualTo("starter"));
             Assert.That(state.SecondSlot.HasValue, Is.False);
             Assert.That(
@@ -1276,9 +1278,11 @@ namespace BombSwap.Tests.PlayMode
             PrototypeBombDefinitionAsset area = CreateBombDefinition(
                 "area",
                 BombExplosionShape.SquareArea);
-            PrototypeBombDefinitionAsset longCross = CreateBombDefinition("long-cross");
+            PrototypeBombDefinitionAsset line = CreateBombDefinition(
+                "line",
+                BombExplosionShape.ForwardLine);
             PrototypeBombRewardCatalogAsset catalog = CreateBombRewardCatalogAsset();
-            catalog.Configure(starter, new[] { area, longCross }, 2f);
+            catalog.Configure(starter, new[] { area, line }, 2f);
             return catalog;
         }
 

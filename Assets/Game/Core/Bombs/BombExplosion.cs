@@ -11,6 +11,7 @@ namespace BombSwap.Core
             BombDefinitionId definitionId,
             GridPosition origin,
             ActorId ownerId,
+            CardinalDirection placementDirection,
             TimeSpan detonatedAt,
             BombDetonationCause cause,
             List<GridPosition> affectedCells,
@@ -20,6 +21,7 @@ namespace BombSwap.Core
             DefinitionId = definitionId;
             Origin = origin;
             OwnerId = ownerId;
+            PlacementDirection = placementDirection;
             DetonatedAt = detonatedAt;
             Cause = cause;
             AffectedCells = new ReadOnlyCollection<GridPosition>(affectedCells.ToArray());
@@ -33,6 +35,8 @@ namespace BombSwap.Core
         public GridPosition Origin { get; }
 
         public ActorId OwnerId { get; }
+
+        public CardinalDirection PlacementDirection { get; }
 
         public TimeSpan DetonatedAt { get; }
 
