@@ -40,15 +40,15 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeBombContentIfMissing();
             PrototypeBombDefinitionAsset areaBombDefinition =
                 CreatePrototypeAreaBombContentIfMissing();
-            PrototypeBombDefinitionAsset longCrossBombDefinition =
-                CreatePrototypeLongCrossBombContentIfMissing();
+            PrototypeBombDefinitionAsset lineBombDefinition =
+                CreatePrototypeLineBombContentIfMissing();
             PrototypeBombLoadoutAsset bombLoadout =
                 CreatePrototypeBombLoadoutIfMissing(bombDefinition, areaBombDefinition);
             PrototypeBombRewardCatalogAsset bombRewardCatalog =
                 CreatePrototypeBombRewardCatalog(
                     bombDefinition,
                     areaBombDefinition,
-                    longCrossBombDefinition);
+                    lineBombDefinition);
             DeleteLegacyQuickBombAssets();
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
@@ -462,8 +462,9 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
-        private static PrototypeBombDefinitionAsset CreatePrototypeLongCrossBombContentIfMissing()
+        private static PrototypeBombDefinitionAsset CreatePrototypeLineBombContentIfMissing()
         {
+            MigrateLegacyLineBombAssets();
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
             {
@@ -473,11 +474,11 @@ namespace BombSwap.Editor.ContentValidation
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
             Material bombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/LongCrossBomb.mat",
+                MaterialsPath + "/LineBomb.mat",
                 shader,
                 new Color(0.04f, 0.62f, 0.78f, 1f));
             Material explosionMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/LongCrossExplosion.mat",
+                MaterialsPath + "/LineExplosion.mat",
                 shader,
                 new Color(0.1f, 0.92f, 1f, 1f));
             if (explosionMaterial.HasProperty("_EmissionColor"))
@@ -490,15 +491,20 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             GameObject bombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.LongCrossBombPrefabPath,
-                "LongCrossBombPlaceholder",
+                PrototypeContentValidator.LineBombPrefabPath,
+                "LineBombPlaceholder",
                 PrimitiveType.Capsule,
                 new Vector3(0f, 0.3f, 0f),
                 new Vector3(0.42f, 0.34f, 0.42f),
                 bombMaterial);
+            EnsureForwardLineBombPrefabGeometry(
+                PrototypeContentValidator.LineBombPrefabPath,
+                bombMaterial);
+            bombPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeContentValidator.LineBombPrefabPath);
             GameObject explosionPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.LongCrossExplosionCellPrefabPath,
-                "LongCrossExplosionCellPlaceholder",
+                PrototypeContentValidator.LineExplosionCellPrefabPath,
+                "LineExplosionCellPlaceholder",
                 PrimitiveType.Cube,
                 new Vector3(0f, 0.09f, 0f),
                 new Vector3(0.86f, 0.18f, 0.86f),
@@ -506,27 +512,128 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeBombDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
-                    PrototypeContentValidator.PrototypeLongCrossBombDefinitionPath);
+                    PrototypeContentValidator.PrototypeLineBombDefinitionPath);
             if (definition == null)
             {
                 definition = ScriptableObject.CreateInstance<
                     PrototypeBombDefinitionAsset>();
-                definition.name = "PrototypeLongCrossBomb";
+                definition.name = "PrototypeLineBomb";
                 AssetDatabase.CreateAsset(
                     definition,
-                    PrototypeContentValidator.PrototypeLongCrossBombDefinitionPath);
+                    PrototypeContentValidator.PrototypeLineBombDefinitionPath);
             }
+            definition.name = "PrototypeLineBomb";
             definition.Configure(
-                "prototype-long-cross",
+                "prototype-line",
                 2.25f,
                 3,
                 bombPrefab,
                 explosionPrefab,
                 0.25f,
                 2.25f,
-                BombExplosionShape.Cross);
+                BombExplosionShape.ForwardLine);
             EditorUtility.SetDirty(definition);
             return definition;
+        }
+
+        private static void MigrateLegacyLineBombAssets()
+        {
+            string[,] paths =
+            {
+                {
+                    "Assets/Game/Content/Bombs/PrototypeLongCrossBomb.asset",
+                    PrototypeContentValidator.PrototypeLineBombDefinitionPath
+                },
+                {
+                    MaterialsPath + "/LongCrossBomb.mat",
+                    MaterialsPath + "/LineBomb.mat"
+                },
+                {
+                    MaterialsPath + "/LongCrossExplosion.mat",
+                    MaterialsPath + "/LineExplosion.mat"
+                },
+                {
+                    PrototypePrefabsPath + "/LongCrossBombPlaceholder.prefab",
+                    PrototypeContentValidator.LineBombPrefabPath
+                },
+                {
+                    PrototypePrefabsPath + "/LongCrossExplosionCellPlaceholder.prefab",
+                    PrototypeContentValidator.LineExplosionCellPrefabPath
+                }
+            };
+
+            for (int index = 0; index < paths.GetLength(0); index++)
+            {
+                string source = paths[index, 0];
+                string destination = paths[index, 1];
+                bool sourceExists = AssetDatabase.LoadMainAssetAtPath(source) != null;
+                bool destinationExists = AssetDatabase.LoadMainAssetAtPath(destination) != null;
+                if (!sourceExists)
+                {
+                    continue;
+                }
+                if (destinationExists)
+                {
+                    throw new InvalidOperationException(
+                        $"Cannot migrate line-bomb asset because both paths exist: {source}, {destination}");
+                }
+
+                string error = AssetDatabase.MoveAsset(source, destination);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not migrate line-bomb asset '{source}' to '{destination}': {error}");
+                }
+            }
+        }
+
+        private static void EnsureForwardLineBombPrefabGeometry(
+            string assetPath,
+            Material material)
+        {
+            GameObject contents = PrefabUtility.LoadPrefabContents(assetPath);
+            try
+            {
+                bool nameChanged = contents.name != "LineBombPlaceholder";
+                contents.name = "LineBombPlaceholder";
+                Transform body = contents.transform.Find("DirectionBody");
+                Transform tip = contents.transform.Find("DirectionTip");
+                if (contents.transform.childCount == 2 && body != null && tip != null)
+                {
+                    if (nameChanged)
+                    {
+                        PrefabUtility.SaveAsPrefabAsset(contents, assetPath);
+                    }
+                    return;
+                }
+
+                for (int index = contents.transform.childCount - 1; index >= 0; index--)
+                {
+                    UnityEngine.Object.DestroyImmediate(
+                        contents.transform.GetChild(index).gameObject);
+                }
+                CreatePrimitive(
+                    "DirectionBody",
+                    PrimitiveType.Cube,
+                    contents.transform,
+                    new Vector3(0f, 0.22f, -0.06f),
+                    new Vector3(0.28f, 0.24f, 0.52f),
+                    material,
+                    false);
+                CreatePrimitive(
+                    "DirectionTip",
+                    PrimitiveType.Cube,
+                    contents.transform,
+                    new Vector3(0f, 0.22f, 0.28f),
+                    new Vector3(0.42f, 0.28f, 0.20f),
+                    material,
+                    false);
+                PrefabUtility.SaveAsPrefabAsset(contents, assetPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
         }
 
         private static void DeleteLegacyQuickBombAssets()
@@ -567,7 +674,7 @@ namespace BombSwap.Editor.ContentValidation
         private static PrototypeBombRewardCatalogAsset CreatePrototypeBombRewardCatalog(
             PrototypeBombDefinitionAsset firstSlot,
             PrototypeBombDefinitionAsset areaCandidate,
-            PrototypeBombDefinitionAsset longCrossCandidate)
+            PrototypeBombDefinitionAsset lineCandidate)
         {
             PrototypeBombRewardCatalogAsset catalog =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombRewardCatalogAsset>(
@@ -584,7 +691,7 @@ namespace BombSwap.Editor.ContentValidation
 
             catalog.Configure(
                 firstSlot,
-                new[] { areaCandidate, longCrossCandidate },
+                new[] { areaCandidate, lineCandidate },
                 2f);
             EditorUtility.SetDirty(catalog);
             return catalog;

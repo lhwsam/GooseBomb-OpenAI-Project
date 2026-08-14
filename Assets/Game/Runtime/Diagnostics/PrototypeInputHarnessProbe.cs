@@ -195,6 +195,10 @@ namespace BombSwap
         private void OnBombPlaced(BombSnapshot snapshot)
         {
             WebGlHarnessReporter.Report("place-bomb-definition-" + snapshot.DefinitionId.Value);
+            if (snapshot.DefinitionId.Value == "prototype-line")
+            {
+                ReportLineBombDirection("line-bomb-placed", snapshot.PlacementDirection);
+            }
             if (_placeBombReported)
             {
                 return;
@@ -211,6 +215,12 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
+            WebGlHarnessReporter.Report(
+                "bomb-exploded-definition-" + explosion.DefinitionId.Value);
+            if (explosion.DefinitionId.Value == "prototype-line")
+            {
+                ReportLineBombDirection("line-bomb-exploded", explosion.PlacementDirection);
+            }
             if (!_destructibleWallDestroyedReported && explosion.DestroyedWalls.Count > 0)
             {
                 WebGlHarnessReporter.Report("destructible-wall-destroyed");
@@ -218,6 +228,32 @@ namespace BombSwap
             }
 
             WebGlHarnessReporter.Report("bomb-exploded");
+        }
+
+        private static void ReportLineBombDirection(
+            string prefix,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    WebGlHarnessReporter.Report(prefix + "-north");
+                    break;
+                case CardinalDirection.East:
+                    WebGlHarnessReporter.Report(prefix + "-east");
+                    break;
+                case CardinalDirection.South:
+                    WebGlHarnessReporter.Report(prefix + "-south");
+                    break;
+                case CardinalDirection.West:
+                    WebGlHarnessReporter.Report(prefix + "-west");
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "A line-bomb marker requires a cardinal direction.");
+            }
         }
 
         private void OnPlayerDamaged(PlayerDamageResult result)

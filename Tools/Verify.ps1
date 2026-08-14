@@ -200,6 +200,7 @@ function Test-StaticContracts {
         'Tools/Verify.ps1',
         'Tools/WebGLSmoke.mjs',
         'Tools/ArmoredWebGLSmoke.mjs',
+        'Tools/DirectionalLineWebGLSmoke.mjs',
         'Tools/WebGLStaticServer.mjs',
         'Tools/WebGLStaticServerTests.mjs',
         'Tools/ServeWebGL.mjs'

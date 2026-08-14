@@ -37,7 +37,7 @@
 - `PrototypeWeaponHud`: Core snapshot을 표시한다. 왼쪽 아래 두 슬롯의 활성 상태, 설치 준비 bar/시간과 교체 준비 시간을 보여준다.
 - `PrototypeBombRewardPresenter`: 보상방의 기존 논리 이동 셀 사건으로 후보 접촉을 판정한다. 장치 상태를 직접 읽지 않는다.
 
-standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-long-cross`(`Cross`, fuse 2.25초, 범위 3, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 광역과 장거리 십자는 색·형태를 구분하지만, 장거리 십자는 아직 GDD의 방향성 직선 폭탄이 아니다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
+standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-line`(`ForwardLine`, fuse 2.25초, 범위 3, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 직선 후보는 설치 순간의 마지막 바라보기 방향 한 ray만 공격하며 비대칭 청록 설치체가 방향을 표시한다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
 
 ## 불변식
 
@@ -68,4 +68,4 @@ standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2
 - 교체 쿨타임 경계와 일시정지.
 - 같은 step의 설치/교체 명령 순서.
 
-현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계·시계 정지와 빈 슬롯·단일 보상 장착을 검증한다. PlayMode는 고정 두 슬롯 씬의 기존 `X`/`Z`, 던전 보상방의 빈 슬롯 수집과 다음 scene persistence를 검증한다. WebGL smoke는 시작 십자 2회, `bomb-reward-selected-prototype-area`, 후속 전투방과 실제 보스 반격에서 `active-bomb-slot-1`과 `place-bomb-definition-prototype-area` 성공 사건을 요구한다.
+현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계·시계 정지와 빈 슬롯·단일 보상 장착을 검증한다. PlayMode는 고정 두 슬롯 씬의 기존 `X`/`Z`, 던전 보상방의 빈 슬롯 수집과 다음 scene persistence, 해제 뒤 바라보기와 직선 폭탄 설치 방향 고정을 검증한다. 기본 WebGL smoke는 시작 십자 2회, `bomb-reward-selected-prototype-area`, 후속 전투방과 실제 보스 반격에서 `active-bomb-slot-1`과 `place-bomb-definition-prototype-area` 성공 사건을 요구한다. `Tools/DirectionalLineWebGLSmoke.mjs`는 오른쪽 `prototype-line` 후보를 고른 뒤 동쪽 설치, 북쪽 이동 명령, 동쪽 폭발 순서를 별도로 검증한다.

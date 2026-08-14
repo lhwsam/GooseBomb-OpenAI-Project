@@ -653,6 +653,63 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ForwardLineBomb_UsesReleasedFacingAndKeepsPlacementDirection()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.12f,
+                areaExplosionRange: 2,
+                swapCooldownSeconds: 0.01f,
+                secondExplosionShape: BombExplosionShape.ForwardLine,
+                secondDefinitionId: "test-line",
+                combatEnabled: false);
+            BombSnapshot placed = default;
+            BombExplosion exploded = null;
+            _session.BombPlaced += snapshot =>
+            {
+                if (snapshot.DefinitionId.Value == "test-line")
+                {
+                    placed = snapshot;
+                }
+            };
+            _session.BombExploded += explosion =>
+            {
+                if (explosion.DefinitionId.Value == "test-line")
+                {
+                    exploded = explosion;
+                }
+            };
+            yield return null;
+
+            QueueKeyboardState(Key.D);
+            yield return null;
+            QueueKeyboardState();
+            yield return null;
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+
+            Assert.That(placed.Id.IsValid, Is.True);
+            Assert.That(placed.PlacementDirection, Is.EqualTo(CardinalDirection.East));
+
+            QueueKeyboardState(Key.W);
+            yield return null;
+            QueueKeyboardState();
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(exploded, Is.Not.Null);
+            Assert.That(exploded.PlacementDirection, Is.EqualTo(CardinalDirection.East));
+            Assert.That(exploded.AffectedCells, Is.EqualTo(new[]
+            {
+                new GridPosition(0, 0),
+                new GridPosition(1, 0),
+                new GridPosition(2, 0),
+            }));
+            Assert.That(exploded.AffectedCells, Has.No.Member(new GridPosition(0, 1)));
+            Assert.That(exploded.AffectedCells, Has.No.Member(new GridPosition(-1, 0)));
+        }
+
+        [UnityTest]
         public IEnumerator DestructibleWallPresenter_RemovesConfirmedWallAndOpensGridCell()
         {
             var wall = new Vector2Int(1, 0);
@@ -1377,6 +1434,8 @@ namespace BombSwap.Tests.PlayMode
             float placementCooldownSeconds = 0.01f,
             int areaExplosionRange = 1,
             float areaPlacementCooldownSeconds = 0.01f,
+            BombExplosionShape secondExplosionShape = BombExplosionShape.SquareArea,
+            string secondDefinitionId = "test-area",
             float swapCooldownSeconds = 0.05f,
             int maxHealth = 5,
             float invulnerabilitySeconds = 0.75f,
@@ -1431,14 +1490,14 @@ namespace BombSwap.Tests.PlayMode
                 placementCooldownSeconds);
             _areaDefinition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
             _areaDefinition.Configure(
-                "test-area",
+                secondDefinitionId,
                 fuseSeconds,
                 areaExplosionRange,
                 _bombPrefab,
                 _explosionPrefab,
                 explosionVisualSeconds,
                 areaPlacementCooldownSeconds,
-                BombExplosionShape.SquareArea);
+                secondExplosionShape);
             _loadout = ScriptableObject.CreateInstance<PrototypeBombLoadoutAsset>();
             _loadout.Configure(_definition, _areaDefinition, swapCooldownSeconds);
             _vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();

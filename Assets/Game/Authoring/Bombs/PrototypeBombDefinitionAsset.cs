@@ -80,7 +80,8 @@ namespace BombSwap
                     "Bomb range cannot be negative.");
             }
             if (authoredExplosionShape != BombExplosionShape.Cross &&
-                authoredExplosionShape != BombExplosionShape.SquareArea)
+                authoredExplosionShape != BombExplosionShape.SquareArea &&
+                authoredExplosionShape != BombExplosionShape.ForwardLine)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(authoredExplosionShape),

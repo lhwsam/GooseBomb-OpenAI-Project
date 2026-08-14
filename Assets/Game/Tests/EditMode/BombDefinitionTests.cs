@@ -28,6 +28,7 @@ namespace BombSwap.Tests.EditMode
 
         [TestCase(BombExplosionShape.Cross)]
         [TestCase(BombExplosionShape.SquareArea)]
+        [TestCase(BombExplosionShape.ForwardLine)]
         public void Definition_AcceptsSupportedShapesWithPositiveFuseAndZeroRange(
             BombExplosionShape shape)
         {

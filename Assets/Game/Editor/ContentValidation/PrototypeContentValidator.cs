@@ -34,8 +34,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypeAreaBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeAreaBomb.asset";
-        public const string PrototypeLongCrossBombDefinitionPath =
-            "Assets/Game/Content/Bombs/PrototypeLongCrossBomb.asset";
+        public const string PrototypeLineBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeLineBomb.asset";
         public const string PrototypeBombLoadoutPath =
             "Assets/Game/Content/Bombs/PrototypeBombLoadout.asset";
         public const string PrototypeBombRewardCatalogPath =
@@ -68,10 +68,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/AreaBombPlaceholder.prefab";
         public const string AreaExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
-        public const string LongCrossBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/LongCrossBombPlaceholder.prefab";
-        public const string LongCrossExplosionCellPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/LongCrossExplosionCellPlaceholder.prefab";
+        public const string LineBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/LineBombPlaceholder.prefab";
+        public const string LineExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/LineExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
         public const string ChargerPrefabPath =
@@ -137,15 +137,16 @@ namespace BombSwap.Editor.ContentValidation
                 BombExplosionShape.SquareArea,
                 1,
                 errors);
-            PrototypeBombDefinitionAsset longCrossDefinition =
+            PrototypeBombDefinitionAsset lineDefinition =
                 ValidatePrototypeBombDefinition(
-                    PrototypeLongCrossBombDefinitionPath,
-                    LongCrossBombPrefabPath,
-                    LongCrossExplosionCellPrefabPath,
-                    "prototype-long-cross",
-                    BombExplosionShape.Cross,
+                    PrototypeLineBombDefinitionPath,
+                    LineBombPrefabPath,
+                    LineExplosionCellPrefabPath,
+                    "prototype-line",
+                    BombExplosionShape.ForwardLine,
                     3,
                     errors);
+            ValidateForwardLineBombVisual(errors);
             PrototypeBombLoadoutAsset loadout =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
                     PrototypeBombLoadoutPath);
@@ -192,10 +193,10 @@ namespace BombSwap.Editor.ContentValidation
                 if (rewardCatalog.FirstSlot != firstDefinition ||
                     rewardCatalog.RewardCandidates.Count != 2 ||
                     rewardCatalog.RewardCandidates[0] != secondDefinition ||
-                    rewardCatalog.RewardCandidates[1] != longCrossDefinition)
+                    rewardCatalog.RewardCandidates[1] != lineDefinition)
                 {
                     errors.Add(
-                        "Prototype bomb reward catalog must start with prototype-cross and offer prototype-area then prototype-long-cross.");
+                        "Prototype bomb reward catalog must start with prototype-cross and offer prototype-area then prototype-line.");
                 }
             }
 
@@ -213,6 +214,48 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add($"Legacy quick-cross prototype asset still exists: {legacyPaths[index]}");
                 }
+            }
+
+            string[] legacyLongCrossPaths =
+            {
+                "Assets/Game/Content/Bombs/PrototypeLongCrossBomb.asset",
+                "Assets/Game/Content/Materials/Prototype/LongCrossBomb.mat",
+                "Assets/Game/Content/Materials/Prototype/LongCrossExplosion.mat",
+                "Assets/Game/Content/Prefabs/Prototype/LongCrossBombPlaceholder.prefab",
+                "Assets/Game/Content/Prefabs/Prototype/LongCrossExplosionCellPlaceholder.prefab"
+            };
+            for (int index = 0; index < legacyLongCrossPaths.Length; index++)
+            {
+                if (AssetDatabase.LoadMainAssetAtPath(legacyLongCrossPaths[index]) != null)
+                {
+                    errors.Add(
+                        $"Legacy long-cross prototype asset still exists: {legacyLongCrossPaths[index]}");
+                }
+            }
+        }
+
+        private static void ValidateForwardLineBombVisual(ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LineBombPrefabPath);
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/Game/Content/Materials/Prototype/LineBomb.mat");
+            if (prefab == null)
+            {
+                return;
+            }
+
+            Transform body = prefab.transform.Find("DirectionBody");
+            Transform tip = prefab.transform.Find("DirectionTip");
+            Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>(true);
+            if (prefab.name != "LineBombPlaceholder" ||
+                prefab.transform.childCount != 2 ||
+                body == null || tip == null ||
+                renderers.Length != 2 || material == null ||
+                renderers.Any(renderer => renderer.sharedMaterial != material) ||
+                prefab.GetComponentsInChildren<Collider>(true).Length != 0)
+            {
+                errors.Add(
+                    "Prototype line-bomb prefab must be an asymmetric collider-free two-part visual using LineBomb material.");
             }
         }
 

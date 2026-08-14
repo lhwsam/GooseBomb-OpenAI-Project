@@ -10,13 +10,13 @@ namespace BombSwap.Tests.EditMode
             new BombDefinitionId("starter");
         private static readonly BombDefinitionId Area =
             new BombDefinitionId("area");
-        private static readonly BombDefinitionId LongCross =
-            new BombDefinitionId("long-cross");
+        private static readonly BombDefinitionId Line =
+            new BombDefinitionId("line");
 
         [Test]
         public void NewRun_HasOneBombAndReadOnlyRewardCandidates()
         {
-            var source = new[] { Area, LongCross };
+            var source = new[] { Area, Line };
             var state = new DungeonBombLoadoutState(Starter, source);
 
             source[0] = new BombDefinitionId("mutated");
@@ -24,7 +24,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(state.FirstSlot, Is.EqualTo(Starter));
             Assert.That(state.SecondSlot.HasValue, Is.False);
             Assert.That(state.HasSelectedReward, Is.False);
-            Assert.That(state.RewardCandidates, Is.EqualTo(new[] { Area, LongCross }));
+            Assert.That(state.RewardCandidates, Is.EqualTo(new[] { Area, Line }));
         }
 
         [Test]
@@ -32,17 +32,17 @@ namespace BombSwap.Tests.EditMode
         {
             var state = new DungeonBombLoadoutState(
                 Starter,
-                new[] { Area, LongCross });
+                new[] { Area, Line });
 
             Assert.That(
-                state.TrySelectReward(LongCross),
+                state.TrySelectReward(Line),
                 Is.EqualTo(DungeonBombRewardSelectionStatus.Selected));
-            Assert.That(state.SecondSlot, Is.EqualTo(LongCross));
+            Assert.That(state.SecondSlot, Is.EqualTo(Line));
             Assert.That(state.HasSelectedReward, Is.True);
             Assert.That(
                 state.TrySelectReward(Area),
                 Is.EqualTo(DungeonBombRewardSelectionStatus.AlreadySelected));
-            Assert.That(state.SecondSlot, Is.EqualTo(LongCross));
+            Assert.That(state.SecondSlot, Is.EqualTo(Line));
         }
 
         [Test]
@@ -50,7 +50,7 @@ namespace BombSwap.Tests.EditMode
         {
             var state = new DungeonBombLoadoutState(
                 Starter,
-                new[] { Area, LongCross });
+                new[] { Area, Line });
 
             Assert.That(
                 state.TrySelectReward(new BombDefinitionId("unknown")),
@@ -69,7 +69,7 @@ namespace BombSwap.Tests.EditMode
                     new[]
                     {
                         Area,
-                        LongCross,
+                        Line,
                         new BombDefinitionId("third"),
                         new BombDefinitionId("fourth"),
                     }));
@@ -80,7 +80,7 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentException>(() =>
                 new DungeonBombLoadoutState(
                     default,
-                    new[] { Area, LongCross }));
+                    new[] { Area, Line }));
         }
     }
 }

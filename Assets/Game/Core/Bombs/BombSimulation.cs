@@ -45,6 +45,21 @@ namespace BombSwap.Core
             ActorId ownerId,
             out BombId bombId)
         {
+            return TryPlaceBomb(
+                definition,
+                position,
+                ownerId,
+                CardinalDirection.None,
+                out bombId);
+        }
+
+        public bool TryPlaceBomb(
+            BombDefinition definition,
+            GridPosition position,
+            ActorId ownerId,
+            CardinalDirection placementDirection,
+            out BombId bombId)
+        {
             if (definition == null)
             {
                 throw new ArgumentNullException(nameof(definition));
@@ -52,6 +67,21 @@ namespace BombSwap.Core
             if (!ownerId.IsValid)
             {
                 throw new ArgumentException("Bomb owner ID must be valid.", nameof(ownerId));
+            }
+            if (placementDirection < CardinalDirection.None ||
+                placementDirection > CardinalDirection.West)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(placementDirection),
+                    placementDirection,
+                    "Bomb placement direction is not defined.");
+            }
+            if (definition.ExplosionShape == BombExplosionShape.ForwardLine &&
+                placementDirection == CardinalDirection.None)
+            {
+                throw new ArgumentException(
+                    "A forward-line bomb requires a cardinal placement direction.",
+                    nameof(placementDirection));
             }
 
             bombId = default;
@@ -77,6 +107,7 @@ namespace BombSwap.Core
                 definition,
                 position,
                 ownerId,
+                placementDirection,
                 detonatesAt);
             bombsById.Add(bombId, bomb);
             bombsByPosition.Add(position, bombId);
@@ -133,6 +164,7 @@ namespace BombSwap.Core
                         bomb.Definition.Id,
                         bomb.Position,
                         bomb.OwnerId,
+                        bomb.PlacementDirection,
                         detonationTime,
                         bomb.ScheduledCause,
                         resolution.AffectedCells,
@@ -195,6 +227,14 @@ namespace BombSwap.Core
                     bomb.Position,
                     bomb.Definition.Range);
             }
+            if (bomb.Definition.ExplosionShape == BombExplosionShape.ForwardLine)
+            {
+                return ForwardLineExplosionResolver.Resolve(
+                    grid,
+                    bomb.Position,
+                    bomb.Definition.Range,
+                    bomb.PlacementDirection);
+            }
 
             throw new InvalidOperationException("The active bomb has an unsupported explosion shape.");
         }
@@ -253,12 +293,14 @@ namespace BombSwap.Core
                 BombDefinition definition,
                 GridPosition position,
                 ActorId ownerId,
+                CardinalDirection placementDirection,
                 TimeSpan detonatesAt)
             {
                 Id = id;
                 Definition = definition;
                 Position = position;
                 OwnerId = ownerId;
+                PlacementDirection = placementDirection;
                 DetonatesAt = detonatesAt;
                 ScheduledCause = BombDetonationCause.Fuse;
             }
@@ -271,6 +313,8 @@ namespace BombSwap.Core
 
             public ActorId OwnerId { get; }
 
+            public CardinalDirection PlacementDirection { get; }
+
             public TimeSpan DetonatesAt { get; set; }
 
             public BombDetonationCause ScheduledCause { get; set; }
@@ -282,6 +326,7 @@ namespace BombSwap.Core
                     Definition.Id,
                     Position,
                     OwnerId,
+                    PlacementDirection,
                     DetonatesAt,
                     ScheduledCause);
             }

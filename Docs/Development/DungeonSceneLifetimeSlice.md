@@ -29,7 +29,7 @@
 ## 특수방 범위
 
 - 시작방은 `prototype-cross` 한 슬롯으로 시작하고 빈 2번 슬롯을 표시한다.
-- 폭탄 보상방은 보행 가능한 두 논리 셀에 `prototype-area`와 `prototype-long-cross` 후보를 표시하며, 플레이어가 올라선 후보를 빈 2번 슬롯에 한 번 장착한다. 상세 계약은 [첫 폭탄 보상 수직 슬라이스](DungeonBombRewardSlice.md)가 소유한다.
+- 폭탄 보상방은 보행 가능한 두 논리 셀에 `prototype-area`와 `prototype-line` 후보를 표시하며, 플레이어가 올라선 후보를 빈 2번 슬롯에 한 번 장착한다. 상세 계약은 [첫 폭탄 보상 수직 슬라이스](DungeonBombRewardSlice.md)가 소유한다.
 - 보스 전실은 안전 이동과 보스 방향 표시만 제공한다.
 - 보스방은 전환·잠금 검증용 placeholder이며 실제 보스 규칙과 승리는 후속 [보스 전투 문서](../Systems/BossBattle.md)가 소유한다.
 - placeholder geometry는 검증된 네 방향 방 shell을 재사용할 수 있지만 전투방 콘텐츠로 배정하지 않는다.

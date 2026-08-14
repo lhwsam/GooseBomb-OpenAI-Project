@@ -9,6 +9,7 @@ namespace BombSwap.Core
             BombDefinitionId definitionId,
             GridPosition position,
             ActorId ownerId,
+            CardinalDirection placementDirection,
             TimeSpan detonatesAt,
             BombDetonationCause scheduledCause)
         {
@@ -16,6 +17,7 @@ namespace BombSwap.Core
             DefinitionId = definitionId;
             Position = position;
             OwnerId = ownerId;
+            PlacementDirection = placementDirection;
             DetonatesAt = detonatesAt;
             ScheduledCause = scheduledCause;
         }
@@ -27,6 +29,8 @@ namespace BombSwap.Core
         public GridPosition Position { get; }
 
         public ActorId OwnerId { get; }
+
+        public CardinalDirection PlacementDirection { get; }
 
         public TimeSpan DetonatesAt { get; }
 

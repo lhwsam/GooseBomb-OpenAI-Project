@@ -184,6 +184,9 @@ namespace BombSwap
                 session.GetBombDefinition(snapshot.DefinitionId);
             GameObject instance = AcquireBomb(snapshot.DefinitionId, definition);
             instance.transform.position = session.GridSpace.GridToWorld(snapshot.Position);
+            instance.transform.rotation = definition.ExplosionShape == BombExplosionShape.ForwardLine
+                ? GetPlacementRotation(snapshot.PlacementDirection)
+                : Quaternion.identity;
             instance.SetActive(true);
             _activeBombs.Add(
                 snapshot.Id,
@@ -234,6 +237,26 @@ namespace BombSwap
             return pool.Count > 0
                 ? pool.Pop()
                 : CreatePooledInstance(definition.ExplosionCellPrefab, "ExplosionCellVisual");
+        }
+
+        private static Quaternion GetPlacementRotation(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return Quaternion.identity;
+                case CardinalDirection.East:
+                    return Quaternion.Euler(0f, 90f, 0f);
+                case CardinalDirection.South:
+                    return Quaternion.Euler(0f, 180f, 0f);
+                case CardinalDirection.West:
+                    return Quaternion.Euler(0f, 270f, 0f);
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "A forward-line bomb visual requires a cardinal placement direction.");
+            }
         }
 
         private Stack<GameObject> GetBombPool(BombDefinitionId definitionId)

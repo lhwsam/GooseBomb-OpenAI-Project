@@ -47,7 +47,7 @@
 - 목적지가 `Floor`가 아니거나 actor/bomb 점유가 있으면 출발 셀을 바꾸지 않고 이동을 거부한다.
 - `GridState`는 정책과 분리된 원자적 전이 계층이므로 출발 셀에 actor와 bomb가 함께 있으면 actor만 옮기고 bomb는 남긴다. 통과 허용 여부는 `PlayerMovementSimulation`이 먼저 판정한다.
 - `GridSubcellPosition`은 셀 중심을 정수 값으로 갖는 연속 XZ 위치다. 플레이어의 셀 내부 진행도는 Core가 이 값으로 소유하며 Unity Transform은 권위 상태가 아니다.
-- `PlayerMovementSimulation`은 `ActorId`, 주입된 `IGameClock`, 현재 정수 셀, 연속 위치, 유지 중인 네 방향과 cells/s를 소유한다.
+- `PlayerMovementSimulation`은 `ActorId`, 주입된 `IGameClock`, 현재 정수 셀, 연속 위치, 유지 중인 이동 방향, 마지막 바라보기 방향과 cells/s를 소유한다. 새 세션은 북쪽을 바라보고, `Move(None)`은 이동만 멈추며 마지막 cardinal 방향을 유지한다. 막힌 방향 입력도 바라보기는 바꾼다.
 - 성공한 설치 직후 소유자·현재 셀·활성 폭탄을 확인해 `ActorId`·`BombId`·설치 셀 한 쌍의 통과 권한을 부여한다. 이 권한이 없으면 출발 셀의 폭탄도 이동을 막는다.
 - 권한은 설치 셀에서 처음 성공적으로 나가거나 해당 폭탄이 먼저 제거되는 순간 종료한다. 셀 이탈 후에는 목적지 폭탄 차단 규칙 때문에 원래 폭탄 셀로 재진입할 수 없다.
 - 유지 방향은 다음 Unity frame에서 주입 시계의 경과 시간 × 기본 5 cells/s만큼 연속 위치를 진행한다. `Move(None)` 동안 위치는 변하지 않고 정지 중 시간도 다음 입력에 누적하지 않는다.
