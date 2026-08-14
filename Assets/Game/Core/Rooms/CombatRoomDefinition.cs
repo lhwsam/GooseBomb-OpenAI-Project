@@ -289,6 +289,7 @@ namespace BombSwap.Core
 
             var copy = new RoomExit[source.Count];
             var seenCells = new HashSet<GridPosition>();
+            var seenDirections = new HashSet<RoomExitDirection>();
             for (int index = 0; index < source.Count; index++)
             {
                 RoomExit roomExit = source[index];
@@ -296,6 +297,12 @@ namespace BombSwap.Core
                 {
                     throw new ArgumentException(
                         $"Duplicate room exit cell: {roomExit.Cell}.",
+                        nameof(source));
+                }
+                if (!seenDirections.Add(roomExit.Direction))
+                {
+                    throw new ArgumentException(
+                        $"Duplicate room exit direction: {roomExit.Direction}.",
                         nameof(source));
                 }
                 copy[index] = roomExit;

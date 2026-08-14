@@ -560,15 +560,7 @@ namespace BombSwap.Editor.ContentValidation
                     new Vector2Int(1, -1),
                     new Vector2Int(0, -1),
                 },
-                new[]
-                {
-                    new PrototypeRoomExitData(
-                        new Vector2Int(0, 4),
-                        RoomExitDirection.North),
-                    new PrototypeRoomExitData(
-                        new Vector2Int(0, -4),
-                        RoomExitDirection.South),
-                },
+                CreateCardinalRoomExits(5, 4),
                 Array.Empty<Vector2Int>());
             EditorUtility.SetDirty(loop);
 
@@ -604,15 +596,7 @@ namespace BombSwap.Editor.ContentValidation
                     new Vector2Int(3, -2),
                 },
                 CreateRectangleLoop(-3, 3, -2, 2),
-                new[]
-                {
-                    new PrototypeRoomExitData(
-                        new Vector2Int(0, 4),
-                        RoomExitDirection.North),
-                    new PrototypeRoomExitData(
-                        new Vector2Int(0, -4),
-                        RoomExitDirection.South),
-                },
+                CreateCardinalRoomExits(5, 4),
                 new[]
                 {
                     new Vector2Int(-1, -1),
@@ -651,15 +635,7 @@ namespace BombSwap.Editor.ContentValidation
                     new Vector2Int(0, -3),
                 },
                 CreateRectangleLoop(-2, 2, -3, 3),
-                new[]
-                {
-                    new PrototypeRoomExitData(
-                        new Vector2Int(-5, 0),
-                        RoomExitDirection.West),
-                    new PrototypeRoomExitData(
-                        new Vector2Int(5, 0),
-                        RoomExitDirection.East),
-                },
+                CreateCardinalRoomExits(5, 4),
                 new[]
                 {
                     Vector2Int.zero,
@@ -697,15 +673,7 @@ namespace BombSwap.Editor.ContentValidation
                     new Vector2Int(3, -2),
                 },
                 CreateRectangleLoop(-3, 3, -3, 3),
-                new[]
-                {
-                    new PrototypeRoomExitData(
-                        new Vector2Int(0, 4),
-                        RoomExitDirection.North),
-                    new PrototypeRoomExitData(
-                        new Vector2Int(0, -4),
-                        RoomExitDirection.South),
-                },
+                CreateCardinalRoomExits(5, 4),
                 Array.Empty<Vector2Int>(),
                 null,
                 new Vector2Int(0, 1));
@@ -755,6 +723,27 @@ namespace BombSwap.Editor.ContentValidation
                 cells.Add(new Vector2Int(x, minZ));
             }
             return cells.ToArray();
+        }
+
+        private static PrototypeRoomExitData[] CreateCardinalRoomExits(
+            int halfWidth,
+            int halfDepth)
+        {
+            return new[]
+            {
+                new PrototypeRoomExitData(
+                    new Vector2Int(0, halfDepth),
+                    RoomExitDirection.North),
+                new PrototypeRoomExitData(
+                    new Vector2Int(halfWidth, 0),
+                    RoomExitDirection.East),
+                new PrototypeRoomExitData(
+                    new Vector2Int(0, -halfDepth),
+                    RoomExitDirection.South),
+                new PrototypeRoomExitData(
+                    new Vector2Int(-halfWidth, 0),
+                    RoomExitDirection.West),
+            };
         }
 
         private static bool EnsureTestSandbox(
