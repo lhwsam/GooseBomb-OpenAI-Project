@@ -33,17 +33,20 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
                 CreatePrototypeChaserContentIfMissing();
+            PrototypeCombatRoomDefinitionAsset roomDefinition =
+                CreatePrototypeCombatRoomContentIfMissing();
             bool sceneCreated = EnsureTestSandbox(
                 inputActions,
                 bombDefinition,
                 playerVitals,
-                chaserDefinition);
+                chaserDefinition,
+                roomDefinition);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
             return sceneCreated
-                ? "Created BombSwap Input Actions, bomb/enemy content, TestSandbox, and Build Settings entry."
-                : "BombSwap prototype content exists; upgraded TestSandbox runtime references and Build Settings entry.";
+                ? "Created BombSwap Input Actions, bomb/enemy/room content, TestSandbox, and Build Settings entry."
+                : "BombSwap prototype content exists; upgraded TestSandbox room authority, runtime references, and Build Settings entry.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -261,11 +264,77 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
+        private static PrototypeCombatRoomDefinitionAsset CreatePrototypeCombatRoomContentIfMissing()
+        {
+            EnsureAssetFolder("Assets/Game/Content/Rooms");
+            PrototypeCombatRoomDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeCombatRoomDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
+                definition.name = "PrototypeCombatLoop";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeCombatRoomDefinitionPath);
+            }
+
+            definition.Configure(
+                "prototype-combat-loop",
+                RoomType.Combat,
+                11,
+                9,
+                1f,
+                Vector2Int.zero,
+                new Vector2Int(1, -1),
+                new[]
+                {
+                    new Vector2Int(-2, 0),
+                    new Vector2Int(2, 0),
+                    new Vector2Int(0, 2),
+                    new Vector2Int(0, -2),
+                },
+                new[]
+                {
+                    Vector2Int.zero,
+                    new Vector2Int(0, 1),
+                    new Vector2Int(-1, 0),
+                },
+                new[]
+                {
+                    new Vector2Int(-3, 1),
+                    new Vector2Int(3, 1),
+                },
+                new[]
+                {
+                    new Vector2Int(-1, -1),
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(-1, 1),
+                    new Vector2Int(0, 1),
+                    new Vector2Int(1, 1),
+                    new Vector2Int(1, 0),
+                    new Vector2Int(1, -1),
+                    new Vector2Int(0, -1),
+                },
+                new[]
+                {
+                    new PrototypeRoomExitData(
+                        new Vector2Int(0, 4),
+                        RoomExitDirection.North),
+                    new PrototypeRoomExitData(
+                        new Vector2Int(0, -4),
+                        RoomExitDirection.South),
+                });
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
         private static bool EnsureTestSandbox(
             InputActionAsset inputActions,
             PrototypeBombDefinitionAsset bombDefinition,
             PrototypePlayerVitalsAsset playerVitals,
-            PrototypeChaserDefinitionAsset chaserDefinition)
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(PrototypeContentValidator.TestSandboxScenePath) == null)
             {
@@ -273,7 +342,8 @@ namespace BombSwap.Editor.ContentValidation
                     inputActions,
                     bombDefinition,
                     playerVitals,
-                    chaserDefinition);
+                    chaserDefinition,
+                    roomDefinition);
                 return true;
             }
 
@@ -292,7 +362,8 @@ namespace BombSwap.Editor.ContentValidation
                     scene,
                     bombDefinition,
                     playerVitals,
-                    chaserDefinition);
+                    chaserDefinition,
+                    roomDefinition);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -314,7 +385,8 @@ namespace BombSwap.Editor.ContentValidation
             InputActionAsset inputActions,
             PrototypeBombDefinitionAsset bombDefinition,
             PrototypePlayerVitalsAsset playerVitals,
-            PrototypeChaserDefinitionAsset chaserDefinition)
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -338,6 +410,8 @@ namespace BombSwap.Editor.ContentValidation
                 MaterialsPath + "/Player.mat",
                 shader,
                 new Color(1f, 0.69f, 0.12f, 1f));
+            CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+            float cellSize = roomDefinition.CellSize;
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var root = new GameObject("TestSandbox");
@@ -366,61 +440,74 @@ namespace BombSwap.Editor.ContentValidation
                 PrimitiveType.Cube,
                 environment,
                 new Vector3(0f, -0.1f, 0f),
-                new Vector3(11f, 0.2f, 9f),
+                new Vector3(room.Width * cellSize, 0.2f, room.Depth * cellSize),
                 floorMaterial,
                 true);
 
             Transform gridLines = CreateChild("GridLines", environment);
-            for (int x = -5; x <= 6; x++)
+            for (int x = -(room.Width / 2); x <= (room.Width / 2) + 1; x++)
             {
                 CreatePrimitive(
                     "GridLineX_" + x,
                     PrimitiveType.Cube,
                     gridLines,
-                    new Vector3(x - 0.5f, 0.0125f, 0f),
-                    new Vector3(0.025f, 0.025f, 9f),
+                    new Vector3((x - 0.5f) * cellSize, 0.0125f, 0f),
+                    new Vector3(0.025f, 0.025f, room.Depth * cellSize),
                     gridMaterial,
                     false);
             }
-            for (int z = -4; z <= 5; z++)
+            for (int z = -(room.Depth / 2); z <= (room.Depth / 2) + 1; z++)
             {
                 CreatePrimitive(
                     "GridLineZ_" + z,
                     PrimitiveType.Cube,
                     gridLines,
-                    new Vector3(0f, 0.0125f, z - 0.5f),
-                    new Vector3(11f, 0.025f, 0.025f),
+                    new Vector3(0f, 0.0125f, (z - 0.5f) * cellSize),
+                    new Vector3(room.Width * cellSize, 0.025f, 0.025f),
                     gridMaterial,
                     false);
             }
 
             Transform boundary = CreateChild("BoundaryWalls", environment);
-            CreatePrimitive("NorthWall", PrimitiveType.Cube, boundary, new Vector3(0f, 0.5f, 5f), new Vector3(13f, 1f, 1f), wallMaterial, true);
-            CreatePrimitive("SouthWall", PrimitiveType.Cube, boundary, new Vector3(0f, 0.5f, -5f), new Vector3(13f, 1f, 1f), wallMaterial, true);
-            CreatePrimitive("EastWall", PrimitiveType.Cube, boundary, new Vector3(6f, 0.5f, 0f), new Vector3(1f, 1f, 9f), wallMaterial, true);
-            CreatePrimitive("WestWall", PrimitiveType.Cube, boundary, new Vector3(-6f, 0.5f, 0f), new Vector3(1f, 1f, 9f), wallMaterial, true);
+            float boundaryX = ((room.Width / 2) + 1) * cellSize;
+            float boundaryZ = ((room.Depth / 2) + 1) * cellSize;
+            CreatePrimitive("NorthWall", PrimitiveType.Cube, boundary, new Vector3(0f, 0.5f, boundaryZ), new Vector3((room.Width + 2) * cellSize, 1f, cellSize), wallMaterial, true);
+            CreatePrimitive("SouthWall", PrimitiveType.Cube, boundary, new Vector3(0f, 0.5f, -boundaryZ), new Vector3((room.Width + 2) * cellSize, 1f, cellSize), wallMaterial, true);
+            CreatePrimitive("EastWall", PrimitiveType.Cube, boundary, new Vector3(boundaryX, 0.5f, 0f), new Vector3(cellSize, 1f, room.Depth * cellSize), wallMaterial, true);
+            CreatePrimitive("WestWall", PrimitiveType.Cube, boundary, new Vector3(-boundaryX, 0.5f, 0f), new Vector3(cellSize, 1f, room.Depth * cellSize), wallMaterial, true);
 
             Transform obstacles = CreateChild("InteriorObstacles", environment);
-            var blockedCells = new[]
+            for (int index = 0; index < room.IndestructibleWalls.Count; index++)
             {
-                new Vector2Int(-2, 0),
-                new Vector2Int(2, 0),
-                new Vector2Int(0, 2),
-                new Vector2Int(0, -2),
-            };
-            CreatePrimitive("Obstacle_West", PrimitiveType.Cube, obstacles, new Vector3(-2f, 0.5f, 0f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
-            CreatePrimitive("Obstacle_East", PrimitiveType.Cube, obstacles, new Vector3(2f, 0.5f, 0f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
-            CreatePrimitive("Obstacle_North", PrimitiveType.Cube, obstacles, new Vector3(0f, 0.5f, 2f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
-            CreatePrimitive("Obstacle_South", PrimitiveType.Cube, obstacles, new Vector3(0f, 0.5f, -2f), new Vector3(0.9f, 1f, 0.9f), wallMaterial, true);
+                GridPosition wall = room.IndestructibleWalls[index];
+                CreatePrimitive(
+                    $"Obstacle_{index}_{wall.X}_{wall.Z}",
+                    PrimitiveType.Cube,
+                    obstacles,
+                    new Vector3(wall.X * cellSize, 0.5f, wall.Z * cellSize),
+                    new Vector3(0.9f * cellSize, 1f, 0.9f * cellSize),
+                    wallMaterial,
+                    true);
+            }
 
             Transform playerSpawn = CreateChild("PlayerSpawn", gridRoot.transform);
+            playerSpawn.localPosition = new Vector3(
+                room.PlayerSpawn.X * cellSize,
+                0f,
+                room.PlayerSpawn.Z * cellSize);
             Transform chaserSpawn = CreateChild("ChaserSpawn", gridRoot.transform);
-            chaserSpawn.localPosition = new Vector3(1f, 0f, -1f);
+            chaserSpawn.localPosition = new Vector3(
+                room.ChaserSpawn.X * cellSize,
+                0f,
+                room.ChaserSpawn.Z * cellSize);
             GameObject player = CreatePrimitive(
                 "PlayerPlaceholder",
                 PrimitiveType.Capsule,
                 gridRoot.transform,
-                new Vector3(0f, 0.5f, 0f),
+                new Vector3(
+                    room.PlayerSpawn.X * cellSize,
+                    0.5f,
+                    room.PlayerSpawn.Z * cellSize),
                 new Vector3(0.35f, 0.5f, 0.35f),
                 playerMaterial,
                 true);
@@ -440,10 +527,7 @@ namespace BombSwap.Editor.ContentValidation
                 playerSpawn,
                 player.transform,
                 chaserSpawn,
-                11,
-                9,
-                1f,
-                blockedCells);
+                roomDefinition);
             gameSession.Configure(
                 context,
                 inputReader,
@@ -469,7 +553,8 @@ namespace BombSwap.Editor.ContentValidation
             Scene scene,
             PrototypeBombDefinitionAsset bombDefinition,
             PrototypePlayerVitalsAsset playerVitals,
-            PrototypeChaserDefinitionAsset chaserDefinition)
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
@@ -510,7 +595,13 @@ namespace BombSwap.Editor.ContentValidation
             {
                 chaserSpawn = CreateChild("ChaserSpawn", context.GridRoot);
             }
-            chaserSpawn.position = context.GridSpace.GridToWorld(new GridPosition(1, -1));
+            CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+            var gridSpace = new GridSpace(context.GridRoot.position, roomDefinition.CellSize);
+            context.PlayerSpawn.position = gridSpace.GridToWorld(room.PlayerSpawn);
+            Vector3 playerPosition = gridSpace.GridToWorld(room.PlayerSpawn);
+            playerPosition.y = context.PlayerPlaceholder.position.y;
+            context.PlayerPlaceholder.position = playerPosition;
+            chaserSpawn.position = gridSpace.GridToWorld(room.ChaserSpawn);
 
             Renderer playerRenderer =
                 context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
@@ -526,10 +617,7 @@ namespace BombSwap.Editor.ContentValidation
                 context.PlayerSpawn,
                 context.PlayerPlaceholder,
                 chaserSpawn,
-                context.GridWidth,
-                context.GridDepth,
-                context.CellSize,
-                context.BlockedCells.ToArray());
+                roomDefinition);
             gameSession.Configure(
                 context,
                 inputReader,

@@ -20,6 +20,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
         public const string PrototypeChaserDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeChaser.asset";
+        public const string PrototypeCombatRoomDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeCombatLoop.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -38,6 +40,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeBombDefinition(errors);
             ValidatePrototypePlayerVitals(errors);
             ValidatePrototypeChaserDefinition(errors);
+            ValidatePrototypeCombatRoomDefinition(errors);
             ValidateTestSandbox(errors);
             ValidateBuildSettings(errors);
         }
@@ -129,6 +132,33 @@ namespace BombSwap.Editor.ContentValidation
                 definition.ChaserPrefab.GetComponentInChildren<Collider>(true) != null)
             {
                 errors.Add("Prototype chaser prefab must not contain a Collider; logical grid owns collision.");
+            }
+        }
+
+        private static void ValidatePrototypeCombatRoomDefinition(ICollection<string> errors)
+        {
+            PrototypeCombatRoomDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
+                    PrototypeCombatRoomDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype combat room definition: {PrototypeCombatRoomDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                CombatRoomDefinition room = definition.CreateCoreDefinition();
+                if (room.Id != new RoomDefinitionId("prototype-combat-loop") ||
+                    room.RoomType != RoomType.Combat)
+                {
+                    errors.Add(
+                        "Prototype combat room must use ID 'prototype-combat-loop' and Combat type.");
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype combat room definition: {exception.Message}");
             }
         }
 
@@ -474,21 +504,11 @@ namespace BombSwap.Editor.ContentValidation
                     TestSandboxContext context = contexts[0];
                     if (context.InputReader == null || context.GridRoot == null ||
                         context.PlayerSpawn == null || context.PlayerPlaceholder == null ||
-                        context.ChaserSpawn == null)
+                        context.ChaserSpawn == null || context.RoomDefinition == null)
                     {
                         errors.Add("TestSandboxContext has missing required references.");
                     }
-                    if (context.GridWidth <= 0 || (context.GridWidth & 1) == 0 ||
-                        context.GridDepth <= 0 || (context.GridDepth & 1) == 0)
-                    {
-                        errors.Add("TestSandboxContext grid dimensions must be positive odd numbers.");
-                    }
-                    if (float.IsNaN(context.CellSize) || float.IsInfinity(context.CellSize) || context.CellSize <= 0f)
-                    {
-                        errors.Add("TestSandboxContext cell size must be finite and positive.");
-                    }
-
-                    ValidateBlockedCells(context, errors);
+                    ValidateRoomSceneBinding(context, errors);
                 }
             }
             finally
@@ -505,69 +525,100 @@ namespace BombSwap.Editor.ContentValidation
             return value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
-        private static void ValidateBlockedCells(
+        private static void ValidateRoomSceneBinding(
             TestSandboxContext context,
             ICollection<string> errors)
         {
-            if (context.BlockedCells == null)
+            if (context.RoomDefinition == null || context.GridRoot == null)
             {
-                errors.Add("TestSandboxContext blocked cells are missing.");
                 return;
             }
 
-            int halfWidth = context.GridWidth / 2;
-            int halfDepth = context.GridDepth / 2;
-            var seen = new HashSet<Vector2Int>();
-            foreach (Vector2Int blocker in context.BlockedCells)
+            string roomPath = AssetDatabase.GetAssetPath(context.RoomDefinition);
+            if (!string.Equals(
+                    roomPath,
+                    PrototypeCombatRoomDefinitionPath,
+                    StringComparison.Ordinal))
             {
-                if (blocker.x < -halfWidth || blocker.x > halfWidth ||
-                    blocker.y < -halfDepth || blocker.y > halfDepth)
+                errors.Add(
+                    $"TestSandbox room authority must reference '{PrototypeCombatRoomDefinitionPath}', found '{roomPath}'.");
+                return;
+            }
+
+            CombatRoomDefinition room;
+            try
+            {
+                room = context.RoomDefinition.CreateCoreDefinition();
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"TestSandbox room authority is invalid: {exception.Message}");
+                return;
+            }
+
+            if (context.GridWidth != room.Width || context.GridDepth != room.Depth ||
+                !IsFinitePositive(context.CellSize))
+            {
+                errors.Add("TestSandbox grid values must derive from its room authority.");
+            }
+
+            ValidateTransformCell(context, context.PlayerSpawn, room.PlayerSpawn, "player spawn", errors);
+            ValidateTransformCell(
+                context,
+                context.PlayerPlaceholder,
+                room.PlayerSpawn,
+                "player placeholder",
+                errors);
+            ValidateTransformCell(context, context.ChaserSpawn, room.ChaserSpawn, "chaser spawn", errors);
+
+            Transform obstacles = context.GridRoot.Find("Environment/InteriorObstacles");
+            if (obstacles == null)
+            {
+                errors.Add("TestSandbox is missing Environment/InteriorObstacles.");
+                return;
+            }
+
+            var authoredWalls = new HashSet<GridPosition>(room.IndestructibleWalls);
+            var seenWalls = new HashSet<GridPosition>();
+            for (int index = 0; index < obstacles.childCount; index++)
+            {
+                Transform obstacle = obstacles.GetChild(index);
+                GridPosition cell = context.GridSpace.WorldToGrid(obstacle.position);
+                if (!seenWalls.Add(cell))
                 {
-                    errors.Add($"TestSandbox blocked cell is outside the grid: {blocker}.");
+                    errors.Add($"TestSandbox has duplicate obstacle visuals at {cell}.");
                 }
-                if (!seen.Add(blocker))
+                if (!authoredWalls.Contains(cell))
                 {
-                    errors.Add($"TestSandbox contains duplicate blocked cell: {blocker}.");
+                    errors.Add($"TestSandbox obstacle visual {obstacle.name} is not authored at {cell}.");
                 }
             }
 
-            if (seen.Count != 4)
+            foreach (GridPosition wall in authoredWalls)
             {
-                errors.Add($"TestSandbox must declare four prototype blocked cells; found {seen.Count}.");
+                if (!seenWalls.Contains(wall))
+                {
+                    errors.Add($"TestSandbox is missing an obstacle visual for authored wall {wall}.");
+                }
+            }
+        }
+
+        private static void ValidateTransformCell(
+            TestSandboxContext context,
+            Transform target,
+            GridPosition expected,
+            string label,
+            ICollection<string> errors)
+        {
+            if (target == null)
+            {
+                return;
             }
 
-            if (context.PlayerSpawn != null)
+            GridPosition actual = context.GridSpace.WorldToGrid(target.position);
+            if (actual != expected)
             {
-                GridPosition spawn = context.GridSpace.WorldToGrid(context.PlayerSpawn.position);
-                if (spawn.X < -halfWidth || spawn.X > halfWidth ||
-                    spawn.Z < -halfDepth || spawn.Z > halfDepth)
-                {
-                    errors.Add($"TestSandbox player spawn cell is outside the grid: {spawn}.");
-                }
-                if (seen.Contains(new Vector2Int(spawn.X, spawn.Z)))
-                {
-                    errors.Add($"TestSandbox player spawn cell is blocked: {spawn}.");
-                }
-            }
-            if (context.ChaserSpawn != null)
-            {
-                GridPosition chaserSpawn = context.GridSpace.WorldToGrid(
-                    context.ChaserSpawn.position);
-                if (chaserSpawn.X < -halfWidth || chaserSpawn.X > halfWidth ||
-                    chaserSpawn.Z < -halfDepth || chaserSpawn.Z > halfDepth)
-                {
-                    errors.Add(
-                        $"TestSandbox chaser spawn cell is outside the grid: {chaserSpawn}.");
-                }
-                if (seen.Contains(new Vector2Int(chaserSpawn.X, chaserSpawn.Z)))
-                {
-                    errors.Add($"TestSandbox chaser spawn cell is blocked: {chaserSpawn}.");
-                }
-                if (context.PlayerSpawn != null &&
-                    chaserSpawn == context.GridSpace.WorldToGrid(context.PlayerSpawn.position))
-                {
-                    errors.Add("TestSandbox player and chaser spawn cells must be different.");
-                }
+                errors.Add($"TestSandbox {label} cell is {actual}; authored room requires {expected}.");
             }
         }
 

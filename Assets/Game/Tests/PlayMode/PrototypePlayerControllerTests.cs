@@ -19,6 +19,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeBombDefinitionAsset _definition;
         private PrototypePlayerVitalsAsset _vitals;
         private PrototypeChaserDefinitionAsset _chaserDefinition;
+        private PrototypeCombatRoomDefinitionAsset _roomDefinition;
         private Material _playerMaterial;
         private Material _chaserMaterial;
         private PrototypeGameSession _session;
@@ -60,6 +61,10 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_chaserDefinition);
             }
+            if (_roomDefinition != null)
+            {
+                Object.DestroyImmediate(_roomDefinition);
+            }
             if (_playerMaterial != null)
             {
                 Object.DestroyImmediate(_playerMaterial);
@@ -77,6 +82,26 @@ namespace BombSwap.Tests.PlayMode
             {
                 InputSystem.RemoveDevice(_keyboard);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator RoomAuthority_DrivesSandboxGridAndAuthoredSpawns()
+        {
+            CreateRuntime(new Vector2Int(0, 1), true);
+
+            yield return null;
+
+            Assert.That(_session.Context.RoomDefinition, Is.SameAs(_roomDefinition));
+            Assert.That(_session.Context.GridWidth, Is.EqualTo(5));
+            Assert.That(_session.Context.GridDepth, Is.EqualTo(5));
+            Assert.That(_session.Context.BlockedCells.Count, Is.EqualTo(1));
+            Assert.That(_session.Context.BlockedCells[0], Is.EqualTo(new Vector2Int(0, 1)));
+            Assert.That(
+                _session.Context.GridSpace.WorldToGrid(_session.Context.PlayerSpawn.position),
+                Is.EqualTo(_roomDefinition.CreateCoreDefinition().PlayerSpawn));
+            Assert.That(
+                _session.Context.GridSpace.WorldToGrid(_session.Context.ChaserSpawn.position),
+                Is.EqualTo(_roomDefinition.CreateCoreDefinition().ChaserSpawn));
         }
 
         [UnityTest]
@@ -550,6 +575,50 @@ namespace BombSwap.Tests.PlayMode
                 _chaserPrefab,
                 0.45f,
                 chaserDeathVisualSeconds);
+            _roomDefinition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
+            _roomDefinition.Configure(
+                "test-combat-loop",
+                RoomType.Combat,
+                5,
+                5,
+                1f,
+                Vector2Int.zero,
+                authoredChaserSpawn,
+                includeBlocker ? new[] { blocker } : new Vector2Int[0],
+                new[] { Vector2Int.zero },
+                new[]
+                {
+                    new Vector2Int(-1, 1),
+                    new Vector2Int(1, 1),
+                },
+                new[]
+                {
+                    new Vector2Int(-2, -2),
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(-2, 0),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(-2, 2),
+                    new Vector2Int(-1, 2),
+                    new Vector2Int(0, 2),
+                    new Vector2Int(1, 2),
+                    new Vector2Int(2, 2),
+                    new Vector2Int(2, 1),
+                    new Vector2Int(2, 0),
+                    new Vector2Int(2, -1),
+                    new Vector2Int(2, -2),
+                    new Vector2Int(1, -2),
+                    new Vector2Int(0, -2),
+                    new Vector2Int(-1, -2),
+                },
+                new[]
+                {
+                    new PrototypeRoomExitData(
+                        new Vector2Int(0, 2),
+                        RoomExitDirection.North),
+                    new PrototypeRoomExitData(
+                        new Vector2Int(0, -2),
+                        RoomExitDirection.South),
+                });
 
             BombSwapInputReader reader = _root.AddComponent<BombSwapInputReader>();
             reader.Configure(_inputActions);
@@ -560,10 +629,7 @@ namespace BombSwap.Tests.PlayMode
                 spawn,
                 _player,
                 chaserSpawn,
-                5,
-                5,
-                1f,
-                includeBlocker ? new[] { blocker } : new Vector2Int[0]);
+                _roomDefinition);
 
             _session = _root.AddComponent<PrototypeGameSession>();
             _session.Configure(
