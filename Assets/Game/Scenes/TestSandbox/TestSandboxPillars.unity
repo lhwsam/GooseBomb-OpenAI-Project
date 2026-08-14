@@ -1068,6 +1068,7 @@ GameObject:
   - component: {fileID: 549228486}
   - component: {fileID: 549228487}
   - component: {fileID: 549228488}
+  - component: {fileID: 549228489}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1162,6 +1163,7 @@ MonoBehaviour:
   context: {fileID: 455876709}
   inputReader: {fileID: 549228480}
   bombDefinition: {fileID: 11400000, guid: 2c0c58c2234aaff49882136fa86b6228, type: 2}
+  bombLoadout: {fileID: 11400000, guid: a612238febd5e764482b2533f95652ba, type: 2}
   playerVitals: {fileID: 11400000, guid: f596c4b9706477042b040e90f2f7ce5d, type: 2}
   chaserDefinition: {fileID: 11400000, guid: d5e3ca0a7af7a3740b3ca2574b0cd87e, type: 2}
   cellsPerSecond: 5
@@ -1213,6 +1215,19 @@ MonoBehaviour:
   session: {fileID: 549228485}
   nextSceneName: 
   transitionDelaySeconds: 1.25
+--- !u!114 &549228489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aada65c5f85925e4c8de6ed470b81450, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeWeaponHud
+  session: {fileID: 549228485}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

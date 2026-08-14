@@ -19,6 +19,9 @@ namespace BombSwap
         private int range = 2;
 
         [SerializeField]
+        private float placementCooldownSeconds = 1.5f;
+
+        [SerializeField]
         private GameObject bombPrefab;
 
         [SerializeField]
@@ -33,6 +36,8 @@ namespace BombSwap
 
         public int Range => range;
 
+        public float PlacementCooldownSeconds => placementCooldownSeconds;
+
         public GameObject BombPrefab => bombPrefab;
 
         public GameObject ExplosionCellPrefab => explosionCellPrefab;
@@ -45,9 +50,13 @@ namespace BombSwap
             int explosionRange,
             GameObject bombVisualPrefab,
             GameObject explosionVisualPrefab,
-            float explosionPresentationSeconds)
+            float explosionPresentationSeconds,
+            float placementCooldownDurationSeconds = 1.5f)
         {
             ValidateFinitePositive(fuseDurationSeconds, nameof(fuseDurationSeconds));
+            ValidateFinitePositive(
+                placementCooldownDurationSeconds,
+                nameof(placementCooldownDurationSeconds));
             ValidateFinitePositive(
                 explosionPresentationSeconds,
                 nameof(explosionPresentationSeconds));
@@ -76,6 +85,7 @@ namespace BombSwap
             definitionId = stableDefinitionId;
             fuseSeconds = fuseDurationSeconds;
             range = explosionRange;
+            placementCooldownSeconds = placementCooldownDurationSeconds;
             bombPrefab = bombVisualPrefab;
             explosionCellPrefab = explosionVisualPrefab;
             explosionVisualSeconds = explosionPresentationSeconds;
@@ -94,6 +104,16 @@ namespace BombSwap
                 BombExplosionShape.Cross,
                 TimeSpan.FromSeconds(fuseSeconds),
                 range);
+        }
+
+        public BombWeaponDefinition CreateCoreWeaponDefinition()
+        {
+            ValidateFinitePositive(
+                placementCooldownSeconds,
+                nameof(placementCooldownSeconds));
+            return new BombWeaponDefinition(
+                CreateCoreDefinition(),
+                TimeSpan.FromSeconds(placementCooldownSeconds));
         }
 
         public void ValidatePresentationReferences()

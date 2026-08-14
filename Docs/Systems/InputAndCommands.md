@@ -27,11 +27,11 @@
 - `BombSwapInputReader`: 액션 callback을 구독하고 `PlayerCommand`를 발행하며 focus/생명주기를 정리한다.
 - `CardinalInputInterpreter`: `Vector2`를 네 방향 이동 의도로 축소한다.
 - `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 의미와 이동 방향을 보존하는 Core 값이다.
-- `PrototypeGameSession`: TestSandbox에서 공유 시계·격자를 소유하고 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`을 `BombSimulation`에 전달한다.
+- `PrototypeGameSession`: TestSandbox에서 공유 시계·격자를 소유하고 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`과 `SwapBomb`을 `BombWeaponLoadout`에 전달한다.
 - `PrototypePlayerController`: Core 연속 위치 변경을 받아 placeholder Transform에 직접 표시한다.
-- 향후 세션 확장: 교체·pause 명령도 논리 시간과 함께 소유 simulation에 전달한다.
+- 향후 세션 확장: pause 명령을 논리 시간과 UI 정지 정책에 전달한다.
 
-입력 계층은 이동 가능 여부, 폭탄 설치 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에서 이동과 설치 성공은 공유 Core simulation이 판정하고 Transform/prefab이 그 결과를 표현한다. 교체·pause 소비자는 아직 없다.
+입력 계층은 이동 가능 여부, 폭탄 설치·교체 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에서 이동, 활성 슬롯, 설치와 교체 성공은 공유 Core simulation이 판정하고 Transform/prefab/HUD가 그 결과를 표현한다. pause 소비자는 아직 없다.
 
 ## 상태와 전이
 

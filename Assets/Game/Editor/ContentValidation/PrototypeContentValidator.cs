@@ -20,6 +20,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
+        public const string PrototypeQuickBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeQuickCrossBomb.asset";
+        public const string PrototypeBombLoadoutPath =
+            "Assets/Game/Content/Bombs/PrototypeBombLoadout.asset";
         public const string PrototypePlayerVitalsPath =
             "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
         public const string PrototypeChaserDefinitionPath =
@@ -34,6 +38,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ExplosionCellPlaceholder.prefab";
+        public const string QuickBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/QuickBombPlaceholder.prefab";
+        public const string QuickExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/QuickExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
 
@@ -45,7 +53,7 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             ValidateInputActions(errors);
-            ValidatePrototypeBombDefinition(errors);
+            ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);
             ValidatePrototypeChaserDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
@@ -53,20 +61,60 @@ namespace BombSwap.Editor.ContentValidation
             ValidateBuildSettings(errors);
         }
 
-        private static void ValidatePrototypeBombDefinition(ICollection<string> errors)
+        private static void ValidatePrototypeBombDefinitions(ICollection<string> errors)
         {
-            PrototypeBombDefinitionAsset definition =
-                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
-                    PrototypeBombDefinitionPath);
-            if (definition == null)
+            PrototypeBombDefinitionAsset firstDefinition = ValidatePrototypeBombDefinition(
+                PrototypeBombDefinitionPath,
+                BombPrefabPath,
+                ExplosionCellPrefabPath,
+                errors);
+            PrototypeBombDefinitionAsset secondDefinition = ValidatePrototypeBombDefinition(
+                PrototypeQuickBombDefinitionPath,
+                QuickBombPrefabPath,
+                QuickExplosionCellPrefabPath,
+                errors);
+            PrototypeBombLoadoutAsset loadout =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
+                    PrototypeBombLoadoutPath);
+            if (loadout == null)
             {
-                errors.Add($"Missing prototype bomb definition: {PrototypeBombDefinitionPath}");
+                errors.Add($"Missing prototype bomb loadout: {PrototypeBombLoadoutPath}");
                 return;
             }
 
             try
             {
-                definition.CreateCoreDefinition();
+                loadout.CreateCoreLoadout(new ManualGameClock());
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype bomb loadout: {exception.Message}");
+            }
+
+            if (loadout.FirstSlot != firstDefinition || loadout.SecondSlot != secondDefinition)
+            {
+                errors.Add("Prototype bomb loadout must reference the validated first and second bomb assets.");
+            }
+        }
+
+        private static PrototypeBombDefinitionAsset ValidatePrototypeBombDefinition(
+            string definitionPath,
+            string expectedBombPrefabPath,
+            string expectedExplosionPrefabPath,
+            ICollection<string> errors)
+        {
+            PrototypeBombDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    definitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype bomb definition: {definitionPath}");
+                return null;
+            }
+
+            try
+            {
+                definition.CreateCoreWeaponDefinition();
                 definition.ValidatePresentationReferences();
             }
             catch (Exception exception)
@@ -75,17 +123,25 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             string bombPrefabPath = AssetDatabase.GetAssetPath(definition.BombPrefab);
-            if (!string.Equals(bombPrefabPath, BombPrefabPath, StringComparison.Ordinal))
+            if (!string.Equals(
+                    bombPrefabPath,
+                    expectedBombPrefabPath,
+                    StringComparison.Ordinal))
             {
                 errors.Add(
-                    $"Prototype bomb definition must reference '{BombPrefabPath}', found '{bombPrefabPath}'.");
+                    $"Prototype bomb definition must reference '{expectedBombPrefabPath}', found '{bombPrefabPath}'.");
             }
             string explosionPrefabPath = AssetDatabase.GetAssetPath(definition.ExplosionCellPrefab);
-            if (!string.Equals(explosionPrefabPath, ExplosionCellPrefabPath, StringComparison.Ordinal))
+            if (!string.Equals(
+                    explosionPrefabPath,
+                    expectedExplosionPrefabPath,
+                    StringComparison.Ordinal))
             {
                 errors.Add(
-                    $"Prototype bomb definition must reference '{ExplosionCellPrefabPath}', found '{explosionPrefabPath}'.");
+                    $"Prototype bomb definition must reference '{expectedExplosionPrefabPath}', found '{explosionPrefabPath}'.");
             }
+
+            return definition;
         }
 
         private static void ValidatePrototypePlayerVitals(ICollection<string> errors)
@@ -417,6 +473,7 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypePlayerHealthPresenter>(scene);
                 PrototypeChaserPresenter[] chaserPresenters =
                     FindComponents<PrototypeChaserPresenter>(scene);
+                PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 PrototypeRoomAdvanceController[] roomAdvanceControllers =
                     FindComponents<PrototypeRoomAdvanceController>(scene);
@@ -456,6 +513,11 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeChaserPresenter; found {chaserPresenters.Length}.");
                 }
+                if (weaponHuds.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeWeaponHud; found {weaponHuds.Length}.");
+                }
                 if (probes.Length != 1)
                 {
                     errors.Add($"TestSandbox must contain exactly one PrototypeInputHarnessProbe; found {probes.Length}.");
@@ -487,14 +549,14 @@ namespace BombSwap.Editor.ContentValidation
                 if (sessions.Length == 1 && contexts.Length == 1 && readers.Length == 1)
                 {
                     PrototypeGameSession session = sessions[0];
-                    string definitionPath = AssetDatabase.GetAssetPath(session.BombDefinition);
+                    string loadoutPath = AssetDatabase.GetAssetPath(session.BombLoadout);
                     string playerVitalsPath = AssetDatabase.GetAssetPath(session.PlayerVitals);
                     string chaserDefinitionPath = AssetDatabase.GetAssetPath(
                         session.ChaserDefinition);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
                         !string.Equals(
-                            definitionPath,
-                            PrototypeBombDefinitionPath,
+                            loadoutPath,
+                            PrototypeBombLoadoutPath,
                             StringComparison.Ordinal) ||
                         !string.Equals(
                             playerVitalsPath,
@@ -567,6 +629,12 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add("TestSandbox chaser presenter has inconsistent scene references.");
                     }
+                }
+
+                if (weaponHuds.Length == 1 && sessions.Length == 1 &&
+                    weaponHuds[0].Session != sessions[0])
+                {
+                    errors.Add("TestSandbox weapon HUD has an inconsistent session reference.");
                 }
 
                 if (probes.Length == 1 && readers.Length == 1 && sessions.Length == 1 &&

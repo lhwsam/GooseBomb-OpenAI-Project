@@ -27,6 +27,9 @@ namespace BombSwap
         private PrototypeBombDefinitionAsset bombDefinition;
 
         [SerializeField]
+        private PrototypeBombLoadoutAsset bombLoadout;
+
+        [SerializeField]
         private PrototypePlayerVitalsAsset playerVitals;
 
         [SerializeField]
@@ -42,10 +45,10 @@ namespace BombSwap
         private ManualGameClock _clock;
         private PlayerMovementSimulation _movement;
         private BombSimulation _bombs;
+        private BombWeaponLoadout _weapons;
         private PlayerHealthSimulation _health;
         private ChaserEnemySimulation _chaser;
         private EnemyHealthSimulation _chaserHealth;
-        private BombDefinition _coreBombDefinition;
         private ChaserEnemyDefinition _coreChaserDefinition;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
@@ -60,6 +63,8 @@ namespace BombSwap
         public event Action<BombSnapshot> BombPlaced;
 
         public event Action<BombExplosion> BombExploded;
+
+        public event Action<int> ActiveBombSlotChanged;
 
         public event Action<PlayerDamageResult> PlayerDamaged;
 
@@ -79,7 +84,10 @@ namespace BombSwap
 
         public BombSwapInputReader InputReader => inputReader;
 
-        public PrototypeBombDefinitionAsset BombDefinition => bombDefinition;
+        public PrototypeBombDefinitionAsset BombDefinition =>
+            bombLoadout != null ? bombLoadout.FirstSlot : bombDefinition;
+
+        public PrototypeBombLoadoutAsset BombLoadout => bombLoadout;
 
         public PrototypePlayerVitalsAsset PlayerVitals => playerVitals;
 
@@ -89,7 +97,8 @@ namespace BombSwap
 
         public float ChainDelaySeconds => chainDelaySeconds;
 
-        public bool IsInitialized => _movement != null && _bombs != null && _health != null &&
+        public bool IsInitialized => _movement != null && _bombs != null && _weapons != null &&
+            _health != null &&
             _chaser != null && _chaserHealth != null;
 
         public bool IsReady { get; private set; }
@@ -101,6 +110,11 @@ namespace BombSwap
             _movement != null ? _movement.Position : default;
 
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
+
+        public int ActiveBombSlotIndex => _weapons != null ? _weapons.ActiveSlotIndex : 0;
+
+        public TimeSpan BombSwapCooldownRemaining =>
+            _weapons != null ? _weapons.SwapCooldownRemaining : TimeSpan.Zero;
 
         public int CurrentHealth => _health != null ? _health.CurrentHealth : 0;
 
@@ -139,7 +153,7 @@ namespace BombSwap
         public void Configure(
             TestSandboxContext sandboxContext,
             BombSwapInputReader reader,
-            PrototypeBombDefinitionAsset startingBomb,
+            PrototypeBombLoadoutAsset startingBombLoadout,
             PrototypePlayerVitalsAsset startingPlayerVitals,
             PrototypeChaserDefinitionAsset startingChaser,
             float movementCellsPerSecond = DefaultCellsPerSecond,
@@ -158,9 +172,9 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(reader));
             }
-            if (startingBomb == null)
+            if (startingBombLoadout == null)
             {
-                throw new ArgumentNullException(nameof(startingBomb));
+                throw new ArgumentNullException(nameof(startingBombLoadout));
             }
             if (startingPlayerVitals == null)
             {
@@ -176,7 +190,8 @@ namespace BombSwap
 
             context = sandboxContext;
             inputReader = reader;
-            bombDefinition = startingBomb;
+            bombLoadout = startingBombLoadout;
+            bombDefinition = startingBombLoadout.FirstSlot;
             playerVitals = startingPlayerVitals;
             chaserDefinition = startingChaser;
             cellsPerSecond = movementCellsPerSecond;
@@ -197,6 +212,26 @@ namespace BombSwap
 
             snapshot = default;
             return false;
+        }
+
+        public BombWeaponSlotSnapshot GetBombSlot(int slotIndex)
+        {
+            if (_weapons == null)
+            {
+                throw new InvalidOperationException("Prototype bomb loadout is not initialized.");
+            }
+
+            return _weapons.GetSlot(slotIndex);
+        }
+
+        public PrototypeBombDefinitionAsset GetBombDefinition(BombDefinitionId definitionId)
+        {
+            if (bombLoadout == null)
+            {
+                throw new InvalidOperationException("Prototype game session has no bomb loadout.");
+            }
+
+            return bombLoadout.GetDefinition(definitionId);
         }
 
         private void Awake()
@@ -346,11 +381,11 @@ namespace BombSwap
 
         private void Initialize()
         {
-            if (context == null || inputReader == null || bombDefinition == null ||
+            if (context == null || inputReader == null || bombLoadout == null ||
                 playerVitals == null || chaserDefinition == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeGameSession requires context, input reader, bomb, player-vitals, and chaser references.");
+                    "PrototypeGameSession requires context, input reader, bomb loadout, player-vitals, and chaser references.");
             }
 
             ValidateFinitePositive(cellsPerSecond, nameof(cellsPerSecond));
@@ -369,6 +404,7 @@ namespace BombSwap
                 _grid,
                 _clock,
                 TimeSpan.FromSeconds(chainDelaySeconds));
+            _weapons = bombLoadout.CreateCoreLoadout(_clock);
             _health = new PlayerHealthSimulation(
                 _movement.ActorId,
                 _clock,
@@ -389,7 +425,6 @@ namespace BombSwap
                 _coreChaserDefinition.MaxHealth);
             _roomCleared = false;
 
-            _coreBombDefinition = bombDefinition.CreateCoreDefinition();
         }
 
         private void OnCommandIssued(PlayerCommand command)
@@ -408,6 +443,11 @@ namespace BombSwap
                     TryPlaceBomb();
                     break;
                 case PlayerCommandKind.SwapBomb:
+                    if (_weapons.TrySwap())
+                    {
+                        ActiveBombSlotChanged?.Invoke(_weapons.ActiveSlotIndex);
+                    }
+                    break;
                 case PlayerCommandKind.Pause:
                     break;
                 default:
@@ -420,18 +460,13 @@ namespace BombSwap
 
         private void TryPlaceBomb()
         {
-            if (!_bombs.TryPlaceBomb(
-                _coreBombDefinition,
+            if (!_weapons.TryPlaceActiveBomb(
+                _bombs,
                 _movement.CurrentPosition,
                 _movement.ActorId,
-                out BombId bombId))
+                out BombSnapshot snapshot))
             {
                 return;
-            }
-
-            if (!_bombs.TryGetBomb(bombId, out BombSnapshot snapshot))
-            {
-                throw new InvalidOperationException("Placed bomb was not available for presentation.");
             }
 
             _movement.GrantBombPassThrough(snapshot);

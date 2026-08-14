@@ -23,12 +23,24 @@
 
 설치 성공 시에만 활성 슬롯의 설치 쿨타임이 시작된다. 잘못된 셀이나 입력 차단으로 실패한 설치는 쿨타임을 소비하지 않는다.
 
+## 구현된 경계
+
+- `BombWeaponDefinition`: 폭발 규칙 `BombDefinition`과 양수 설치 쿨타임을 묶는 Core 불변 정의다.
+- `BombWeaponLoadout`: 주입된 `IGameClock`을 읽어 활성 슬롯, 슬롯별 다음 설치 가능 시각과 다음 교체 가능 시각을 소유한다.
+- `BombWeaponSlotSnapshot`: UI와 검증 계층에 정의 ID, 전체/남은 쿨타임, 준비 비율을 읽기 전용으로 제공한다.
+- `PrototypeBombDefinitionAsset`: 폭발 데이터와 설치 쿨타임을 검증해 Core 무기 정의로 변환한다.
+- `PrototypeBombLoadoutAsset`: 서로 다른 두 폭탄 정의와 교체 쿨타임을 검증하고 Core loadout을 만든다.
+- `PrototypeGameSession`: `PlaceBomb`을 활성 슬롯에, `SwapBomb`을 Core loadout에 전달하고 성공한 교체만 `ActiveBombSlotChanged`로 발행한다.
+- `PrototypeWeaponHud`: Core snapshot을 표시한다. 왼쪽 아래 두 슬롯의 활성 상태, 설치 준비 bar/시간과 교체 준비 시간을 보여준다.
+
+현재 검증용 저작값은 1번 `prototype-cross`(설치 1.5초)와 2번 `prototype-quick-cross`(설치 0.75초), 교체 2초다. 두 번째 폭탄은 파란색 prefab, fuse 1.25초, 범위 1인 빠른 십자 placeholder이며 정확한 수치는 모두 `Proposed`다. 직선·광역 resolver가 추가되기 전에는 가설 B의 공간 역할 차이를 판정하지 않는다.
+
 ## 불변식
 
 - 두 슬롯은 서로 다른 상태 소유자이며 한쪽 설치가 다른 쪽 쿨타임을 덮어쓰지 않는다.
 - 비활성 슬롯도 같은 게임 시간 기준으로 회복한다.
 - 교체 실패는 활성 슬롯을 바꾸지 않는다.
-- 슬롯 교체와 폭탄 설치가 같은 step에 들어오면 `RuntimeFlow.md`의 고정 순서를 따른다.
+- 슬롯 교체와 폭탄 설치는 세션이 받은 `PlayerCommand` 순서대로 원자적으로 처리하며 각 명령의 성공/실패가 다음 명령에 보인다.
 - UI는 Core 상태를 표시할 뿐 쿨타임을 계산하지 않는다.
 
 ## 핵심 리스크
@@ -49,3 +61,5 @@
 - 설치 실패 시 쿨타임 미소비.
 - 교체 쿨타임 경계와 일시정지.
 - 같은 step의 설치/교체 명령 순서.
+
+현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계와 시계 정지를 검증한다. PlayMode는 실제 `X`/`Z` Input System 입력이 선택 정의를 바꾸고 두 슬롯의 준비 상태와 HUD에 반영되는지 검증한다. WebGL smoke는 입력 probe가 아니라 성공 사건인 `active-bomb-slot-1`과 두 `place-bomb-definition-*` 표식을 요구한다.

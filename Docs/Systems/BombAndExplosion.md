@@ -32,9 +32,9 @@
 
 중복 스탯을 늘리지 않는다. 공간 역할 차이를 수치 차이보다 먼저 만든다.
 
-현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 현재 구현된 모양은 기본 십자뿐이며 쿨타임과 폭탄별 위력은 후속 소유 시스템에서 추가한다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
+현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 현재 구현된 모양은 십자뿐이고 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
 
-TestSandbox의 첫 3D 수직 슬라이스는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, fuse, 범위와 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross` 값은 fuse 2초, 범위 2이며 프로토타입 조정값이다. 에셋은 Core `BombDefinition`으로 변환되고 표현 참조는 Core에 전달되지 않는다.
+TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 fuse 2초·범위 2·설치 1.5초, `prototype-quick-cross`는 fuse 1.25초·범위 1·설치 0.75초다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다.
 
 ## 폭발 전파 규칙
 
@@ -74,14 +74,14 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 
 ## 구현된 Unity 수직 슬라이스
 
-- `PrototypeGameSession`은 이동과 폭탄이 공유하는 하나의 논리 격자·시계를 소유하고 `PlaceBomb` 명령을 현재 플레이어 셀에 적용한다.
+- `PrototypeGameSession`은 이동·폭탄·두 슬롯이 공유하는 하나의 논리 격자·시계를 소유하고 `PlaceBomb` 명령을 활성 슬롯과 현재 플레이어 셀에 적용한다.
 - 설치가 성공할 때만 `BombPlaced`, fuse 또는 연쇄 처리 결과가 확정될 때만 `BombExploded`를 발행한다.
 - `PrototypeGameSession`은 설치 snapshot의 소유자가 현재 셀의 플레이어임을 근거로 한 번의 탈출 권한을 부여하고, 폭발로 폭탄이 제거되면 남은 권한을 종료한다.
 - 확정된 폭발 셀에 현재 플레이어 논리 셀이 포함되면 체력 시스템에 해당 `BombId`의 피해를 한 번 전달하고, 무적 계약을 통과한 결과만 `PlayerDamaged`로 발행한다.
 - 확정된 폭발 셀에 살아 있는 기본 추격자의 논리 셀이 포함되면 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 내구도 1 추격자는 같은 결과에서 사망하고 논리 점유에서 제거된다.
-- `PrototypeBombPresenter`는 설치 폭탄과 영향 셀 placeholder를 사전 생성 풀에서 꺼내고, 폭발 셀은 저작된 짧은 표시 시간이 끝나면 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
+- `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
-- 현재 수직 슬라이스는 플레이어 자기 피해와 내구도 1 기본 추격자 피해를 포함하며 다중 적·중형 적 피해 단계, 설치 쿨타임, 두 슬롯을 의도적으로 포함하지 않는다.
+- 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자 피해, 두 슬롯과 독립 설치·교체 쿨타임을 포함한다. 다중 적·중형 적 피해 단계와 직선·광역 폭발은 아직 없다.
 
 ## 불변식
 
