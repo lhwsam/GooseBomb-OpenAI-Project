@@ -18,6 +18,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity";
         public const string TestSandboxPillarsScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
+        public const string TestSandboxArmorScenePath =
+            "Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity";
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypeAreaBombDefinitionPath =
@@ -30,12 +32,16 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Enemies/PrototypeChaser.asset";
         public const string PrototypeChargerDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeCharger.asset";
+        public const string PrototypeArmoredDefinitionPath =
+            "Assets/Game/Content/Enemies/PrototypeArmored.asset";
         public const string PrototypeCombatRoomDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatLoop.asset";
         public const string PrototypeCombatLanesDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatLanes.asset";
         public const string PrototypeCombatPillarsDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatPillars.asset";
+        public const string PrototypeCombatArmorDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeCombatArmor.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -48,6 +54,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
         public const string ChargerPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChargerPlaceholder.prefab";
+        public const string ArmoredPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ArmoredPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
 
@@ -63,6 +71,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypePlayerVitals(errors);
             ValidatePrototypeChaserDefinition(errors);
             ValidatePrototypeChargerDefinition(errors);
+            ValidatePrototypeArmoredDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
@@ -287,6 +296,48 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static void ValidatePrototypeArmoredDefinition(ICollection<string> errors)
+        {
+            PrototypeArmoredDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeArmoredDefinitionAsset>(
+                    PrototypeArmoredDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype armored definition: {PrototypeArmoredDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                ArmoredEnemyDefinition core = definition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+                if (core.MaxHealth != 2 ||
+                    definition.ArmoredCellsPerSecond != 1f ||
+                    definition.BrokenCellsPerSecond != 3f)
+                {
+                    errors.Add(
+                        "Prototype armored definition must use two stages and the 1-to-3 cells/second phase contract.");
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype armored definition: {exception.Message}");
+            }
+
+            string prefabPath = AssetDatabase.GetAssetPath(definition.ArmoredPrefab);
+            if (!string.Equals(prefabPath, ArmoredPrefabPath, StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype armored definition must reference '{ArmoredPrefabPath}', found '{prefabPath}'.");
+            }
+            if (definition.ArmoredPrefab != null &&
+                definition.ArmoredPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                errors.Add(
+                    "Prototype armored prefab must not contain a Collider; logical grid owns collision.");
+            }
+        }
+
         private static void ValidatePrototypeCombatRoomDefinitions(ICollection<string> errors)
         {
             string[] expectedPaths =
@@ -294,18 +345,28 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatRoomDefinitionPath,
                 PrototypeCombatLanesDefinitionPath,
                 PrototypeCombatPillarsDefinitionPath,
+                PrototypeCombatArmorDefinitionPath,
             };
             string[] expectedIds =
             {
                 "prototype-combat-loop",
                 "prototype-combat-lanes",
                 "prototype-combat-pillars",
+                "prototype-combat-armor",
             };
             GridPosition?[] expectedChargerSpawns =
             {
                 null,
                 null,
                 new GridPosition(-3, 2),
+                null,
+            };
+            GridPosition?[] expectedArmoredSpawns =
+            {
+                null,
+                null,
+                null,
+                new GridPosition(0, 1),
             };
 
             var seenIds = new HashSet<string>(StringComparer.Ordinal);
@@ -338,6 +399,12 @@ namespace BombSwap.Editor.ContentValidation
                         errors.Add(
                             $"Prototype combat room '{path}' has unexpected charger spawn " +
                             $"'{room.ChargerSpawn}'; expected '{expectedChargerSpawns[index]}'.");
+                    }
+                    if (room.ArmoredSpawn != expectedArmoredSpawns[index])
+                    {
+                        errors.Add(
+                            $"Prototype combat room '{path}' has unexpected armored spawn " +
+                            $"'{room.ArmoredSpawn}'; expected '{expectedArmoredSpawns[index]}'.");
                     }
                 }
                 catch (Exception exception)
@@ -519,6 +586,11 @@ namespace BombSwap.Editor.ContentValidation
             ValidateTestSandboxScene(
                 TestSandboxPillarsScenePath,
                 PrototypeCombatPillarsDefinitionPath,
+                "TestSandboxArmor",
+                errors);
+            ValidateTestSandboxScene(
+                TestSandboxArmorScenePath,
+                PrototypeCombatArmorDefinitionPath,
                 string.Empty,
                 errors);
         }
@@ -577,6 +649,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeChaserPresenter>(scene);
                 PrototypeChargerPresenter[] chargerPresenters =
                     FindComponents<PrototypeChargerPresenter>(scene);
+                PrototypeArmoredPresenter[] armoredPresenters =
+                    FindComponents<PrototypeArmoredPresenter>(scene);
                 PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 PrototypeRoomAdvanceController[] roomAdvanceControllers =
@@ -628,6 +702,11 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeChargerPresenter; found {chargerPresenters.Length}.");
                 }
+                if (armoredPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeArmoredPresenter; found {armoredPresenters.Length}.");
+                }
                 if (weaponHuds.Length != 1)
                 {
                     errors.Add(
@@ -670,6 +749,8 @@ namespace BombSwap.Editor.ContentValidation
                         session.ChaserDefinition);
                     string chargerDefinitionPath = AssetDatabase.GetAssetPath(
                         session.ChargerDefinition);
+                    string armoredDefinitionPath = AssetDatabase.GetAssetPath(
+                        session.ArmoredDefinition);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
                         !string.Equals(
                             loadoutPath,
@@ -686,6 +767,10 @@ namespace BombSwap.Editor.ContentValidation
                         !string.Equals(
                             chargerDefinitionPath,
                             PrototypeChargerDefinitionPath,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            armoredDefinitionPath,
+                            PrototypeArmoredDefinitionPath,
                             StringComparison.Ordinal))
                     {
                         errors.Add("TestSandbox game session has inconsistent runtime references.");
@@ -774,6 +859,17 @@ namespace BombSwap.Editor.ContentValidation
                         presenter.PresentationRoot != runtimePresentation)
                     {
                         errors.Add("TestSandbox charger presenter has inconsistent scene references.");
+                    }
+                }
+
+                if (armoredPresenters.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeArmoredPresenter presenter = armoredPresenters[0];
+                    Transform runtimePresentation = contexts[0].GridRoot.Find("RuntimePresentation");
+                    if (presenter.Session != sessions[0] ||
+                        presenter.PresentationRoot != runtimePresentation)
+                    {
+                        errors.Add("TestSandbox armored presenter has inconsistent scene references.");
                     }
                 }
 
@@ -897,6 +993,26 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add("TestSandbox has a charger spawn Transform without an authored charger cell.");
             }
+            if (room.ArmoredSpawn.HasValue)
+            {
+                if (context.ArmoredSpawn == null)
+                {
+                    errors.Add("TestSandbox is missing the authored armored spawn Transform.");
+                }
+                else
+                {
+                    ValidateTransformCell(
+                        context,
+                        context.ArmoredSpawn,
+                        room.ArmoredSpawn.Value,
+                        "armored spawn",
+                        errors);
+                }
+            }
+            else if (context.ArmoredSpawn != null)
+            {
+                errors.Add("TestSandbox has an armored spawn Transform without an authored armored cell.");
+            }
 
             Transform obstacles = context.GridRoot.Find("Environment/InteriorObstacles");
             if (obstacles == null)
@@ -1007,13 +1123,14 @@ namespace BombSwap.Editor.ContentValidation
                 TestSandboxScenePath,
                 TestSandboxLanesScenePath,
                 TestSandboxPillarsScenePath,
+                TestSandboxArmorScenePath,
             };
             EditorBuildSettingsScene[] enabledScenes = EditorBuildSettings.scenes
                 .Where(scene => scene.enabled)
                 .ToArray();
             if (enabledScenes.Length < expectedScenePaths.Length)
             {
-                errors.Add("Build Settings must enable all three playtest room scenes first.");
+                errors.Add("Build Settings must enable all four playtest room scenes first.");
                 return;
             }
 

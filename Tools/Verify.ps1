@@ -199,6 +199,7 @@ function Test-StaticContracts {
     $requiredToolPaths = @(
         'Tools/Verify.ps1',
         'Tools/WebGLSmoke.mjs',
+        'Tools/ArmoredWebGLSmoke.mjs',
         'Tools/WebGLStaticServer.mjs',
         'Tools/WebGLStaticServerTests.mjs',
         'Tools/ServeWebGL.mjs'
@@ -256,6 +257,7 @@ function Test-StaticContracts {
         'Assets/Game/Editor/BombSwap.Editor.asmdef',
         'Assets/Game/Tests/EditMode/BombSwap.Core.Tests.asmdef',
         'Assets/Game/Tests/PlayMode/BombSwap.Unity.Tests.asmdef'
+        'Assets/Game/Tests/EditorHarness/BombSwap.ConnectedTestHarness.asmdef'
     )
     foreach ($relativeAsmdefPath in $requiredAsmdefPaths) {
         if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $relativeAsmdefPath) -PathType Leaf)) {

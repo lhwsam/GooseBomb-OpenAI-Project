@@ -17,6 +17,7 @@ namespace BombSwap
         private static readonly ActorId PrototypePlayerActorId = new ActorId(1);
         private static readonly ActorId PrototypeChaserActorId = new ActorId(2);
         private static readonly ActorId PrototypeChargerActorId = new ActorId(3);
+        private static readonly ActorId PrototypeArmoredActorId = new ActorId(4);
 
         [SerializeField]
         private TestSandboxContext context;
@@ -40,6 +41,9 @@ namespace BombSwap
         private PrototypeChargerDefinitionAsset chargerDefinition;
 
         [SerializeField]
+        private PrototypeArmoredDefinitionAsset armoredDefinition;
+
+        [SerializeField]
         private float cellsPerSecond = DefaultCellsPerSecond;
 
         [SerializeField]
@@ -57,12 +61,17 @@ namespace BombSwap
         private ChargerEnemySimulation _charger;
         private EnemyHealthSimulation _chargerHealth;
         private ChargerEnemyDefinition _coreChargerDefinition;
+        private ArmoredEnemySimulation _armored;
+        private ArmoredEnemyDefinition _coreArmoredDefinition;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
             new List<EnemyDamageResult>();
+        private readonly List<ArmoredEnemyDamageResult> _armoredDamageResults =
+            new List<ArmoredEnemyDamageResult>();
         private bool _roomCleared;
         private bool _hasCharger;
+        private bool _hasArmored;
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
@@ -81,6 +90,10 @@ namespace BombSwap
         public event Action<EnemyMovementStep> ChaserMoved;
 
         public event Action<ChargerEnemyAdvanceResult> ChargerAdvanced;
+
+        public event Action<EnemyMovementStep> ArmoredMoved;
+
+        public event Action<ArmoredEnemyDamageResult> ArmoredStateChanged;
 
         public event Action<EnemyDamageResult> EnemyDamaged;
 
@@ -105,6 +118,8 @@ namespace BombSwap
 
         public PrototypeChargerDefinitionAsset ChargerDefinition => chargerDefinition;
 
+        public PrototypeArmoredDefinitionAsset ArmoredDefinition => armoredDefinition;
+
         public float CellsPerSecond => cellsPerSecond;
 
         public float ChainDelaySeconds => chainDelaySeconds;
@@ -112,7 +127,8 @@ namespace BombSwap
         public bool IsInitialized => _movement != null && _bombs != null && _weapons != null &&
             _health != null &&
             _chaser != null && _chaserHealth != null &&
-            (!_hasCharger || (_charger != null && _chargerHealth != null));
+            (!_hasCharger || (_charger != null && _chargerHealth != null)) &&
+            (!_hasArmored || _armored != null);
 
         public bool IsReady { get; private set; }
 
@@ -153,12 +169,28 @@ namespace BombSwap
         public bool IsChargerAlive =>
             _hasCharger && _chargerHealth != null && !_chargerHealth.IsDead;
 
+        public bool HasArmored => _hasArmored;
+
+        public ActorId ArmoredActorId => _armored != null ? _armored.ActorId : default;
+
+        public GridPosition CurrentArmoredGridPosition =>
+            _armored != null ? _armored.CurrentPosition : default;
+
+        public ArmoredEnemyState CurrentArmoredState =>
+            _armored != null ? _armored.State : ArmoredEnemyState.Armored;
+
+        public bool IsArmoredAlive => _hasArmored && _armored != null && !_armored.IsDead;
+
         public int EnemyActiveCount
         {
             get
             {
                 int count = _chaserHealth != null && !_chaserHealth.IsDead ? 1 : 0;
                 if (_chargerHealth != null && !_chargerHealth.IsDead)
+                {
+                    count++;
+                }
+                if (_armored != null && !_armored.IsDead)
                 {
                     count++;
                 }
@@ -196,7 +228,8 @@ namespace BombSwap
             PrototypeChaserDefinitionAsset startingChaser,
             float movementCellsPerSecond = DefaultCellsPerSecond,
             float bombChainDelaySeconds = DefaultChainDelaySeconds,
-            PrototypeChargerDefinitionAsset startingCharger = null)
+            PrototypeChargerDefinitionAsset startingCharger = null,
+            PrototypeArmoredDefinitionAsset startingArmored = null)
         {
             if (Application.isPlaying && isActiveAndEnabled)
             {
@@ -234,6 +267,7 @@ namespace BombSwap
             playerVitals = startingPlayerVitals;
             chaserDefinition = startingChaser;
             chargerDefinition = startingCharger;
+            armoredDefinition = startingArmored;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
         }
@@ -349,10 +383,16 @@ namespace BombSwap
                     ChargerAdvanced?.Invoke(chargerAdvance);
                 }
             }
+            if (_hasArmored && !_armored.IsDead &&
+                _armored.TryAdvance(out EnemyMovementStep armoredStep))
+            {
+                ArmoredMoved?.Invoke(armoredStep);
+            }
 
             var explosions = _bombs.ProcessDueBombs();
             _appliedDamageResults.Clear();
             _appliedEnemyDamageResults.Clear();
+            _armoredDamageResults.Clear();
             for (int index = 0; index < explosions.Count; index++)
             {
                 BombExplosion explosion = explosions[index];
@@ -380,6 +420,10 @@ namespace BombSwap
                         _chargerHealth,
                         "charger");
                 }
+                if (_hasArmored)
+                {
+                    ApplyArmoredExplosionDamage(explosion);
+                }
             }
 
             if (!_health.IsDead && !_chaserHealth.IsDead &&
@@ -404,6 +448,17 @@ namespace BombSwap
                     _appliedDamageResults.Add(chargeDamage);
                 }
             }
+            if (!_health.IsDead && _hasArmored && !_armored.IsDead &&
+                _movement.CurrentPosition.IsCardinallyAdjacentTo(_armored.CurrentPosition))
+            {
+                PlayerDamageResult armoredContactDamage = _health.ApplyContactDamage(
+                    _armored.ActorId,
+                    _coreArmoredDefinition.ContactDamage);
+                if (armoredContactDamage.WasApplied)
+                {
+                    _appliedDamageResults.Add(armoredContactDamage);
+                }
+            }
 
             for (int index = 0; index < explosions.Count; index++)
             {
@@ -418,6 +473,10 @@ namespace BombSwap
                     _movement.SetMoveDirection(CardinalDirection.None);
                     PlayerDied?.Invoke(damage);
                 }
+            }
+            for (int index = 0; index < _armoredDamageResults.Count; index++)
+            {
+                ArmoredStateChanged?.Invoke(_armoredDamageResults[index]);
             }
             for (int index = 0; index < _appliedEnemyDamageResults.Count; index++)
             {
@@ -448,10 +507,16 @@ namespace BombSwap
             ValidateFinitePositive(chainDelaySeconds, nameof(chainDelaySeconds));
             CombatRoomDefinition roomDefinition = context.RoomDefinition.CreateCoreDefinition();
             _hasCharger = roomDefinition.ChargerSpawn.HasValue;
+            _hasArmored = roomDefinition.ArmoredSpawn.HasValue;
             if (_hasCharger && chargerDefinition == null)
             {
                 throw new InvalidOperationException(
                     "A room with a charger spawn requires a charger definition reference.");
+            }
+            if (_hasArmored && armoredDefinition == null)
+            {
+                throw new InvalidOperationException(
+                    "A room with an armored spawn requires an armored definition reference.");
             }
 
             _grid = CreateGrid(context);
@@ -507,6 +572,25 @@ namespace BombSwap
                 _chargerHealth = new EnemyHealthSimulation(
                     _charger.ActorId,
                     _coreChargerDefinition.MaxHealth);
+            }
+            if (_hasArmored)
+            {
+                if (context.ArmoredSpawn == null)
+                {
+                    throw new InvalidOperationException(
+                        "A room with an armored enemy requires an armored spawn Transform.");
+                }
+
+                _coreArmoredDefinition = armoredDefinition.CreateCoreDefinition();
+                GridPosition armoredStart = context.GridSpace.WorldToGrid(
+                    context.ArmoredSpawn.position);
+                _armored = new ArmoredEnemySimulation(
+                    _grid,
+                    _clock,
+                    _coreArmoredDefinition,
+                    PrototypeArmoredActorId,
+                    _movement.ActorId,
+                    armoredStart);
             }
             _roomCleared = false;
 
@@ -598,6 +682,25 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     $"Dead prototype {enemyLabel} could not be removed from the logical grid.");
             }
+        }
+
+        private void ApplyArmoredExplosionDamage(BombExplosion explosion)
+        {
+            if (_armored.IsDead ||
+                !_grid.TryGetActorPosition(_armored.ActorId, out GridPosition position) ||
+                !Contains(explosion.AffectedCells, position))
+            {
+                return;
+            }
+
+            ArmoredEnemyDamageResult result = _armored.ApplyExplosion(explosion.BombId);
+            if (!result.Damage.WasApplied)
+            {
+                return;
+            }
+
+            _armoredDamageResults.Add(result);
+            _appliedEnemyDamageResults.Add(result.Damage);
         }
 
         private static GridState CreateGrid(TestSandboxContext sandboxContext)

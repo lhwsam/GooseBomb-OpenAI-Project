@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 돌진형 적 수직 슬라이스 완료, 두 적·파괴 블록 WebGL 비교 플레이테스트 준비
+- 단계: 갑옷 적 수직 슬라이스와 4방 WebGL 자동 검증 완료, 세 적 역할 비교 플레이테스트 준비
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -64,9 +64,14 @@
 - 전투방 스키마에 파괴 가능 셀을 추가하고 초기 연결성·고정 벽/중요 셀 비중첩을 Core 불변식으로 검증.
 - 두 번째 방의 대각선 파괴 블록 2개와 세 번째 방 중앙 블록 1개를 논리 `DestructibleWall`, 황갈색 4분할 3D 표현과 확정 파괴 presenter로 연결.
 - `ChargerEnemySimulation`의 `Track → Telegraph → Charge → Recover` 결정론적 상태 머신, 예고 방향 잠금, 한 셀 cadence와 벽·폭탄·actor 차단을 구현.
-- 선택적 돌진형 spawn을 방 스키마에 추가하고 마지막 방 `(-3,2)`에 `prototype-charger` 정의·collider 없는 placeholder·상태별 presenter를 연결.
+- 선택적 돌진형 spawn을 방 스키마에 추가하고 세 번째 방 `(-3,2)`에 `prototype-charger` 정의·collider 없는 placeholder·상태별 presenter를 연결.
 - `PrototypeGameSession`에 추격자 `ActorId(2)` 뒤 돌진형 `ActorId(3)` 고정 이동·피해 순서, 적별 생존 상태와 두 적 사망 뒤 단일 `RoomCleared` 집계를 구현.
 - WebGL gameplay probe와 browser smoke가 돌진형의 예고→돌진→논리 이동 순서, 이동 입력 회귀와 차저 접촉 무적에 가려지지 않는 자기 폭발 피해를 검증하도록 확장.
+- `ArmoredEnemySimulation`의 `Armored → Broken → Dead` 2회 피격, 폭발 ID 중복 차단, 첫 피격 뒤 1→3 cells/s 상태별 cadence와 즉시 재판단을 구현.
+- 선택적 갑옷 적 `ActorId(4)`을 추격자·돌진형 뒤 고정 순서로 공유 격자·폭발·접촉·방 클리어에 연결하고 상태별 property block·scale 표현을 구현.
+- 열린 중앙 실험선과 좌우 기둥을 가진 네 번째 `prototype-combat-armor` 방·씬·정의·collider 없는 prefab을 Editor builder로 저작하고 4방 전환·Build Settings를 validator로 고정.
+- 연결된 Unity Test Runner의 도메인 리로드 뒤에도 실행 ID와 최종 수치를 JSON으로 보존하는 `ConnectedTestHarness`를 구현.
+- 갑옷 전용 WebGL smoke가 첫 실제 폭발의 상태 파괴·빠른 이동과 두 번째 폭발의 사망·방 클리어를 확인하고, 네 번째 씬을 포함한 기본 빌드의 기존 3방 smoke가 입력·폭탄·파괴 블록·돌진형 회귀를 함께 검증하도록 유지.
 
 ## 현재 저장소 사실
 
@@ -80,15 +85,16 @@
 - `PlayerHealthSimulation`은 폭발 ID별 처리 여부, 체력 하한, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발과 적 접촉은 원본 ID를 구분해 보존하면서 같은 무적을 공유하고, `PrototypeGameSession`은 적용된 피해와 사망만 표현 이벤트로 발행한다.
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 같은 행/열의 빈 가시선에서 0.75초 예고 뒤 8 cells/s cadence로 잠근 방향을 돌진하고 0.75초 회복한다. 수치는 `Proposed`다.
-- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 세션은 추격자→돌진형 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하지만 문 개방·보상은 아직 없다.
-- 세 room asset은 모두 11×9이며 중앙 십자, 평행 통로, 엇갈린 기둥의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`를 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
-- 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
+- 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 첫 서로 다른 폭발에 갑옷만 파괴하고 1→3 cells/s로 빨라지며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
+- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 갑옷 적은 내구 단계 2·접촉 피해 1이다. 세션은 추격자→돌진형→갑옷 적 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하지만 문 개방·보상은 아직 없다.
+- 네 room asset은 모두 11×9이며 중앙 십자, 평행 통로, 엇갈린 기둥, 갑옷 실험선의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`, 네 번째는 갑옷 적 spawn `(0,1)`을 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
+- 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
-- EditMode 테스트 193개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자와 돌진형의 결정론·cadence·상태 전이·충돌 차단·단일 피격, 방 경계·고정/파괴 벽·선택적 돌진 spawn·초기 연결성·퇴로·유도 경로 계약을 검증한다.
+- EditMode 테스트 206개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 방 경계·고정/파괴 벽·선택적 적 spawn·초기 연결성·퇴로·유도 경로 계약을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 71개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·6회 `North/East` 단타의 같은 frame Core 위치·Transform 반영, 실제 `X` 교체와 광역 `Z` 설치·3×3 결과·파괴 벽 `Floor` 전환·시각 제거·HUD snapshot 표시, 공유 격자 플레이어·추격자·돌진형 이동, 돌진 충돌·접촉 피해·공유 무적·같은 프레임 폭발 사망 우선순위, 두 적 동시 사망·단일 방 클리어, 방 전환 pending·마지막 방 무전환, pooled 표현과 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
-- 세 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
-- Build Settings의 첫 enabled 씬 세 개는 `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
+- PlayMode 전체 72개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·6회 `North/East` 단타의 같은 frame Core 위치·Transform 반영, 실제 `X` 교체와 광역 `Z` 설치·3×3 결과·파괴 벽 `Floor` 전환·시각 제거·HUD snapshot 표시, 공유 격자 플레이어·추격자·돌진형·갑옷 적 이동, 상태별 갑옷 표현과 2회 피격, 돌진 충돌·접촉 피해·공유 무적·같은 프레임 폭발 사망 우선순위, 다중 적 사망·단일 방 클리어, 방 전환 pending·마지막 방 무전환, pooled 표현과 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
+- 네 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
+- Build Settings의 첫 enabled 씬 네 개는 `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
 - WebGL platform quality는 Mobile 프로필을 사용한다.
@@ -98,27 +104,28 @@
 
 ## 진행 중
 
-- 최신 WebGL에서 두 번째 방의 대각선 파괴 블록, 세 번째 방 중앙 엄폐와 돌진형 예고선이 기본 십자·광역의 설치 위치·퇴로·회피 타이밍을 실제로 바꾸는지 사람 플레이테스트로 비교한다.
+- 최신 4방 WebGL에서 파괴 블록·돌진형·갑옷 적이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
 
 ## 바로 다음 권장 작업
 
-1. [두 적·폭탄 선택 비교 플레이테스트](../Playtesting/TwoEnemyBombChoiceProtocol.md)로 돌진형의 0.75초 예고·8 cells/s 이동·0.75초 회복을 읽고 피할 수 있는지, 폭탄을 돌진선 또는 회복 위치에 미리 설치하게 되는지 관찰한다.
-2. 두 번째 방 광역의 대각선 동시 파괴와 세 번째 방 중앙 블록의 엄폐·파괴 선택이 두 적 압력에서도 다른 설치 위치를 만드는지 비교한다.
-3. 결과를 `bombswap-playtest-review` 형식으로 유지·변경·제거 판정한 뒤, 가설 B의 다음 미구현 조건인 갑옷 적 또는 돌진형 표현 개선 중 근거가 강한 쪽을 선택한다.
+1. 갑옷 전용 WebGL에서 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
+2. [두 적·폭탄 선택 비교 플레이테스트](../Playtesting/TwoEnemyBombChoiceProtocol.md)의 기존 3방 결과와 네 번째 갑옷 방을 분리 기록해 파괴 블록·돌진형·갑옷 적 중 실제 선택 변화를 만드는 요소를 비교한다.
+3. 결과를 `bombswap-playtest-review` 형식으로 유지·변경·제거 판정한 뒤 갑옷 수치/표현 조정 또는 다음 GDD 가설의 가장 작은 수직 슬라이스를 선택한다.
 
 ## 알려진 위험과 미정
 
 - 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. 키 해제 즉시 정지와 빠른 `North/East` 반복은 자동 검증됐지만 최종 속도, 벽 모서리 코너 보정과 셀 경계 판정 가독성은 수동 재확인 전까지 `Proposed`다.
-- 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`을 고정 생성하고 추격자 뒤 돌진형 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
+- 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 두 폭탄 슬롯은 십자와 3×3 광역으로 구조적 공간 역할이 달라졌지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지 관찰해야 한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
 - 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하며 부활·재시작, 완성 HUD·오디오는 아직 없다.
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. 접촉 압력은 연결됐지만 실제 공정성과 유도 재미는 아직 플레이테스트하지 않았다.
-- 돌진형의 예고·돌진·회복 수치와 마지막 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
+- 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
+- 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
 - 개발 WebGL 기준 빌드는 약 140.0 MB이며 현재 설치된 AI Inference·vendor 패키지와 셰이더가 빌드 크기, 전체 재빌드 시간과 경고 수를 크게 차지한다. 실제 배포 예산과 패키지 정리는 피해·적 수직 슬라이스 이후 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
-- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor, 방 prefab과 런 그래프는 아직 없다.
-- 현재 3방 전환은 씬 이름과 realtime 1.25초 지연을 쓰는 플레이테스트 어댑터다. 실제 던전 그래프, 보상, 저장·재시작과 방 전환 연출을 대신하지 않는다.
+- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor, 방 prefab과 런 그래프는 아직 없다.
+- 현재 4방 전환은 씬 이름과 realtime 1.25초 지연을 쓰는 플레이테스트 어댑터다. 실제 던전 그래프, 보상, 저장·재시작과 방 전환 연출을 대신하지 않는다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
 - 게임패드 binding은 구조 검증만 완료했다. 정확한 대각선 값을 만드는 게임패드·D-pad에도 새 직교 축 우선 정책이 적용되므로 목표 기기 수동 플레이가 남아 있다.
 
@@ -159,3 +166,7 @@
 - 돌진형 Development WebGL 빌드 성공: 140,947,504 bytes, 241.080초, 오류 0, 설치된 패키지·셰이더 기존 범주의 경고 359개. 산출물은 `Artifacts/Verification/20260814-181400-charger-web-connected/`에 기록했다.
 - Edge headless smoke 전체 통과. 마지막 방에서 `charger-telegraph → charger-charge → charger-moved`, 빠른 `North/East` 단타 회귀, 돌진선 이탈 뒤 자기 폭발 피해와 기존 3방·파괴 블록·Console/page error 0을 확인했다.
 - 돌진형 문서 갱신 뒤 최신 정적 검증 `Artifacts/Verification/20260814-183106-static/`, `node --check Tools/WebGLSmoke.mjs`, `WebGLStaticServerTests.mjs` 통과.
+- 갑옷 적 연결 후 공식 Unity MCP 전체 EditMode 206개와 PlayMode 72개 통과, 실패·건너뜀·불확정 0. 연결 하네스 JSON은 `Artifacts/Verification/ConnectedTests/20260814-101213-997.json`, `Artifacts/Verification/ConnectedTests/20260814-101121-209.json`에 보존했다.
+- `PrototypeContentValidator`: 갑옷 정의·collider 없는 prefab·선택적 spawn·네 번째 방/씬·presenter와 Build Settings 4방 순서까지 오류 0.
+- 갑옷 시작 Development WebGL 성공: 141,100,454 bytes, 339.23초, 오류 0. Edge headless에서 첫 실제 폭발의 `armored-broken`과 상태별 이동, 두 번째 폭발의 `armored-died`, 최종 `room-cleared`, screenshot, browser Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260814-191400-armored-web-connected/`.
+- 네 번째 씬을 포함한 기본 Development WebGL 성공: 141,100,958 bytes, 25.47초 incremental, 오류 0. Edge headless 기본 smoke에서 입력·빠른 방향 전환·두 폭탄·파괴 블록·돌진형·피해·기존 3방 전환·resize·browser Console/page error 0을 확인했다. 네 번째 갑옷 씬은 위 전용 smoke로 별도 검증했다. 증거 `Artifacts/Verification/20260814-192200-default-web-connected/`.

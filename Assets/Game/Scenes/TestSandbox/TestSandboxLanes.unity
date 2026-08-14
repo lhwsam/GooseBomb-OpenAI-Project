@@ -1302,6 +1302,7 @@ MonoBehaviour:
   playerPlaceholder: {fileID: 317508116}
   chaserSpawn: {fileID: 2013815863}
   chargerSpawn: {fileID: 0}
+  armoredSpawn: {fileID: 0}
   roomDefinition: {fileID: 11400000, guid: d1b94e1c7d8765d4fb3b3b6803c49ed5, type: 2}
 --- !u!4 &455876710
 Transform:
@@ -1342,6 +1343,7 @@ GameObject:
   - component: {fileID: 549228489}
   - component: {fileID: 549228490}
   - component: {fileID: 549228491}
+  - component: {fileID: 549228492}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1440,6 +1442,7 @@ MonoBehaviour:
   playerVitals: {fileID: 11400000, guid: f596c4b9706477042b040e90f2f7ce5d, type: 2}
   chaserDefinition: {fileID: 11400000, guid: d5e3ca0a7af7a3740b3ca2574b0cd87e, type: 2}
   chargerDefinition: {fileID: 11400000, guid: f66ea46e897cfb94a9c9cedf31599f7f, type: 2}
+  armoredDefinition: {fileID: 11400000, guid: 45f80675d52a84c43bd83d96643cb36c, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15
 --- !u!114 &549228486
@@ -1534,6 +1537,22 @@ MonoBehaviour:
   chargeColor: {r: 1, g: 0.12, b: 0.04, a: 1}
   recoverColor: {r: 0.42, g: 0.46, b: 0.5, a: 1}
   deathColor: {r: 0.14, g: 0.02, b: 0.02, a: 1}
+--- !u!114 &549228492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afa2e2dda2f61b94cbc5dc5a1b1badc8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeArmoredPresenter
+  session: {fileID: 549228485}
+  presentationRoot: {fileID: 550081171}
+  brokenColor: {r: 1, g: 0.34, b: 0.06, a: 1}
+  deathColor: {r: 0.16, g: 0.02, b: 0.01, a: 1}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

@@ -27,6 +27,9 @@ namespace BombSwap
         private Transform chargerSpawn;
 
         [SerializeField]
+        private Transform armoredSpawn;
+
+        [SerializeField]
         private PrototypeCombatRoomDefinitionAsset roomDefinition;
 
         public BombSwapInputReader InputReader => inputReader;
@@ -40,6 +43,8 @@ namespace BombSwap
         public Transform ChaserSpawn => chaserSpawn;
 
         public Transform ChargerSpawn => chargerSpawn;
+
+        public Transform ArmoredSpawn => armoredSpawn;
 
         public PrototypeCombatRoomDefinitionAsset RoomDefinition => roomDefinition;
 
@@ -64,7 +69,8 @@ namespace BombSwap
             Transform player,
             Transform enemySpawn,
             PrototypeCombatRoomDefinitionAsset authoredRoomDefinition,
-            Transform authoredChargerSpawn = null)
+            Transform authoredChargerSpawn = null,
+            Transform authoredArmoredSpawn = null)
         {
             if (reader == null)
             {
@@ -114,6 +120,24 @@ namespace BombSwap
                     "A charger spawn Transform requires an authored charger cell.",
                     nameof(authoredChargerSpawn));
             }
+            if (coreRoom.ArmoredSpawn.HasValue)
+            {
+                if (authoredArmoredSpawn == null)
+                {
+                    throw new ArgumentNullException(nameof(authoredArmoredSpawn));
+                }
+                ValidateTransformCell(
+                    gridSpace,
+                    authoredArmoredSpawn,
+                    coreRoom.ArmoredSpawn.Value,
+                    nameof(authoredArmoredSpawn));
+            }
+            else if (authoredArmoredSpawn != null)
+            {
+                throw new ArgumentException(
+                    "An armored spawn Transform requires an authored armored cell.",
+                    nameof(authoredArmoredSpawn));
+            }
 
             inputReader = reader;
             gridRoot = grid;
@@ -121,6 +145,7 @@ namespace BombSwap
             playerPlaceholder = player;
             chaserSpawn = enemySpawn;
             chargerSpawn = authoredChargerSpawn;
+            armoredSpawn = authoredArmoredSpawn;
             roomDefinition = authoredRoomDefinition;
         }
 

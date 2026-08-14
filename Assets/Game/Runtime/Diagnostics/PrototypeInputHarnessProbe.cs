@@ -27,6 +27,9 @@ namespace BombSwap
         private bool _chargerTelegraphReported;
         private bool _chargerChargeReported;
         private bool _chargerMovedReported;
+        private bool _armoredMovedReported;
+        private bool _armoredBrokenReported;
+        private bool _armoredDiedReported;
         private bool _enemyDiedReported;
         private bool _roomClearedReported;
         private bool _swapBombReported;
@@ -85,6 +88,8 @@ namespace BombSwap
             session.PlayerDamaged += OnPlayerDamaged;
             session.ChaserMoved += OnChaserMoved;
             session.ChargerAdvanced += OnChargerAdvanced;
+            session.ArmoredMoved += OnArmoredMoved;
+            session.ArmoredStateChanged += OnArmoredStateChanged;
             session.EnemyDied += OnEnemyDied;
             session.RoomCleared += OnRoomCleared;
             session.Ready += OnSessionReady;
@@ -111,6 +116,8 @@ namespace BombSwap
                 session.PlayerDamaged -= OnPlayerDamaged;
                 session.ChaserMoved -= OnChaserMoved;
                 session.ChargerAdvanced -= OnChargerAdvanced;
+                session.ArmoredMoved -= OnArmoredMoved;
+                session.ArmoredStateChanged -= OnArmoredStateChanged;
                 session.EnemyDied -= OnEnemyDied;
                 session.RoomCleared -= OnRoomCleared;
                 session.Ready -= OnSessionReady;
@@ -263,6 +270,31 @@ namespace BombSwap
             {
                 WebGlHarnessReporter.Report("charger-moved");
                 _chargerMovedReported = true;
+            }
+        }
+
+        private void OnArmoredMoved(EnemyMovementStep step)
+        {
+            if (_armoredMovedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("armored-moved");
+            _armoredMovedReported = true;
+        }
+
+        private void OnArmoredStateChanged(ArmoredEnemyDamageResult result)
+        {
+            if (!_armoredBrokenReported && result.ArmorWasBroken)
+            {
+                WebGlHarnessReporter.Report("armored-broken");
+                _armoredBrokenReported = true;
+            }
+            if (!_armoredDiedReported && result.WasFatal)
+            {
+                WebGlHarnessReporter.Report("armored-died");
+                _armoredDiedReported = true;
             }
         }
 
