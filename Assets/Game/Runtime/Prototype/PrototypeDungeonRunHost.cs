@@ -19,6 +19,9 @@ namespace BombSwap
         private PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog;
 
         [SerializeField]
+        private PrototypeBombRewardCatalogAsset bombRewardCatalog;
+
+        [SerializeField]
         private bool requireInitialSceneMatch = true;
 
         private PrototypeDungeonRunNavigator _navigator;
@@ -37,6 +40,9 @@ namespace BombSwap
         public PrototypeDungeonSpecialRoomCatalogAsset SpecialRoomCatalog =>
             specialRoomCatalog;
 
+        public PrototypeBombRewardCatalogAsset BombRewardCatalog =>
+            bombRewardCatalog;
+
         public bool RequireInitialSceneMatch => requireInitialSceneMatch;
 
         public PrototypeDungeonRunSession RunSession =>
@@ -54,6 +60,7 @@ namespace BombSwap
             int authoredSeed,
             PrototypeDungeonCombatRoomCatalogAsset authoredCombatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset authoredSpecialRoomCatalog,
+            PrototypeBombRewardCatalogAsset authoredBombRewardCatalog,
             bool authoredRequireInitialSceneMatch = true)
         {
             if (Application.isPlaying && isActiveAndEnabled)
@@ -65,6 +72,8 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredCombatRoomCatalog));
             specialRoomCatalog = authoredSpecialRoomCatalog ??
                 throw new ArgumentNullException(nameof(authoredSpecialRoomCatalog));
+            bombRewardCatalog = authoredBombRewardCatalog ??
+                throw new ArgumentNullException(nameof(authoredBombRewardCatalog));
             seed = authoredSeed;
             requireInitialSceneMatch = authoredRequireInitialSceneMatch;
         }
@@ -127,16 +136,18 @@ namespace BombSwap
                 }
             }
 
-            if (combatRoomCatalog == null || specialRoomCatalog == null)
+            if (combatRoomCatalog == null || specialRoomCatalog == null ||
+                bombRewardCatalog == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeDungeonRunHost requires combat and special room catalogs.");
+                    "PrototypeDungeonRunHost requires combat, special-room, and bomb-reward catalogs.");
             }
 
             var runSession = new PrototypeDungeonRunSession(
                 seed,
                 combatRoomCatalog,
-                specialRoomCatalog);
+                specialRoomCatalog,
+                bombRewardCatalog);
             _navigator = new PrototypeDungeonRunNavigator(runSession);
             if (requireInitialSceneMatch)
             {

@@ -24,7 +24,7 @@
 - `DungeonGenerator.Generate(seed, definition)`은 모든 `int` seed를 받고 `prototype-tree-v1` 결과를 만든다. 시스템 시간, 호출 횟수, `System.Random` 또는 `UnityEngine.Random`을 읽지 않는다.
 - `DeterministicSeedRandom`은 고정 32비트 seed 혼합, LCG 진행과 상위 비트 곱셈 범위 변환을 사용한다. 연속 seed의 낮은 비트 상관이 방향 선택을 몇 패턴으로 고정하지 않게 하면서 플랫폼별 부동소수점 연산을 피한다.
 - `DungeonGraph`는 seed, 생성 버전, 정의, 순서가 고정된 `DungeonRoomNode`·`DungeonRoomConnection` snapshot을 소유한다. 각 노드는 양수 `DungeonRoomNodeId`, `RoomType`, 고유 `RoomGraphPosition`을 가진다.
-- 현재 `RoomType`은 기존 직렬화 값 `Combat = 0`을 보존하고 `Start`, `BombReward`, `BossAntechamber`, `Boss`를 추가한다. 특수방의 실제 씬·prefab은 아직 없다.
+- 현재 `RoomType`은 기존 직렬화 값 `Combat = 0`을 보존하고 `Start`, `BombReward`, `BossAntechamber`, `Boss`를 추가한다. 네 특수방은 실제 씬으로 저작됐으며 보상방은 첫 폭탄 선택을 제공하고 보스 전실·보스방의 전투 콘텐츠는 placeholder다.
 - 조회 API는 방, 정렬된 이웃, 최단 경로와 거리를 제공한다. 반환 컬렉션은 read-only이며 호출자가 생성 결과를 변경할 수 없다.
 - `DungeonGraph`는 연결된 두 노드의 XZ 좌표에서 `RoomExitDirection`을 계산하고, 현재 방과 방향으로 이웃을 조회한다. 연결되지 않은 노드나 정의되지 않은 방향은 상태를 만들지 않는다.
 - `DungeonRunState`는 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방과 보스방은 첫 입장 뒤 클리어 전까지 퇴실을 막고, 클리어한 전투방은 재방문 때 다시 잠그지 않는다.
@@ -33,8 +33,9 @@
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
 - 호환성은 회전된 잠재 출구가 노드의 모든 연결 방향을 포함하는지로 판단한다. 후보 중 사용 횟수가 가장 적은 정의를 우선해 네 방을 한 번씩 쓰기 전 불필요한 중복을 막는다.
 - Unity `PrototypeDungeonRunSession`은 검증된 전투방 카탈로그를 Core 정의로 변환해 그래프·배정·탐색 상태를 조합하고, 전투 노드의 definition ID를 실제 room asset·씬 이름으로 해석한다.
-- `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·보스 타입의 서로 다른 씬 이름을 제공하면 run session은 전투방과 특수방을 포함한 모든 노드를 씬으로 해석한다. 실제 catalog asset과 placeholder 씬 저작은 후속 Editor 단계다.
+- `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·보스 타입의 서로 다른 씬 이름을 제공하며, 실제 catalog asset과 네 특수방 씬을 통해 run session이 모든 노드를 씬으로 해석한다.
 - `PrototypeDungeonRunNavigator`는 씬 이름과 로드 가능성을 검증한 pending 전환을 소유하고, 기대한 씬 완료 뒤에만 `DungeonRunState.TryTravel`을 호출한다. `PrototypeDungeonRunHost`는 이 상태만 방 씬 밖에 유지한다.
+- `DungeonBombLoadoutState`는 한 종류로 시작하는 run loadout과 첫 보상 후보·선택을 소유한다. Unity host와 room binder는 이 상태를 방 로컬 `PrototypeGameSession`에 주입해 scene 전환 뒤에도 선택한 2번 슬롯을 유지한다.
 
 현재 필수 주 경로는 다음과 같다.
 
@@ -58,7 +59,8 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 9. Unity 런 카탈로그가 배정된 definition ID를 실제 room asset·씬 이름으로 해석한다.
 10. Core 탐색 상태가 그래프 연결과 클리어 여부에서 네 방향 문의 비활성·잠금·개방 snapshot을 계산한다.
 11. Unity navigator가 대상 콘텐츠·씬을 검증하고 실제 로드 완료 뒤 Core 이동을 단일 commit한다.
-12. 후속 Unity 단계에서 배정 결과와 문 상태에 맞춰 실제 room prefab과 활성·비활성 문을 표현한다. 이 단계는 아직 구현되지 않았다.
+12. Unity room binder와 door presenter가 배정 결과와 문 상태에 맞춰 회전된 room geometry와 활성·비활성 문을 표현한다.
+13. 첫 `BombReward` 진입에서 논리 셀 후보 선택을 run loadout에 기록하고 이후 방 session에 다시 주입한다.
 
 ## 불변식
 
@@ -93,4 +95,4 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 첫 전투 잠금, 안전방 비잠금, 클리어 중복, 클리어 전 퇴실 차단, 클리어 뒤 양방향 재방문과 전체 트리 왕복.
 - 카탈로그 순서 무관 배정 재현, 128개 seed 다양성, 사용 횟수 균형, 회전 방향과 활성 출구 호환, 부족한 카탈로그의 명시 실패.
 
-실제 문 GameObject, room prefab 회전·씬 로드와 탐색은 후속 Unity runtime/PlayMode 작업에서 추가한다.
+실제 문 GameObject, room 회전·씬 로드·탐색과 첫 폭탄 보상은 Unity runtime/PlayMode에 연결됐다. 다음 범위는 선택한 loadout으로 보스 전실·보스 placeholder까지 전체 주 경로를 자동·수동 검증하는 것이다.

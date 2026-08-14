@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84230d018447ddb43bfc80534091f13a, type: 3}
+  m_Name: PrototypeLongCrossBomb
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
+  definitionId: prototype-long-cross
+  fuseSeconds: 2.25
+  range: 3
+  explosionShape: 0
+  placementCooldownSeconds: 2.25
+  bombPrefab: {fileID: 5789397388904481518, guid: 83e70f2c97aa9f24d9c3e0d6655a8bed, type: 3}
+  explosionCellPrefab: {fileID: 4514356706795463908, guid: a4c98c7e446da894f94afc995aeeb81f, type: 3}
+  explosionVisualSeconds: 0.25

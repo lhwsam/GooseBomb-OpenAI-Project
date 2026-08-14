@@ -359,19 +359,19 @@ async function main() {
       timeout: 5_000,
     });
     await waitForEvent(page, "bomb-exploded", { timeout: 15_000 });
-    await moveToCell(page, 3, 2);
-    await page.keyboard.press("KeyX");
-    await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
+    await moveToCell(page, 3, 3);
     await page.keyboard.press("KeyZ");
-    await waitForEvent(page, "place-bomb-definition-prototype-area", {
+    await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+      count: 2,
       timeout: 5_000,
     });
+    await moveToCell(page, 3, 0);
     await waitForEvent(page, "bomb-exploded", { count: 2, timeout: 15_000 });
     await waitForEvent(page, "room-cleared", { timeout: 5_000 });
     checks.push({
       name: "bomb-input",
       status: "passed",
-      detail: "Placed both bomb definitions and cleared the first combat room through actual explosions.",
+      detail: "Cleared the first combat room with the single starting cross-bomb slot.",
     });
 
     const combatCell = await getLastPlayerCell(page);
@@ -393,6 +393,19 @@ async function main() {
       status: "passed",
       detail: "Clearing room 2 opened its north exit and committed the safe BombReward room 3.",
     });
+
+    await moveToCell(page, -1, -4);
+    await moveToCell(page, -1, 0);
+    await waitForEvent(page, "bomb-reward-selected-prototype-area", {
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "bomb-reward-selection",
+      status: "passed",
+      detail: "Walking onto the left reward equipped prototype-area into the empty second slot.",
+    });
+    await moveToCell(page, -1, -4);
+    await moveToCell(page, 0, -4);
 
     await triggerBoundaryTransition(
       page,
@@ -440,6 +453,18 @@ async function main() {
       detail: "The reward room north exit committed the next uncleared combat room 4.",
     });
 
+    await page.keyboard.press("KeyX");
+    await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
+    await page.keyboard.press("KeyZ");
+    await waitForEvent(page, "place-bomb-definition-prototype-area", {
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "bomb-reward-loadout-persistence",
+      status: "passed",
+      detail: "The selected area bomb remained in slot 2 and placed successfully in room 4.",
+    });
+
     await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await waitForEvent(page, "pause-resume", { timeout: 5_000 });
@@ -471,6 +496,7 @@ async function main() {
       "place-bomb-definition-prototype-area",
       "room-cleared",
       "dungeon-room-ready-3-bomb-reward-safe",
+      "bomb-reward-selected-prototype-area",
       "dungeon-room-ready-2-combat-cleared",
       "dungeon-room-ready-4-combat-active",
       "swap-bomb",

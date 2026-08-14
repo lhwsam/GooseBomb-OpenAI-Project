@@ -46,6 +46,7 @@
 | 입력·플레이어 명령 | `Systems/InputAndCommands.md`, `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | 폭탄·폭발 규칙 | `Systems/BombAndExplosion.md`, `Systems/GridAndMovement.md`, ADR-0001~0003 |
 | 두 폭탄·쿨타임 | `Systems/WeaponSlotsAndCooldown.md`, `ProtoType_v0.2.md` 가설 B·C |
+| 첫 폭탄 보상·런 로드아웃 | `Development/DungeonBombRewardSlice.md`, `Systems/WeaponSlotsAndCooldown.md`, ADR-0008 |
 | 플레이어 피해 | `Systems/DamageAndInvulnerability.md` |
 | 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md` |
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |

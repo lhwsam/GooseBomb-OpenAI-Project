@@ -34,11 +34,12 @@ namespace BombSwap
     {
         private readonly PrototypeDungeonCombatRoomCatalogAsset _catalog;
         private readonly PrototypeDungeonSpecialRoomCatalogAsset _specialRoomCatalog;
+        private readonly PrototypeBombRewardCatalogAsset _bombRewardCatalog;
 
         public PrototypeDungeonRunSession(
             int seed,
             PrototypeDungeonCombatRoomCatalogAsset catalog)
-            : this(seed, catalog, null)
+            : this(seed, catalog, null, null)
         {
         }
 
@@ -46,16 +47,28 @@ namespace BombSwap
             int seed,
             PrototypeDungeonCombatRoomCatalogAsset catalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog)
+            : this(seed, catalog, specialRoomCatalog, null)
+        {
+        }
+
+        public PrototypeDungeonRunSession(
+            int seed,
+            PrototypeDungeonCombatRoomCatalogAsset catalog,
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            PrototypeBombRewardCatalogAsset bombRewardCatalog)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _specialRoomCatalog = specialRoomCatalog;
             _specialRoomCatalog?.Validate();
+            _bombRewardCatalog = bombRewardCatalog;
+            _bombRewardCatalog?.Validate();
             Seed = seed;
             Graph = DungeonGenerator.Generate(seed);
             CombatRoomLayout = DungeonCombatRoomAssigner.Assign(
                 Graph,
                 catalog.CreateCoreDefinitions());
             RunState = new DungeonRunState(Graph);
+            BombLoadoutState = _bombRewardCatalog?.CreateRunLoadoutState();
         }
 
         public int Seed { get; }
@@ -65,6 +78,8 @@ namespace BombSwap
         public DungeonCombatRoomLayout CombatRoomLayout { get; }
 
         public DungeonRunState RunState { get; }
+
+        public DungeonBombLoadoutState BombLoadoutState { get; }
 
         public DungeonRoomNodeId CurrentRoomId => RunState.CurrentRoomId;
 
@@ -81,6 +96,21 @@ namespace BombSwap
         public DungeonRoomClearStatus TryClearCurrentRoom()
         {
             return RunState.TryClearCurrentRoom();
+        }
+
+        public DungeonBombRewardSelectionStatus TrySelectBombReward(
+            BombDefinitionId candidateId)
+        {
+            if (BombLoadoutState == null)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon run session has no bomb reward catalog.");
+            }
+            if (Graph.GetRoom(CurrentRoomId).RoomType != RoomType.BombReward)
+            {
+                return DungeonBombRewardSelectionStatus.NotInBombRewardRoom;
+            }
+            return BombLoadoutState.TrySelectReward(candidateId);
         }
 
         public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()

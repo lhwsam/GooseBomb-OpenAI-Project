@@ -12,7 +12,7 @@ Core 이동을 `SceneManager.LoadScene`보다 먼저 확정하면 대상 씬 이
 
 ## 결정
 
-- `PrototypeDungeonRunHost` 한 개가 `PrototypeDungeonRunSession`과 전환 중 상태만 소유하고 자신의 전용 GameObject만 `DontDestroyOnLoad`로 유지한다.
+- `PrototypeDungeonRunHost` 한 개가 `PrototypeDungeonRunSession`과 전환 중 상태만 소유하고 자신의 전용 GameObject만 `DontDestroyOnLoad`로 유지한다. run session에는 그래프 탐색·클리어뿐 아니라 첫 폭탄 보상 선택처럼 방을 넘어 유지되어야 하는 run loadout 상태가 포함된다.
 - host는 전역 static singleton이나 Service Locator API를 제공하지 않는다. 각 방 binder는 씬 로드 초기에 활성 host를 검색하고 정확히 하나인지 검증한다.
 - 모든 던전 씬은 동일한 bootstrap component를 포함한다. 먼저 생성된 host만 지속되고 이후 씬의 중복 bootstrap GameObject는 `Awake`에서 제거한다.
 - `PrototypeGameSession`, 입력, Core 전투 격자, 플레이어·적·폭탄 표현, 카메라와 문 presenter는 방 씬 소유이며 지속시키지 않는다.
@@ -26,7 +26,7 @@ Core 이동을 `SceneManager.LoadScene`보다 먼저 확정하면 대상 씬 이
 
 ## 결과
 
-- 방 왕복 중 방문·클리어·결정적 콘텐츠 배정이 유지된다.
+- 방 왕복 중 방문·클리어·결정적 콘텐츠 배정과 첫 폭탄 보상 loadout이 유지된다.
 - 방 로컬 전투 상태와 표현이 이전 씬 참조를 붙잡지 않는다.
 - 입장 spawn은 전투 simulation 생성 전에 정해지고, 실패한 로드 요청은 Core 진행을 앞당기지 않는다.
 - 실제 씬 로드는 Unity Runtime에 남지만 이동 가능 여부와 방문·클리어는 계속 Core가 소유한다.

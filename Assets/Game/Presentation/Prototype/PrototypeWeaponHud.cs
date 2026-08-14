@@ -24,7 +24,7 @@ namespace BombSwap
         private int _lastActiveSlot = -1;
         private int _lastFirstCooldownDeciseconds = -1;
         private int _lastSecondCooldownDeciseconds = -1;
-        private int _lastSwapCooldownDeciseconds = -1;
+        private int _lastSwapCooldownDeciseconds = int.MinValue;
         private bool _initialized;
 
         public PrototypeGameSession Session => session;
@@ -190,8 +190,7 @@ namespace BombSwap
             slotLabel.rectTransform.anchorMax = new Vector2(1f, 1f);
             slotLabel.rectTransform.offsetMin = new Vector2(10f, 0f);
             slotLabel.rectTransform.offsetMax = new Vector2(-10f, 0f);
-            PrototypeBombDefinitionAsset definition = session.BombLoadout.GetSlot(slotIndex);
-            slotLabel.text = (slotIndex + 1) + "  " + definition.DefinitionId;
+            slotLabel.text = string.Empty;
             slotLabel.color = Color.white;
             _slotLabels[slotIndex] = slotLabel;
 
@@ -224,12 +223,16 @@ namespace BombSwap
             RefreshSlot(0, ref _lastFirstCooldownDeciseconds);
             RefreshSlot(1, ref _lastSecondCooldownDeciseconds);
 
-            int swapDeciseconds = ToRemainingDeciseconds(session.BombSwapCooldownRemaining);
+            int swapDeciseconds = session.HasSecondBombSlot
+                ? ToRemainingDeciseconds(session.BombSwapCooldownRemaining)
+                : -1;
             if (swapDeciseconds != _lastSwapCooldownDeciseconds)
             {
-                _swapLabel.text = swapDeciseconds == 0
-                    ? "X  SWAP READY"
-                    : "X  SWAP  " + FormatDeciseconds(swapDeciseconds);
+                _swapLabel.text = swapDeciseconds < 0
+                    ? "X  SWAP LOCKED"
+                    : swapDeciseconds == 0
+                        ? "X  SWAP READY"
+                        : "X  SWAP  " + FormatDeciseconds(swapDeciseconds);
                 _swapLabel.color = swapDeciseconds == 0 ? ReadyColor : CoolingColor;
                 _lastSwapCooldownDeciseconds = swapDeciseconds;
             }
@@ -238,6 +241,19 @@ namespace BombSwap
         private void RefreshSlot(int slotIndex, ref int lastCooldownDeciseconds)
         {
             BombWeaponSlotSnapshot slot = session.GetBombSlot(slotIndex);
+            if (!slot.HasDefinition)
+            {
+                _slotLabels[slotIndex].text = (slotIndex + 1) + "  EMPTY — FIND A BOMB";
+                _slotLabels[slotIndex].fontStyle = FontStyle.Normal;
+                _slotCooldownFills[slotIndex].fillAmount = 0f;
+                _slotCooldownFills[slotIndex].color = CoolingColor;
+                _slotCooldownLabels[slotIndex].text = "LOCKED";
+                lastCooldownDeciseconds = -1;
+                return;
+            }
+
+            _slotLabels[slotIndex].text =
+                (slotIndex + 1) + "  " + slot.DefinitionId.Value;
             _slotCooldownFills[slotIndex].fillAmount = (float)slot.ReadyFraction;
             _slotCooldownFills[slotIndex].color = slot.IsReady ? ReadyColor : CoolingColor;
 

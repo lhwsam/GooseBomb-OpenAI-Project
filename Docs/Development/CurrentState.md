@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
-- 기준일: 2026-08-14
-- 단계: Start→첫 전투 클리어→보상방→왕복→다음 전투방 WebGL 탐색 수직 슬라이스 완료, 실제 보상 선택 연결 전
+- 기준일: 2026-08-15
+- 단계: 한 슬롯 시작→첫 전투→첫 폭탄 보상 선택→왕복→다음 전투방 loadout 유지 WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -94,20 +94,22 @@
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.
 - `PrototypeDungeonRoomBinder`가 저작된 전투 가능 여부와 Core 클리어 상태에서 방문별 전투 활성 여부를 분리해, 클리어한 전투·보스방 재입장에서는 적 simulation·표현을 생성하지 않고 열린 문을 유지하도록 구현.
-- WebGL 자동 smoke가 첫 전투를 실제 두 폭탄으로 클리어하고 보상방·클리어 전투방·보상방·다음 전투방을 왕복해, 방 node·타입·활성/클리어 상태와 적 미재생성을 한 세션에서 검증하도록 확장.
+- WebGL 자동 smoke가 시작 십자 폭탄만으로 첫 전투를 클리어하고 보상방·클리어 전투방·보상방·다음 전투방을 왕복해, 방 node·타입·활성/클리어 상태와 적 미재생성을 한 세션에서 검증하도록 확장.
+- `DungeonBombLoadoutState`와 검증된 `PrototypeBombRewardCatalogAsset`으로 한 종류 시작, 2~3개 후보의 단일 선택과 선택 결과의 run 수명 persistence를 구현.
+- `DungeonReward`의 보행 가능한 `(-1,0)`·`(1,0)` 셀에 광역·긴 십자 후보를 표시하고, 플레이어 논리 셀 진입으로 빈 2번 슬롯을 채우며 HUD·폭탄 풀·다음 scene session에 즉시 반영하도록 연결.
 
 ## 현재 저장소 사실
 
 - `BombSwap.Core`에는 UnityEngine 비참조 논리 격자와 주입식 수동 시계가 구현되어 있다.
 - `GridState`는 미등록 셀을 `Void`로 취급하고 지형, actor/bomb 점유, `ActorId` 양방향 위치 색인을 소유한다. 점유는 바닥에만 존재하며 actor가 있는 셀에 폭탄을 설치하는 제한된 동시 점유를 허용한다.
 - `BombSimulation`은 활성 폭탄, 세션 내 고유 ID, 설치자 ID, fuse와 종류 독립적인 양수 지연 연쇄를 소유하고 읽기 전용 snapshot·폭발 결과에 설치자 ID를 보존한다.
-- `BombWeaponLoadout`은 정확히 두 개의 서로 다른 정의와 각 슬롯의 다음 설치 가능 시각, 다음 교체 가능 시각을 소유한다. 쿨타임은 매 frame 감소시키지 않고 `IGameClock.Now`와 종료 시각의 차이로 계산한다.
+- `BombWeaponLoadout`은 필수 1번 슬롯과 선택적 빈 2번 슬롯, 각 장착 슬롯의 다음 설치 가능 시각과 다음 교체 가능 시각을 소유한다. 빈 슬롯에서는 교체를 거부하고 첫 보상으로 서로 다른 정의를 한 번 장착할 수 있다. 쿨타임은 매 frame 감소시키지 않고 `IGameClock.Now`와 종료 시각의 차이로 계산한다.
 - `DungeonGenerator`는 모든 `int` seed와 불변 정의에서 `prototype-tree-v1` 그래프를 만든다. 기본 정의는 전투방 4~5개, 보스 주 경로 3개와 보상 이후 선택 가지 1~2개이며 `System.Random`, `UnityEngine.Random`, 시간과 호출 순서를 읽지 않는다.
 - `DungeonGraph`는 `Start`, `Combat`, `BombReward`, `BossAntechamber`, `Boss` 노드, 고유 정수 방 좌표와 연결 트리를 검증하고 read-only 이웃·최단 경로를 제공한다. 실제 여덟 Unity 씬의 binder와 host가 이 그래프를 소비한다.
 - `DungeonRunState`는 시작방을 최초 방문으로 시작하고, 연결된 방만 이동하며 전투·보스방 클리어 전 퇴실을 막는다. 안전방은 잠기지 않고 클리어한 전투방은 다시 잠기지 않으며, 네 방향 문 snapshot이 실제 문 presenter와 scene travel의 권위다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 회전과 그래프 연결 방향인 활성 출구를 read-only로 소유한다. 같은 그래프·카탈로그는 입력 배열 순서와 무관하게 같은 배정을 만들며 호환 출구가 없으면 명시적으로 실패한다.
-- `PrototypeDungeonRunSession`은 combat/special catalog asset을 mutable run 상태와 분리하고 모든 그래프 노드를 실제 scene으로 해석하며 `DungeonRunState`에 이동·클리어를 위임한다.
-- `PrototypeGameSession`은 저작된 전투 가능 여부와 방문별 활성 여부를 분리한다. 안전방과 이미 클리어한 전투·보스방 방문은 적 actor·simulation·presenter를 생성하지 않고 `EnemyActiveCount=0`, `IsRoomCleared=true`로 시작하지만 플레이어 이동, 두 폭탄 슬롯, 자기 피해와 표현 사건은 유지한다.
+- `PrototypeDungeonRunSession`은 combat/special/reward catalog asset을 mutable run 상태와 분리하고 모든 그래프 노드를 실제 scene으로 해석하며 `DungeonRunState`에 이동·클리어를, `DungeonBombLoadoutState`에 첫 보상 선택을 위임한다.
+- `PrototypeGameSession`은 저작된 전투 가능 여부와 방문별 활성 여부를 분리한다. 안전방과 이미 클리어한 전투·보스방 방문은 적 actor·simulation·presenter를 생성하지 않고 `EnemyActiveCount=0`, `IsRoomCleared=true`로 시작하지만 플레이어 이동, 현재 run의 한두 폭탄 슬롯, 자기 피해와 표현 사건은 유지한다.
 - 각 던전 씬은 동일한 seed-0 bootstrap을 포함하지만 scene load 뒤 persistent primary host가 중복 bootstrap을 제거한다. Core 이동은 기대한 대상 씬이 실제 로드된 뒤 한 번만 commit된다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다. 광역 폭발은 반경 내 각 셀을 독립 평가해 원점을 포함한 최대 3×3을 만들며 한 셀의 벽이 다른 영역 셀을 가리지 않는다.
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다.
@@ -116,13 +118,13 @@
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 같은 행/열의 빈 가시선에서 0.75초 예고 뒤 8 cells/s cadence로 잠근 방향을 돌진하고 0.75초 회복한다. 수치는 `Proposed`다.
 - 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 첫 서로 다른 폭발에 갑옷만 파괴하고 1→3 cells/s로 빨라지며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
-- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 갑옷 적은 내구 단계 2·접촉 피해 1이다. 세션은 추격자→돌진형→갑옷 적 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하며 binder가 연결문을 개방한다. 실제 보상 선택은 아직 없다.
+- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 갑옷 적은 내구 단계 2·접촉 피해 1이다. 세션은 추격자→돌진형→갑옷 적 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하며 binder가 연결문을 개방한다. 첫 보상은 `prototype-area`와 범위 3의 `prototype-long-cross` 중 하나를 빈 슬롯에 장착한다.
 - 네 room asset은 모두 11×9이며 cardinal 네 방향의 중앙 잠재 출구와 중앙 십자, 평행 통로, 엇갈린 기둥, 갑옷 실험선의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`, 네 번째는 갑옷 적 spawn `(0,1)`을 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
 - 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
-- EditMode 테스트 244개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식과 전체 셀 회전, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계, 전투 잠금·클리어·양방향 재방문, 안정된 네 방향 문 상태와 콘텐츠 배정 재현·회전·호환·균형을 검증한다.
+- EditMode 테스트 251개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 빈 2번 슬롯·보상 장착·두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식과 전체 셀 회전, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계, 전투 잠금·클리어·양방향 재방문, 안정된 네 방향 문 상태와 콘텐츠 배정 재현·회전·호환·균형을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 91개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타의 같은 frame 반영, 폭탄·파괴 벽·HUD, 안전방과 세 적 유형, 전투 클리어, combat/special catalog, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 실제 씬에서 클리어한 전투방 재입장의 적 미생성·문 개방, 표현 생명주기와 하네스 발견성을 검증한다.
+- PlayMode 전체 95개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타의 같은 frame 반영, 폭탄·파괴 벽·빈 슬롯 HUD, 안전방과 세 적 유형, 전투 클리어, combat/special/reward catalog, 보상방 논리 셀 선택과 scene 간 loadout 유지, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 실제 씬에서 클리어한 전투방 재입장의 적 미생성·문 개방, 표현 생명주기와 하네스 발견성을 검증한다.
 - 네 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
 - Build Settings의 첫 enabled 씬 여덟 개는 `DungeonStart`, `DungeonReward`, `DungeonBossAnte`, `DungeonBoss`, `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
@@ -135,30 +137,30 @@
 ## 진행 중
 
 - 최신 4방 WebGL에서 파괴 블록·돌진형·갑옷 적이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
-- 검증된 탐색 수명 위에서 `DungeonReward` placeholder를 첫 실제 폭탄 선택과 두 슬롯 loadout persistence로 교체한다.
+- 선택한 loadout을 유지한 채 seed-0 보스 전실·보스 placeholder까지 전체 주 경로 탐색 회귀를 확장한다.
 
 ## 바로 다음 권장 작업
 
 1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
-2. `DungeonReward`에 첫 실제 폭탄 선택을 연결하고 선택 결과를 두 슬롯 loadout persistence로 넘긴다.
-3. 선택한 loadout을 유지한 채 보스 전실·보스 placeholder까지 seed-0 전체 주 경로 탐색 회귀를 확장한다.
+2. 선택한 loadout을 유지한 채 보스 전실·보스 placeholder까지 seed-0 전체 주 경로 탐색 회귀를 확장한다.
+3. `prototype-long-cross`가 단순 범위 증가만으로 충분히 다른 선택인지 플레이테스트하고, 필요하면 GDD의 방향성 직선 폭탄 후보로 교체한다.
 
 ## 알려진 위험과 미정
 
 - 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. 키 해제 즉시 정지와 빠른 `North/East` 반복은 자동 검증됐지만 최종 속도, 벽 모서리 코너 보정과 셀 경계 판정 가독성은 수동 재확인 전까지 `Proposed`다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
-- 두 폭탄 슬롯은 십자와 3×3 광역으로 구조적 공간 역할이 달라졌지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지 관찰해야 한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
+- 첫 보상은 3×3 광역과 범위 3 십자 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. `prototype-long-cross`는 아직 새로운 폭발 shape가 아니라 기존 십자의 범위 변형이다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 관찰해야 한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
 - 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하며 부활·재시작, 완성 HUD·오디오는 아직 없다.
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. 접촉 압력은 연결됐지만 실제 공정성과 유도 재미는 아직 플레이테스트하지 않았다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 던전 8개 씬 Development WebGL 빌드는 137,444,848 bytes이며 최종 연결 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
+- 던전 8개 씬 Development WebGL 빌드는 137,501,035 bytes이며 첫 보상 최종 연결 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
-- 네 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 재입장 시 플레이어 체력·loadout, 파괴 가능 벽과 적의 부분 체력 같은 room-local 세부 상태는 아직 보존하지 않는다.
+- 네 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 선택한 loadout은 run 전체에서 보존되지만 플레이어 체력, 파괴 가능 벽과 적의 부분 체력 같은 room-local 세부 상태는 아직 보존하지 않는다.
 - Core 그래프의 기본 4~5 전투방과 단일 선택 가지는 `Proposed`다. 자동 검증은 재현성과 구조만 보장하며 탐색 동기, 되돌아가기 피로와 방 반복 체감은 Unity 탐색 loop와 사람 플레이테스트 전에는 판정할 수 없다.
-- 그래프 기반 실제 문 전환과 Unity 씬 수명 연결은 구현됐다. 다만 보상 선택, 저장·재시작, 로딩 연출과 room-local 세부 상태 persistence는 아직 없다.
+- 그래프 기반 실제 문 전환, Unity 씬 수명과 첫 보상 선택의 run persistence는 구현됐다. 다만 두 슬롯이 찬 뒤 교체·버린 무기 보존, 저장·재시작, 로딩 연출과 room-local 세부 상태 persistence는 아직 없다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
 - 게임패드 binding은 구조 검증만 완료했다. 정확한 대각선 값을 만드는 게임패드·D-pad에도 새 직교 축 우선 정책이 적용되므로 목표 기기 수동 플레이가 남아 있다.
 
@@ -224,3 +226,6 @@
 - 클리어 방 재입장 대상 PlayMode 3/3과 전체 PlayMode 91/91 통과. 실제 `DungeonStart`·seed-0 첫 전투 씬을 왕복해 첫 입장의 적·잠긴 문과 재입장의 적 0·미생성 chaser presenter·열린 문을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-134758-245.json`, `Artifacts/Verification/ConnectedTests/20260814-141950-343.json`.
 - 던전 탐색 최종 코드로 EditMode 244/244 통과, Unity Console Error 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-142631-807.json`.
 - Development WebGL 8개 씬 빌드 성공: 137,444,848 bytes, 49.082초, 오류 0, 경고 3. Edge headless smoke 15개 검사가 Start→첫 전투 클리어→보상방→클리어 전투방 재입장(적 사건 0)→보상방→다음 전투방의 다섯 transition/commit, 방향 입력·두 폭탄·pause/resize와 Console/page error 0을 확인했다. 정적 서버 회귀도 통과했으며 증거는 `Artifacts/Verification/20260814-231000-dungeon-traversal-web/`에 남겼다.
+- 첫 폭탄 보상 최종 코드로 전체 EditMode 251/251, PlayMode 95/95 통과, 실패·건너뜀·불확정 0. 빈 슬롯·단일 장착 Core 계약, reward catalog, 실제 `DungeonReward` 논리 셀 수집과 다음 scene 유지, 기존 host·클리어 방 재입장 회귀를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-151258-803.json`, `Artifacts/Verification/ConnectedTests/20260814-151310-363.json`.
+- `PrototypeContentValidator`가 시작 폭탄·두 후보·긴 십자 정의와 prefab, 모든 scene host의 reward catalog와 `DungeonReward` presenter·binder 참조를 오류 0으로 확인했다. 보행 가능 후보 셀은 presenter 초기화와 실제 scene PlayMode 회귀가 확인했으며 Unity Console Error 0이다.
+- 첫 폭탄 보상 Development WebGL 8개 씬 빌드 성공: 137,501,035 bytes, 52.347초, 오류 0, 경고 3. Edge headless smoke 17/17이 시작 십자 폭탄 두 번의 첫 전투 클리어, `prototype-area` 보상 수집, 클리어 방 왕복, 다음 전투방 교체·광역 설치와 다섯 transition/commit, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-000500-bomb-reward-web/`.

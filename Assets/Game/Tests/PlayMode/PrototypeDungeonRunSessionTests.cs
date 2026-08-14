@@ -292,6 +292,111 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator BombRewardScene_CollectsEmptySecondSlotAndPersistsAcrossSceneLoad()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                IReadOnlyList<DungeonRoomNodeId> path = run.Graph.GetShortestPath(
+                    run.Graph.StartRoomId,
+                    run.Graph.BombRewardRoomId);
+                DungeonRoomNodeId firstCombat = path[1];
+                Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+                Assert.That(
+                    run.TryClearCurrentRoom(),
+                    Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                Assert.That(run.TryTravelTo(path[2]).Moved, Is.True);
+
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonReward",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder rewardBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeBombRewardPresenter rewardPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeBombRewardPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession rewardSession = rewardBinder.RoomSession;
+                Assert.That(rewardPresenter.IsInitialized, Is.True);
+                Assert.That(rewardPresenter.CandidateVisualCount, Is.EqualTo(2));
+                Assert.That(rewardSession.GetBombSlot(0).HasDefinition, Is.True);
+                Assert.That(
+                    rewardSession.GetBombSlot(0).DefinitionId.Value,
+                    Is.EqualTo("prototype-cross"));
+                Assert.That(rewardSession.GetBombSlot(1).HasDefinition, Is.False);
+                Assert.That(rewardSession.HasSecondBombSlot, Is.False);
+
+                Assert.That(
+                    rewardPresenter.TryCollectAt(new GridPosition(-1, 0)),
+                    Is.True);
+
+                BombDefinitionId selected = new BombDefinitionId("prototype-area");
+                Assert.That(rewardPresenter.SelectedDefinitionId, Is.EqualTo(selected));
+                Assert.That(run.BombLoadoutState.SecondSlot, Is.EqualTo(selected));
+                Assert.That(rewardSession.HasSecondBombSlot, Is.True);
+                Assert.That(
+                    rewardSession.GetBombSlot(1).DefinitionId,
+                    Is.EqualTo(selected));
+
+                Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+                Assert.That(
+                    run.TryGetSceneName(firstCombat, out string combatSceneName),
+                    Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    combatSceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeGameSession nextSession =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single()
+                        .RoomSession;
+                Assert.That(nextSession.HasSecondBombSlot, Is.True);
+                Assert.That(nextSession.GetBombSlot(1).DefinitionId, Is.EqualTo(selected));
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonBombRewardPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
         [Test]
         public void SpecialCatalog_RequiresEveryUniqueNonCombatTypeAndScene()
         {
@@ -377,6 +482,88 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void BombRewardCatalog_ClonesCandidatesAndBuildsSingleSlotRunState()
+        {
+            PrototypeBombDefinitionAsset starter = CreateBombDefinition("starter");
+            PrototypeBombDefinitionAsset area = CreateBombDefinition(
+                "area",
+                BombExplosionShape.SquareArea);
+            PrototypeBombDefinitionAsset longCross = CreateBombDefinition("long-cross");
+            PrototypeBombRewardCatalogAsset catalog = CreateBombRewardCatalogAsset();
+            var source = new[] { area, longCross };
+
+            catalog.Configure(starter, source, 2f);
+            source[0] = starter;
+            DungeonBombLoadoutState state = catalog.CreateRunLoadoutState();
+
+            Assert.That(catalog.FirstSlot, Is.SameAs(starter));
+            Assert.That(catalog.RewardCandidates, Is.EqualTo(new[] { area, longCross }));
+            Assert.That(state.FirstSlot.Value, Is.EqualTo("starter"));
+            Assert.That(state.SecondSlot.HasValue, Is.False);
+            Assert.That(
+                catalog.GetDefinition(new BombDefinitionId("area")),
+                Is.SameAs(area));
+            Assert.That(catalog.GetAvailableDefinitions().Length, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Session_SelectsBombRewardOnlyInRewardRoomAndPersistsIt()
+        {
+            PrototypeBombRewardCatalogAsset rewardCatalog = CreateBombRewardCatalog();
+            var session = new PrototypeDungeonRunSession(
+                0,
+                CreateCatalog(),
+                CreateSpecialCatalog(),
+                rewardCatalog);
+            BombDefinitionId selected = new BombDefinitionId(
+                rewardCatalog.RewardCandidates[1].DefinitionId);
+
+            Assert.That(
+                session.TrySelectBombReward(selected),
+                Is.EqualTo(DungeonBombRewardSelectionStatus.NotInBombRewardRoom));
+            IReadOnlyList<DungeonRoomNodeId> rewardPath = session.Graph.GetShortestPath(
+                session.Graph.StartRoomId,
+                session.Graph.BombRewardRoomId);
+            Assert.That(session.TryTravelTo(rewardPath[1]).Moved, Is.True);
+            Assert.That(session.TryClearCurrentRoom(), Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            Assert.That(session.TryTravelTo(rewardPath[2]).Moved, Is.True);
+            Assert.That(
+                session.TrySelectBombReward(new BombDefinitionId("unknown")),
+                Is.EqualTo(DungeonBombRewardSelectionStatus.NotCandidate));
+
+            Assert.That(
+                session.TrySelectBombReward(selected),
+                Is.EqualTo(DungeonBombRewardSelectionStatus.Selected));
+            Assert.That(session.BombLoadoutState.SecondSlot, Is.EqualTo(selected));
+            Assert.That(session.TryTravelTo(rewardPath[1]).Moved, Is.True);
+            Assert.That(session.TryTravelTo(rewardPath[2]).Moved, Is.True);
+            Assert.That(session.BombLoadoutState.SecondSlot, Is.EqualTo(selected));
+            Assert.That(
+                session.TrySelectBombReward(
+                    new BombDefinitionId(rewardCatalog.RewardCandidates[0].DefinitionId)),
+                Is.EqualTo(DungeonBombRewardSelectionStatus.AlreadySelected));
+        }
+
+        [Test]
+        public void BombRewardCatalog_RejectsDuplicateStarterAndInvalidCandidateCounts()
+        {
+            PrototypeBombDefinitionAsset starter = CreateBombDefinition("starter");
+            PrototypeBombDefinitionAsset area = CreateBombDefinition(
+                "area",
+                BombExplosionShape.SquareArea);
+            PrototypeBombRewardCatalogAsset catalog = CreateBombRewardCatalogAsset();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                catalog.Configure(starter, new[] { area }, 2f));
+            Assert.Throws<ArgumentException>(() =>
+                catalog.Configure(starter, new[] { starter, area }, 2f));
+            Assert.Throws<ArgumentException>(() =>
+                catalog.Configure(starter, new[] { area, area }, 2f));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                catalog.Configure(starter, new[] { area, CreateBombDefinition("other") }, 0f));
+        }
+
+        [Test]
         public void Navigator_CommitsCoreTravelOnlyAfterExpectedSceneLoads()
         {
             var session = new PrototypeDungeonRunSession(
@@ -454,18 +641,19 @@ namespace BombSwap.Tests.PlayMode
             PrototypeDungeonCombatRoomCatalogAsset combatCatalog = CreateCatalog();
             PrototypeDungeonSpecialRoomCatalogAsset specialCatalog =
                 CreateSpecialCatalog();
+            PrototypeBombRewardCatalogAsset rewardCatalog = CreateBombRewardCatalog();
             GameObject firstRoot = CreateGameObject("FirstDungeonRunHost");
             firstRoot.SetActive(false);
             PrototypeDungeonRunHost first =
                 firstRoot.AddComponent<PrototypeDungeonRunHost>();
-            first.Configure(5, combatCatalog, specialCatalog, false);
+            first.Configure(5, combatCatalog, specialCatalog, rewardCatalog, false);
             firstRoot.SetActive(true);
 
             GameObject duplicateRoot = CreateGameObject("DuplicateDungeonRunHost");
             duplicateRoot.SetActive(false);
             PrototypeDungeonRunHost duplicate =
                 duplicateRoot.AddComponent<PrototypeDungeonRunHost>();
-            duplicate.Configure(5, combatCatalog, specialCatalog, false);
+            duplicate.Configure(5, combatCatalog, specialCatalog, rewardCatalog, false);
             duplicateRoot.SetActive(true);
 
             yield return null;
@@ -581,6 +769,47 @@ namespace BombSwap.Tests.PlayMode
                 PrototypeDungeonSpecialRoomCatalogAsset>();
             _createdAssets.Add(catalog);
             return catalog;
+        }
+
+        private PrototypeBombRewardCatalogAsset CreateBombRewardCatalog()
+        {
+            PrototypeBombDefinitionAsset starter = CreateBombDefinition("starter");
+            PrototypeBombDefinitionAsset area = CreateBombDefinition(
+                "area",
+                BombExplosionShape.SquareArea);
+            PrototypeBombDefinitionAsset longCross = CreateBombDefinition("long-cross");
+            PrototypeBombRewardCatalogAsset catalog = CreateBombRewardCatalogAsset();
+            catalog.Configure(starter, new[] { area, longCross }, 2f);
+            return catalog;
+        }
+
+        private PrototypeBombRewardCatalogAsset CreateBombRewardCatalogAsset()
+        {
+            var catalog = ScriptableObject.CreateInstance<
+                PrototypeBombRewardCatalogAsset>();
+            _createdAssets.Add(catalog);
+            return catalog;
+        }
+
+        private PrototypeBombDefinitionAsset CreateBombDefinition(
+            string id,
+            BombExplosionShape shape = BombExplosionShape.Cross)
+        {
+            var definition = ScriptableObject.CreateInstance<
+                PrototypeBombDefinitionAsset>();
+            GameObject bombVisual = CreateGameObject(id + "-bomb");
+            GameObject explosionVisual = CreateGameObject(id + "-explosion");
+            definition.Configure(
+                id,
+                2f,
+                shape == BombExplosionShape.SquareArea ? 1 : 2,
+                bombVisual,
+                explosionVisual,
+                0.25f,
+                1.5f,
+                shape);
+            _createdAssets.Add(definition);
+            return definition;
         }
 
         private static PrototypeDungeonSpecialRoomEntry[] CreateSpecialEntries()

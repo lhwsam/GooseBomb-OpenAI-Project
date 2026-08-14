@@ -24,11 +24,7 @@ namespace BombSwap.Core
             {
                 throw new ArgumentNullException(nameof(firstSlot));
             }
-            if (secondSlot == null)
-            {
-                throw new ArgumentNullException(nameof(secondSlot));
-            }
-            if (firstSlot.Id == secondSlot.Id)
+            if (secondSlot != null && firstSlot.Id == secondSlot.Id)
             {
                 throw new ArgumentException(
                     "The two bomb weapon slots must use different definition IDs.",
@@ -50,6 +46,10 @@ namespace BombSwap.Core
 
         public BombWeaponDefinition ActiveDefinition => slots[activeSlotIndex];
 
+        public bool HasSecondSlot => slots[1] != null;
+
+        public bool CanSwap => HasSecondSlot && IsSwapReady;
+
         public TimeSpan SwapCooldown => swapCooldown;
 
         public TimeSpan SwapCooldownRemaining => RemainingUntil(nextSwapAllowedAt);
@@ -64,6 +64,10 @@ namespace BombSwap.Core
             }
 
             BombWeaponDefinition definition = slots[slotIndex];
+            if (definition == null)
+            {
+                return new BombWeaponSlotSnapshot(slotIndex);
+            }
             return new BombWeaponSlotSnapshot(
                 slotIndex,
                 definition.Id,
@@ -73,13 +77,29 @@ namespace BombSwap.Core
 
         public bool TrySwap()
         {
-            if (!IsSwapReady)
+            if (!CanSwap)
             {
                 return false;
             }
 
             activeSlotIndex = 1 - activeSlotIndex;
             nextSwapAllowedAt = AddWithSaturation(clock.Now, swapCooldown);
+            return true;
+        }
+
+        public bool TryEquipSecondSlot(BombWeaponDefinition definition)
+        {
+            if (definition == null)
+            {
+                throw new ArgumentNullException(nameof(definition));
+            }
+            if (HasSecondSlot || definition.Id == slots[0].Id)
+            {
+                return false;
+            }
+
+            slots[1] = definition;
+            nextPlacementAllowedAt[1] = TimeSpan.Zero;
             return true;
         }
 

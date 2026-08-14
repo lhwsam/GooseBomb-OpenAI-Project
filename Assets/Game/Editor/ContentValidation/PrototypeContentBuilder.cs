@@ -40,8 +40,15 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeBombContentIfMissing();
             PrototypeBombDefinitionAsset areaBombDefinition =
                 CreatePrototypeAreaBombContentIfMissing();
+            PrototypeBombDefinitionAsset longCrossBombDefinition =
+                CreatePrototypeLongCrossBombContentIfMissing();
             PrototypeBombLoadoutAsset bombLoadout =
                 CreatePrototypeBombLoadoutIfMissing(bombDefinition, areaBombDefinition);
+            PrototypeBombRewardCatalogAsset bombRewardCatalog =
+                CreatePrototypeBombRewardCatalog(
+                    bombDefinition,
+                    areaBombDefinition,
+                    longCrossBombDefinition);
             DeleteLegacyQuickBombAssets();
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
@@ -96,21 +103,25 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeContentValidator.TestSandboxScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxLanesScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxPillarsScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxArmorScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 true);
             bool startSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonStartScenePath,
@@ -122,6 +133,7 @@ namespace BombSwap.Editor.ContentValidation
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 false);
             bool rewardSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonRewardScenePath,
@@ -133,6 +145,7 @@ namespace BombSwap.Editor.ContentValidation
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 false);
             bool bossAnteSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonBossAnteScenePath,
@@ -144,6 +157,7 @@ namespace BombSwap.Editor.ContentValidation
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 false);
             bool bossSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonBossScenePath,
@@ -155,6 +169,7 @@ namespace BombSwap.Editor.ContentValidation
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
+                bombRewardCatalog,
                 true);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
@@ -381,6 +396,73 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
+        private static PrototypeBombDefinitionAsset CreatePrototypeLongCrossBombContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+            Material bombMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/LongCrossBomb.mat",
+                shader,
+                new Color(0.04f, 0.62f, 0.78f, 1f));
+            Material explosionMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/LongCrossExplosion.mat",
+                shader,
+                new Color(0.1f, 0.92f, 1f, 1f));
+            if (explosionMaterial.HasProperty("_EmissionColor"))
+            {
+                explosionMaterial.EnableKeyword("_EMISSION");
+                explosionMaterial.SetColor(
+                    "_EmissionColor",
+                    new Color(0f, 0.48f, 0.72f, 1f));
+                EditorUtility.SetDirty(explosionMaterial);
+            }
+
+            GameObject bombPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.LongCrossBombPrefabPath,
+                "LongCrossBombPlaceholder",
+                PrimitiveType.Capsule,
+                new Vector3(0f, 0.3f, 0f),
+                new Vector3(0.42f, 0.34f, 0.42f),
+                bombMaterial);
+            GameObject explosionPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.LongCrossExplosionCellPrefabPath,
+                "LongCrossExplosionCellPlaceholder",
+                PrimitiveType.Cube,
+                new Vector3(0f, 0.09f, 0f),
+                new Vector3(0.86f, 0.18f, 0.86f),
+                explosionMaterial);
+
+            PrototypeBombDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeLongCrossBombDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<
+                    PrototypeBombDefinitionAsset>();
+                definition.name = "PrototypeLongCrossBomb";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeLongCrossBombDefinitionPath);
+            }
+            definition.Configure(
+                "prototype-long-cross",
+                2.25f,
+                3,
+                bombPrefab,
+                explosionPrefab,
+                0.25f,
+                2.25f,
+                BombExplosionShape.Cross);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
         private static void DeleteLegacyQuickBombAssets()
         {
             for (int index = 0; index < LegacyQuickBombAssetPaths.Length; index++)
@@ -414,6 +496,32 @@ namespace BombSwap.Editor.ContentValidation
             loadout.Configure(firstSlot, secondSlot, 2f);
             EditorUtility.SetDirty(loadout);
             return loadout;
+        }
+
+        private static PrototypeBombRewardCatalogAsset CreatePrototypeBombRewardCatalog(
+            PrototypeBombDefinitionAsset firstSlot,
+            PrototypeBombDefinitionAsset areaCandidate,
+            PrototypeBombDefinitionAsset longCrossCandidate)
+        {
+            PrototypeBombRewardCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombRewardCatalogAsset>(
+                    PrototypeContentValidator.PrototypeBombRewardCatalogPath);
+            if (catalog == null)
+            {
+                catalog = ScriptableObject.CreateInstance<
+                    PrototypeBombRewardCatalogAsset>();
+                catalog.name = "PrototypeBombRewardCatalog";
+                AssetDatabase.CreateAsset(
+                    catalog,
+                    PrototypeContentValidator.PrototypeBombRewardCatalogPath);
+            }
+
+            catalog.Configure(
+                firstSlot,
+                new[] { areaCandidate, longCrossCandidate },
+                2f);
+            EditorUtility.SetDirty(catalog);
+            return catalog;
         }
 
         private static PrototypePlayerVitalsAsset CreatePrototypePlayerVitalsIfMissing()
@@ -1007,6 +1115,7 @@ namespace BombSwap.Editor.ContentValidation
             string scenePath,
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            PrototypeBombRewardCatalogAsset bombRewardCatalog,
             bool combatEnabled)
         {
             Scene scene = SceneManager.GetSceneByPath(scenePath);
@@ -1022,7 +1131,9 @@ namespace BombSwap.Editor.ContentValidation
                     scene,
                     combatRoomCatalog,
                     specialRoomCatalog,
+                    bombRewardCatalog,
                     combatEnabled);
+                SynchronizeBombRewardPresenter(scene, false);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -1049,6 +1160,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeCombatRoomDefinitionAsset shellRoomDefinition,
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            PrototypeBombRewardCatalogAsset bombRewardCatalog,
             bool combatEnabled)
         {
             EnsureAssetFolder("Assets/Game/Scenes/Dungeon");
@@ -1096,7 +1208,14 @@ namespace BombSwap.Editor.ContentValidation
                     scene,
                     combatRoomCatalog,
                     specialRoomCatalog,
+                    bombRewardCatalog,
                     combatEnabled);
+                SynchronizeBombRewardPresenter(
+                    scene,
+                    string.Equals(
+                        scenePath,
+                        PrototypeContentValidator.DungeonRewardScenePath,
+                        StringComparison.Ordinal));
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -1143,6 +1262,7 @@ namespace BombSwap.Editor.ContentValidation
             Scene scene,
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            PrototypeBombRewardCatalogAsset bombRewardCatalog,
             bool combatEnabled)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
@@ -1202,12 +1322,48 @@ namespace BombSwap.Editor.ContentValidation
                 host.gameObject.name = "DungeonRunBootstrap";
                 host.transform.SetParent(null);
             }
-            host.Configure(0, combatRoomCatalog, specialRoomCatalog, true);
+            host.Configure(
+                0,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                bombRewardCatalog,
+                true);
 
             EditorUtility.SetDirty(context.GridRoot);
             EditorUtility.SetDirty(doorPresenter);
             EditorUtility.SetDirty(binder);
             EditorUtility.SetDirty(host);
+        }
+
+        private static void SynchronizeBombRewardPresenter(
+            Scene scene,
+            bool shouldExist)
+        {
+            PrototypeBombRewardPresenter[] presenters =
+                FindAllInScene<PrototypeBombRewardPresenter>(scene);
+            if (!shouldExist)
+            {
+                for (int index = 0; index < presenters.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(presenters[index]);
+                }
+                return;
+            }
+            if (presenters.Length > 1)
+            {
+                for (int index = 1; index < presenters.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(presenters[index]);
+                }
+            }
+
+            PrototypeDungeonRoomBinder binder =
+                FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
+            PrototypeBombRewardPresenter presenter = presenters.Length > 0
+                ? presenters[0]
+                : binder.gameObject.AddComponent<PrototypeBombRewardPresenter>();
+            presenter.Configure(binder);
+            EditorUtility.SetDirty(presenter);
         }
 
         private static Renderer[] SynchronizeDungeonBoundary(
@@ -2086,6 +2242,13 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             return found;
+        }
+
+        private static T[] FindAllInScene<T>(Scene scene) where T : Component
+        {
+            return scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<T>(true))
+                .ToArray();
         }
 
         private static Transform CreateChild(string name, Transform parent)
