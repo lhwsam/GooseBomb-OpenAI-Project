@@ -234,11 +234,45 @@ async function main() {
         : roomSequenceWaitError,
     });
 
+    let overlappingTurnObserved = false;
+    let overlappingTurnWaitError = null;
+    const turnEventStartIndex = await page.evaluate(() =>
+      Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
+        ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
+        : 0);
+    await page.keyboard.down("ArrowUp");
+    await page.keyboard.down("ArrowRight");
+    try {
+      await page.waitForFunction((startIndex) => {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        if (!Array.isArray(events)) return false;
+        const names = events
+          .slice(startIndex)
+          .map((event) => typeof event === "string" ? event : event?.name);
+        const northIndex = names.indexOf("move-direction-north");
+        const eastIndex = names.indexOf("move-direction-east");
+        return northIndex >= 0 && eastIndex > northIndex;
+      }, turnEventStartIndex, { timeout: 10_000 });
+      overlappingTurnObserved = true;
+    } catch (error) {
+      overlappingTurnWaitError = String(error);
+    } finally {
+      await page.keyboard.up("ArrowRight");
+      await page.keyboard.up("ArrowUp");
+    }
+    checks.push({
+      name: "overlapping-cardinal-turn",
+      status: overlappingTurnObserved ? "passed" : "failed",
+      detail: overlappingTurnObserved
+        ? "ArrowRight replaced held ArrowUp before ArrowUp was released"
+        : overlappingTurnWaitError,
+    });
+
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
     checks.push({ name: "resize", status: "passed" });
 
-    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
+    const requiredGameplayEvents = ["probe-ready", "room-ready-prototype-combat-loop", "move", "move-direction-north", "move-direction-east", "chaser-moved", "place-bomb", "player-contact-damaged", "contact-escape-moved", "bomb-exploded", "player-damaged", "player-explosion-damaged", "enemy-died", "room-cleared", "room-transition-started", "room-ready-prototype-combat-lanes", "room-ready-prototype-combat-pillars", "swap-bomb", "pause-resume", "audio-unlocked"];
     let harnessEvents = null;
     let missingEvents = requiredGameplayEvents;
     const probeDeadline = Date.now() + 10_000;

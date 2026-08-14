@@ -66,6 +66,29 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void KeyboardTurn_EmitsNewPerpendicularDirectionBeforePreviousKeyRelease()
+        {
+            QueueKeyboardState(Key.UpArrow);
+            QueueKeyboardState(Key.UpArrow, Key.RightArrow);
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(CardinalDirection.North),
+                PlayerCommand.Move(CardinalDirection.East),
+            }), "The new perpendicular key must win while the previous key is still held.");
+
+            QueueKeyboardState(Key.RightArrow);
+            QueueKeyboardState();
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(CardinalDirection.North),
+                PlayerCommand.Move(CardinalDirection.East),
+                PlayerCommand.Move(CardinalDirection.None),
+            }));
+        }
+
+        [Test]
         public void GameplayButtons_EmitSemanticCommands()
         {
             QueueKeyboardState(Key.Z);
@@ -150,6 +173,11 @@ namespace BombSwap.Tests.PlayMode
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
+            move.AddCompositeBinding("2DVector(mode=1)")
+                .With("Up", "<Keyboard>/upArrow")
+                .With("Down", "<Keyboard>/downArrow")
+                .With("Left", "<Keyboard>/leftArrow")
+                .With("Right", "<Keyboard>/rightArrow");
 
             gameplay.AddAction(BombSwapInputActionNames.PlaceBomb, InputActionType.Button, "<Keyboard>/z");
             gameplay.AddAction(BombSwapInputActionNames.SwapBomb, InputActionType.Button, "<Keyboard>/x");

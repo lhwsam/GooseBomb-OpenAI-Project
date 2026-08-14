@@ -240,6 +240,8 @@ namespace BombSwap
             switch (command.Kind)
             {
                 case PlayerCommandKind.Move:
+                    ReportMoveDirection(command.MoveDirection);
+                    break;
                 case PlayerCommandKind.PlaceBomb:
                     break;
                 case PlayerCommandKind.SwapBomb:
@@ -257,6 +259,33 @@ namespace BombSwap
                         _pauseReported = true;
                     }
                     break;
+            }
+        }
+
+        private static void ReportMoveDirection(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.None:
+                    WebGlHarnessReporter.Report("move-direction-none");
+                    break;
+                case CardinalDirection.North:
+                    WebGlHarnessReporter.Report("move-direction-north");
+                    break;
+                case CardinalDirection.East:
+                    WebGlHarnessReporter.Report("move-direction-east");
+                    break;
+                case CardinalDirection.South:
+                    WebGlHarnessReporter.Report("move-direction-south");
+                    break;
+                case CardinalDirection.West:
+                    WebGlHarnessReporter.Report("move-direction-west");
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Unsupported move direction for the WebGL harness.");
             }
         }
     }
