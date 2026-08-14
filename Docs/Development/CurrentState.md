@@ -72,6 +72,7 @@
 - 열린 중앙 실험선과 좌우 기둥을 가진 네 번째 `prototype-combat-armor` 방·씬·정의·collider 없는 prefab을 Editor builder로 저작하고 4방 전환·Build Settings를 validator로 고정.
 - 연결된 Unity Test Runner의 도메인 리로드 뒤에도 실행 ID와 최종 수치를 JSON으로 보존하는 `ConnectedTestHarness`를 구현.
 - 갑옷 전용 WebGL smoke가 첫 실제 폭발의 상태 파괴·빠른 이동과 두 번째 폭발의 사망·방 클리어를 확인하고, 네 번째 씬을 포함한 기본 빌드의 기존 3방 smoke가 입력·폭탄·파괴 블록·돌진형 회귀를 함께 검증하도록 유지.
+- 갑옷 첫 피격 가독성, 가속 인지, 두 번째 설치 계획과 반복 노동감을 분리해 관찰하는 고정 WebGL 프로토콜과 익명 기록 템플릿을 준비.
 
 ## 현재 저장소 사실
 
@@ -108,7 +109,7 @@
 
 ## 바로 다음 권장 작업
 
-1. 갑옷 전용 WebGL에서 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
+1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
 2. [두 적·폭탄 선택 비교 플레이테스트](../Playtesting/TwoEnemyBombChoiceProtocol.md)의 기존 3방 결과와 네 번째 갑옷 방을 분리 기록해 파괴 블록·돌진형·갑옷 적 중 실제 선택 변화를 만드는 요소를 비교한다.
 3. 결과를 `bombswap-playtest-review` 형식으로 유지·변경·제거 판정한 뒤 갑옷 수치/표현 조정 또는 다음 GDD 가설의 가장 작은 수직 슬라이스를 선택한다.
 

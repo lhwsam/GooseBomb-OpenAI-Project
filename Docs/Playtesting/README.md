@@ -10,11 +10,12 @@
 
 ## 첫 읽기 경로
 
-1. 현재 차저·두 폭탄·파괴 블록 빌드는 [두 적·폭탄 선택 비교 플레이테스트](TwoEnemyBombChoiceProtocol.md)
+1. 현재 갑옷 2회 피격 빌드는 [갑옷 적 관찰 플레이테스트](ArmoredEnemyProtocol.md)
 2. [로컬 WebGL 관찰 세션 실행](ManualWebGLRun.md)
-3. 현재 빌드용 [두 적·폭탄 선택 기록 템플릿](TwoEnemyBombChoiceSessionTemplate.md)
-4. 기본 전투 기준선이나 과거 세션 해석은 [첫 기본 전투 플레이테스트](FirstCombatProtocol.md)와 [기본 세션 기록 템플릿](SessionTemplate.md)
-5. 해당 시점의 [현재 프로젝트 상태](../Development/CurrentState.md)
+3. 현재 빌드용 [갑옷 적 기록 템플릿](ArmoredEnemySessionTemplate.md)
+4. 차저·두 폭탄·파괴 블록 비교 기준선은 [두 적·폭탄 선택 비교 플레이테스트](TwoEnemyBombChoiceProtocol.md)와 [전용 기록 템플릿](TwoEnemyBombChoiceSessionTemplate.md)
+5. 기본 전투 기준선이나 과거 세션 해석은 [첫 기본 전투 플레이테스트](FirstCombatProtocol.md)와 [기본 세션 기록 템플릿](SessionTemplate.md)
+6. 해당 시점의 [현재 프로젝트 상태](../Development/CurrentState.md)
 
 ## 증거와 결과 분리
 
