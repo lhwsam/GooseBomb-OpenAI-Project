@@ -68,6 +68,83 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void SquareAreaRangeOne_AffectsEveryFloorCellInThreeByThreeOrder()
+        {
+            GridState grid = CreateSquareFloor(Origin, 1);
+            var clock = new ManualGameClock();
+            var simulation = new BombSimulation(
+                grid,
+                clock,
+                TimeSpan.FromMilliseconds(200));
+            simulation.TryPlaceBomb(
+                CreateDefinition(
+                    "area",
+                    TimeSpan.FromSeconds(1),
+                    1,
+                    BombExplosionShape.SquareArea),
+                Origin,
+                Owner,
+                out _);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            BombExplosion explosion = simulation.ProcessDueBombs()[0];
+
+            Assert.That(explosion.AffectedCells, Is.EqualTo(new[]
+            {
+                Origin,
+                new GridPosition(-1, -1),
+                new GridPosition(0, -1),
+                new GridPosition(1, -1),
+                new GridPosition(-1, 0),
+                new GridPosition(1, 0),
+                new GridPosition(-1, 1),
+                new GridPosition(0, 1),
+                new GridPosition(1, 1)
+            }));
+            Assert.That(explosion.DestroyedWalls, Is.Empty);
+        }
+
+        [Test]
+        public void SquareArea_EvaluatesWallsAndVoidPerCellWithoutRayOcclusion()
+        {
+            GridState grid = CreateSquareFloor(Origin, 1);
+            var indestructible = new GridPosition(1, 0);
+            var voidCell = new GridPosition(0, 1);
+            var destructible = new GridPosition(-1, 0);
+            var beyondWallInsideArea = new GridPosition(1, 1);
+            grid.TrySetTerrain(indestructible, GridTerrain.IndestructibleWall);
+            grid.TrySetTerrain(voidCell, GridTerrain.Void);
+            grid.TrySetTerrain(destructible, GridTerrain.DestructibleWall);
+            var clock = new ManualGameClock();
+            var simulation = new BombSimulation(
+                grid,
+                clock,
+                TimeSpan.FromMilliseconds(200));
+            simulation.TryPlaceBomb(
+                CreateDefinition(
+                    "area",
+                    TimeSpan.FromSeconds(1),
+                    1,
+                    BombExplosionShape.SquareArea),
+                Origin,
+                Owner,
+                out _);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            BombExplosion explosion = simulation.ProcessDueBombs()[0];
+
+            Assert.That(explosion.AffectedCells, Has.No.Member(indestructible));
+            Assert.That(explosion.AffectedCells, Has.No.Member(voidCell));
+            Assert.That(explosion.AffectedCells, Has.Member(destructible));
+            Assert.That(explosion.AffectedCells, Has.Member(beyondWallInsideArea));
+            Assert.That(explosion.DestroyedWalls, Is.EqualTo(new[] { destructible }));
+            Assert.That(grid.GetCell(destructible).Terrain, Is.EqualTo(GridTerrain.Floor));
+            Assert.That(
+                grid.GetCell(indestructible).Terrain,
+                Is.EqualTo(GridTerrain.IndestructibleWall));
+        }
+
+        [Test]
         public void IndestructibleWall_IsExcludedAndStopsRay()
         {
             var fixture = CreateFixture(range: 3, fuse: TimeSpan.FromSeconds(1));
@@ -175,13 +252,31 @@ namespace BombSwap.Tests.EditMode
             return new ExplosionFixture(grid, clock, simulation, definition, bombId);
         }
 
-        private static BombDefinition CreateDefinition(string id, TimeSpan fuse, int range)
+        private static BombDefinition CreateDefinition(
+            string id,
+            TimeSpan fuse,
+            int range,
+            BombExplosionShape shape = BombExplosionShape.Cross)
         {
             return new BombDefinition(
                 new BombDefinitionId(id),
-                BombExplosionShape.Cross,
+                shape,
                 fuse,
                 range);
+        }
+
+        private static GridState CreateSquareFloor(GridPosition origin, int radius)
+        {
+            var grid = new GridState();
+            for (int deltaZ = -radius; deltaZ <= radius; deltaZ++)
+            {
+                for (int deltaX = -radius; deltaX <= radius; deltaX++)
+                {
+                    grid.TrySetTerrain(origin.Offset(deltaX, deltaZ), GridTerrain.Floor);
+                }
+            }
+
+            return grid;
         }
 
         private static void AddCrossFloor(GridState grid, GridPosition origin, int range)

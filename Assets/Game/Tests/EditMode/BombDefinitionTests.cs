@@ -26,17 +26,19 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentException>(() => new BombDefinitionId(value));
         }
 
-        [Test]
-        public void Definition_AcceptsPositiveFuseAndZeroRange()
+        [TestCase(BombExplosionShape.Cross)]
+        [TestCase(BombExplosionShape.SquareArea)]
+        public void Definition_AcceptsSupportedShapesWithPositiveFuseAndZeroRange(
+            BombExplosionShape shape)
         {
             var definition = new BombDefinition(
                 new BombDefinitionId("basic-cross"),
-                BombExplosionShape.Cross,
+                shape,
                 TimeSpan.FromSeconds(1),
                 0);
 
             Assert.That(definition.Id, Is.EqualTo(new BombDefinitionId("basic-cross")));
-            Assert.That(definition.ExplosionShape, Is.EqualTo(BombExplosionShape.Cross));
+            Assert.That(definition.ExplosionShape, Is.EqualTo(shape));
             Assert.That(definition.FuseDuration, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(definition.Range, Is.Zero);
         }

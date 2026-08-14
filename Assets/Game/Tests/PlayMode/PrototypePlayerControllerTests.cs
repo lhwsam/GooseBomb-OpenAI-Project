@@ -18,7 +18,7 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _explosionPrefab;
         private GameObject _chaserPrefab;
         private PrototypeBombDefinitionAsset _definition;
-        private PrototypeBombDefinitionAsset _quickDefinition;
+        private PrototypeBombDefinitionAsset _areaDefinition;
         private PrototypeBombLoadoutAsset _loadout;
         private PrototypePlayerVitalsAsset _vitals;
         private PrototypeChaserDefinitionAsset _chaserDefinition;
@@ -58,9 +58,9 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_definition);
             }
-            if (_quickDefinition != null)
+            if (_areaDefinition != null)
             {
-                Object.DestroyImmediate(_quickDefinition);
+                Object.DestroyImmediate(_areaDefinition);
             }
             if (_loadout != null)
             {
@@ -312,7 +312,7 @@ namespace BombSwap.Tests.PlayMode
                 false,
                 fuseSeconds: 2f,
                 placementCooldownSeconds: 1f,
-                quickPlacementCooldownSeconds: 0.5f,
+                areaPlacementCooldownSeconds: 0.5f,
                 swapCooldownSeconds: 0.05f);
             var placed = new List<BombSnapshot>();
             _session.BombPlaced += snapshot => placed.Add(snapshot);
@@ -328,7 +328,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
             Assert.That(placed, Has.Count.EqualTo(2));
             Assert.That(placed[0].DefinitionId.Value, Is.EqualTo("test-cross"));
-            Assert.That(placed[1].DefinitionId.Value, Is.EqualTo("test-quick-cross"));
+            Assert.That(placed[1].DefinitionId.Value, Is.EqualTo("test-area"));
             Assert.That(_session.GetBombSlot(0).IsReady, Is.False);
             Assert.That(_session.GetBombSlot(1).IsReady, Is.False);
 
@@ -341,6 +341,35 @@ namespace BombSwap.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.06f);
             PressAndRelease(Key.X);
             Assert.That(_session.ActiveBombSlotIndex, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator AreaBomb_UsesTheAuthoredThreeByThreeExplosionPattern()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.05f,
+                swapCooldownSeconds: 0.01f);
+            BombExplosion exploded = null;
+            _session.BombExploded += explosion =>
+            {
+                if (explosion.DefinitionId.Value == "test-area")
+                {
+                    exploded = explosion;
+                }
+            };
+            yield return null;
+
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(exploded, Is.Not.Null);
+            Assert.That(exploded.DefinitionId.Value, Is.EqualTo("test-area"));
+            Assert.That(exploded.AffectedCells, Has.Count.EqualTo(9));
+            Assert.That(exploded.AffectedCells, Has.Member(new GridPosition(1, 1)));
+            Assert.That(exploded.AffectedCells, Has.Member(new GridPosition(-1, -1)));
         }
 
         [UnityTest]
@@ -710,7 +739,7 @@ namespace BombSwap.Tests.PlayMode
             float fuseSeconds = 1f,
             float explosionVisualSeconds = 0.25f,
             float placementCooldownSeconds = 0.01f,
-            float quickPlacementCooldownSeconds = 0.01f,
+            float areaPlacementCooldownSeconds = 0.01f,
             float swapCooldownSeconds = 0.05f,
             int maxHealth = 5,
             float invulnerabilitySeconds = 0.75f,
@@ -738,17 +767,18 @@ namespace BombSwap.Tests.PlayMode
                 _explosionPrefab,
                 explosionVisualSeconds,
                 placementCooldownSeconds);
-            _quickDefinition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
-            _quickDefinition.Configure(
-                "test-quick-cross",
+            _areaDefinition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+            _areaDefinition.Configure(
+                "test-area",
                 fuseSeconds,
                 1,
                 _bombPrefab,
                 _explosionPrefab,
                 explosionVisualSeconds,
-                quickPlacementCooldownSeconds);
+                areaPlacementCooldownSeconds,
+                BombExplosionShape.SquareArea);
             _loadout = ScriptableObject.CreateInstance<PrototypeBombLoadoutAsset>();
-            _loadout.Configure(_definition, _quickDefinition, swapCooldownSeconds);
+            _loadout.Configure(_definition, _areaDefinition, swapCooldownSeconds);
             _vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();
             _vitals.Configure(maxHealth, invulnerabilitySeconds);
 

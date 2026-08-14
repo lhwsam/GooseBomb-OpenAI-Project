@@ -32,9 +32,9 @@
 
 중복 스탯을 늘리지 않는다. 공간 역할 차이를 수치 차이보다 먼저 만든다.
 
-현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 현재 구현된 모양은 십자뿐이고 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
+현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 구현된 모양은 cardinal 네 방향으로 전파하는 `Cross`와 원점을 포함한 Chebyshev 정사각 영역을 평가하는 `SquareArea`다. 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
 
-TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 fuse 2초·범위 2·설치 1.5초, `prototype-quick-cross`는 fuse 1.25초·범위 1·설치 0.75초다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다.
+TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 두 수치 집합은 플레이테스트 전까지 `Proposed`다.
 
 ## 폭발 전파 규칙
 
@@ -46,7 +46,7 @@ TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, fuse, �
 4. 일반 바닥이면 폭발 셀을 추가한다.
 5. 폭탄이 있으면 연쇄 스케줄러에 등록한다. 동일 폭탄을 두 번 예약하지 않는다.
 
-광역 패턴도 같은 셀 평가 정책을 사용한다. 패턴 모양이 벽 차단 규칙을 우회하지 않는다.
+`SquareArea`는 원점을 먼저 포함한 뒤 `deltaZ`, `deltaX` 오름차순으로 정사각 영역의 각 셀을 독립 평가한다. `Void`와 파괴 불가 벽은 영향 셀에서 제외하고, 파괴 가능 벽은 영향·파괴 목록에 포함한다. ray 전파가 아니므로 한 셀의 벽이 다른 영역 셀을 가리지 않는다. 같은 시각 폭발 묶음의 벽 파괴 지연과 연쇄 예약 규칙은 `Cross`와 동일하다.
 
 ## 상태와 전이
 
@@ -81,7 +81,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 확정된 폭발 셀에 살아 있는 기본 추격자의 논리 셀이 포함되면 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 내구도 1 추격자는 같은 결과에서 사망하고 논리 점유에서 제거된다.
 - `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
-- 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자 피해, 두 슬롯과 독립 설치·교체 쿨타임을 포함한다. 다중 적·중형 적 피해 단계와 직선·광역 폭발은 아직 없다.
+- 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자와 3×3 광역 폭발을 포함한다. 다중 적·중형 적 피해 단계와 방향성 직선 폭발은 아직 없다.
 
 ## 불변식
 
@@ -98,6 +98,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 정의 ID 값 동등성, 양수 fuse, 0 이상 범위와 지원 모양 검증.
 - 바닥 설치, 설치자 ID 보존, actor 동시 점유, 중복/비바닥 설치 실패의 원자성, 세션 ID 증가.
 - 십자 범위 0과 2의 셀 집합.
+- 광역 범위 1의 결정론적 3×3 셀 순서, `Void`·고정 벽 제외, 파괴 벽 포함과 비차폐 평가.
 - `Void`·고정 벽 앞 종료와 파괴 벽 셀 포함 후 종료 및 실제 지형 변경.
 - 같은 시각 폭발의 ID 순서와 벽 파괴 지연 적용.
 - 서로 다른 정의 간 연쇄, 양수 고정 지연, 중복 예약 방지.
@@ -106,7 +107,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 
 다음 항목은 후속 폭탄·피해 시스템에서 추가한다.
 
-- 직선/광역 패턴 셀 집합과 방향 계약.
+- 방향성 직선 패턴 셀 집합과 방향 계약.
 - 검증된 콘텐츠가 정한 최대 범위 경계.
 - 다중 적 피해 후보 수집과 대상별 중복 제거.
 

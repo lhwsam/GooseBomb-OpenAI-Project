@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: PrototypeBombLoadout
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombLoadoutAsset
   firstSlot: {fileID: 11400000, guid: 2c0c58c2234aaff49882136fa86b6228, type: 2}
-  secondSlot: {fileID: 11400000, guid: 5c91aad36099c194895cba43ff1fa0db, type: 2}
+  secondSlot: {fileID: 11400000, guid: b4a02a66afc9ae74396b32f26fc665f4, type: 2}
   swapCooldownSeconds: 2

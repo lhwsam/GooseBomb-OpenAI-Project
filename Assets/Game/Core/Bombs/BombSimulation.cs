@@ -188,6 +188,13 @@ namespace BombSwap.Core
             {
                 return CrossExplosionResolver.Resolve(grid, bomb.Position, bomb.Definition.Range);
             }
+            if (bomb.Definition.ExplosionShape == BombExplosionShape.SquareArea)
+            {
+                return SquareAreaExplosionResolver.Resolve(
+                    grid,
+                    bomb.Position,
+                    bomb.Definition.Range);
+            }
 
             throw new InvalidOperationException("The active bomb has an unsupported explosion shape.");
         }

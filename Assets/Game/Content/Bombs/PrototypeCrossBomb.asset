@@ -15,6 +15,7 @@ MonoBehaviour:
   definitionId: prototype-cross
   fuseSeconds: 2
   range: 2
+  explosionShape: 0
   placementCooldownSeconds: 1.5
   bombPrefab: {fileID: 4025302524595529602, guid: 253e26d9658a6184393ba37d8fd6353f, type: 3}
   explosionCellPrefab: {fileID: 1087797100682047269, guid: 91d074b05497e524dbeede344a16e527, type: 3}

@@ -19,6 +19,9 @@ namespace BombSwap
         private int range = 2;
 
         [SerializeField]
+        private BombExplosionShape explosionShape = BombExplosionShape.Cross;
+
+        [SerializeField]
         private float placementCooldownSeconds = 1.5f;
 
         [SerializeField]
@@ -36,6 +39,8 @@ namespace BombSwap
 
         public int Range => range;
 
+        public BombExplosionShape ExplosionShape => explosionShape;
+
         public float PlacementCooldownSeconds => placementCooldownSeconds;
 
         public GameObject BombPrefab => bombPrefab;
@@ -51,7 +56,8 @@ namespace BombSwap
             GameObject bombVisualPrefab,
             GameObject explosionVisualPrefab,
             float explosionPresentationSeconds,
-            float placementCooldownDurationSeconds = 1.5f)
+            float placementCooldownDurationSeconds = 1.5f,
+            BombExplosionShape authoredExplosionShape = BombExplosionShape.Cross)
         {
             ValidateFinitePositive(fuseDurationSeconds, nameof(fuseDurationSeconds));
             ValidateFinitePositive(
@@ -73,6 +79,14 @@ namespace BombSwap
                     explosionRange,
                     "Bomb range cannot be negative.");
             }
+            if (authoredExplosionShape != BombExplosionShape.Cross &&
+                authoredExplosionShape != BombExplosionShape.SquareArea)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(authoredExplosionShape),
+                    authoredExplosionShape,
+                    "Unsupported authored bomb explosion shape.");
+            }
             if (bombVisualPrefab == null)
             {
                 throw new ArgumentNullException(nameof(bombVisualPrefab));
@@ -85,6 +99,7 @@ namespace BombSwap
             definitionId = stableDefinitionId;
             fuseSeconds = fuseDurationSeconds;
             range = explosionRange;
+            explosionShape = authoredExplosionShape;
             placementCooldownSeconds = placementCooldownDurationSeconds;
             bombPrefab = bombVisualPrefab;
             explosionCellPrefab = explosionVisualPrefab;
@@ -101,7 +116,7 @@ namespace BombSwap
 
             return new BombDefinition(
                 new BombDefinitionId(definitionId),
-                BombExplosionShape.Cross,
+                explosionShape,
                 TimeSpan.FromSeconds(fuseSeconds),
                 range);
         }

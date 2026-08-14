@@ -17,6 +17,14 @@ namespace BombSwap.Editor.ContentValidation
     {
         private const string MaterialsPath = "Assets/Game/Content/Materials/Prototype";
         private const string PrototypePrefabsPath = "Assets/Game/Content/Prefabs/Prototype";
+        private static readonly string[] LegacyQuickBombAssetPaths =
+        {
+            "Assets/Game/Content/Bombs/PrototypeQuickCrossBomb.asset",
+            MaterialsPath + "/QuickBomb.mat",
+            MaterialsPath + "/QuickExplosion.mat",
+            PrototypePrefabsPath + "/QuickBombPlaceholder.prefab",
+            PrototypePrefabsPath + "/QuickExplosionCellPlaceholder.prefab"
+        };
 
         [MenuItem("Bomb Swap/Prototype/Create Missing Prototype Content")]
         public static void CreateMissingPrototypeContentMenu()
@@ -30,10 +38,11 @@ namespace BombSwap.Editor.ContentValidation
             InputActionAsset inputActions = CreateInputActionsIfMissing();
             PrototypeBombDefinitionAsset bombDefinition =
                 CreatePrototypeBombContentIfMissing();
-            PrototypeBombDefinitionAsset quickBombDefinition =
-                CreatePrototypeQuickBombContentIfMissing();
+            PrototypeBombDefinitionAsset areaBombDefinition =
+                CreatePrototypeAreaBombContentIfMissing();
             PrototypeBombLoadoutAsset bombLoadout =
-                CreatePrototypeBombLoadoutIfMissing(bombDefinition, quickBombDefinition);
+                CreatePrototypeBombLoadoutIfMissing(bombDefinition, areaBombDefinition);
+            DeleteLegacyQuickBombAssets();
             PrototypePlayerVitalsAsset playerVitals = CreatePrototypePlayerVitalsIfMissing();
             PrototypeChaserDefinitionAsset chaserDefinition =
                 CreatePrototypeChaserContentIfMissing();
@@ -218,7 +227,7 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
-        private static PrototypeBombDefinitionAsset CreatePrototypeQuickBombContentIfMissing()
+        private static PrototypeBombDefinitionAsset CreatePrototypeAreaBombContentIfMissing()
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -229,57 +238,72 @@ namespace BombSwap.Editor.ContentValidation
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
             Material bombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/QuickBomb.mat",
+                MaterialsPath + "/AreaBomb.mat",
                 shader,
-                new Color(0.05f, 0.48f, 0.9f, 1f));
+                new Color(0.52f, 0.08f, 0.82f, 1f));
             Material explosionMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/QuickExplosion.mat",
+                MaterialsPath + "/AreaExplosion.mat",
                 shader,
-                new Color(0.05f, 0.75f, 1f, 1f));
+                new Color(1f, 0.08f, 0.55f, 1f));
             if (explosionMaterial.HasProperty("_EmissionColor"))
             {
                 explosionMaterial.EnableKeyword("_EMISSION");
-                explosionMaterial.SetColor("_EmissionColor", new Color(0f, 0.4f, 1f, 1f));
+                explosionMaterial.SetColor("_EmissionColor", new Color(0.8f, 0f, 0.3f, 1f));
                 EditorUtility.SetDirty(explosionMaterial);
             }
 
             GameObject bombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.QuickBombPrefabPath,
-                "QuickBombPlaceholder",
-                PrimitiveType.Sphere,
-                new Vector3(0f, 0.27f, 0f),
-                new Vector3(0.48f, 0.48f, 0.48f),
+                PrototypeContentValidator.AreaBombPrefabPath,
+                "AreaBombPlaceholder",
+                PrimitiveType.Cylinder,
+                new Vector3(0f, 0.16f, 0f),
+                new Vector3(0.46f, 0.12f, 0.46f),
                 bombMaterial);
             GameObject explosionPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.QuickExplosionCellPrefabPath,
-                "QuickExplosionCellPlaceholder",
+                PrototypeContentValidator.AreaExplosionCellPrefabPath,
+                "AreaExplosionCellPlaceholder",
                 PrimitiveType.Cube,
-                new Vector3(0f, 0.06f, 0f),
-                new Vector3(0.82f, 0.12f, 0.82f),
+                new Vector3(0f, 0.08f, 0f),
+                new Vector3(0.92f, 0.16f, 0.92f),
                 explosionMaterial);
 
             PrototypeBombDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
-                    PrototypeContentValidator.PrototypeQuickBombDefinitionPath);
+                    PrototypeContentValidator.PrototypeAreaBombDefinitionPath);
             if (definition != null)
             {
                 return definition;
             }
 
             definition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
-            definition.name = "PrototypeQuickCrossBomb";
+            definition.name = "PrototypeAreaBomb";
             definition.Configure(
-                "prototype-quick-cross",
-                1.25f,
+                "prototype-area",
+                1.75f,
                 1,
                 bombPrefab,
                 explosionPrefab,
-                0.2f,
-                0.75f);
+                0.25f,
+                2.5f,
+                BombExplosionShape.SquareArea);
             AssetDatabase.CreateAsset(
                 definition,
-                PrototypeContentValidator.PrototypeQuickBombDefinitionPath);
+                PrototypeContentValidator.PrototypeAreaBombDefinitionPath);
             return definition;
+        }
+
+        private static void DeleteLegacyQuickBombAssets()
+        {
+            for (int index = 0; index < LegacyQuickBombAssetPaths.Length; index++)
+            {
+                string assetPath = LegacyQuickBombAssetPaths[index];
+                if (AssetDatabase.LoadMainAssetAtPath(assetPath) != null &&
+                    !AssetDatabase.DeleteAsset(assetPath))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not remove legacy quick-cross prototype asset: {assetPath}");
+                }
+            }
         }
 
         private static PrototypeBombLoadoutAsset CreatePrototypeBombLoadoutIfMissing(
