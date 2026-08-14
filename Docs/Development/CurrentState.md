@@ -99,6 +99,7 @@
 - `DungeonReward`의 보행 가능한 `(-1,0)`·`(1,0)` 셀에 광역·긴 십자 후보를 표시하고, 플레이어 논리 셀 진입으로 빈 2번 슬롯을 채우며 HUD·폭탄 풀·다음 scene session에 즉시 반영하도록 연결.
 - seed-0 주 경로를 보스 placeholder까지 자동 탐색해 8회 scene transition/commit, 전투방 3개 클리어와 선택한 광역 폭탄의 전체 run persistence를 한 Development WebGL 세션에서 검증.
 - Development WebGL 전용 추격자 확정 셀 marker를 추가해 자동 폭탄 유도를 논리 상태로 동기화하고, 국소 Manhattan 동률 순환을 재현 가능한 위험으로 기록.
+- `BossBattleSimulation`이 열·행·체크무늬 위험 snapshot, Telegraph→Execute→Recovery, Recovery 한정 폭탄 피해, 안전한 2페이즈 전환과 사망 점유 단일 제거를 Unity 비참조 Core 규칙으로 소유하도록 구현.
 
 ## 현재 저장소 사실
 
@@ -121,10 +122,11 @@
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 같은 행/열의 빈 가시선에서 0.75초 예고 뒤 8 cells/s cadence로 잠근 방향을 돌진하고 0.75초 회복한다. 수치는 `Proposed`다.
 - 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 첫 서로 다른 폭발에 갑옷만 파괴하고 1→3 cells/s로 빨라지며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
 - 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 갑옷 적은 내구 단계 2·접촉 피해 1이다. 세션은 추격자→돌진형→갑옷 적 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하며 binder가 연결문을 개방한다. 첫 보상은 `prototype-area`와 범위 3의 `prototype-long-cross` 중 하나를 빈 슬롯에 장착한다.
+- 보스 Core는 주입 시계와 권위 격자에서 1페이즈 열·행 교대, 2페이즈 체크무늬, read-only 위험 셀, Recovery 취약성과 `BombId` 중복 방지를 구현했다. 실제 보스 asset·session·피해 표현·승리는 아직 Unity에 연결되지 않았다.
 - 네 room asset은 모두 11×9이며 cardinal 네 방향의 중앙 잠재 출구와 중앙 십자, 평행 통로, 엇갈린 기둥, 갑옷 실험선의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`, 네 번째는 갑옷 적 spawn `(0,1)`을 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
 - 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
-- EditMode 테스트 251개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 빈 2번 슬롯·보상 장착·두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식과 전체 셀 회전, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계, 전투 잠금·클리어·양방향 재방문, 안정된 네 방향 문 상태와 콘텐츠 배정 재현·회전·호환·균형을 검증한다.
+- EditMode 테스트 262개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 빈 2번 슬롯·보상 장착·두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적과 보스의 결정론·cadence·패턴·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식과 전체 셀 회전, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계, 전투 잠금·클리어·양방향 재방문, 안정된 네 방향 문 상태와 콘텐츠 배정 재현·회전·호환·균형을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
 - PlayMode 전체 95개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타의 같은 frame 반영, 폭탄·파괴 벽·빈 슬롯 HUD, 안전방과 세 적 유형, 전투 클리어, combat/special/reward catalog, 보상방 논리 셀 선택과 scene 간 loadout 유지, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 실제 씬에서 클리어한 전투방 재입장의 적 미생성·문 개방, 표현 생명주기와 하네스 발견성을 검증한다.
 - 네 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
@@ -140,12 +142,13 @@
 
 - 최신 4방 WebGL에서 파괴 블록·돌진형·갑옷 적이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
 - seed-0 전체 사람 플레이에서 되돌아가기 피로, 첫 보상 선택과 추격자 동률 순환이 실제 흐름을 방해하는지 관찰한다.
+- [보스 Core 수직 슬라이스](BossCoreSlice.md)를 실제 보스 정의 asset, 보스방 session·위험 셀 표현과 플레이어 피해·방 클리어에 연결한다.
 
 ## 바로 다음 권장 작업
 
 1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
 2. [seed-0 전체 경로 계약](DungeonFullPathSmokeSlice.md)을 사람 플레이로 반복해 추격자 동률 순환, 되돌아가기 피로와 보상 loadout의 체감을 관찰한다.
-3. 실제 보스 규칙의 최소 수직 슬라이스를 [보스 전투 문서](../Systems/BossBattle.md)에 계약화하거나, 먼저 `prototype-long-cross`가 충분히 다른 선택인지 플레이테스트해 방향성 직선 폭탄 필요 여부를 결정한다.
+3. 구현된 [보스 Core 계약](BossCoreSlice.md)을 Unity 보스방에 연결한 뒤, `prototype-long-cross`가 충분히 다른 선택인지 함께 플레이테스트한다.
 
 ## 알려진 위험과 미정
 
@@ -157,6 +160,7 @@
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
 - 던전 8개 씬 Development WebGL 빌드는 137,501,446 bytes이며 전체 보스 경로 빌드에서 오류 0, TextMeshPro 대형 메서드 분할 안내 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 수직 슬라이스 이후 별도 결정이 필요하다.
+- 보스 Core 테스트 fixture의 체력 4·phase 임계 2, 패턴 피해 1과 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 `Proposed`다. Unity asset·위험 셀 표현·패턴 피해 source·승리 연결 전에는 실제 플레이 가능한 보스 수치가 아니다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
@@ -234,3 +238,4 @@
 - 전체 보스 경로 코드로 PlayMode 95/95 통과, 실패·건너뜀·불확정 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-153109-903.json`.
 - 전체 보스 경로 최종 코드로 EditMode 251/251 통과, 실패·건너뜀·불확정 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-154600-181.json`. `PrototypeContentValidator`와 Unity Console Error도 0이다.
 - Development WebGL 8개 씬 빌드 성공: 137,501,446 bytes, 51.950초, 오류 0, 경고 3. Edge headless smoke 21/21이 8회 transition/commit, 주 경로 전투방 3개 클리어, 보상 선택과 광역 폭탄 4회 설치, 보스 전실·보스 placeholder 진입, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-003200-full-boss-path-web/`와 `webgl-boss-path.png`.
+- 보스 Core 대상 EditMode 11/11과 전체 EditMode 262/262 통과. exact timing, 열·행·체크무늬 snapshot, Recovery 한정 피해, 중복 폭발, 안전한 phase 전환, 큰 시계 진행, 사망 점유 단일 제거와 기존 전체 Core 회귀를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-160136-925.json`, `Artifacts/Verification/ConnectedTests/20260814-160210-645.json`. Unity import/compile과 Console Error 0이다.
