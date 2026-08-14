@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BombSwap.Core;
 
 namespace BombSwap
@@ -69,6 +70,11 @@ namespace BombSwap
         public DungeonRoomClearStatus TryClearCurrentRoom()
         {
             return RunState.TryClearCurrentRoom();
+        }
+
+        public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()
+        {
+            return RunState.GetCurrentExitStates();
         }
 
         public bool TryGetCurrentCombatRoom(

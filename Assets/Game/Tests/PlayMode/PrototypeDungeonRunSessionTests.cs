@@ -79,6 +79,36 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void Session_ExposesGraphDoorsThatMatchCombatAssignmentAndClearState()
+        {
+            var session = new PrototypeDungeonRunSession(41, CreateCatalog());
+            DungeonRoomNodeId firstCombat =
+                session.Graph.GetNeighbors(session.Graph.StartRoomId)[0];
+            Assert.That(session.TryTravelTo(firstCombat).Moved, Is.True);
+            Assert.That(
+                session.TryGetCurrentCombatRoom(out var selection),
+                Is.True);
+
+            IReadOnlyList<DungeonRoomExitState> locked =
+                session.GetCurrentExitStates();
+            Assert.That(
+                locked.Where(exit => exit.IsConnected).Select(exit => exit.Direction),
+                Is.EqualTo(selection.Assignment.ActiveExitDirections));
+            Assert.That(
+                locked.Where(exit => exit.IsConnected).Select(exit => exit.Status),
+                Is.All.EqualTo(DungeonRoomExitStatus.Locked));
+
+            Assert.That(
+                session.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            Assert.That(
+                session.GetCurrentExitStates()
+                    .Where(exit => exit.IsConnected)
+                    .Select(exit => exit.Status),
+                Is.All.EqualTo(DungeonRoomExitStatus.Open));
+        }
+
+        [Test]
         public void Catalog_ClonesConfigurationAndLooksUpStableRoomId()
         {
             PrototypeCombatRoomDefinitionAsset room = CreateRoom("room-one");
