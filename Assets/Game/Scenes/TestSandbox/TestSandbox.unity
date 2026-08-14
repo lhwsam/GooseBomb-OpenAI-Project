@@ -1031,14 +1031,7 @@ MonoBehaviour:
   playerSpawn: {fileID: 1034727587}
   playerPlaceholder: {fileID: 317508116}
   chaserSpawn: {fileID: 2013815863}
-  gridWidth: 11
-  gridDepth: 9
-  cellSize: 1
-  blockedCells:
-  - {x: -2, y: 0}
-  - {x: 2, y: 0}
-  - {x: 0, y: 2}
-  - {x: 0, y: -2}
+  roomDefinition: {fileID: 11400000, guid: 8008bfb53324b274789da665f7db2d8c, type: 2}
 --- !u!4 &455876710
 Transform:
   m_ObjectHideFlags: 0
