@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-14
-- 단계: 갑옷 적 플레이테스트 준비와 결정론적 한 층 Core 그래프 완료, Unity 탐색 연결 착수 전
+- 단계: 갑옷 적 플레이테스트 준비와 결정론적 한 층 Core 그래프·탐색 상태 완료, Unity 콘텐츠 배정 착수 전
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -76,6 +76,8 @@
 - `prototype-tree-v1` 결정론적 한 층 Core 그래프를 구현해 명시 seed에서 시작→첫 전투→폭탄 보상→주 경로 전투 3개→보스 전실→보스와 선택 전투 가지를 생성.
 - 고정 seed 혼합·LCG·상위 비트 범위 변환과 유한 정수 XZ backtracking으로 연결된 트리, 고유 좌표, 연결되지 않은 방의 암시적 cardinal 인접 금지를 보장.
 - `DungeonGraph`가 생성 버전, 정의, 안정 ID·노드·연결의 read-only snapshot과 이웃·최단 경로 조회를 소유하고 seed 0 golden snapshot과 512개 seed 회귀를 추가.
+- `DungeonRunState`가 시작방부터 현재·직전 방, 방문·클리어 상태를 소유하고 첫 전투·보스방 클리어 전 퇴실 차단, 클리어 방 양방향 재방문을 결정론적으로 처리.
+- `DungeonGraph`의 정수 XZ 연결을 `RoomExitDirection`으로 조회해 Unity 씬 이름이나 Transform 없이 방향별 이동을 판정하도록 확장.
 
 ## 현재 저장소 사실
 
@@ -85,6 +87,7 @@
 - `BombWeaponLoadout`은 정확히 두 개의 서로 다른 정의와 각 슬롯의 다음 설치 가능 시각, 다음 교체 가능 시각을 소유한다. 쿨타임은 매 frame 감소시키지 않고 `IGameClock.Now`와 종료 시각의 차이로 계산한다.
 - `DungeonGenerator`는 모든 `int` seed와 불변 정의에서 `prototype-tree-v1` 그래프를 만든다. 기본 정의는 전투방 4~5개, 보스 주 경로 3개와 보상 이후 선택 가지 1~2개이며 `System.Random`, `UnityEngine.Random`, 시간과 호출 순서를 읽지 않는다.
 - `DungeonGraph`는 `Start`, `Combat`, `BombReward`, `BossAntechamber`, `Boss` 노드, 고유 정수 방 좌표와 연결 트리를 검증하고 read-only 이웃·최단 경로를 제공한다. 현재 TestSandbox 전환은 이 그래프를 아직 소비하지 않는다.
+- `DungeonRunState`는 시작방을 최초 방문으로 시작하고, 연결된 방만 이동하며 전투·보스방 클리어 전 퇴실을 막는다. 안전방은 잠기지 않고 클리어한 전투방은 다시 잠기지 않는다. 이 상태는 아직 TestSandbox 씬 전환이 소비하지 않는다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다. 광역 폭발은 반경 내 각 셀을 독립 평가해 원점을 포함한 최대 3×3을 만들며 한 셀의 벽이 다른 영역 셀을 가리지 않는다.
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다.
 - 플레이어 연속 위치와 방향은 매 Unity frame Core에서 갱신된다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
@@ -96,7 +99,7 @@
 - 네 room asset은 모두 11×9이며 중앙 십자, 평행 통로, 엇갈린 기둥, 갑옷 실험선의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`, 네 번째는 갑옷 적 spawn `(0,1)`을 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
 - 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
-- EditMode 테스트 221개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계를 검증한다.
+- EditMode 테스트 230개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계와 전투 잠금·클리어·양방향 재방문을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
 - PlayMode 전체 72개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·6회 `North/East` 단타의 같은 frame Core 위치·Transform 반영, 실제 `X` 교체와 광역 `Z` 설치·3×3 결과·파괴 벽 `Floor` 전환·시각 제거·HUD snapshot 표시, 공유 격자 플레이어·추격자·돌진형·갑옷 적 이동, 상태별 갑옷 표현과 2회 피격, 돌진 충돌·접촉 피해·공유 무적·같은 프레임 폭발 사망 우선순위, 다중 적 사망·단일 방 클리어, 방 전환 pending·마지막 방 무전환, pooled 표현과 property block 생명주기, 저작 장애물 차단, probe 초기화 순서, focus reset, 재구독 계약과 하네스 발견성을 검증한다.
 - 네 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
@@ -111,13 +114,13 @@
 ## 진행 중
 
 - 최신 4방 WebGL에서 파괴 블록·돌진형·갑옷 적이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
-- Core `DungeonGraph`의 노드에 출입구가 호환되는 수제 room asset을 결정적으로 배정하고 실제 방 이동·재방문을 소유할 Unity 런타임 경계를 설계한다.
+- Core `DungeonGraph`의 노드에 출입구가 호환되는 수제 room asset을 결정적으로 배정하고 Core 탐색 상태를 실제 문·씬 전환이 소비하도록 Unity 어댑터를 설계한다.
 
 ## 바로 다음 권장 작업
 
 1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
-2. `DungeonGraph`와 현재 수제 전투방 사이의 출입구 호환 선택, 현재 방·방문/클리어 상태, 양방향 전환을 소유하는 Unity 런타임 작업 계약을 작성한다.
-3. 시작방·폭탄 보상·보스 전실·보스의 최소 placeholder 콘텐츠를 만들기 전에, 기존 네 전투방을 seed 그래프에 배정하고 재방문 가능한 탐색 loop를 PlayMode로 먼저 검증한다.
+2. [던전 런타임 탐색 상태 계약](DungeonRuntimeTraversalSlice.md)에서 확인한 현재 2출구 방과 꺾임·3갈래 그래프의 불일치를 해결할 콘텐츠/생성 정책을 결정하고 ADR 또는 작업 계약으로 고정한다.
+3. 시작방·폭탄 보상·보스 전실·보스의 최소 placeholder 콘텐츠를 만들기 전에, 결정된 출구 정책으로 기존 네 전투방을 seed 그래프에 배정하고 재방문 가능한 탐색 loop를 PlayMode로 검증한다.
 
 ## 알려진 위험과 미정
 
@@ -133,14 +136,14 @@
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
 - Core 그래프의 기본 4~5 전투방과 단일 선택 가지는 `Proposed`다. 자동 검증은 재현성과 구조만 보장하며 탐색 동기, 되돌아가기 피로와 방 반복 체감은 Unity 탐색 loop와 사람 플레이테스트 전에는 판정할 수 없다.
-- 현재 4방 전환은 씬 이름과 realtime 1.25초 지연을 쓰는 플레이테스트 어댑터로 Core `DungeonGraph`와 무관하다. 실제 run seed, 그래프 노드별 콘텐츠 선택, 문, 보상, 방문/클리어 보존, 저장·재시작과 방 전환 연출은 아직 없다.
+- 현재 4방 전환은 씬 이름과 realtime 1.25초 지연을 쓰는 플레이테스트 어댑터로 Core `DungeonGraph`·`DungeonRunState`와 무관하다. Core 방문/클리어 보존은 구현됐지만 실제 run seed, 그래프 노드별 콘텐츠 선택, 문, 보상, Unity 수명 연결, 저장·재시작과 방 전환 연출은 아직 없다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
 - 게임패드 binding은 구조 검증만 완료했다. 정확한 대각선 값을 만드는 게임패드·D-pad에도 새 직교 축 우선 정책이 적용되므로 목표 기기 수동 플레이가 남아 있다.
 
 ## 최근 검증
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
-- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-183106-static/`.
+- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-201824-static/`.
 - `skill-creator` 공식 `quick_validate.py`: 프로젝트 스킬 4종 모두 통과.
 - PowerShell AST parse와 `node --check`로 `WebGLSmoke.mjs`, `WebGLStaticServer.mjs`, `ServeWebGL.mjs`, `WebGLStaticServerTests.mjs`: 통과.
 - `node Tools/WebGLStaticServerTests.mjs`: HTML/WASM/data/symbols MIME, gzip/Brotli `Content-Encoding`, GET/HEAD 제한, 404와 경로 이탈 403 계약 통과.
@@ -181,3 +184,5 @@
 - 결정론적 던전 Core 대상 `DungeonGeneratorTests` 15/15 통과. seed 0 golden snapshot, 음수·0·정수 극단과 512개 연속 seed의 4/5방 분포·64개 초과 signature, 필수 보상/보스 경로·선택 가지·연결/좌표 불변식·read-only 조회를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-105857-417.json`.
 - 던전 Core 최종 연결 뒤 전체 EditMode 221/221 통과, 실패·건너뜀 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-110501-629.json`.
 - Unity 6000.5.3f1 `BombSwap.Core`·tests 컴파일 성공, `PrototypeContentValidator` 기존 네 방·씬·Build Settings 오류 0, Console 오류 0. 실행 중 Editor 잠금 때문에 별도 batchmode `-Tier Fast`는 미실행하고 연결된 개별 증거로 검증했다.
+- 던전 탐색 상태 대상 `DungeonRunStateTests` 9/9 통과. 첫 전투·보스 잠금, 안전방, 클리어 전 퇴실 차단, 방향별 이동, read-only 방문/클리어 snapshot과 전체 트리 왕복을 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-111508-768.json`.
+- 탐색 상태 최종 연결 뒤 전체 EditMode 230/230 통과, 실패·건너뜀 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-111727-876.json`. Unity 컴파일과 Console 오류 0, 정적 검증은 `Artifacts/Verification/20260814-201824-static/`에 기록했다.
