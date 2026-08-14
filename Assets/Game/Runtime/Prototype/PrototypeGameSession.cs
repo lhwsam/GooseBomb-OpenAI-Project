@@ -68,6 +68,7 @@ namespace BombSwap
         private ArmoredEnemyDefinition _coreArmoredDefinition;
         private CombatRoomDefinition _runtimeRoomDefinition;
         private GridPosition? _runtimePlayerStart;
+        private bool? _runtimeCombatEnabled;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
@@ -129,11 +130,13 @@ namespace BombSwap
 
         public float ChainDelaySeconds => chainDelaySeconds;
 
-        public bool HasChaser => combatEnabled;
+        public bool IsCombatEnabledByDefault => combatEnabled;
+
+        public bool HasChaser => IsCombatEnabledForVisit;
 
         public bool IsInitialized => _movement != null && _bombs != null && _weapons != null &&
             _health != null &&
-            (!combatEnabled || (_chaser != null && _chaserHealth != null)) &&
+            (!IsCombatEnabledForVisit || (_chaser != null && _chaserHealth != null)) &&
             (!_hasCharger || (_charger != null && _chargerHealth != null)) &&
             (!_hasArmored || _armored != null);
 
@@ -279,11 +282,20 @@ namespace BombSwap
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
             combatEnabled = startingCombatEnabled;
+            _runtimeCombatEnabled = null;
         }
 
         public void PrepareRuntimeRoom(
             CombatRoomDefinition roomDefinition,
             GridPosition playerStart)
+        {
+            PrepareRuntimeRoom(roomDefinition, playerStart, combatEnabled);
+        }
+
+        public void PrepareRuntimeRoom(
+            CombatRoomDefinition roomDefinition,
+            GridPosition playerStart,
+            bool combatEnabledForVisit)
         {
             if (_movement != null)
             {
@@ -300,7 +312,12 @@ namespace BombSwap
                     $"Runtime player start {playerStart} must be a traversable room cell.",
                     nameof(playerStart));
             }
-            if (combatEnabled &&
+            if (combatEnabledForVisit && !combatEnabled)
+            {
+                throw new InvalidOperationException(
+                    "A room authored without combat cannot enable enemies for a runtime visit.");
+            }
+            if (combatEnabledForVisit &&
                 (playerStart == roomDefinition.ChaserSpawn ||
                  (roomDefinition.ChargerSpawn.HasValue &&
                   playerStart == roomDefinition.ChargerSpawn.Value) ||
@@ -314,6 +331,7 @@ namespace BombSwap
 
             _runtimeRoomDefinition = roomDefinition;
             _runtimePlayerStart = playerStart;
+            _runtimeCombatEnabled = combatEnabledForVisit;
         }
 
         public GridCellState GetCell(GridPosition position)
@@ -416,7 +434,7 @@ namespace BombSwap
                         _movement.MoveDirection);
                 }
             }
-            if (combatEnabled && !_chaserHealth.IsDead &&
+            if (IsCombatEnabledForVisit && !_chaserHealth.IsDead &&
                 _chaser.TryAdvance(out EnemyMovementStep chaserStep))
             {
                 ChaserMoved?.Invoke(chaserStep);
@@ -454,7 +472,7 @@ namespace BombSwap
                         _appliedDamageResults.Add(damage);
                     }
                 }
-                if (combatEnabled)
+                if (IsCombatEnabledForVisit)
                 {
                     ApplyEnemyExplosionDamage(
                         explosion,
@@ -476,7 +494,7 @@ namespace BombSwap
                 }
             }
 
-            if (!_health.IsDead && combatEnabled && !_chaserHealth.IsDead &&
+            if (!_health.IsDead && IsCombatEnabledForVisit && !_chaserHealth.IsDead &&
                 _movement.CurrentPosition.IsCardinallyAdjacentTo(_chaser.CurrentPosition))
             {
                 PlayerDamageResult contactDamage = _health.ApplyContactDamage(
@@ -546,8 +564,9 @@ namespace BombSwap
 
         private void Initialize()
         {
+            bool combatEnabledForVisit = IsCombatEnabledForVisit;
             if (context == null || inputReader == null || bombLoadout == null ||
-                playerVitals == null || (combatEnabled && chaserDefinition == null))
+                playerVitals == null || (combatEnabledForVisit && chaserDefinition == null))
             {
                 throw new InvalidOperationException(
                     "PrototypeGameSession requires context, input reader, bomb loadout, player-vitals, and a chaser reference when combat is enabled.");
@@ -557,8 +576,8 @@ namespace BombSwap
             ValidateFinitePositive(chainDelaySeconds, nameof(chainDelaySeconds));
             CombatRoomDefinition roomDefinition = _runtimeRoomDefinition ??
                 context.RoomDefinition.CreateCoreDefinition();
-            _hasCharger = combatEnabled && roomDefinition.ChargerSpawn.HasValue;
-            _hasArmored = combatEnabled && roomDefinition.ArmoredSpawn.HasValue;
+            _hasCharger = combatEnabledForVisit && roomDefinition.ChargerSpawn.HasValue;
+            _hasArmored = combatEnabledForVisit && roomDefinition.ArmoredSpawn.HasValue;
             if (_hasCharger && chargerDefinition == null)
             {
                 throw new InvalidOperationException(
@@ -589,7 +608,7 @@ namespace BombSwap
                 _clock,
                 playerVitals.CreateCoreDefinition());
 
-            if (combatEnabled)
+            if (combatEnabledForVisit)
             {
                 _coreChaserDefinition = chaserDefinition.CreateCoreDefinition();
                 _chaser = new ChaserEnemySimulation(
@@ -640,9 +659,12 @@ namespace BombSwap
                     _movement.ActorId,
                     roomDefinition.ArmoredSpawn.Value);
             }
-            _roomCleared = !combatEnabled;
+            _roomCleared = !combatEnabledForVisit;
 
         }
+
+        private bool IsCombatEnabledForVisit =>
+            _runtimeCombatEnabled ?? combatEnabled;
 
         private void OnCommandIssued(PlayerCommand command)
         {

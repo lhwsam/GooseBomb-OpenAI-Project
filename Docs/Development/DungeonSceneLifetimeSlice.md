@@ -22,8 +22,9 @@
 4. persistent run host와 room-local binder를 구현해 pending scene transition을 [ADR-0008](../ADR/0008-Dungeon-Scene-Lifetime.md) 순서로 처리한다.
 5. 네 방향 외곽 벽을 문 폭만큼 분할하고 `Inactive`·`Locked`·`Open` presenter와 출구 감지를 연결한다.
 6. 시작방·폭탄 보상방·보스 전실·보스방 placeholder 씬을 Unity Editor builder로 만들고 Build Settings에 포함한다.
+7. room binder가 Core의 클리어 상태에서 방문별 전투 활성 여부를 파생해, 첫 입장만 적을 생성하고 클리어 뒤 재입장에서는 적 simulation·표현과 문 잠금을 모두 생략한다.
 
-1~6번 구현은 완료됐다. 실제 special catalog asset과 네 placeholder 씬, persistent host, room-local binder, 회전 문 presenter, 출구 감지, Build Settings 첫 Start 씬을 Editor builder·validator가 소유한다.
+1~7번 구현은 완료됐다. 실제 special catalog asset과 네 placeholder 씬, persistent host, room-local binder, 회전 문 presenter, 출구 감지, Build Settings 첫 Start 씬을 Editor builder·validator가 소유한다. 전투 가능 여부는 scene 저작 설정이고, 방문별 활성 여부는 `DungeonRunState.IsCleared`에서 파생하므로 별도의 Unity 전역 상태를 만들지 않는다.
 
 ## placeholder 범위
 
@@ -44,9 +45,10 @@
 
 현재 증거:
 
-- 전체 EditMode 244/244, PlayMode 86/86 통과.
+- 전체 EditMode 244/244, PlayMode 91/91 통과.
 - content validator 오류 0과 builder 2회차 멱등 동기화 통과.
 - Editor Play Mode에서 `DungeonStart` primary host·안전 session·열린 문을 확인하고, 서쪽 출구→`TestSandboxPillars` 로드·Core commit·90도 회전 입장 셀·잠긴 문을 확인.
+- 실제 `DungeonStart`와 seed-0 첫 전투 씬을 로드하는 PlayMode 회귀에서 첫 입장의 적 생성·문 잠금, Core 클리어 뒤 시작방 왕복, 재입장의 적 0·미생성 presenter·열린 문을 확인.
 - Development WebGL 8개 씬 빌드 오류 0, Playwright에서 canvas focus, Start 안전방 경로, graph scene transition/commit, 빠른 6회 방향 전환, 두 폭탄 입력, Console/page error 0 통과.
 - 전투 클리어→보상방→다음 전투와 이전 방 왕복의 브라우저 연속 검증은 후속이다.
 
@@ -55,4 +57,5 @@
 - 저장·불러오기, 비동기 로딩 화면, additive streaming.
 - 실제 폭탄 보상 선택·버린 무기 persistence.
 - 실제 보스 AI·승리·다음 층.
-- 완성 미니맵과 방별 전투 상태 저장.
+- 플레이어 체력·두 슬롯 loadout, 파괴 가능 벽과 적의 부분 체력 같은 room-local 세부 상태의 방 전환 persistence.
+- 완성 미니맵.

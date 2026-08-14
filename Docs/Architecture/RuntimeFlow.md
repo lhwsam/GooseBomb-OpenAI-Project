@@ -96,7 +96,7 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - `PrototypeDungeonSpecialRoomCatalogAsset`은 시작방·폭탄 보상방·보스 전실·보스방의 고유 씬 이름을 소유한다. special catalog가 주입된 run session은 모든 그래프 노드를 실제 씬 이름으로 해석하고, combat catalog가 전투방 asset·scene 선택을 계속 소유한다.
 - `DungeonRunState`는 현재 방의 북·동·남·서 연결을 `Inactive`·`Locked`·`Open`과 대상 방 ID의 read-only snapshot으로 계산한다. Unity 문 표현은 방 입장·클리어 시 이 상태를 읽고, 열린 문 전환은 같은 방향의 Core 이동 성공을 먼저 확정해야 한다.
 - `PrototypeDungeonRunNavigator`는 열린 문, 대상 콘텐츠와 씬 로드 가능성을 먼저 확인한 뒤 pending 전환을 만든다. 실제로 기대한 씬 이름이 완료될 때만 Core 이동을 한 번 commit하며, 로드 불가·중복·씬 불일치에서는 현재 방을 바꾸지 않는다.
-- `PrototypeDungeonRunHost`는 전용 root GameObject와 run session·navigator만 `DontDestroyOnLoad`로 유지하고 중복 bootstrap 중 primary 한 개만 허용한다. 실제 던전 씬 authoring, room-local binder, 입장 spawn 적용과 문 trigger는 아직 host를 소비하지 않는다.
+- `PrototypeDungeonRunHost`는 전용 root GameObject와 run session·navigator만 `DontDestroyOnLoad`로 유지하고 중복 bootstrap 중 primary 한 개만 허용한다. 각 던전 씬의 room-local binder는 host의 pending 전환과 Core 클리어 상태를 session `Awake` 전에 읽어 회전·입장 spawn·방문별 전투 활성 여부를 준비하고, 문 trigger는 열린 방향만 navigator에 전달한다. 따라서 클리어 방 재입장의 적 미생성과 열린 문은 별도 Unity 전역 상태가 아니라 `DungeonRunState`에서 파생된다.
 - Core에서 `UnityEngine.Random`을 사용하지 않는다.
 - seed, 생성 버전, 게임 정의 버전, 필요 최소한의 명령 로그로 실패 상황을 재현할 수 있어야 한다.
 - 시각적 파티클 랜덤은 규칙 결과에 영향을 주지 않는 한 재현 대상이 아니다.
