@@ -18,7 +18,6 @@ namespace BombSwap
         private bool _moveReported;
         private bool _contactEscapeMovedReported;
         private bool _placeBombReported;
-        private bool _bombExplosionReported;
         private bool _destructibleWallDestroyedReported;
         private bool _playerDamagedReported;
         private bool _playerExplosionDamagedReported;
@@ -142,12 +141,14 @@ namespace BombSwap
             {
                 WebGlHarnessReporter.Report("room-ready-" + room.RoomId);
             }
+            WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
             _readyReported = true;
         }
 
         private void OnPlayerMoved(PlayerMovementStep step)
         {
             ReportMovementStepDirection(step.Direction);
+            WebGlHarnessReporter.ReportPlayerCell(step.To);
 
             if (!_moveReported)
             {
@@ -200,13 +201,7 @@ namespace BombSwap
                 _destructibleWallDestroyedReported = true;
             }
 
-            if (_bombExplosionReported)
-            {
-                return;
-            }
-
             WebGlHarnessReporter.Report("bomb-exploded");
-            _bombExplosionReported = true;
         }
 
         private void OnPlayerDamaged(PlayerDamageResult result)

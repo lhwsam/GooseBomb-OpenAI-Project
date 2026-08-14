@@ -477,8 +477,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(duplicate == null || !duplicate.IsPrimary, Is.True);
             Assert.That(
                 UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
-                    FindObjectsInactive.Include,
-                    FindObjectsSortMode.None).Count(host => host.IsPrimary),
+                    FindObjectsInactive.Include).Count(host => host.IsPrimary),
                 Is.EqualTo(1));
         }
 

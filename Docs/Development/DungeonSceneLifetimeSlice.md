@@ -1,6 +1,6 @@
 # 던전 씬 수명·입장 작업 계약
 
-- 상태: `Implemented / Extended Traversal Verification Pending`
+- 상태: `Implemented / WebGL Traversal Verified`
 - 수명 소유: `BombSwap.Unity`
 - 직렬화 소유: `BombSwap.Authoring`
 - 선행 결정: [ADR-0008](../ADR/0008-Dungeon-Scene-Lifetime.md)
@@ -49,8 +49,8 @@
 - content validator 오류 0과 builder 2회차 멱등 동기화 통과.
 - Editor Play Mode에서 `DungeonStart` primary host·안전 session·열린 문을 확인하고, 서쪽 출구→`TestSandboxPillars` 로드·Core commit·90도 회전 입장 셀·잠긴 문을 확인.
 - 실제 `DungeonStart`와 seed-0 첫 전투 씬을 로드하는 PlayMode 회귀에서 첫 입장의 적 생성·문 잠금, Core 클리어 뒤 시작방 왕복, 재입장의 적 0·미생성 presenter·열린 문을 확인.
-- Development WebGL 8개 씬 빌드 오류 0, Playwright에서 canvas focus, Start 안전방 경로, graph scene transition/commit, 빠른 6회 방향 전환, 두 폭탄 입력, Console/page error 0 통과.
-- 전투 클리어→보상방→다음 전투와 이전 방 왕복의 브라우저 연속 검증은 후속이다.
+- Development WebGL 8개 씬 빌드 오류 0. Playwright 한 세션에서 canvas focus, Start 안전방 경로, 첫 전투방 빠른 방향 전환과 두 폭탄 실제 처치·클리어, 보상방 진입, 클리어 전투방 역방향 재입장 시 적 미생성, 보상방 재진입과 다음 전투방 진입을 확인했다.
+- WebGL build, 다섯 번의 graph transition/commit, pause/resume, resize와 browser Console/page error 0 증거는 `Artifacts/Verification/20260814-231000-dungeon-traversal-web/`에 남겼다.
 
 ## 비목표
 
