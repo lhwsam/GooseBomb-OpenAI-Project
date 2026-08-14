@@ -148,7 +148,12 @@ namespace BombSwap
 
             for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
             {
-                PrototypeBombDefinitionAsset definition = session.BombLoadout.GetSlot(slotIndex);
+                PrototypeBombDefinitionAsset definition =
+                    session.GetBombDefinitionForSlot(slotIndex);
+                if (definition == null)
+                {
+                    continue;
+                }
                 definition.ValidatePresentationReferences();
                 BombDefinitionId definitionId = new BombDefinitionId(definition.DefinitionId);
                 Stack<GameObject> bombPool = GetBombPool(definitionId);

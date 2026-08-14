@@ -825,6 +825,7 @@ MonoBehaviour:
   seed: 0
   combatRoomCatalog: {fileID: 11400000, guid: ac431ff7f4f10d841b7b05c0eaaddb82, type: 2}
   specialRoomCatalog: {fileID: 11400000, guid: 90e9fff55ff425042a085ba0e8607383, type: 2}
+  bombRewardCatalog: {fileID: 11400000, guid: 1c24178f548c89f4a9b01763a5a6d7de, type: 2}
   requireInitialSceneMatch: 1
 --- !u!4 &153389142
 Transform:
@@ -1459,6 +1460,7 @@ GameObject:
   - component: {fileID: 549228492}
   - component: {fileID: 549228494}
   - component: {fileID: 549228493}
+  - component: {fileID: 549228495}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1688,6 +1690,19 @@ MonoBehaviour:
   inactiveColor: {r: 0.18, g: 0.22, b: 0.27, a: 1}
   lockedColor: {r: 0.92, g: 0.16, b: 0.08, a: 1}
   openColor: {r: 0.08, g: 0.82, b: 0.45, a: 1}
+--- !u!114 &549228495
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db8485d9c004a414d94cac2d5f2a9869, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombRewardPresenter
+  roomBinder: {fileID: 549228493}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

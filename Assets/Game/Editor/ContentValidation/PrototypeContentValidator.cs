@@ -32,8 +32,12 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypeAreaBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeAreaBomb.asset";
+        public const string PrototypeLongCrossBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeLongCrossBomb.asset";
         public const string PrototypeBombLoadoutPath =
             "Assets/Game/Content/Bombs/PrototypeBombLoadout.asset";
+        public const string PrototypeBombRewardCatalogPath =
+            "Assets/Game/Content/Bombs/PrototypeBombRewardCatalog.asset";
         public const string PrototypePlayerVitalsPath =
             "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
         public const string PrototypeChaserDefinitionPath =
@@ -58,6 +62,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/AreaBombPlaceholder.prefab";
         public const string AreaExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
+        public const string LongCrossBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/LongCrossBombPlaceholder.prefab";
+        public const string LongCrossExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/LongCrossExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
         public const string ChargerPrefabPath =
@@ -118,6 +126,15 @@ namespace BombSwap.Editor.ContentValidation
                 BombExplosionShape.SquareArea,
                 1,
                 errors);
+            PrototypeBombDefinitionAsset longCrossDefinition =
+                ValidatePrototypeBombDefinition(
+                    PrototypeLongCrossBombDefinitionPath,
+                    LongCrossBombPrefabPath,
+                    LongCrossExplosionCellPrefabPath,
+                    "prototype-long-cross",
+                    BombExplosionShape.Cross,
+                    3,
+                    errors);
             PrototypeBombLoadoutAsset loadout =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
                     PrototypeBombLoadoutPath);
@@ -139,6 +156,36 @@ namespace BombSwap.Editor.ContentValidation
             if (loadout.FirstSlot != firstDefinition || loadout.SecondSlot != secondDefinition)
             {
                 errors.Add("Prototype bomb loadout must reference the validated first and second bomb assets.");
+            }
+
+            PrototypeBombRewardCatalogAsset rewardCatalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombRewardCatalogAsset>(
+                    PrototypeBombRewardCatalogPath);
+            if (rewardCatalog == null)
+            {
+                errors.Add(
+                    $"Missing prototype bomb reward catalog: {PrototypeBombRewardCatalogPath}");
+            }
+            else
+            {
+                try
+                {
+                    rewardCatalog.Validate();
+                    rewardCatalog.CreateRunLoadoutState();
+                }
+                catch (Exception exception)
+                {
+                    errors.Add($"Invalid prototype bomb reward catalog: {exception.Message}");
+                }
+
+                if (rewardCatalog.FirstSlot != firstDefinition ||
+                    rewardCatalog.RewardCandidates.Count != 2 ||
+                    rewardCatalog.RewardCandidates[0] != secondDefinition ||
+                    rewardCatalog.RewardCandidates[1] != longCrossDefinition)
+                {
+                    errors.Add(
+                        "Prototype bomb reward catalog must start with prototype-cross and offer prototype-area then prototype-long-cross.");
+                }
             }
 
             string[] legacyPaths =
@@ -837,6 +884,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeDungeonRoomBinder>(scene);
                 PrototypeDungeonDoorPresenter[] doorPresenters =
                     FindComponents<PrototypeDungeonDoorPresenter>(scene);
+                PrototypeBombRewardPresenter[] bombRewardPresenters =
+                    FindComponents<PrototypeBombRewardPresenter>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
 
@@ -917,6 +966,17 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"Dungeon room must contain exactly one PrototypeDungeonDoorPresenter; found {doorPresenters.Length}.");
+                }
+                int expectedBombRewardPresenterCount = string.Equals(
+                    scenePath,
+                    DungeonRewardScenePath,
+                    StringComparison.Ordinal) ? 1 : 0;
+                if (bombRewardPresenters.Length != expectedBombRewardPresenterCount)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain {expectedBombRewardPresenterCount} " +
+                        "PrototypeBombRewardPresenter component(s); found " +
+                        $"{bombRewardPresenters.Length}.");
                 }
                 if (!cameras.Any(camera => camera.enabled && camera.CompareTag("MainCamera")))
                 {
@@ -1100,13 +1160,18 @@ namespace BombSwap.Editor.ContentValidation
                         AssetDatabase.LoadAssetAtPath<
                             PrototypeDungeonSpecialRoomCatalogAsset>(
                             PrototypeDungeonSpecialRoomCatalogPath);
+                    PrototypeBombRewardCatalogAsset expectedRewardCatalog =
+                        AssetDatabase.LoadAssetAtPath<
+                            PrototypeBombRewardCatalogAsset>(
+                            PrototypeBombRewardCatalogPath);
                     if (host.transform.parent != null || host.Seed != 0 ||
                         host.CombatRoomCatalog != expectedCombatCatalog ||
                         host.SpecialRoomCatalog != expectedSpecialCatalog ||
+                        host.BombRewardCatalog != expectedRewardCatalog ||
                         !host.RequireInitialSceneMatch)
                     {
                         errors.Add(
-                            "Dungeon run host must be a seed-0 root using both validated catalogs and initial-scene matching.");
+                            "Dungeon run host must be a seed-0 root using the validated room and bomb-reward catalogs with initial-scene matching.");
                     }
                 }
 
@@ -1123,6 +1188,13 @@ namespace BombSwap.Editor.ContentValidation
                         errors.Add(
                             "Dungeon room binder has inconsistent session, presenter, or grid references.");
                     }
+                }
+
+                if (bombRewardPresenters.Length == 1 && roomBinders.Length == 1 &&
+                    bombRewardPresenters[0].RoomBinder != roomBinders[0])
+                {
+                    errors.Add(
+                        "Bomb reward presenter has an inconsistent dungeon room binder reference.");
                 }
 
                 if (doorPresenters.Length == 1 && contexts.Length == 1)

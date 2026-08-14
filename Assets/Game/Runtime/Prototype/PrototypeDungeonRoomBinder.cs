@@ -21,6 +21,8 @@ namespace BombSwap
 
         private PrototypeDungeonRunHost _runHost;
         private CombatRoomDefinition _runtimeRoomDefinition;
+        private DungeonRoomNodeId _runtimeRoomId;
+        private RoomType _runtimeRoomType;
         private RoomRotation _roomRotation;
         private bool _transitionRequested;
 
@@ -33,6 +35,37 @@ namespace BombSwap
         public Transform GridRoot => gridRoot;
 
         public RoomRotation RoomRotation => _roomRotation;
+
+        public DungeonRoomNodeId RuntimeRoomId => _runtimeRoomId;
+
+        public RoomType RuntimeRoomType => _runtimeRoomType;
+
+        public DungeonBombRewardSelectionStatus TrySelectBombReward(
+            BombDefinitionId candidateId)
+        {
+            if (_runHost == null || roomSession == null || !roomSession.IsReady)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon room is not ready to select a bomb reward.");
+            }
+
+            DungeonBombRewardSelectionStatus status =
+                _runHost.RunSession.TrySelectBombReward(candidateId);
+            if (status != DungeonBombRewardSelectionStatus.Selected)
+            {
+                return status;
+            }
+
+            PrototypeBombDefinitionAsset selected =
+                _runHost.BombRewardCatalog.GetDefinition(candidateId);
+            if (!roomSession.TryEquipSecondBomb(selected))
+            {
+                throw new InvalidOperationException(
+                    $"Selected bomb reward '{candidateId}' could not fill the empty second slot.");
+            }
+            WebGlHarnessReporter.Report("bomb-reward-selected-" + candidateId.Value);
+            return status;
+        }
 
         public void Configure(
             PrototypeGameSession authoredRoomSession,
@@ -138,6 +171,8 @@ namespace BombSwap
             }
 
             DungeonRoomNode room = run.Graph.GetRoom(roomId);
+            _runtimeRoomId = roomId;
+            _runtimeRoomType = room.RoomType;
             CombatRoomDefinition authoredDefinition =
                 roomSession.Context.RoomDefinition.CreateCoreDefinition();
             bool roomRequiresCombat = DungeonRunState.RequiresClear(room.RoomType);
@@ -180,6 +215,19 @@ namespace BombSwap
                 : _runtimeRoomDefinition.PlayerSpawn;
             bool combatEnabledForVisit =
                 roomRequiresCombat && !run.RunState.IsCleared(roomId);
+            PrototypeBombRewardCatalogAsset rewardCatalog =
+                _runHost.BombRewardCatalog;
+            DungeonBombLoadoutState runLoadout = run.BombLoadoutState ??
+                throw new InvalidOperationException(
+                    "Dungeon run requires a persistent bomb loadout state.");
+            PrototypeBombDefinitionAsset secondSlot = runLoadout.SecondSlot.HasValue
+                ? rewardCatalog.GetDefinition(runLoadout.SecondSlot.Value)
+                : null;
+            roomSession.PrepareRuntimeBombLoadout(
+                rewardCatalog.FirstSlot,
+                secondSlot,
+                rewardCatalog.GetAvailableDefinitions(),
+                rewardCatalog.SwapCooldownSeconds);
             roomSession.PrepareRuntimeRoom(
                 _runtimeRoomDefinition,
                 playerStart,

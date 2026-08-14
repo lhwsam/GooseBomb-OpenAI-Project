@@ -1039,6 +1039,7 @@ MonoBehaviour:
   seed: 0
   combatRoomCatalog: {fileID: 11400000, guid: ac431ff7f4f10d841b7b05c0eaaddb82, type: 2}
   specialRoomCatalog: {fileID: 11400000, guid: 90e9fff55ff425042a085ba0e8607383, type: 2}
+  bombRewardCatalog: {fileID: 11400000, guid: 1c24178f548c89f4a9b01763a5a6d7de, type: 2}
   requireInitialSceneMatch: 1
 --- !u!4 &350195251
 Transform:

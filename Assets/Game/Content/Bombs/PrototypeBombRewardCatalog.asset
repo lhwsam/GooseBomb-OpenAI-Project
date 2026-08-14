@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62b388778962df742910a1d9e34f90eb, type: 3}
+  m_Name: PrototypeBombRewardCatalog
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombRewardCatalogAsset
+  firstSlot: {fileID: 11400000, guid: 2c0c58c2234aaff49882136fa86b6228, type: 2}
+  rewardCandidates:
+  - {fileID: 11400000, guid: b4a02a66afc9ae74396b32f26fc665f4, type: 2}
+  - {fileID: 11400000, guid: 58556964212a188458617696bc354d74, type: 2}
+  swapCooldownSeconds: 2

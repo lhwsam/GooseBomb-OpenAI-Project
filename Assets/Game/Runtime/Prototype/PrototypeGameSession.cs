@@ -69,6 +69,10 @@ namespace BombSwap
         private CombatRoomDefinition _runtimeRoomDefinition;
         private GridPosition? _runtimePlayerStart;
         private bool? _runtimeCombatEnabled;
+        private PrototypeBombDefinitionAsset _runtimeFirstBombDefinition;
+        private PrototypeBombDefinitionAsset _runtimeSecondBombDefinition;
+        private PrototypeBombDefinitionAsset[] _runtimeBombDefinitions;
+        private float _runtimeSwapCooldownSeconds;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
@@ -88,6 +92,8 @@ namespace BombSwap
         public event Action<BombExplosion> BombExploded;
 
         public event Action<int> ActiveBombSlotChanged;
+
+        public event Action<int> BombSlotEquipped;
 
         public event Action<PlayerDamageResult> PlayerDamaged;
 
@@ -114,7 +120,11 @@ namespace BombSwap
         public BombSwapInputReader InputReader => inputReader;
 
         public PrototypeBombDefinitionAsset BombDefinition =>
-            bombLoadout != null ? bombLoadout.FirstSlot : bombDefinition;
+            _runtimeFirstBombDefinition != null
+                ? _runtimeFirstBombDefinition
+                : bombLoadout != null
+                    ? bombLoadout.FirstSlot
+                    : bombDefinition;
 
         public PrototypeBombLoadoutAsset BombLoadout => bombLoadout;
 
@@ -151,6 +161,12 @@ namespace BombSwap
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
 
         public int ActiveBombSlotIndex => _weapons != null ? _weapons.ActiveSlotIndex : 0;
+
+        public bool HasSecondBombSlot => _weapons != null
+            ? _weapons.HasSecondSlot
+            : _runtimeSecondBombDefinition != null ||
+              (_runtimeFirstBombDefinition == null &&
+               bombLoadout != null && bombLoadout.SecondSlot != null);
 
         public TimeSpan BombSwapCooldownRemaining =>
             _weapons != null ? _weapons.SwapCooldownRemaining : TimeSpan.Zero;
@@ -334,6 +350,73 @@ namespace BombSwap
             _runtimeCombatEnabled = combatEnabledForVisit;
         }
 
+        public void PrepareRuntimeBombLoadout(
+            PrototypeBombDefinitionAsset firstSlot,
+            PrototypeBombDefinitionAsset secondSlot,
+            PrototypeBombDefinitionAsset[] availableDefinitions,
+            float swapCooldownSeconds)
+        {
+            if (_weapons != null)
+            {
+                throw new InvalidOperationException(
+                    "Runtime bomb loadout must be prepared before session initialization.");
+            }
+            if (firstSlot == null)
+            {
+                throw new ArgumentNullException(nameof(firstSlot));
+            }
+            if (availableDefinitions == null)
+            {
+                throw new ArgumentNullException(nameof(availableDefinitions));
+            }
+            ValidateFinitePositive(swapCooldownSeconds, nameof(swapCooldownSeconds));
+
+            var copy = new PrototypeBombDefinitionAsset[availableDefinitions.Length];
+            bool foundFirst = false;
+            bool foundSecond = secondSlot == null;
+            for (int index = 0; index < availableDefinitions.Length; index++)
+            {
+                PrototypeBombDefinitionAsset definition = availableDefinitions[index];
+                if (definition == null)
+                {
+                    throw new ArgumentException(
+                        "Runtime bomb definitions cannot contain null.",
+                        nameof(availableDefinitions));
+                }
+                definition.CreateCoreWeaponDefinition();
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if (copy[previous].DefinitionId == definition.DefinitionId)
+                    {
+                        throw new ArgumentException(
+                            "Runtime bomb definition IDs must be unique.",
+                            nameof(availableDefinitions));
+                    }
+                }
+                copy[index] = definition;
+                foundFirst |= definition.DefinitionId == firstSlot.DefinitionId;
+                foundSecond |= secondSlot != null &&
+                    definition.DefinitionId == secondSlot.DefinitionId;
+            }
+            if (!foundFirst || !foundSecond)
+            {
+                throw new ArgumentException(
+                    "Runtime bomb definitions must include every equipped slot.",
+                    nameof(availableDefinitions));
+            }
+            if (secondSlot != null && secondSlot.DefinitionId == firstSlot.DefinitionId)
+            {
+                throw new ArgumentException(
+                    "Runtime bomb slots must use different definition IDs.",
+                    nameof(secondSlot));
+            }
+
+            _runtimeFirstBombDefinition = firstSlot;
+            _runtimeSecondBombDefinition = secondSlot;
+            _runtimeBombDefinitions = copy;
+            _runtimeSwapCooldownSeconds = swapCooldownSeconds;
+        }
+
         public GridCellState GetCell(GridPosition position)
         {
             return _grid != null ? _grid.GetCell(position) : default;
@@ -362,12 +445,66 @@ namespace BombSwap
 
         public PrototypeBombDefinitionAsset GetBombDefinition(BombDefinitionId definitionId)
         {
+            if (_runtimeBombDefinitions != null)
+            {
+                for (int index = 0; index < _runtimeBombDefinitions.Length; index++)
+                {
+                    PrototypeBombDefinitionAsset definition = _runtimeBombDefinitions[index];
+                    if (definition.DefinitionId == definitionId.Value)
+                    {
+                        return definition;
+                    }
+                }
+                throw new InvalidOperationException(
+                    $"Bomb definition '{definitionId}' is not part of this runtime loadout catalog.");
+            }
             if (bombLoadout == null)
             {
                 throw new InvalidOperationException("Prototype game session has no bomb loadout.");
             }
 
             return bombLoadout.GetDefinition(definitionId);
+        }
+
+        public PrototypeBombDefinitionAsset GetBombDefinitionForSlot(int slotIndex)
+        {
+            BombWeaponSlotSnapshot slot = GetBombSlot(slotIndex);
+            return slot.HasDefinition ? GetBombDefinition(slot.DefinitionId) : null;
+        }
+
+        public bool TryEquipSecondBomb(PrototypeBombDefinitionAsset definition)
+        {
+            if (definition == null)
+            {
+                throw new ArgumentNullException(nameof(definition));
+            }
+            if (_weapons == null || _runtimeBombDefinitions == null)
+            {
+                throw new InvalidOperationException(
+                    "Only an initialized dungeon runtime loadout can receive a bomb reward.");
+            }
+
+            PrototypeBombDefinitionAsset canonical = null;
+            for (int index = 0; index < _runtimeBombDefinitions.Length; index++)
+            {
+                if (_runtimeBombDefinitions[index].DefinitionId == definition.DefinitionId)
+                {
+                    canonical = _runtimeBombDefinitions[index];
+                    break;
+                }
+            }
+            if (canonical == null)
+            {
+                return false;
+            }
+            if (!_weapons.TryEquipSecondSlot(canonical.CreateCoreWeaponDefinition()))
+            {
+                return false;
+            }
+
+            _runtimeSecondBombDefinition = canonical;
+            BombSlotEquipped?.Invoke(1);
+            return true;
         }
 
         private void Awake()
@@ -602,7 +739,15 @@ namespace BombSwap
                 _grid,
                 _clock,
                 TimeSpan.FromSeconds(chainDelaySeconds));
-            _weapons = bombLoadout.CreateCoreLoadout(_clock);
+            _weapons = _runtimeFirstBombDefinition != null
+                ? new BombWeaponLoadout(
+                    _clock,
+                    _runtimeFirstBombDefinition.CreateCoreWeaponDefinition(),
+                    _runtimeSecondBombDefinition != null
+                        ? _runtimeSecondBombDefinition.CreateCoreWeaponDefinition()
+                        : null,
+                    TimeSpan.FromSeconds(_runtimeSwapCooldownSeconds))
+                : bombLoadout.CreateCoreLoadout(_clock);
             _health = new PlayerHealthSimulation(
                 _movement.ActorId,
                 _clock,

@@ -130,6 +130,85 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void EmptySecondSlot_BlocksSwapAndReportsLockedSnapshot()
+        {
+            ManualGameClock clock = new ManualGameClock();
+            BombWeaponDefinition primary = new BombWeaponDefinition(
+                CreateBombDefinition("primary"),
+                TimeSpan.FromSeconds(2));
+            var loadout = new BombWeaponLoadout(
+                clock,
+                primary,
+                null,
+                TimeSpan.FromSeconds(0.5));
+
+            BombWeaponSlotSnapshot empty = loadout.GetSlot(1);
+
+            Assert.That(loadout.HasSecondSlot, Is.False);
+            Assert.That(loadout.CanSwap, Is.False);
+            Assert.That(loadout.TrySwap(), Is.False);
+            Assert.That(loadout.ActiveSlotIndex, Is.Zero);
+            Assert.That(empty.HasDefinition, Is.False);
+            Assert.That(empty.IsReady, Is.False);
+            Assert.That(empty.ReadyFraction, Is.Zero);
+            Assert.Throws<InvalidOperationException>(() => _ = empty.DefinitionId);
+        }
+
+        [Test]
+        public void EquipSecondSlot_FillsOnlyOnceWithoutConsumingCooldown()
+        {
+            ManualGameClock clock = new ManualGameClock();
+            BombWeaponDefinition primary = new BombWeaponDefinition(
+                CreateBombDefinition("primary"),
+                TimeSpan.FromSeconds(2));
+            BombWeaponDefinition reward = new BombWeaponDefinition(
+                CreateBombDefinition("reward"),
+                TimeSpan.FromSeconds(1));
+            var loadout = new BombWeaponLoadout(
+                clock,
+                primary,
+                null,
+                TimeSpan.FromSeconds(0.5));
+
+            Assert.That(loadout.TryEquipSecondSlot(reward), Is.True);
+
+            BombWeaponSlotSnapshot equipped = loadout.GetSlot(1);
+            Assert.That(loadout.HasSecondSlot, Is.True);
+            Assert.That(loadout.CanSwap, Is.True);
+            Assert.That(equipped.HasDefinition, Is.True);
+            Assert.That(equipped.DefinitionId, Is.EqualTo(reward.Id));
+            Assert.That(equipped.IsReady, Is.True);
+            Assert.That(equipped.PlacementCooldownRemaining, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(
+                loadout.TryEquipSecondSlot(new BombWeaponDefinition(
+                    CreateBombDefinition("other"),
+                    TimeSpan.FromSeconds(1))),
+                Is.False);
+        }
+
+        [Test]
+        public void EquipSecondSlot_RejectsNullAndDuplicateFirstDefinition()
+        {
+            ManualGameClock clock = new ManualGameClock();
+            BombWeaponDefinition primary = new BombWeaponDefinition(
+                CreateBombDefinition("primary"),
+                TimeSpan.FromSeconds(2));
+            var loadout = new BombWeaponLoadout(
+                clock,
+                primary,
+                null,
+                TimeSpan.FromSeconds(0.5));
+
+            Assert.Throws<ArgumentNullException>(() => loadout.TryEquipSecondSlot(null));
+            Assert.That(
+                loadout.TryEquipSecondSlot(new BombWeaponDefinition(
+                    CreateBombDefinition("primary"),
+                    TimeSpan.FromSeconds(1))),
+                Is.False);
+            Assert.That(loadout.HasSecondSlot, Is.False);
+        }
+
+        [Test]
         public void Constructor_RejectsDuplicateDefinitionIdsAndNonPositiveCooldowns()
         {
             ManualGameClock clock = new ManualGameClock();
