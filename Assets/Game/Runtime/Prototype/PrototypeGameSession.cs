@@ -992,6 +992,7 @@ namespace BombSwap
                     }
                     break;
                 case PlayerCommandKind.Pause:
+                case PlayerCommandKind.RestartRun:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(

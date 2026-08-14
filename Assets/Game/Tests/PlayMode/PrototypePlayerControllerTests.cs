@@ -1561,6 +1561,7 @@ namespace BombSwap.Tests.PlayMode
                     roomTransitionDelaySeconds);
             }
             _root.SetActive(true);
+            reader.SetInputFocus(true);
         }
 
         private void PressAndRelease(Key key)
@@ -1592,6 +1593,7 @@ namespace BombSwap.Tests.PlayMode
             gameplay.AddAction(BombSwapInputActionNames.PlaceBomb, InputActionType.Button, "<Keyboard>/z");
             gameplay.AddAction(BombSwapInputActionNames.SwapBomb, InputActionType.Button, "<Keyboard>/x");
             gameplay.AddAction(BombSwapInputActionNames.Pause, InputActionType.Button, "<Keyboard>/escape");
+            gameplay.AddAction(BombSwapInputActionNames.RestartRun, InputActionType.Button, "<Keyboard>/r");
             return asset;
         }
     }

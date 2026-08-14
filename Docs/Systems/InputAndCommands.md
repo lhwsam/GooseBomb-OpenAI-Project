@@ -18,6 +18,7 @@
 | 폭탄 설치 | `Z` | South 버튼 |
 | 폭탄 교체 | `X` | West 버튼 |
 | 일시정지 요청 | `Esc` | Start 버튼 |
+| 완료한 런 재시작 | `R` | Select 버튼 |
 
 이동은 상하좌우 네 방향만 Core에 전달한다. 아날로그·복합 입력은 절댓값이 큰 축을 선택한다. 두 축의 크기가 같고 현재 방향도 여전히 눌려 있으면 현재 축에 직교하는 새 전환 축을 우선해 짧은 키 겹침에서도 방향 전환을 즉시 명령으로 만든다. 유지 중인 방향이 벡터에 없거나 `None`이면 세로축을 우선하는 결정론적 규칙을 사용한다.
 
@@ -26,9 +27,10 @@
 - `BombSwapInputActions.inputactions`: 장치 경로, 액션 타입, control scheme의 권위 에셋.
 - `BombSwapInputReader`: 액션 callback을 구독하고 `PlayerCommand`를 발행하며 focus/생명주기를 정리한다. 세션의 이동 계산 직전에는 현재 Move 값을 다시 읽어 callback 시점과 frame 실행 순서 사이의 지연 가능성을 없앤다.
 - `CardinalInputInterpreter`: `Vector2`를 네 방향 이동 의도로 축소한다.
-- `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause` 의미와 이동 방향을 보존하는 Core 값이다.
+- `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun` 의미와 이동 방향을 보존하는 Core 값이다.
 - `PrototypeGameSession`: TestSandbox에서 공유 시계·격자를 소유하고 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`과 `SwapBomb`을 `BombWeaponLoadout`에 전달한다.
 - `PrototypePlayerController`: Core 연속 위치 변경을 받아 placeholder Transform에 직접 표시한다.
+- `PrototypeRunCompletionPresenter`: 완료 화면이 보일 때만 `RestartRun`을 persistent run host에 전달한다.
 - 향후 세션 확장: pause 명령을 논리 시간과 UI 정지 정책에 전달한다.
 
 입력 계층은 이동 가능 여부, 폭탄 설치·교체 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에서 이동, 활성 슬롯, 설치와 교체 성공은 공유 Core simulation이 판정하고 Transform/prefab/HUD가 그 결과를 표현한다. pause 소비자는 아직 없다.
@@ -40,7 +42,7 @@
 - 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
 - 입력 어댑터가 발행하는 `Move`는 현재 유지 방향이다. Core 이동은 별도 0.2초 입력 cadence나 방향 queue 없이 다음 관찰 frame의 연속 위치에 이 방향을 적용한다.
 - 이동 해제는 `Move(None)`으로 표현한다.
-- 설치·교체·pause는 버튼의 performed 시점에 한 번 발행한다.
+- 설치·교체·pause·재시작은 버튼의 performed 시점에 한 번 발행한다.
 - 컴포넌트 비활성화 또는 application focus/pause 상실 시 활성 이동을 즉시 `None`으로 해제한다.
 - focus를 잃은 동안 Gameplay map을 비활성화하고 map에 바인딩된 장치 상태를 reset한 뒤 복귀 시 다시 활성화한다.
 - enable/disable마다 callback을 대칭으로 구독·해제해 씬 재진입에서도 중복 명령을 만들지 않는다.
@@ -49,10 +51,10 @@
 
 - 에셋 경로: `Assets/Game/Content/Input/BombSwapInputActions.inputactions`
 - action map: `Gameplay`
-- actions: `Move`(`Value/Vector2`), `PlaceBomb`, `SwapBomb`, `Pause`(`Button`)
+- actions: `Move`(`Value/Vector2`), `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun`(`Button`)
 - control schemes: 필수 Keyboard 한 개, 필수 Gamepad 한 개
 - 생성/복구 도구: `Bomb Swap/Prototype/Create Missing Prototype Content`
-- `PrototypeContentValidator`가 액션, 필수 binding, 중복 binding, control scheme, 세 TestSandbox 씬 참조와 Build Settings의 3방 순서를 검사한다.
+- `PrototypeContentValidator`가 액션, 필수 binding, 중복 binding, control scheme, 여덟 던전 씬 참조와 Build Settings 순서를 검사한다.
 
 기존 Unity 템플릿 `Assets/InputSystem_Actions.inputactions`는 수정하지 않는다. BombSwap 런타임은 게임 전용 에셋만 참조한다.
 
@@ -66,9 +68,9 @@
 ## 자동 테스트
 
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
-- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타, 유지 대각선의 최신 축 고정, Input System 키 상태→명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시.
+- PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타, 유지 대각선의 최신 축 고정, Input System 키 상태→이동·폭탄·pause·재시작 명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서는 `ArrowUp/ArrowRight` 단타를 여섯 번 교대하고 각 key release 전에 대응하는 실제 `move-motion-direction-*`이 발생해야 하며, 정지 상태 폭탄으로 자기 폭발 피해도 별도 확인한다.
+- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 마지막 방에서는 `ArrowUp/ArrowRight` 단타를 여섯 번 교대하고 각 key release 전에 대응하는 실제 `move-motion-direction-*`이 발생해야 한다. 보스 격파 뒤 완료 화면을 캡처하고 `R`로 페이지 reload 없는 새 run 시작을 확인한다.
 
 ## 미정 사항과 종료 조건
 

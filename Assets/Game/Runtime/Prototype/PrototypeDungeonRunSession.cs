@@ -83,6 +83,9 @@ namespace BombSwap
 
         public DungeonRoomNodeId CurrentRoomId => RunState.CurrentRoomId;
 
+        public bool IsComplete =>
+            CurrentRoomId == Graph.BossRoomId && RunState.IsCleared(Graph.BossRoomId);
+
         public DungeonTravelResult TryTravel(RoomExitDirection direction)
         {
             return RunState.TryTravel(direction);

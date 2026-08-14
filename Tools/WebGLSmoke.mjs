@@ -709,10 +709,11 @@ async function main() {
       count: bossClearBefore + 1,
       timeout: 5_000,
     });
+    await waitForEvent(page, "run-completed", { timeout: 5_000 });
     checks.push({
       name: "boss-battle-cleared",
       status: "passed",
-      detail: "Room 7 telegraphed deterministic grid attacks and accepted four area-bomb counterattacks only during Recovery before clearing once.",
+      detail: "Room 7 telegraphed deterministic grid attacks, accepted four area-bomb counterattacks only during Recovery, and presented the floor-clear result once.",
     });
 
     await page.keyboard.press("Escape");
@@ -725,6 +726,23 @@ async function main() {
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath });
     checks.push({ name: "screenshot", status: "passed", detail: screenshotPath });
+
+    const restartedStartReadyBefore = await eventCount(
+      page,
+      "dungeon-room-ready-1-start-safe",
+    );
+    await page.keyboard.press("KeyR");
+    await waitForEvent(page, "run-restart-requested", { timeout: 5_000 });
+    await waitForEvent(page, "dungeon-run-restarted", { timeout: 5_000 });
+    await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
+      count: restartedStartReadyBefore + 1,
+      timeout: 20_000,
+    });
+    checks.push({
+      name: "completed-run-restart",
+      status: "passed",
+      detail: "R restarted the completed seed-0 run in a fresh start room without reloading the browser page.",
+    });
 
     const requiredEvents = [
       "probe-ready",
@@ -759,6 +777,9 @@ async function main() {
       "boss-damaged",
       "boss-phase-two",
       "boss-defeated",
+      "run-completed",
+      "run-restart-requested",
+      "dungeon-run-restarted",
       "swap-bomb",
       "pause-resume",
       "audio-unlocked",

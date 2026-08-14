@@ -25,6 +25,7 @@ namespace BombSwap.Core
                     case PlayerCommandKind.PlaceBomb:
                     case PlayerCommandKind.SwapBomb:
                     case PlayerCommandKind.Pause:
+                    case PlayerCommandKind.RestartRun:
                         return MoveDirection == CardinalDirection.None;
                     default:
                         return false;
@@ -55,6 +56,11 @@ namespace BombSwap.Core
         public static PlayerCommand Pause()
         {
             return new PlayerCommand(PlayerCommandKind.Pause, CardinalDirection.None);
+        }
+
+        public static PlayerCommand RestartRun()
+        {
+            return new PlayerCommand(PlayerCommandKind.RestartRun, CardinalDirection.None);
         }
 
         public bool Equals(PlayerCommand other)

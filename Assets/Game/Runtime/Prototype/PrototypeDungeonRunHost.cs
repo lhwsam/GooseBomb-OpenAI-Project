@@ -112,6 +112,42 @@ namespace BombSwap
             return RunSession.TryClearCurrentRoom();
         }
 
+        public void RestartCompletedRun()
+        {
+            RequirePrimary();
+            if (_navigator.HasPendingTransition)
+            {
+                throw new InvalidOperationException(
+                    "A dungeon run cannot restart during a pending room transition.");
+            }
+            if (!RunSession.IsComplete)
+            {
+                throw new InvalidOperationException(
+                    "Only a completed boss run can restart.");
+            }
+
+            PrototypeDungeonRunSession restartedSession = CreateRunSession();
+            if (!restartedSession.TryGetCurrentSceneName(out string startSceneName) ||
+                !Application.CanStreamedLevelBeLoaded(startSceneName))
+            {
+                throw new InvalidOperationException(
+                    $"Restart scene '{startSceneName}' is not loadable.");
+            }
+
+            PrototypeDungeonRunNavigator previousNavigator = _navigator;
+            _navigator = new PrototypeDungeonRunNavigator(restartedSession);
+            try
+            {
+                WebGlHarnessReporter.Report("dungeon-run-restarted");
+                SceneManager.LoadScene(startSceneName, LoadSceneMode.Single);
+            }
+            catch
+            {
+                _navigator = previousNavigator;
+                throw;
+            }
+        }
+
         private void Awake()
         {
             if (!Application.isPlaying)
@@ -143,11 +179,7 @@ namespace BombSwap
                     "PrototypeDungeonRunHost requires combat, special-room, and bomb-reward catalogs.");
             }
 
-            var runSession = new PrototypeDungeonRunSession(
-                seed,
-                combatRoomCatalog,
-                specialRoomCatalog,
-                bombRewardCatalog);
+            PrototypeDungeonRunSession runSession = CreateRunSession();
             _navigator = new PrototypeDungeonRunNavigator(runSession);
             if (requireInitialSceneMatch)
             {
@@ -202,6 +234,15 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "PrototypeDungeonRunHost is not the active run host.");
             }
+        }
+
+        private PrototypeDungeonRunSession CreateRunSession()
+        {
+            return new PrototypeDungeonRunSession(
+                seed,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                bombRewardCatalog);
         }
     }
 }

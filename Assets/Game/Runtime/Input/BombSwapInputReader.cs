@@ -17,6 +17,7 @@ namespace BombSwap
         private InputAction _placeBombAction;
         private InputAction _swapBombAction;
         private InputAction _pauseAction;
+        private InputAction _restartRunAction;
         private bool _isSubscribed;
         private bool _hasInputFocus = true;
         private bool _hasSampledMoveValue;
@@ -144,11 +145,13 @@ namespace BombSwap
             _placeBombAction = FindRequiredAction(BombSwapInputActionNames.PlaceBomb);
             _swapBombAction = FindRequiredAction(BombSwapInputActionNames.SwapBomb);
             _pauseAction = FindRequiredAction(BombSwapInputActionNames.Pause);
+            _restartRunAction = FindRequiredAction(BombSwapInputActionNames.RestartRun);
 
             return _moveAction != null &&
                    _placeBombAction != null &&
                    _swapBombAction != null &&
-                   _pauseAction != null;
+                   _pauseAction != null &&
+                   _restartRunAction != null;
         }
 
         private InputAction FindRequiredAction(string actionName)
@@ -171,6 +174,7 @@ namespace BombSwap
             _placeBombAction.performed += OnPlaceBomb;
             _swapBombAction.performed += OnSwapBomb;
             _pauseAction.performed += OnPause;
+            _restartRunAction.performed += OnRestartRun;
             _isSubscribed = true;
         }
 
@@ -181,6 +185,7 @@ namespace BombSwap
             _placeBombAction.performed -= OnPlaceBomb;
             _swapBombAction.performed -= OnSwapBomb;
             _pauseAction.performed -= OnPause;
+            _restartRunAction.performed -= OnRestartRun;
             _isSubscribed = false;
         }
 
@@ -202,6 +207,11 @@ namespace BombSwap
         private void OnPause(InputAction.CallbackContext context)
         {
             Issue(PlayerCommand.Pause());
+        }
+
+        private void OnRestartRun(InputAction.CallbackContext context)
+        {
+            Issue(PlayerCommand.RestartRun());
         }
 
         private void SetMoveDirection(CardinalDirection direction)
@@ -249,6 +259,7 @@ namespace BombSwap
             _placeBombAction = null;
             _swapBombAction = null;
             _pauseAction = null;
+            _restartRunAction = null;
             _lastSampledMoveValue = Vector2.zero;
             _hasSampledMoveValue = false;
         }

@@ -79,8 +79,7 @@ namespace BombSwap.Tests.Harness
                 filter.testNames = (string[])testNames.Clone();
             }
 
-            EditorApplication.delayCall += () =>
-                Api.Execute(new ExecutionSettings(filter));
+            Api.Execute(new ExecutionSettings(filter));
         }
 
         private static void WriteStatus(ConnectedTestStatus status)

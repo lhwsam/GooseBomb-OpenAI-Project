@@ -92,6 +92,39 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void Session_CompletesOnlyAfterBossRoomIsCleared()
+        {
+            var session = new PrototypeDungeonRunSession(
+                19,
+                CreateCatalog(),
+                CreateSpecialCatalog(),
+                CreateBombRewardCatalog());
+            IReadOnlyList<DungeonRoomNodeId> path = session.Graph.GetShortestPath(
+                session.Graph.StartRoomId,
+                session.Graph.BossRoomId);
+
+            Assert.That(session.IsComplete, Is.False);
+            for (int index = 1; index < path.Count; index++)
+            {
+                DungeonRoomNode current = session.Graph.GetRoom(session.CurrentRoomId);
+                if (DungeonRunState.RequiresClear(current.RoomType))
+                {
+                    Assert.That(
+                        session.TryClearCurrentRoom(),
+                        Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                }
+                Assert.That(session.TryTravelTo(path[index]).Moved, Is.True);
+                Assert.That(session.IsComplete, Is.False);
+            }
+
+            Assert.That(session.CurrentRoomId, Is.EqualTo(session.Graph.BossRoomId));
+            Assert.That(
+                session.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            Assert.That(session.IsComplete, Is.True);
+        }
+
+        [Test]
         public void Session_ExposesGraphDoorsThatMatchCombatAssignmentAndClearState()
         {
             var session = new PrototypeDungeonRunSession(41, CreateCatalog());
@@ -339,6 +372,10 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeBossPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
+                PrototypeRunCompletionPresenter completionPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeRunCompletionPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
 
                 Assert.That(binder.RuntimeRoomType, Is.EqualTo(RoomType.Boss));
                 Assert.That(session.IsCombatEnabledByDefault, Is.True);
@@ -353,6 +390,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(presenter.IsInitialized, Is.True);
                 Assert.That(presenter.IsBossVisible, Is.True);
                 Assert.That(presenter.VisibleDangerCellCount, Is.GreaterThan(0));
+                Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
+                Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
+                Assert.That(completionPresenter.IsVisible, Is.False);
                 AssertDisplayedStatusesMatchGraph(
                     binder.DoorPresenter,
                     run,
@@ -764,6 +804,86 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(1));
         }
 
+        [UnityTest]
+        public IEnumerator RunHost_RestartsCompletedRunAtStartScene()
+        {
+            Scene loadedDungeonScene = default;
+            PrototypeDungeonRunHost host = null;
+            try
+            {
+                GameObject hostRoot = CreateGameObject("RestartingDungeonRunHost");
+                hostRoot.SetActive(false);
+                host = hostRoot.AddComponent<PrototypeDungeonRunHost>();
+                host.Configure(
+                    23,
+                    CreateCatalog(),
+                    CreateSpecialCatalog(),
+                    CreateBombRewardCatalog(),
+                    false);
+                hostRoot.SetActive(true);
+                yield return null;
+
+                PrototypeDungeonRunSession originalSession = host.RunSession;
+                IReadOnlyList<DungeonRoomNodeId> path =
+                    originalSession.Graph.GetShortestPath(
+                        originalSession.Graph.StartRoomId,
+                        originalSession.Graph.BossRoomId);
+                for (int index = 1; index < path.Count; index++)
+                {
+                    DungeonRoomNode current =
+                        originalSession.Graph.GetRoom(originalSession.CurrentRoomId);
+                    if (DungeonRunState.RequiresClear(current.RoomType))
+                    {
+                        Assert.That(
+                            originalSession.TryClearCurrentRoom(),
+                            Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                    }
+                    Assert.That(originalSession.TryTravelTo(path[index]).Moved, Is.True);
+                }
+                Assert.That(
+                    originalSession.TryClearCurrentRoom(),
+                    Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                Assert.That(originalSession.IsComplete, Is.True);
+
+                host.RestartCompletedRun();
+                yield return null;
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+                Assert.That(loadedDungeonScene.name, Is.EqualTo("DungeonStart"));
+                Assert.That(host, Is.Not.Null);
+                Assert.That(host.IsPrimary, Is.True);
+                Assert.That(host.RunSession, Is.Not.SameAs(originalSession));
+                Assert.That(host.RunSession.Seed, Is.EqualTo(23));
+                Assert.That(
+                    host.RunSession.CurrentRoomId,
+                    Is.EqualTo(host.RunSession.Graph.StartRoomId));
+                Assert.That(host.RunSession.IsComplete, Is.False);
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene("RunRestartPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
         [Test]
         public void Catalog_ClonesConfigurationAndLooksUpStableRoomId()
         {
@@ -894,6 +1014,11 @@ namespace BombSwap.Tests.PlayMode
                 PrototypeBombDefinitionAsset>();
             GameObject bombVisual = CreateGameObject(id + "-bomb");
             GameObject explosionVisual = CreateGameObject(id + "-explosion");
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.DontDestroyOnLoad(bombVisual);
+                UnityEngine.Object.DontDestroyOnLoad(explosionVisual);
+            }
             definition.Configure(
                 id,
                 2f,

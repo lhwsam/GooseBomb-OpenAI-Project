@@ -7,5 +7,6 @@ namespace BombSwap
         public const string PlaceBomb = "PlaceBomb";
         public const string SwapBomb = "SwapBomb";
         public const string Pause = "Pause";
+        public const string RestartRun = "RestartRun";
     }
 }
