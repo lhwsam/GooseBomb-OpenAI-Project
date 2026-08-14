@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-15
-- 단계: 한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어→보스 전실→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
+- 단계: 실제 일시정지와 한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어→보스 전실→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -103,6 +103,7 @@
 - `BossBattleSimulation`이 열·행·체크무늬 위험 snapshot, Telegraph→Execute→Recovery, Recovery 한정 폭탄 피해, 안전한 2페이즈 전환과 사망 점유 단일 제거를 Unity 비참조 Core 규칙으로 소유하도록 구현.
 - `DungeonRunState`의 `InProgress → Completed | Failed` 단방향 결과, terminal 이동·클리어 차단, `PlayerDied`의 run 실패 연결과 `RUN FAILED` 결과 UI를 구현. 완료와 실패 모두 같은 seed의 새 session·navigator로 즉시 재시작한다.
 - 치명 `PlayerDamageResult`를 run의 `FailureDamage` snapshot으로 보존하고, 실패 화면이 폭발·세 일반 적·보스 source를 `CAUSE` 문구와 WebGL marker로 표시하도록 연결했다.
+- `PrototypeGameSession`이 실제 pause 상태를 소유하고 `Esc`/게임패드 Start toggle 시 이동 의도·입력 버퍼를 해제하며, pause 중 입력 재샘플링과 논리 시계 진행 전에 반환해 이동·설치·교체·fuse·쿨타임·적·보스를 함께 멈추도록 구현했다. `PrototypePausePresenter`는 세션 확정 상태를 받아 재사용 가능한 `PAUSED` 오버레이를 표시한다.
 
 ## 현재 저장소 사실
 
@@ -118,7 +119,7 @@
 - `PrototypeGameSession`은 저작된 전투 가능 여부와 방문별 활성 여부를 분리한다. 안전방과 이미 클리어한 전투·보스방 방문은 적 actor·simulation·presenter를 생성하지 않고 `EnemyActiveCount=0`, `IsRoomCleared=true`로 시작하지만 플레이어 이동, 현재 run의 한두 폭탄 슬롯, 자기 피해와 표현 사건은 유지한다.
 - 각 던전 씬은 동일한 seed-0 bootstrap을 포함하지만 scene load 뒤 persistent primary host가 중복 bootstrap을 제거한다. Core 이동은 기대한 대상 씬이 실제 로드된 뒤 한 번만 commit된다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다. 광역 폭발은 반경 내 각 셀을 독립 평가해 원점을 포함한 최대 3×3을 만들며 한 셀의 벽이 다른 영역 셀을 가리지 않는다.
-- `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다.
+- `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다. `IsPaused`일 때는 입력 재샘플링과 `ManualGameClock.Advance` 전에 `Update`를 끝내며, `Time.timeScale`을 바꾸지 않고 모든 논리 진행을 정지한다. 재개 시 현재 유지 방향을 다시 샘플링한다.
 - 플레이어 연속 위치와 방향은 매 Unity frame Core에서 갱신된다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
 - `PlayerHealthSimulation`은 폭발 ID별 처리 여부, 체력 하한, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발·적 접촉·보스 패턴은 원본 source를 구분해 보존하면서 같은 무적을 공유하고, `PrototypeGameSession`은 적용된 피해와 사망만 표현 이벤트로 발행한다.
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급한다.
@@ -132,7 +133,7 @@
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
 - EditMode 테스트 266개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 빈 2번 슬롯·보상 장착·두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발·접촉·보스 패턴 피해 원인과 공유 무적 경계, 추격자·돌진형·갑옷 적과 보스의 결정론·cadence·패턴·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식과 전체 셀 회전, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계, 전투 잠금·클리어·양방향 재방문, 완료·실패 단방향 결과와 terminal 차단, 안정된 네 방향 문 상태와 콘텐츠 배정 재현·회전·호환·균형을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 106개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타와 동일 frame press-release의 한 frame 반영·다음 frame 정지, 폭탄·파괴 벽·빈 슬롯 HUD, 안전방과 세 일반 적 유형, 보스 패턴 피해·pooled 위험 셀·Recovery 반격·2페이즈·격파·방 클리어, combat/special/reward catalog, 보상방 논리 셀 선택과 scene 간 loadout 유지, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 보스 클리어 완료와 플레이어 사망 실패·치명 snapshot·source/적 ID별 사망 원인·같은 seed의 새 run·시작 씬 로드, 실제 씬에서 클리어한 전투·보스방 재입장의 적 미생성·문 개방, 표현 생명주기와 하네스 발견성을 검증한다.
+- PlayMode 전체 107개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타와 동일 frame press-release의 한 frame 반영·다음 frame 정지, pause 중 이동·설치·교체·fuse 정지와 UI 표시·재개 뒤 유지 방향 반영, 폭탄·파괴 벽·빈 슬롯 HUD, 안전방과 세 일반 적 유형, 보스 패턴 피해·pooled 위험 셀·Recovery 반격·2페이즈·격파·방 클리어, combat/special/reward catalog, 보상방 논리 셀 선택과 scene 간 loadout 유지, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 보스 클리어 완료와 플레이어 사망 실패·치명 snapshot·source/적 ID별 사망 원인·같은 seed의 새 run·시작 씬 로드, 실제 씬에서 클리어한 전투·보스방 재입장의 적 미생성·문 개방, 표현 생명주기와 하네스 발견성을 검증한다.
 - 네 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
 - Build Settings의 첫 enabled 씬 여덟 개는 `DungeonStart`, `DungeonReward`, `DungeonBossAnte`, `DungeonBoss`, `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
@@ -163,10 +164,10 @@
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. seed-0 4번 전투방에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합이 `(1,-3)↔(1,-4)↔(1,-5)` 동률 순환을 만들었다. 자동 smoke는 플레이어 위치를 바꿔 진행하지만 AI가 수정된 것은 아니며 실제 공정성·유도 재미와 최소 수정은 사람 플레이 뒤 결정한다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 던전 8개 씬 최종 Development WebGL 빌드는 137,714,245 bytes이며 오류 0, TextMeshPro IL2CPP 대형 메서드 분할 경고 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
+- 던전 8개 씬 최종 Development WebGL 빌드는 137,725,298 bytes이며 오류 0, TextMeshPro IL2CPP 대형 메서드 분할 경고 3건이 기록됐다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 Core 테스트의 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 빠른 상태 경계 fixture다. 실제 Unity asset은 체력 4·phase 임계 2·패턴 피해 1과 1.0/0.25/2.75초→0.75/0.25/2.75초를 사용한다. 수치·패턴 가독성, 전용 체력 HUD와 완료 화면의 최종 아트·연출은 사람 플레이 전까지 `Proposed` 또는 미구현이다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
-- TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
+- 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
 - 네 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 선택한 loadout은 run 전체에서 보존되지만 플레이어 체력, 파괴 가능 벽과 적의 부분 체력 같은 room-local 세부 상태는 아직 보존하지 않는다.
 - Core 그래프의 기본 4~5 전투방과 단일 선택 가지는 `Proposed`다. 자동 검증은 재현성과 구조만 보장하며 탐색 동기, 되돌아가기 피로와 방 반복 체감은 Unity 탐색 loop와 사람 플레이테스트 전에는 판정할 수 없다.
@@ -177,7 +178,7 @@
 ## 최근 검증
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
-- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-040447-static/`.
+- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-042945-static/`.
 - `skill-creator` 공식 `quick_validate.py`: 프로젝트 스킬 4종 모두 통과.
 - PowerShell AST parse와 `node --check`로 `WebGLSmoke.mjs`, `WebGLStaticServer.mjs`, `ServeWebGL.mjs`, `WebGLStaticServerTests.mjs`: 통과.
 - `node Tools/WebGLStaticServerTests.mjs`: HTML/WASM/data/symbols MIME, gzip/Brotli `Content-Encoding`, GET/HEAD 제한, 404와 경로 이탈 403 계약 통과.
@@ -252,3 +253,4 @@
 - 동일 frame 방향 탭 회귀를 포함한 입력 대상 PlayMode 44/44, 전체 EditMode 264/264와 PlayMode 103/103 통과, 실패·건너뜀 0. 일반 해제 정지, 동일 frame press-release 한 frame 보존, 유지 중 직교 탭과 `North/East` 반복을 포함하며 증거는 `Artifacts/Verification/ConnectedTests/20260814-175744-070.json`, `Artifacts/Verification/ConnectedTests/20260814-180007-317.json`, `Artifacts/Verification/ConnectedTests/20260814-180046-845.json`이다.
 - 입력 회귀 최종 Development WebGL 8개 씬 빌드 성공: 137,692,259 bytes, 61.026초, 오류 0. 전체 shader 재컴파일로 기존 Sentis·vendor·TextMeshPro 범주의 경고 351개가 기록됐다. Edge headless smoke 23/23이 `ArrowLeft/ArrowUp` 즉시 press-release 여섯 번의 frame motion·50ms 정지 안정성, 전체 seed-0 경로, 보스 격파·재시작과 Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-030600-subframe-input-web/`, 최종 정적 검증은 `Artifacts/Verification/20260815-030932-static/`이다.
 - 사망 원인 결과 최종 코드로 `DungeonRunStateTests` 13/13, `PrototypeDungeonRunSessionTests` 23/23, 전체 EditMode 266/266와 PlayMode 106/106이 실패·건너뜀 0으로 통과했고 콘텐츠 validator·Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,714,245 bytes, 203.873초, 오류 0, TextMeshPro IL2CPP 경고 3건으로 성공했다. Edge headless smoke 25/25가 전체 seed-0 보스 완료 재시작 뒤 안전방 자기 폭발 5회, `player-died → run-failed → run-failed-cause-bomb-explosion`, `CAUSE: BOMB EXPLOSION` 실패 화면과 두 번째 `R` 재시작, 세 번째 시작방 준비를 확인했으며 Console/page error는 0이다. 증거 `Artifacts/Verification/ConnectedTests/20260814-184605-737.json`, `Artifacts/Verification/ConnectedTests/20260814-184720-099.json`, `Artifacts/Verification/ConnectedTests/20260814-184830-348.json`, `Artifacts/Verification/ConnectedTests/20260814-184847-185.json`, `Artifacts/Verification/20260815-035000-death-cause-web/`, 최종 정적 검증 `Artifacts/Verification/20260815-040447-static/`.
+- 실제 pause 최종 코드로 `PrototypePlayerControllerTests` 35/35, 전체 EditMode 266/266와 PlayMode 107/107이 실패·건너뜀 0으로 통과했고 콘텐츠 validator·Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,725,298 bytes, 63.243초, 오류 0, TextMeshPro IL2CPP 경고 3건으로 성공했다. Edge headless smoke 26/26이 안전방 pause 진입 뒤 400ms 동안 논리 셀·frame motion·폭탄 설치 불변과 재개, `PAUSED` 화면, 기존 전체 seed-0 보스 완료·재시작·자기 폭발 실패 원인·두 번째 재시작, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-191350-643.json`, `Artifacts/Verification/ConnectedTests/20260814-191504-198.json`, `Artifacts/Verification/ConnectedTests/20260814-191520-937.json`, `Artifacts/Verification/20260815-041700-pause-web/`.

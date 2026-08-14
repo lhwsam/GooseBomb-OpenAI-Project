@@ -95,6 +95,7 @@ namespace BombSwap
         private bool _roomCleared;
         private bool _hasCharger;
         private bool _hasArmored;
+        private bool _isPaused;
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
@@ -129,6 +130,8 @@ namespace BombSwap
         public event Action<BossDamageResult> BossDamaged;
 
         public event Action RoomCleared;
+
+        public event Action<bool> PauseStateChanged;
 
         public event Action Ready;
 
@@ -175,6 +178,8 @@ namespace BombSwap
             (!HasBoss || _boss != null);
 
         public bool IsReady { get; private set; }
+
+        public bool IsPaused => _isPaused;
 
         public GridPosition CurrentGridPosition =>
             _movement != null ? _movement.CurrentPosition : default;
@@ -638,6 +643,7 @@ namespace BombSwap
                 Initialize();
             }
 
+            EnsurePausePresenter();
             inputReader.CommandIssued += OnCommandIssued;
             IsReady = true;
             Ready?.Invoke();
@@ -645,6 +651,11 @@ namespace BombSwap
 
         private void OnDisable()
         {
+            if (_isPaused)
+            {
+                _isPaused = false;
+                PauseStateChanged?.Invoke(false);
+            }
             IsReady = false;
             if (inputReader != null)
             {
@@ -658,6 +669,11 @@ namespace BombSwap
 
         private void Update()
         {
+            if (_isPaused)
+            {
+                return;
+            }
+
             inputReader.RefreshMoveIntent();
 
             float elapsedSeconds = Time.deltaTime;
@@ -977,6 +993,16 @@ namespace BombSwap
                 return;
             }
 
+            if (command.Kind == PlayerCommandKind.Pause)
+            {
+                TogglePause();
+                return;
+            }
+            if (_isPaused)
+            {
+                return;
+            }
+
             switch (command.Kind)
             {
                 case PlayerCommandKind.Move:
@@ -991,7 +1017,6 @@ namespace BombSwap
                         ActiveBombSlotChanged?.Invoke(_weapons.ActiveSlotIndex);
                     }
                     break;
-                case PlayerCommandKind.Pause:
                 case PlayerCommandKind.RestartRun:
                     break;
                 default:
@@ -1000,6 +1025,31 @@ namespace BombSwap
                         command.Kind,
                         "Unsupported player command kind.");
             }
+        }
+
+        private void TogglePause()
+        {
+            _isPaused = !_isPaused;
+            _movement.SetMoveDirection(CardinalDirection.None);
+            if (_isPaused)
+            {
+                inputReader.ReleaseMoveIntent();
+            }
+            else
+            {
+                inputReader.RefreshMoveIntent();
+            }
+            PauseStateChanged?.Invoke(_isPaused);
+        }
+
+        private void EnsurePausePresenter()
+        {
+            PrototypePausePresenter presenter = GetComponent<PrototypePausePresenter>();
+            if (presenter == null)
+            {
+                presenter = gameObject.AddComponent<PrototypePausePresenter>();
+            }
+            presenter.Configure(this);
         }
 
         private void TryPlaceBomb()

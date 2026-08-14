@@ -32,4 +32,5 @@
 - 던전 문의 북·동·남·서 안정 순서, 비연결 `Inactive`, 미클리어 연결 `Locked`, 클리어 뒤 동일 대상 `Open`, 전투방 활성 출구 배정과 Unity 런 snapshot 일치.
 - 전투방 0/90/180/270도 전체 셀·출구 회전과 크기 교환, 적 비활성 placeholder의 이동·폭탄·체력 재사용, 적 actor 미생성과 `Awake` 전 runtime spawn 준비.
 - 특수방 catalog의 필수 타입·고유 씬, 로드 전 Core 미변경, 중복·로드 불가·씬 불일치 거부, 기대 씬 뒤 단일 commit, persistent host primary 단일성.
+- pause 진입 시 이동 의도 해제, 입력·설치·교체 차단, 논리 시계·fuse·쿨타임·적·보스 정지, UI 표시, 재개 시 유지 방향 재샘플링과 WebGL 실제 상태 marker.
 - WebGL focus 상실 뒤 입력 stuck 없음.

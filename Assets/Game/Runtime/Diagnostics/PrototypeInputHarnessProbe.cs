@@ -36,7 +36,7 @@ namespace BombSwap
         private bool _roomClearedReported;
         private bool _swapBombReported;
         private bool _pauseReported;
-        private bool _isPaused;
+        private bool _pauseEnteredReported;
         private bool _readyReported;
         private CardinalDirection _lastMotionDirection;
 
@@ -97,6 +97,7 @@ namespace BombSwap
             session.BossPatternTransitioned += OnBossPatternTransitioned;
             session.BossDamaged += OnBossDamaged;
             session.RoomCleared += OnRoomCleared;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -128,6 +129,7 @@ namespace BombSwap
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
                 session.BossDamaged -= OnBossDamaged;
                 session.RoomCleared -= OnRoomCleared;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
         }
@@ -408,15 +410,26 @@ namespace BombSwap
                     }
                     break;
                 case PlayerCommandKind.Pause:
-                    _isPaused = !_isPaused;
-                    if (!_pauseReported && !_isPaused)
-                    {
-                        WebGlHarnessReporter.Report("pause-resume");
-                        _pauseReported = true;
-                    }
                     break;
                 case PlayerCommandKind.RestartRun:
                     break;
+            }
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (isPaused)
+            {
+                WebGlHarnessReporter.Report("pause-entered");
+                _pauseEnteredReported = true;
+                return;
+            }
+
+            WebGlHarnessReporter.Report("pause-resumed");
+            if (_pauseEnteredReported && !_pauseReported)
+            {
+                WebGlHarnessReporter.Report("pause-resume");
+                _pauseReported = true;
             }
         }
 

@@ -47,6 +47,11 @@ namespace BombSwap
             FlushFrameMoveIntent();
         }
 
+        public void ReleaseMoveIntent()
+        {
+            ReleaseMovement();
+        }
+
         public void Configure(InputActionAsset actions)
         {
             if (isActiveAndEnabled)
