@@ -17,6 +17,7 @@
 | 현재 진행 상태 | [CurrentState](Development/CurrentState.md) | 완료·진행·미구현, 알려진 문제, 바로 다음 작업 |
 | 구현 완료 기준 | [Definition of Done](Development/DefinitionOfDone.md) | 변경 종류별 필수 검증 |
 | 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
+| 플레이테스트 운영 | [Playtesting](Playtesting/) | 관찰 프로토콜, 익명 세션 기록, 유지·변경·제거 판정 |
 | WebGL 제약 | [WebGL](WebGL/) | 빌드, 호스팅, 성능, 브라우저 호환 |
 | AI 작업 절차 | [AI](AI/) | 세션 시작, 작업 계약, 리뷰, 인계 |
 | 실제 튜닝 값 | 검증된 ScriptableObject | 코드와 문서는 값의 의도와 범위를 설명 |
@@ -50,7 +51,7 @@
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
 | 보스 | `Systems/BossBattle.md` |
-| 플레이테스트 계측 | `Systems/Telemetry.md`, `Testing/TestStrategy.md` |
+| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/FirstCombatProtocol.md`, `Systems/Telemetry.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
 | 검증 실행 | `Testing/VerificationHarness.md`, `Testing/TestMatrix.md` |
@@ -67,6 +68,7 @@ Docs/
   ADR/            되돌리기 어려운 기술 결정
   Development/    로드맵, 현재 상태, 완료 기준, 패키지
   Testing/        자동·수동 검증 전략
+  Playtesting/    관찰 플레이테스트 운영과 결과 형식
   WebGL/          빌드, 브라우저, 성능 제약
   AI/             세션 연속성과 작업 절차
   Migrations/     버전·데이터 변경 계획과 결과
