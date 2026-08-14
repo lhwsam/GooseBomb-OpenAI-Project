@@ -11,6 +11,7 @@ namespace BombSwap.Tests.PlayMode
     {
         private InputActionAsset _inputActions;
         private Keyboard _keyboard;
+        private Gamepad _gamepad;
         private GameObject _gameObject;
         private BombSwapInputReader _reader;
         private List<PlayerCommand> _commands;
@@ -20,6 +21,7 @@ namespace BombSwap.Tests.PlayMode
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
+            _gamepad = InputSystem.AddDevice<Gamepad>();
             _commands = new List<PlayerCommand>();
 
             _gameObject = new GameObject("InputReaderTest");
@@ -50,6 +52,10 @@ namespace BombSwap.Tests.PlayMode
             if (_keyboard != null && _keyboard.added)
             {
                 InputSystem.RemoveDevice(_keyboard);
+            }
+            if (_gamepad != null && _gamepad.added)
+            {
+                InputSystem.RemoveDevice(_gamepad);
             }
         }
 
@@ -188,6 +194,67 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_commands, Has.Member(PlayerCommand.RestartRun()));
         }
 
+        [TestCase(0f, 1f, CardinalDirection.North)]
+        [TestCase(1f, 0f, CardinalDirection.East)]
+        [TestCase(0f, -1f, CardinalDirection.South)]
+        [TestCase(-1f, 0f, CardinalDirection.West)]
+        public void GamepadLeftStick_EmitsCardinalIntentAndRelease(
+            float x,
+            float y,
+            CardinalDirection expectedDirection)
+        {
+            QueueGamepadState(new GamepadState { leftStick = new Vector2(x, y) });
+            _reader.RefreshMoveIntent();
+            QueueGamepadState(new GamepadState());
+            _reader.RefreshMoveIntent();
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(expectedDirection),
+                PlayerCommand.Move(CardinalDirection.None),
+            }));
+        }
+
+        [TestCase(GamepadButton.DpadUp, CardinalDirection.North)]
+        [TestCase(GamepadButton.DpadRight, CardinalDirection.East)]
+        [TestCase(GamepadButton.DpadDown, CardinalDirection.South)]
+        [TestCase(GamepadButton.DpadLeft, CardinalDirection.West)]
+        public void GamepadDpad_EmitsCardinalIntentAndRelease(
+            GamepadButton button,
+            CardinalDirection expectedDirection)
+        {
+            QueueGamepadState(new GamepadState(button));
+            _reader.RefreshMoveIntent();
+            QueueGamepadState(new GamepadState());
+            _reader.RefreshMoveIntent();
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(expectedDirection),
+                PlayerCommand.Move(CardinalDirection.None),
+            }));
+        }
+
+        [Test]
+        public void GamepadButtons_EmitSemanticCommands()
+        {
+            QueueGamepadState(new GamepadState(GamepadButton.South));
+            QueueGamepadState(new GamepadState());
+            QueueGamepadState(new GamepadState(GamepadButton.West));
+            QueueGamepadState(new GamepadState());
+            QueueGamepadState(new GamepadState(GamepadButton.Start));
+            QueueGamepadState(new GamepadState());
+            QueueGamepadState(new GamepadState(GamepadButton.Select));
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.PlaceBomb(),
+                PlayerCommand.SwapBomb(),
+                PlayerCommand.Pause(),
+                PlayerCommand.RestartRun(),
+            }));
+        }
+
         [Test]
         public void FocusLoss_ReleasesMoveAndBlocksCommandsUntilFocusReturns()
         {
@@ -246,6 +313,12 @@ namespace BombSwap.Tests.PlayMode
             InputSystem.Update();
         }
 
+        private void QueueGamepadState(GamepadState state)
+        {
+            InputSystem.QueueStateEvent(_gamepad, state);
+            InputSystem.Update();
+        }
+
         private static InputActionAsset CreateInputActions()
         {
             var asset = ScriptableObject.CreateInstance<InputActionAsset>();
@@ -266,11 +339,32 @@ namespace BombSwap.Tests.PlayMode
                 .With("Down", "<Keyboard>/downArrow")
                 .With("Left", "<Keyboard>/leftArrow")
                 .With("Right", "<Keyboard>/rightArrow");
+            move.AddBinding("<Gamepad>/leftStick");
+            move.AddBinding("<Gamepad>/dpad");
 
-            gameplay.AddAction(BombSwapInputActionNames.PlaceBomb, InputActionType.Button, "<Keyboard>/z");
-            gameplay.AddAction(BombSwapInputActionNames.SwapBomb, InputActionType.Button, "<Keyboard>/x");
-            gameplay.AddAction(BombSwapInputActionNames.Pause, InputActionType.Button, "<Keyboard>/escape");
-            gameplay.AddAction(BombSwapInputActionNames.RestartRun, InputActionType.Button, "<Keyboard>/r");
+            InputAction placeBomb = gameplay.AddAction(
+                BombSwapInputActionNames.PlaceBomb,
+                InputActionType.Button,
+                "<Keyboard>/z");
+            placeBomb.AddBinding("<Gamepad>/buttonSouth");
+
+            InputAction swapBomb = gameplay.AddAction(
+                BombSwapInputActionNames.SwapBomb,
+                InputActionType.Button,
+                "<Keyboard>/x");
+            swapBomb.AddBinding("<Gamepad>/buttonWest");
+
+            InputAction pause = gameplay.AddAction(
+                BombSwapInputActionNames.Pause,
+                InputActionType.Button,
+                "<Keyboard>/escape");
+            pause.AddBinding("<Gamepad>/start");
+
+            InputAction restartRun = gameplay.AddAction(
+                BombSwapInputActionNames.RestartRun,
+                InputActionType.Button,
+                "<Keyboard>/r");
+            restartRun.AddBinding("<Gamepad>/select");
             return asset;
         }
     }
