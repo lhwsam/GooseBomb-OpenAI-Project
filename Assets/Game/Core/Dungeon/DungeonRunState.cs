@@ -3,11 +3,19 @@ using System.Collections.Generic;
 
 namespace BombSwap.Core
 {
+    public enum DungeonRunOutcome
+    {
+        InProgress = 0,
+        Completed = 1,
+        Failed = 2,
+    }
+
     public enum DungeonTravelStatus
     {
         Moved = 0,
         NotConnected = 1,
         BlockedByUnclearedRoom = 2,
+        RunFinished = 3,
     }
 
     public enum DungeonRoomClearStatus
@@ -15,6 +23,7 @@ namespace BombSwap.Core
         Cleared = 0,
         AlreadyCleared = 1,
         NotClearable = 2,
+        RunFinished = 3,
     }
 
     public readonly struct DungeonTravelResult
@@ -70,7 +79,11 @@ namespace BombSwap.Core
 
         public DungeonRoomNodeId PreviousRoomId { get; private set; }
 
-        public bool IsCurrentRoomLocked => IsRoomLocked(CurrentRoomId);
+        public DungeonRunOutcome Outcome { get; private set; }
+
+        public bool IsTerminal => Outcome != DungeonRunOutcome.InProgress;
+
+        public bool IsCurrentRoomLocked => IsTerminal || IsRoomLocked(CurrentRoomId);
 
         public bool IsVisited(DungeonRoomNodeId roomId)
         {
@@ -130,6 +143,14 @@ namespace BombSwap.Core
         {
             Graph.GetRoom(targetRoomId);
             DungeonRoomNodeId fromRoomId = CurrentRoomId;
+            if (IsTerminal)
+            {
+                return new DungeonTravelResult(
+                    fromRoomId,
+                    targetRoomId,
+                    DungeonTravelStatus.RunFinished,
+                    false);
+            }
             if (!AreConnected(fromRoomId, targetRoomId))
             {
                 return new DungeonTravelResult(
@@ -175,6 +196,11 @@ namespace BombSwap.Core
 
         public DungeonRoomClearStatus TryClearCurrentRoom()
         {
+            if (IsTerminal)
+            {
+                return DungeonRoomClearStatus.RunFinished;
+            }
+
             DungeonRoomNode current = Graph.GetRoom(CurrentRoomId);
             if (!RequiresClear(current.RoomType))
             {
@@ -188,7 +214,22 @@ namespace BombSwap.Core
             }
 
             _cleared[index] = true;
+            if (CurrentRoomId == Graph.BossRoomId)
+            {
+                Outcome = DungeonRunOutcome.Completed;
+            }
             return DungeonRoomClearStatus.Cleared;
+        }
+
+        public bool TryFail()
+        {
+            if (IsTerminal)
+            {
+                return false;
+            }
+
+            Outcome = DungeonRunOutcome.Failed;
+            return true;
         }
 
         public static bool RequiresClear(RoomType roomType)

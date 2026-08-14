@@ -48,7 +48,7 @@
 | 두 폭탄·쿨타임 | `Systems/WeaponSlotsAndCooldown.md`, `ProtoType_v0.2.md` 가설 B·C |
 | 첫 폭탄 보상·런 로드아웃 | `Development/DungeonBombRewardSlice.md`, `Systems/WeaponSlotsAndCooldown.md`, ADR-0008 |
 | seed-0 전체 던전 WebGL 탐색 | `Development/DungeonFullPathSmokeSlice.md`, `Systems/DungeonGeneration.md`, `Testing/VerificationHarness.md` |
-| 한 층 완료·즉시 재시작 | `Systems/RunCompletion.md`, `Systems/DungeonGeneration.md`, `Systems/InputAndCommands.md` |
+| 완료·사망 결과와 즉시 재시작 | `Systems/RunCompletion.md`, `Systems/DungeonGeneration.md`, `Systems/DamageAndInvulnerability.md`, `Systems/InputAndCommands.md` |
 | 플레이어 피해 | `Systems/DamageAndInvulnerability.md` |
 | 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md` |
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |

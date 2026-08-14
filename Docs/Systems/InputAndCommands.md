@@ -18,7 +18,7 @@
 | 폭탄 설치 | `Z` | South 버튼 |
 | 폭탄 교체 | `X` | West 버튼 |
 | 일시정지 요청 | `Esc` | Start 버튼 |
-| 완료한 런 재시작 | `R` | Select 버튼 |
+| 완료·실패한 런 재시작 | `R` | Select 버튼 |
 
 이동은 상하좌우 네 방향만 Core에 전달한다. 아날로그·복합 입력은 절댓값이 큰 축을 선택한다. 두 축의 크기가 같고 현재 방향도 여전히 눌려 있으면 현재 축에 직교하는 새 전환 축을 우선해 짧은 키 겹침에서도 방향 전환을 즉시 명령으로 만든다. 유지 중인 방향이 벡터에 없거나 `None`이면 세로축을 우선하는 결정론적 규칙을 사용한다.
 
@@ -30,7 +30,7 @@
 - `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun` 의미와 이동 방향을 보존하는 Core 값이다.
 - `PrototypeGameSession`: TestSandbox에서 공유 시계·격자를 소유하고 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`과 `SwapBomb`을 `BombWeaponLoadout`에 전달한다.
 - `PrototypePlayerController`: Core 연속 위치 변경을 받아 placeholder Transform에 직접 표시한다.
-- `PrototypeRunCompletionPresenter`: 완료 화면이 보일 때만 `RestartRun`을 persistent run host에 전달한다.
+- `PrototypeRunCompletionPresenter`: 완료 또는 실패 결과 화면이 보일 때만 `RestartRun`을 persistent run host에 전달한다.
 - 향후 세션 확장: pause 명령을 논리 시간과 UI 정지 정책에 전달한다.
 
 입력 계층은 이동 가능 여부, 폭탄 설치·교체 성공, 쿨타임, 실제 pause 상태를 판정하지 않는다. 현재 TestSandbox에서 이동, 활성 슬롯, 설치와 교체 성공은 공유 Core simulation이 판정하고 Transform/prefab/HUD가 그 결과를 표현한다. pause 소비자는 아직 없다.
@@ -71,7 +71,7 @@
 - EditMode: 명령 factory, 유효성, 방향 보존, 값 동등성.
 - PlayMode: cardinal 축 선택과 새 직교 축 tie-break, 실제 방향키 겹침·빠른 단타·동일 frame press-release, 유지 대각선의 최신 축 고정, Input System 키 상태→이동·폭탄·pause·재시작 명령 변환, focus 상실 해제와 누락 key-up reset, 재활성화 후 중복 callback 방지, 유지·해제 입력→Core 연속 위치→Transform 직접 표시.
 - Editor validator: Input Actions 구조, 세 TestSandbox 씬의 필수 참조·카메라·조명·방 전환 계약, 첫 enabled Build Settings 씬 세 개의 순서.
-- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 첫 전투방에서는 `ArrowLeft/ArrowUp`의 즉시 press-release 단타를 여섯 번 교대하고 각 탭이 한 frame의 대응 `move-motion-direction-*`을 만든 뒤 추가 이동 없이 멈춰야 한다. 보스 격파 뒤 완료 화면을 캡처하고 `R`로 페이지 reload 없는 새 run 시작을 확인한다.
+- WebGL smoke: canvas focus 후 Core `move`가 관측될 때까지 `W`를 유지하고, 이후 `Z`, `X`, `Esc` 두 번을 보내 실제 이동·설치·fuse 폭발을 포함한 개발 probe 사건을 확인한다. 첫 전투방에서는 `ArrowLeft/ArrowUp`의 즉시 press-release 단타를 여섯 번 교대하고 각 탭이 한 frame의 대응 `move-motion-direction-*`을 만든 뒤 추가 이동 없이 멈춰야 한다. 보스 격파 뒤 완료 화면과 `R` 재시작을 확인하고, 새 안전방에서 자기 폭발로 사망시킨 뒤 실패 화면과 두 번째 새 run 시작까지 확인한다.
 
 ## 미정 사항과 종료 조건
 

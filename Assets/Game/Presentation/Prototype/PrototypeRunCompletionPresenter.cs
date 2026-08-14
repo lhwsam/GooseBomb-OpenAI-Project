@@ -15,7 +15,7 @@ namespace BombSwap
         private BombSwapInputReader inputReader;
 
         private Text _statusLabel;
-        private bool _checkCompletionNextFrame;
+        private bool _checkResultNextFrame;
         private bool _restartRequested;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
@@ -25,6 +25,8 @@ namespace BombSwap
         public bool IsVisible { get; private set; }
 
         public int CompletionCount { get; private set; }
+
+        public int FailureCount { get; private set; }
 
         public int RestartRequestCount { get; private set; }
 
@@ -54,10 +56,10 @@ namespace BombSwap
             }
 
             PrototypeDungeonRunHost host = roomBinder.RunHost;
-            if (host == null || host.RunSession == null || !host.RunSession.IsComplete)
+            if (host == null || host.RunSession == null || !host.RunSession.IsFinished)
             {
                 throw new InvalidOperationException(
-                    "Run completion restart requires the completed primary dungeon run.");
+                    "Run restart requires a completed or failed primary dungeon run.");
             }
 
             _restartRequested = true;
@@ -66,7 +68,7 @@ namespace BombSwap
             WebGlHarnessReporter.Report("run-restart-requested");
             try
             {
-                host.RestartCompletedRun();
+                host.RestartFinishedRun();
             }
             catch
             {
@@ -90,10 +92,11 @@ namespace BombSwap
 
             roomBinder.RoomSession.Ready += OnSessionReady;
             roomBinder.RoomSession.RoomCleared += OnRoomCleared;
+            roomBinder.RoomSession.PlayerDied += OnPlayerDied;
             inputReader.CommandIssued += OnCommandIssued;
             if (roomBinder.RoomSession.IsReady)
             {
-                _checkCompletionNextFrame = true;
+                _checkResultNextFrame = true;
             }
         }
 
@@ -101,19 +104,19 @@ namespace BombSwap
         {
             if (Application.isPlaying)
             {
-                TryShowCompletion();
+                TryShowResult();
             }
         }
 
         private void LateUpdate()
         {
-            if (!_checkCompletionNextFrame)
+            if (!_checkResultNextFrame)
             {
                 return;
             }
 
-            _checkCompletionNextFrame = false;
-            TryShowCompletion();
+            _checkResultNextFrame = false;
+            TryShowResult();
         }
 
         private void OnDisable()
@@ -122,6 +125,7 @@ namespace BombSwap
             {
                 roomBinder.RoomSession.Ready -= OnSessionReady;
                 roomBinder.RoomSession.RoomCleared -= OnRoomCleared;
+                roomBinder.RoomSession.PlayerDied -= OnPlayerDied;
             }
             if (inputReader != null)
             {
@@ -131,12 +135,17 @@ namespace BombSwap
 
         private void OnSessionReady()
         {
-            _checkCompletionNextFrame = true;
+            _checkResultNextFrame = true;
         }
 
         private void OnRoomCleared()
         {
-            _checkCompletionNextFrame = true;
+            _checkResultNextFrame = true;
+        }
+
+        private void OnPlayerDied(PlayerDamageResult _)
+        {
+            _checkResultNextFrame = true;
         }
 
         private void OnCommandIssued(PlayerCommand command)
@@ -147,29 +156,44 @@ namespace BombSwap
             }
         }
 
-        private void TryShowCompletion()
+        private void TryShowResult()
         {
-            if (IsVisible || roomBinder.RuntimeRoomType != RoomType.Boss)
+            if (IsVisible)
             {
                 return;
             }
 
             PrototypeDungeonRunHost host = roomBinder.RunHost;
             PrototypeGameSession session = roomBinder.RoomSession;
-            if (host == null || host.RunSession == null ||
-                !host.RunSession.IsComplete || !session.IsRoomCleared)
+            if (host == null || host.RunSession == null)
             {
                 return;
             }
 
-            CreateUi();
+            bool failed = host.RunSession.IsFailed;
+            bool completed = host.RunSession.IsComplete &&
+                roomBinder.RuntimeRoomType == RoomType.Boss &&
+                session.IsRoomCleared;
+            if (!failed && !completed)
+            {
+                return;
+            }
+
+            CreateUi(failed);
             IsVisible = true;
-            CompletionCount++;
+            if (failed)
+            {
+                FailureCount++;
+            }
+            else
+            {
+                CompletionCount++;
+            }
             session.enabled = false;
-            WebGlHarnessReporter.Report("run-completed");
+            WebGlHarnessReporter.Report(failed ? "run-failed" : "run-completed");
         }
 
-        private void CreateUi()
+        private void CreateUi(bool failed)
         {
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null)
@@ -206,8 +230,10 @@ namespace BombSwap
             title.rectTransform.anchorMax = new Vector2(0.9f, 0.68f);
             title.rectTransform.offsetMin = Vector2.zero;
             title.rectTransform.offsetMax = Vector2.zero;
-            title.text = "FLOOR CLEARED";
-            title.color = new Color(0.22f, 0.95f, 0.5f, 1f);
+            title.text = failed ? "RUN FAILED" : "FLOOR CLEARED";
+            title.color = failed
+                ? new Color(1f, 0.32f, 0.26f, 1f)
+                : new Color(0.22f, 0.95f, 0.5f, 1f);
 
             _statusLabel = CreateText("Restart", backdrop, font, 26, FontStyle.Normal);
             _statusLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.34f);

@@ -112,7 +112,13 @@ namespace BombSwap
             return RunSession.TryClearCurrentRoom();
         }
 
-        public void RestartCompletedRun()
+        public bool TryFailCurrentRun()
+        {
+            RequirePrimary();
+            return RunSession.TryFail();
+        }
+
+        public void RestartFinishedRun()
         {
             RequirePrimary();
             if (_navigator.HasPendingTransition)
@@ -120,10 +126,10 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "A dungeon run cannot restart during a pending room transition.");
             }
-            if (!RunSession.IsComplete)
+            if (!RunSession.IsFinished)
             {
                 throw new InvalidOperationException(
-                    "Only a completed boss run can restart.");
+                    "Only a completed or failed dungeon run can restart.");
             }
 
             PrototypeDungeonRunSession restartedSession = CreateRunSession();
