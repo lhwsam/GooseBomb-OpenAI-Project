@@ -121,6 +121,61 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void DoorPresenter_MapsGraphExitStatesBackToRotatedAuthoredDoors()
+        {
+            var session = new PrototypeDungeonRunSession(
+                41,
+                CreateCatalog(),
+                CreateSpecialCatalog());
+            DungeonRoomNodeId firstCombat =
+                session.Graph.GetNeighbors(session.Graph.StartRoomId)[0];
+            Assert.That(session.TryTravelTo(firstCombat).Moved, Is.True);
+            Assert.That(
+                session.TryGetCurrentCombatRoom(out var selection),
+                Is.True);
+
+            PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter();
+            presenter.Apply(
+                session.GetCurrentExitStates(),
+                selection.Assignment.Rotation);
+
+            AssertDisplayedStatusesMatchGraph(
+                presenter,
+                session,
+                selection.Assignment.Rotation,
+                DungeonRoomExitStatus.Locked);
+            Assert.That(
+                session.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.Cleared));
+
+            presenter.Apply(
+                session.GetCurrentExitStates(),
+                selection.Assignment.Rotation);
+
+            AssertDisplayedStatusesMatchGraph(
+                presenter,
+                session,
+                selection.Assignment.Rotation,
+                DungeonRoomExitStatus.Open);
+        }
+
+        [Test]
+        public void DoorPresenter_RejectsSharedOrMissingDirectionRenderers()
+        {
+            GameObject root = CreateGameObject("DungeonDoorPresenter");
+            PrototypeDungeonDoorPresenter presenter =
+                root.AddComponent<PrototypeDungeonDoorPresenter>();
+            Renderer north = CreateDoorRenderer("NorthDoor");
+            Renderer east = CreateDoorRenderer("EastDoor");
+            Renderer south = CreateDoorRenderer("SouthDoor");
+
+            Assert.Throws<ArgumentNullException>(() =>
+                presenter.Configure(north, east, south, null));
+            Assert.Throws<InvalidOperationException>(() =>
+                presenter.Configure(north, east, south, north));
+        }
+
+        [Test]
         public void SpecialCatalog_RequiresEveryUniqueNonCombatTypeAndScene()
         {
             PrototypeDungeonSpecialRoomCatalogAsset catalog =
@@ -432,6 +487,59 @@ namespace BombSwap.Tests.PlayMode
             var gameObject = new GameObject(name);
             _createdGameObjects.Add(gameObject);
             return gameObject;
+        }
+
+        private PrototypeDungeonDoorPresenter CreateDoorPresenter()
+        {
+            GameObject root = CreateGameObject("DungeonDoorPresenter");
+            PrototypeDungeonDoorPresenter presenter =
+                root.AddComponent<PrototypeDungeonDoorPresenter>();
+            presenter.Configure(
+                CreateDoorRenderer("NorthDoor"),
+                CreateDoorRenderer("EastDoor"),
+                CreateDoorRenderer("SouthDoor"),
+                CreateDoorRenderer("WestDoor"));
+            return presenter;
+        }
+
+        private Renderer CreateDoorRenderer(string name)
+        {
+            GameObject door = CreateGameObject(name);
+            return door.AddComponent<MeshRenderer>();
+        }
+
+        private static void AssertDisplayedStatusesMatchGraph(
+            PrototypeDungeonDoorPresenter presenter,
+            PrototypeDungeonRunSession session,
+            RoomRotation roomRotation,
+            DungeonRoomExitStatus expectedConnectedStatus)
+        {
+            RoomExitDirection[] localDirections =
+            {
+                RoomExitDirection.North,
+                RoomExitDirection.East,
+                RoomExitDirection.South,
+                RoomExitDirection.West,
+            };
+            int connectedCount = 0;
+            for (int index = 0; index < localDirections.Length; index++)
+            {
+                RoomExitDirection graphDirection = RoomRotationUtility.Rotate(
+                    localDirections[index],
+                    roomRotation);
+                DungeonRoomExitState graphState =
+                    session.RunState.GetCurrentExitState(graphDirection);
+                Assert.That(
+                    presenter.GetDisplayedStatus(localDirections[index]),
+                    Is.EqualTo(graphState.Status),
+                    $"Authored {localDirections[index]} maps to graph {graphDirection}.");
+                if (graphState.IsConnected)
+                {
+                    connectedCount++;
+                    Assert.That(graphState.Status, Is.EqualTo(expectedConnectedStatus));
+                }
+            }
+            Assert.That(connectedCount, Is.GreaterThan(0));
         }
 
         private static string ExpectedSpecialScene(RoomType roomType)

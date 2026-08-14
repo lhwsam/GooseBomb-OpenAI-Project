@@ -1,0 +1,301 @@
+using System;
+using System.Collections.Generic;
+using BombSwap.Core;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace BombSwap
+{
+    [DefaultExecutionOrder(-1500)]
+    [DisallowMultipleComponent]
+    public sealed class PrototypeDungeonRoomBinder : MonoBehaviour
+    {
+        [SerializeField]
+        private PrototypeGameSession roomSession;
+
+        [SerializeField]
+        private PrototypeDungeonDoorPresenter doorPresenter;
+
+        [SerializeField]
+        private Transform gridRoot;
+
+        private PrototypeDungeonRunHost _runHost;
+        private CombatRoomDefinition _runtimeRoomDefinition;
+        private RoomRotation _roomRotation;
+        private bool _transitionRequested;
+
+        public PrototypeDungeonRunHost RunHost => _runHost;
+
+        public PrototypeGameSession RoomSession => roomSession;
+
+        public PrototypeDungeonDoorPresenter DoorPresenter => doorPresenter;
+
+        public Transform GridRoot => gridRoot;
+
+        public RoomRotation RoomRotation => _roomRotation;
+
+        public void Configure(
+            PrototypeGameSession authoredRoomSession,
+            PrototypeDungeonDoorPresenter authoredDoorPresenter,
+            Transform authoredGridRoot)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeDungeonRoomBinder before changing its configuration.");
+            }
+            roomSession = authoredRoomSession ??
+                throw new ArgumentNullException(nameof(authoredRoomSession));
+            doorPresenter = authoredDoorPresenter ??
+                throw new ArgumentNullException(nameof(authoredDoorPresenter));
+            gridRoot = authoredGridRoot ??
+                throw new ArgumentNullException(nameof(authoredGridRoot));
+        }
+
+        private void Awake()
+        {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+            if (roomSession == null || doorPresenter == null || gridRoot == null)
+            {
+                throw new InvalidOperationException(
+                    "PrototypeDungeonRoomBinder requires session, door presenter, and grid root references.");
+            }
+
+            _runHost = FindPrimaryRunHost();
+            PrepareRoomBeforeSessionAwake();
+        }
+
+        private void OnEnable()
+        {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+            if (_runHost == null)
+            {
+                throw new InvalidOperationException(
+                    "PrototypeDungeonRoomBinder did not resolve a primary run host.");
+            }
+
+            _runHost.RoomCommitted += OnRoomCommitted;
+            roomSession.RoomCleared += OnRoomCleared;
+            roomSession.PlayerMoved += OnPlayerMoved;
+        }
+
+        private void Start()
+        {
+            if (Application.isPlaying && !_runHost.HasPendingTransition)
+            {
+                RefreshDoors();
+            }
+        }
+
+        private void Update()
+        {
+            if (_transitionRequested || roomSession == null ||
+                roomSession.InputReader == null)
+            {
+                return;
+            }
+
+            TryRequestExit(
+                roomSession.CurrentGridPosition,
+                roomSession.InputReader.CurrentMoveDirection);
+        }
+
+        private void OnDisable()
+        {
+            if (_runHost != null)
+            {
+                _runHost.RoomCommitted -= OnRoomCommitted;
+            }
+            if (roomSession != null)
+            {
+                roomSession.RoomCleared -= OnRoomCleared;
+                roomSession.PlayerMoved -= OnPlayerMoved;
+            }
+        }
+
+        private void PrepareRoomBeforeSessionAwake()
+        {
+            PrototypeDungeonRunSession run = _runHost.RunSession;
+            bool hasPending = _runHost.HasPendingTransition;
+            DungeonRoomNodeId roomId = hasPending
+                ? _runHost.PendingTransition.TargetRoomId
+                : run.CurrentRoomId;
+            string expectedSceneName;
+            if (!run.TryGetSceneName(roomId, out expectedSceneName) ||
+                !string.Equals(
+                    SceneManager.GetActiveScene().name,
+                    expectedSceneName,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Active scene '{SceneManager.GetActiveScene().name}' does not match dungeon room {roomId} scene '{expectedSceneName}'.");
+            }
+
+            DungeonRoomNode room = run.Graph.GetRoom(roomId);
+            CombatRoomDefinition authoredDefinition =
+                roomSession.Context.RoomDefinition.CreateCoreDefinition();
+            if (room.RoomType == RoomType.Combat)
+            {
+                if (!run.TryGetCombatRoom(
+                    roomId,
+                    out PrototypeDungeonCombatRoomSelection selection) ||
+                    selection.RoomDefinition != roomSession.Context.RoomDefinition)
+                {
+                    throw new InvalidOperationException(
+                        $"Combat scene '{expectedSceneName}' does not use its assigned room asset.");
+                }
+                if (!roomSession.HasChaser)
+                {
+                    throw new InvalidOperationException(
+                        "Combat dungeon rooms require an enabled combat session.");
+                }
+                _roomRotation = selection.Assignment.Rotation;
+                _runtimeRoomDefinition = CombatRoomRotationUtility.Rotate(
+                    authoredDefinition,
+                    _roomRotation);
+            }
+            else
+            {
+                bool bossRequiresCombat = room.RoomType == RoomType.Boss;
+                if (roomSession.HasChaser != bossRequiresCombat)
+                {
+                    throw new InvalidOperationException(
+                        bossRequiresCombat
+                            ? "Boss placeholder requires an enabled combat session."
+                            : $"Safe dungeon room {room.RoomType} must disable combat.");
+                }
+                _roomRotation = RoomRotation.None;
+                _runtimeRoomDefinition = authoredDefinition;
+            }
+
+            gridRoot.localRotation = Quaternion.Euler(
+                0f,
+                RoomRotationUtility.GetClockwiseDegrees(_roomRotation),
+                0f);
+            GridPosition playerStart = hasPending
+                ? FindExitCell(
+                    _runtimeRoomDefinition.Exits,
+                    _runHost.PendingTransition.EntryDirection)
+                : _runtimeRoomDefinition.PlayerSpawn;
+            roomSession.PrepareRuntimeRoom(_runtimeRoomDefinition, playerStart);
+        }
+
+        private void OnRoomCommitted()
+        {
+            _transitionRequested = false;
+            RefreshDoors();
+        }
+
+        private void OnRoomCleared()
+        {
+            DungeonRoomClearStatus status = _runHost.TryClearCurrentRoom();
+            if (status != DungeonRoomClearStatus.Cleared &&
+                status != DungeonRoomClearStatus.AlreadyCleared)
+            {
+                throw new InvalidOperationException(
+                    $"Room session cleared a non-clearable dungeon room: {status}.");
+            }
+            RefreshDoors();
+        }
+
+        private void OnPlayerMoved(PlayerMovementStep step)
+        {
+            TryRequestExit(step.To, step.Direction);
+        }
+
+        private void TryRequestExit(
+            GridPosition playerPosition,
+            CardinalDirection moveDirection)
+        {
+            if (_transitionRequested || moveDirection == CardinalDirection.None)
+            {
+                return;
+            }
+
+            RoomExitDirection exitDirection = ToExitDirection(moveDirection);
+            GridPosition exitCell = FindExitCell(
+                _runtimeRoomDefinition.Exits,
+                exitDirection);
+            if (playerPosition != exitCell)
+            {
+                return;
+            }
+
+            PrototypeDungeonTransitionStartResult result =
+                _runHost.RequestTravel(exitDirection);
+            _transitionRequested = result.Started;
+        }
+
+        private void RefreshDoors()
+        {
+            doorPresenter.Apply(
+                _runHost.RunSession.GetCurrentExitStates(),
+                _roomRotation);
+        }
+
+        private static PrototypeDungeonRunHost FindPrimaryRunHost()
+        {
+            PrototypeDungeonRunHost[] hosts =
+                FindObjectsByType<PrototypeDungeonRunHost>(
+                    FindObjectsInactive.Include);
+            PrototypeDungeonRunHost primary = null;
+            for (int index = 0; index < hosts.Length; index++)
+            {
+                if (!hosts[index].IsPrimary)
+                {
+                    continue;
+                }
+                if (primary != null)
+                {
+                    throw new InvalidOperationException(
+                        "Multiple primary dungeon run hosts are active.");
+                }
+                primary = hosts[index];
+            }
+            return primary ?? throw new InvalidOperationException(
+                "Dungeon room requires one primary run host.");
+        }
+
+        private static GridPosition FindExitCell(
+            IReadOnlyList<RoomExit> exits,
+            RoomExitDirection direction)
+        {
+            for (int index = 0; index < exits.Count; index++)
+            {
+                if (exits[index].Direction == direction)
+                {
+                    return exits[index].Cell;
+                }
+            }
+            throw new InvalidOperationException(
+                $"Runtime room definition has no {direction} potential exit.");
+        }
+
+        private static RoomExitDirection ToExitDirection(
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return RoomExitDirection.North;
+                case CardinalDirection.East:
+                    return RoomExitDirection.East;
+                case CardinalDirection.South:
+                    return RoomExitDirection.South;
+                case CardinalDirection.West:
+                    return RoomExitDirection.West;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Movement direction must be cardinal.");
+            }
+        }
+    }
+}

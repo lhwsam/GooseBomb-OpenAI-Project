@@ -1,6 +1,6 @@
 # 던전 씬 수명·입장 작업 계약
 
-- 상태: `In Progress`
+- 상태: `Implemented / Extended Traversal Verification Pending`
 - 수명 소유: `BombSwap.Unity`
 - 직렬화 소유: `BombSwap.Authoring`
 - 선행 결정: [ADR-0008](../ADR/0008-Dungeon-Scene-Lifetime.md)
@@ -23,7 +23,7 @@
 5. 네 방향 외곽 벽을 문 폭만큼 분할하고 `Inactive`·`Locked`·`Open` presenter와 출구 감지를 연결한다.
 6. 시작방·폭탄 보상방·보스 전실·보스방 placeholder 씬을 Unity Editor builder로 만들고 Build Settings에 포함한다.
 
-현재 1~2번, 3번의 catalog 스키마와 4번의 host·pending 전환은 구현됐다. 실제 special catalog asset 생성, room-local binder, 문 presenter와 씬 저작은 3~6번의 남은 Editor 연결 범위다.
+1~6번 구현은 완료됐다. 실제 special catalog asset과 네 placeholder 씬, persistent host, room-local binder, 회전 문 presenter, 출구 감지, Build Settings 첫 Start 씬을 Editor builder·validator가 소유한다.
 
 ## placeholder 범위
 
@@ -41,6 +41,14 @@
 - 시작→첫 전투 잠금→클리어→보상 placeholder→다음 전투와 이전 방 왕복.
 - 비활성·잠금·개방 문 시각/논리 일치와 입장 직후 역방향 재전환 방지.
 - 전체 EditMode·PlayMode, content validator, 실제 WebGL build와 browser 방향키/focus/Console smoke.
+
+현재 증거:
+
+- 전체 EditMode 244/244, PlayMode 86/86 통과.
+- content validator 오류 0과 builder 2회차 멱등 동기화 통과.
+- Editor Play Mode에서 `DungeonStart` primary host·안전 session·열린 문을 확인하고, 서쪽 출구→`TestSandboxPillars` 로드·Core commit·90도 회전 입장 셀·잠긴 문을 확인.
+- Development WebGL 8개 씬 빌드 오류 0, Playwright에서 canvas focus, Start 안전방 경로, graph scene transition/commit, 빠른 6회 방향 전환, 두 폭탄 입력, Console/page error 0 통과.
+- 전투 클리어→보상방→다음 전투와 이전 방 왕복의 브라우저 연속 검증은 후속이다.
 
 ## 비목표
 
