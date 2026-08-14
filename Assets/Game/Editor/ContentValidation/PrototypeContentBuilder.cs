@@ -57,6 +57,8 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeChargerContentIfMissing();
             PrototypeArmoredDefinitionAsset armoredDefinition =
                 CreatePrototypeArmoredContentIfMissing();
+            PrototypeBossDefinitionAsset bossDefinition =
+                CreatePrototypeBossContentIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog =
@@ -70,6 +72,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[0],
                 "TestSandboxLanes");
             bool lanesSceneCreated = EnsurePlaytestRoomVariant(
@@ -79,6 +82,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[1],
                 "TestSandboxPillars");
             bool pillarsSceneCreated = EnsurePlaytestRoomVariant(
@@ -88,6 +92,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[2],
                 "TestSandboxArmor");
             bool armorSceneCreated = EnsurePlaytestRoomVariant(
@@ -97,6 +102,7 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[3],
                 string.Empty);
             EnsureDungeonRoomBinding(
@@ -130,10 +136,12 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                false,
                 false);
             bool rewardSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonRewardScenePath,
@@ -142,10 +150,12 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                false,
                 false);
             bool bossAnteSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonBossAnteScenePath,
@@ -154,10 +164,12 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                false,
                 false);
             bool bossSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonBossScenePath,
@@ -166,10 +178,12 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 chargerDefinition,
                 armoredDefinition,
+                bossDefinition,
                 roomDefinitions[0],
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                true,
                 true);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
@@ -686,6 +700,72 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
+        private static PrototypeBossDefinitionAsset CreatePrototypeBossContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Bosses");
+            Material bossMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/Boss.mat",
+                shader,
+                new Color(0.46f, 0.12f, 0.68f, 1f));
+            Material dangerCellMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/BossDangerCell.mat",
+                shader,
+                new Color(1f, 0.7f, 0.08f, 0.68f));
+            GameObject bossPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BossPrefabPath,
+                "BossPlaceholder",
+                PrimitiveType.Sphere,
+                Vector3.zero,
+                new Vector3(1.15f, 1.15f, 1.15f),
+                bossMaterial);
+            GameObject dangerCellPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BossDangerCellPrefabPath,
+                "BossDangerCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.92f, 0.04f, 0.92f),
+                dangerCellMaterial);
+
+            PrototypeBossDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeBossDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<PrototypeBossDefinitionAsset>();
+                definition.name = "PrototypeBoss";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeBossDefinitionPath);
+            }
+
+            definition.Configure(
+                "prototype-boss",
+                4,
+                2,
+                1,
+                1f,
+                0.25f,
+                2.75f,
+                0.75f,
+                0.25f,
+                2.75f,
+                new Vector2Int(0, 1),
+                bossPrefab,
+                dangerCellPrefab,
+                0.6f,
+                0.03f,
+                0.2f);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
         private static PrototypeCombatRoomDefinitionAsset[] CreatePrototypeCombatRoomContentIfMissing()
         {
             EnsureAssetFolder("Assets/Game/Content/Rooms");
@@ -997,6 +1077,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -1009,6 +1090,7 @@ namespace BombSwap.Editor.ContentValidation
                     chaserDefinition,
                     chargerDefinition,
                     armoredDefinition,
+                    bossDefinition,
                     roomDefinition,
                     nextSceneName);
                 return true;
@@ -1032,6 +1114,7 @@ namespace BombSwap.Editor.ContentValidation
                     chaserDefinition,
                     chargerDefinition,
                     armoredDefinition,
+                    bossDefinition,
                     roomDefinition,
                     nextSceneName);
                 EditorSceneManager.MarkSceneDirty(scene);
@@ -1058,6 +1141,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -1091,6 +1175,7 @@ namespace BombSwap.Editor.ContentValidation
                     chaserDefinition,
                     chargerDefinition,
                     armoredDefinition,
+                    bossDefinition,
                     roomDefinition,
                     nextSceneName);
                 EditorSceneManager.MarkSceneDirty(scene);
@@ -1132,7 +1217,8 @@ namespace BombSwap.Editor.ContentValidation
                     combatRoomCatalog,
                     specialRoomCatalog,
                     bombRewardCatalog,
-                    combatEnabled);
+                    combatEnabled,
+                    false);
                 SynchronizeBombRewardPresenter(scene, false);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
@@ -1157,11 +1243,13 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset shellRoomDefinition,
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
             PrototypeBombRewardCatalogAsset bombRewardCatalog,
-            bool combatEnabled)
+            bool combatEnabled,
+            bool bossEnabled)
         {
             EnsureAssetFolder("Assets/Game/Scenes/Dungeon");
             bool created = false;
@@ -1194,6 +1282,7 @@ namespace BombSwap.Editor.ContentValidation
                     chaserDefinition,
                     chargerDefinition,
                     armoredDefinition,
+                    bossDefinition,
                     shellRoomDefinition,
                     string.Empty);
                 ConfigureDungeonCombatMode(
@@ -1203,13 +1292,16 @@ namespace BombSwap.Editor.ContentValidation
                     chaserDefinition,
                     chargerDefinition,
                     armoredDefinition,
-                    combatEnabled);
+                    bossDefinition,
+                    combatEnabled,
+                    bossEnabled);
                 SynchronizeDungeonSceneBindings(
                     scene,
                     combatRoomCatalog,
                     specialRoomCatalog,
                     bombRewardCatalog,
-                    combatEnabled);
+                    combatEnabled,
+                    bossEnabled);
                 SynchronizeBombRewardPresenter(
                     scene,
                     string.Equals(
@@ -1241,7 +1333,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeArmoredDefinitionAsset armoredDefinition,
-            bool combatEnabled)
+            PrototypeBossDefinitionAsset bossDefinition,
+            bool combatEnabled,
+            bool bossEnabled)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
@@ -1254,7 +1348,9 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 startingCharger: chargerDefinition,
                 startingArmored: armoredDefinition,
-                startingCombatEnabled: combatEnabled);
+                startingCombatEnabled: combatEnabled,
+                startingBoss: bossDefinition,
+                startingBossEnabled: bossEnabled);
             EditorUtility.SetDirty(gameSession);
         }
 
@@ -1263,11 +1359,13 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
             PrototypeBombRewardCatalogAsset bombRewardCatalog,
-            bool combatEnabled)
+            bool combatEnabled,
+            bool bossEnabled)
         {
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             PrototypeGameSession gameSession = FindExactlyOne<PrototypeGameSession>(scene);
-            if (gameSession.HasChaser != combatEnabled)
+            if (gameSession.HasChaser != (combatEnabled && !bossEnabled) ||
+                gameSession.HasBoss != bossEnabled)
             {
                 throw new InvalidOperationException(
                     $"Dungeon scene '{scene.path}' combat mode was not configured consistently.");
@@ -1521,6 +1619,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -1575,6 +1674,8 @@ namespace BombSwap.Editor.ContentValidation
                 systems.AddComponent<PrototypeChargerPresenter>();
             PrototypeArmoredPresenter armoredPresenter =
                 systems.AddComponent<PrototypeArmoredPresenter>();
+            PrototypeBossPresenter bossPresenter =
+                systems.AddComponent<PrototypeBossPresenter>();
             PrototypeWeaponHud weaponHud = systems.AddComponent<PrototypeWeaponHud>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
             PrototypeRoomAdvanceController roomAdvanceController =
@@ -1717,7 +1818,8 @@ namespace BombSwap.Editor.ContentValidation
                 playerVitals,
                 chaserDefinition,
                 startingCharger: chargerDefinition,
-                startingArmored: armoredDefinition);
+                startingArmored: armoredDefinition,
+                startingBoss: bossDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -1725,6 +1827,8 @@ namespace BombSwap.Editor.ContentValidation
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
             armoredPresenter.Configure(gameSession, runtimePresentation);
+            bossPresenter.Configure(gameSession, runtimePresentation);
+            SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
@@ -1745,6 +1849,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeChaserDefinitionAsset chaserDefinition,
             PrototypeChargerDefinitionAsset chargerDefinition,
             PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
@@ -1794,6 +1899,12 @@ namespace BombSwap.Editor.ContentValidation
             if (armoredPresenter == null)
             {
                 armoredPresenter = systems.AddComponent<PrototypeArmoredPresenter>();
+            }
+            PrototypeBossPresenter bossPresenter =
+                systems.GetComponent<PrototypeBossPresenter>();
+            if (bossPresenter == null)
+            {
+                bossPresenter = systems.AddComponent<PrototypeBossPresenter>();
             }
             PrototypeWeaponHud weaponHud = systems.GetComponent<PrototypeWeaponHud>();
             if (weaponHud == null)
@@ -1888,7 +1999,8 @@ namespace BombSwap.Editor.ContentValidation
                 playerVitals,
                 chaserDefinition,
                 startingCharger: chargerDefinition,
-                startingArmored: armoredDefinition);
+                startingArmored: armoredDefinition,
+                startingBoss: bossDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -1896,6 +2008,8 @@ namespace BombSwap.Editor.ContentValidation
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
             armoredPresenter.Configure(gameSession, runtimePresentation);
+            bossPresenter.Configure(gameSession, runtimePresentation);
+            SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
@@ -1908,9 +2022,25 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(chaserPresenter);
             EditorUtility.SetDirty(chargerPresenter);
             EditorUtility.SetDirty(armoredPresenter);
+            EditorUtility.SetDirty(bossPresenter);
             EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);
             EditorUtility.SetDirty(roomAdvanceController);
+        }
+
+        private static void SetSerializedObjectName(
+            UnityEngine.Object target,
+            string serializedName)
+        {
+            var serializedObject = new SerializedObject(target);
+            SerializedProperty nameProperty = serializedObject.FindProperty("m_Name");
+            if (nameProperty == null)
+            {
+                throw new InvalidOperationException(
+                    $"Unity object '{target}' does not expose a serialized name.");
+            }
+            nameProperty.stringValue = serializedName;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void SynchronizeInteriorObstacles(

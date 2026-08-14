@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-15
-- 단계: 한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어→보스 전실·보스 placeholder WebGL 수직 슬라이스 완료
+- 단계: 한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→주 경로 전투 3개 클리어→보스 전실→2페이즈 보스 격파·방 클리어 WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -239,3 +239,6 @@
 - 전체 보스 경로 최종 코드로 EditMode 251/251 통과, 실패·건너뜀·불확정 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-154600-181.json`. `PrototypeContentValidator`와 Unity Console Error도 0이다.
 - Development WebGL 8개 씬 빌드 성공: 137,501,446 bytes, 51.950초, 오류 0, 경고 3. Edge headless smoke 21/21이 8회 transition/commit, 주 경로 전투방 3개 클리어, 보상 선택과 광역 폭탄 4회 설치, 보스 전실·보스 placeholder 진입, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-003200-full-boss-path-web/`와 `webgl-boss-path.png`.
 - 보스 Core 대상 EditMode 11/11과 전체 EditMode 262/262 통과. exact timing, 열·행·체크무늬 snapshot, Recovery 한정 피해, 중복 폭발, 안전한 phase 전환, 큰 시계 진행, 사망 점유 단일 제거와 기존 전체 Core 회귀를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-160136-925.json`, `Artifacts/Verification/ConnectedTests/20260814-160210-645.json`. Unity import/compile과 Console Error 0이다.
+- 보스 Unity 수직 슬라이스 최종 코드로 전체 EditMode 264/264와 PlayMode 97/97 통과, 실패·건너뜀·불확정 0. 보스 패턴 플레이어 피해 무적 공유, 실제 `DungeonBoss` 저작, Recovery 한정 폭탄 피해 4회, 2페이즈, 사망·방 클리어와 기존 전체 회귀를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-162458-961.json`, `Artifacts/Verification/ConnectedTests/20260814-163107-198.json`.
+- `PrototypeContentValidator`가 보스 정의 수치, collider 없는 보스/위험 셀 prefab, spawn, 여덟 씬의 session/presenter 참조와 `DungeonBoss` 단일 활성 계약을 오류 0으로 확인했다. 실제 Recovery는 가장 긴 2.25초 신관 뒤 0.5초 여유가 남도록 두 페이즈 모두 2.75초다.
+- 최종 Development WebGL 8개 씬 빌드 성공: 137,676,341 bytes, 100.410초, 오류 0, 기존 TextMeshPro IL2CPP 경고 3. Edge headless smoke 22/22가 전체 seed-0 주 경로와 보스 Telegraph·Execute·Recovery 각 4회, Recovery 피해 4회, 2페이즈·격파·방 클리어, focus·pause·resize와 Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-015934-boss-battle-web-final/`.

@@ -1,6 +1,6 @@
 # 보스 Core 수직 슬라이스 작업 계약
 
-- 상태: `Core Implemented / Unity Pending`
+- 상태: `Core + Unity Implemented / WebGL Verified / Playtest Pending`
 - 규칙 소유: `BombSwap.Core`
 - 후속 연결: `BombSwap.Authoring`, `BombSwap.Unity`
 - 관련: [보스 전투](../Systems/BossBattle.md), [피해와 무적](../Systems/DamageAndInvulnerability.md), [완료 정의](DefinitionOfDone.md)
@@ -43,22 +43,26 @@
 
 - 보스 대상 EditMode 11/11: `Artifacts/Verification/ConnectedTests/20260814-160136-925.json`.
 - 전체 EditMode 262/262: `Artifacts/Verification/ConnectedTests/20260814-160210-645.json`.
-- Unity import/compile 및 Console Error 0.
-- StaticOnly: `Artifacts/Verification/20260815-010355-static/`, 통과.
+- 최종 전체 EditMode 264/264: `Artifacts/Verification/ConnectedTests/20260814-162458-961.json`.
+- 최종 전체 PlayMode 97/97: `Artifacts/Verification/ConnectedTests/20260814-163107-198.json`.
+- Unity import/compile, `PrototypeContentValidator` 및 Console Error 0.
+- 최종 Development WebGL 빌드 성공: 137,676,341 bytes, 100.410초, 오류 0, 기존 TextMeshPro IL2CPP 경고 3. `Artifacts/Verification/20260815-015934-boss-battle-web-final/webgl-build-report.json`.
+- Edge headless browser smoke 22/22: 전체 seed-0 주 경로, 보스 Telegraph·Execute·Recovery 각 4회, Recovery 피해 4회, 2페이즈·격파·클리어, canvas focus·pause·resize와 Console/page error 0. `Artifacts/Verification/20260815-015934-boss-battle-web-final/browser-smoke.json`.
+- 시각 증거: 같은 폴더의 `webgl-boss-battle-boss-telegraph.png`, `webgl-boss-battle.png`.
 
-## Unity 연결 순서
+## Unity 연결 결과
 
-1. `PrototypeBossDefinitionAsset`과 boss spawn·arena cell 저작 계약을 추가한다.
-2. `PrototypeGameSession`의 일반 적 활성과 보스 활성 구성을 분리하고 보스 `ActorId(5)`를 연결한다.
-3. 매 frame 보스 전이를 한 단계 처리하고 Execute 셀의 플레이어 피해를 기존 무적 계약에 전달한다.
-4. 폭발 영향 셀에 보스 위치가 포함되고 상태가 Recovery일 때만 Core 피해를 적용한다.
-5. 위험 셀 telegraph/execute, 보스 phase·피격·사망 presenter를 pooling/property block 기반으로 구현한다.
-6. 보스 사망을 단일 `RoomCleared`와 문 개방에 연결한다.
-7. PlayMode, content validator, 실제 WebGL과 사람 가독성 테스트를 수행한다.
+1. `PrototypeBossDefinitionAsset`과 boss spawn·arena cell 저작 계약을 추가했다.
+2. `PrototypeGameSession`의 일반 적 활성과 보스 활성 구성을 분리하고 보스 `ActorId(5)`를 연결했다.
+3. 매 frame 보스 전이를 한 단계 처리하고 Execute 셀의 플레이어 피해를 기존 무적 계약에 전달했다.
+4. 폭발 영향 셀에 보스 위치가 포함되고 상태가 Recovery일 때만 Core 피해를 적용했다.
+5. 위험 셀 telegraph/execute, 보스 phase·피격·사망 presenter를 pooling/property block 기반으로 구현했다.
+6. 보스 사망을 단일 `RoomCleared`와 문 개방에 연결했다.
+7. PlayMode, content validator와 실제 WebGL 가독성 자동 검증을 완료했다. 사람 가독성·재미 플레이테스트는 별도 단계로 남겼다.
 
 ## 비목표와 남은 위험
 
-- 현재 시간·체력 fixture는 실제 저작값이 아니다.
-- 보스 패턴의 플레이어 피해 source와 HUD 표시 방식은 Unity 연결에서 기존 무적 계약과 함께 확정한다.
+- Core 테스트 시간 fixture는 실제 저작값이 아니다. 실제 `PrototypeBossDefinitionAsset`은 두 페이즈 Recovery를 2.75초로 두어 2.25초 신관 뒤 최소 0.5초 반격 여유를 제공한다.
+- 보스 패턴 플레이어 피해는 기존 무적 계약과 통합됐고 진단 probe가 source를 구분한다. 전용 보스 체력 HUD와 승리 화면은 아직 없다.
 - 열·행·체크무늬가 두 폭탄 모두의 다른 설치 판단을 만드는지는 자동 테스트로 판정하지 않는다.
-- 보스 이동, 소환, 장애물 생성, 완성 VFX·audio, 승리 화면과 다음 층은 이 Core 슬라이스에 포함하지 않는다.
+- 보스 이동, 소환, 장애물 생성, 완성 VFX·audio, 승리 화면과 다음 층은 이 수직 슬라이스에 포함하지 않는다.

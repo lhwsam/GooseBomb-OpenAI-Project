@@ -18,6 +18,9 @@ namespace BombSwap
         private static readonly ActorId PrototypeChaserActorId = new ActorId(2);
         private static readonly ActorId PrototypeChargerActorId = new ActorId(3);
         private static readonly ActorId PrototypeArmoredActorId = new ActorId(4);
+        private static readonly ActorId PrototypeBossActorId = new ActorId(5);
+        private static readonly IReadOnlyList<GridPosition> NoBossDangerCells =
+            Array.AsReadOnly(Array.Empty<GridPosition>());
 
         [SerializeField]
         private TestSandboxContext context;
@@ -44,6 +47,9 @@ namespace BombSwap
         private PrototypeArmoredDefinitionAsset armoredDefinition;
 
         [SerializeField]
+        private PrototypeBossDefinitionAsset bossDefinition;
+
+        [SerializeField]
         private float cellsPerSecond = DefaultCellsPerSecond;
 
         [SerializeField]
@@ -51,6 +57,9 @@ namespace BombSwap
 
         [SerializeField]
         private bool combatEnabled = true;
+
+        [SerializeField]
+        private bool bossEnabled;
 
         private GridState _grid;
         private ManualGameClock _clock;
@@ -66,9 +75,11 @@ namespace BombSwap
         private ChargerEnemyDefinition _coreChargerDefinition;
         private ArmoredEnemySimulation _armored;
         private ArmoredEnemyDefinition _coreArmoredDefinition;
+        private BossBattleSimulation _boss;
         private CombatRoomDefinition _runtimeRoomDefinition;
         private GridPosition? _runtimePlayerStart;
         private bool? _runtimeCombatEnabled;
+        private bool? _runtimeBossEnabled;
         private PrototypeBombDefinitionAsset _runtimeFirstBombDefinition;
         private PrototypeBombDefinitionAsset _runtimeSecondBombDefinition;
         private PrototypeBombDefinitionAsset[] _runtimeBombDefinitions;
@@ -79,6 +90,8 @@ namespace BombSwap
             new List<EnemyDamageResult>();
         private readonly List<ArmoredEnemyDamageResult> _armoredDamageResults =
             new List<ArmoredEnemyDamageResult>();
+        private readonly List<BossDamageResult> _bossDamageResults =
+            new List<BossDamageResult>();
         private bool _roomCleared;
         private bool _hasCharger;
         private bool _hasArmored;
@@ -111,6 +124,10 @@ namespace BombSwap
 
         public event Action<EnemyDamageResult> EnemyDied;
 
+        public event Action<BossPatternTransition> BossPatternTransitioned;
+
+        public event Action<BossDamageResult> BossDamaged;
+
         public event Action RoomCleared;
 
         public event Action Ready;
@@ -136,19 +153,26 @@ namespace BombSwap
 
         public PrototypeArmoredDefinitionAsset ArmoredDefinition => armoredDefinition;
 
+        public PrototypeBossDefinitionAsset BossDefinition => bossDefinition;
+
         public float CellsPerSecond => cellsPerSecond;
 
         public float ChainDelaySeconds => chainDelaySeconds;
 
         public bool IsCombatEnabledByDefault => combatEnabled;
 
-        public bool HasChaser => IsCombatEnabledForVisit;
+        public bool IsBossEnabledByDefault => bossEnabled;
+
+        public bool HasChaser => IsCombatEnabledForVisit && !IsBossEnabledForVisit;
+
+        public bool HasBoss => IsBossEnabledForVisit;
 
         public bool IsInitialized => _movement != null && _bombs != null && _weapons != null &&
             _health != null &&
-            (!IsCombatEnabledForVisit || (_chaser != null && _chaserHealth != null)) &&
+            (!HasChaser || (_chaser != null && _chaserHealth != null)) &&
             (!_hasCharger || (_charger != null && _chargerHealth != null)) &&
-            (!_hasArmored || _armored != null);
+            (!_hasArmored || _armored != null) &&
+            (!HasBoss || _boss != null);
 
         public bool IsReady { get; private set; }
 
@@ -207,6 +231,31 @@ namespace BombSwap
 
         public bool IsArmoredAlive => _hasArmored && _armored != null && !_armored.IsDead;
 
+        public ActorId BossActorId => _boss != null ? _boss.ActorId : default;
+
+        public GridPosition CurrentBossGridPosition =>
+            _boss != null ? _boss.BossPosition : default;
+
+        public BossBattleState CurrentBossState =>
+            _boss != null ? _boss.State : BossBattleState.Telegraph;
+
+        public BossPhase CurrentBossPhase =>
+            _boss != null ? _boss.Phase : BossPhase.One;
+
+        public BossPatternKind CurrentBossPattern =>
+            _boss != null ? _boss.CurrentPattern : BossPatternKind.AlternatingColumns;
+
+        public IReadOnlyList<GridPosition> CurrentBossDangerCells =>
+            _boss != null ? _boss.CurrentDangerCells : NoBossDangerCells;
+
+        public int CurrentBossHealth => _boss != null ? _boss.CurrentHealth : 0;
+
+        public int MaxBossHealth => _boss != null ? _boss.MaxHealth : 0;
+
+        public bool IsBossAlive => HasBoss && _boss != null && !_boss.IsDead;
+
+        public bool IsBossVulnerable => HasBoss && _boss != null && _boss.IsVulnerable;
+
         public int EnemyActiveCount
         {
             get
@@ -217,6 +266,10 @@ namespace BombSwap
                     count++;
                 }
                 if (_armored != null && !_armored.IsDead)
+                {
+                    count++;
+                }
+                if (_boss != null && !_boss.IsDead)
                 {
                     count++;
                 }
@@ -256,7 +309,9 @@ namespace BombSwap
             float bombChainDelaySeconds = DefaultChainDelaySeconds,
             PrototypeChargerDefinitionAsset startingCharger = null,
             PrototypeArmoredDefinitionAsset startingArmored = null,
-            bool startingCombatEnabled = true)
+            bool startingCombatEnabled = true,
+            PrototypeBossDefinitionAsset startingBoss = null,
+            bool startingBossEnabled = false)
         {
             if (Application.isPlaying && isActiveAndEnabled)
             {
@@ -279,9 +334,19 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(startingPlayerVitals));
             }
-            if (startingCombatEnabled && startingChaser == null)
+            if (startingBossEnabled && !startingCombatEnabled)
+            {
+                throw new ArgumentException(
+                    "A boss encounter must also enable combat.",
+                    nameof(startingBossEnabled));
+            }
+            if (startingCombatEnabled && !startingBossEnabled && startingChaser == null)
             {
                 throw new ArgumentNullException(nameof(startingChaser));
+            }
+            if (startingBossEnabled && startingBoss == null)
+            {
+                throw new ArgumentNullException(nameof(startingBoss));
             }
 
             ValidateFinitePositive(movementCellsPerSecond, nameof(movementCellsPerSecond));
@@ -295,10 +360,13 @@ namespace BombSwap
             chaserDefinition = startingChaser;
             chargerDefinition = startingCharger;
             armoredDefinition = startingArmored;
+            bossDefinition = startingBoss;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
             combatEnabled = startingCombatEnabled;
+            bossEnabled = startingBossEnabled;
             _runtimeCombatEnabled = null;
+            _runtimeBossEnabled = null;
         }
 
         public void PrepareRuntimeRoom(
@@ -312,6 +380,19 @@ namespace BombSwap
             CombatRoomDefinition roomDefinition,
             GridPosition playerStart,
             bool combatEnabledForVisit)
+        {
+            PrepareRuntimeRoom(
+                roomDefinition,
+                playerStart,
+                combatEnabledForVisit,
+                bossEnabled && combatEnabledForVisit);
+        }
+
+        public void PrepareRuntimeRoom(
+            CombatRoomDefinition roomDefinition,
+            GridPosition playerStart,
+            bool combatEnabledForVisit,
+            bool bossEnabledForVisit)
         {
             if (_movement != null)
             {
@@ -333,7 +414,36 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "A room authored without combat cannot enable enemies for a runtime visit.");
             }
-            if (combatEnabledForVisit &&
+            if (bossEnabledForVisit && !combatEnabledForVisit)
+            {
+                throw new ArgumentException(
+                    "A boss runtime visit must also enable combat.",
+                    nameof(bossEnabledForVisit));
+            }
+            if (bossEnabledForVisit && !bossEnabled)
+            {
+                throw new InvalidOperationException(
+                    "A room authored without a boss cannot enable one for a runtime visit.");
+            }
+            if (bossEnabledForVisit && bossDefinition == null)
+            {
+                throw new InvalidOperationException(
+                    "A boss runtime visit requires a boss definition reference.");
+            }
+            if (bossEnabledForVisit &&
+                (!roomDefinition.IsInside(bossDefinition.BossSpawn) ||
+                 roomDefinition.IsBlocked(bossDefinition.BossSpawn)))
+            {
+                throw new InvalidOperationException(
+                    $"Boss spawn {bossDefinition.BossSpawn} must be a traversable room cell.");
+            }
+            if (bossEnabledForVisit && playerStart == bossDefinition.BossSpawn)
+            {
+                throw new ArgumentException(
+                    $"Runtime player start {playerStart} cannot overlap the boss spawn.",
+                    nameof(playerStart));
+            }
+            if (combatEnabledForVisit && !bossEnabledForVisit &&
                 (playerStart == roomDefinition.ChaserSpawn ||
                  (roomDefinition.ChargerSpawn.HasValue &&
                   playerStart == roomDefinition.ChargerSpawn.Value) ||
@@ -348,6 +458,7 @@ namespace BombSwap
             _runtimeRoomDefinition = roomDefinition;
             _runtimePlayerStart = playerStart;
             _runtimeCombatEnabled = combatEnabledForVisit;
+            _runtimeBossEnabled = bossEnabledForVisit;
         }
 
         public void PrepareRuntimeBombLoadout(
@@ -556,6 +667,10 @@ namespace BombSwap
             }
 
             _clock.Advance(TimeSpan.FromSeconds(elapsedSeconds));
+            _appliedDamageResults.Clear();
+            _appliedEnemyDamageResults.Clear();
+            _armoredDamageResults.Clear();
+            _bossDamageResults.Clear();
             if (!_health.IsDead)
             {
                 bool playerPositionChanged = _movement.Advance();
@@ -571,7 +686,7 @@ namespace BombSwap
                         _movement.MoveDirection);
                 }
             }
-            if (IsCombatEnabledForVisit && !_chaserHealth.IsDead &&
+            if (HasChaser && !_chaserHealth.IsDead &&
                 _chaser.TryAdvance(out EnemyMovementStep chaserStep))
             {
                 ChaserMoved?.Invoke(chaserStep);
@@ -591,10 +706,25 @@ namespace BombSwap
                 ArmoredMoved?.Invoke(armoredStep);
             }
 
+            BossPatternTransition? bossTransition = null;
+            if (HasBoss && !_boss.IsDead &&
+                _boss.TryAdvance(out BossPatternTransition transition))
+            {
+                bossTransition = transition;
+                if (!_health.IsDead && transition.AttackResolved &&
+                    Contains(transition.DangerCells, _movement.CurrentPosition))
+                {
+                    PlayerDamageResult patternDamage = _health.ApplyBossPatternDamage(
+                        _boss.ActorId,
+                        _boss.Definition.PatternDamage);
+                    if (patternDamage.WasApplied)
+                    {
+                        _appliedDamageResults.Add(patternDamage);
+                    }
+                }
+            }
+
             var explosions = _bombs.ProcessDueBombs();
-            _appliedDamageResults.Clear();
-            _appliedEnemyDamageResults.Clear();
-            _armoredDamageResults.Clear();
             for (int index = 0; index < explosions.Count; index++)
             {
                 BombExplosion explosion = explosions[index];
@@ -609,7 +739,7 @@ namespace BombSwap
                         _appliedDamageResults.Add(damage);
                     }
                 }
-                if (IsCombatEnabledForVisit)
+                if (HasChaser)
                 {
                     ApplyEnemyExplosionDamage(
                         explosion,
@@ -629,9 +759,13 @@ namespace BombSwap
                 {
                     ApplyArmoredExplosionDamage(explosion);
                 }
+                if (HasBoss)
+                {
+                    ApplyBossExplosionDamage(explosion);
+                }
             }
 
-            if (!_health.IsDead && IsCombatEnabledForVisit && !_chaserHealth.IsDead &&
+            if (!_health.IsDead && HasChaser && !_chaserHealth.IsDead &&
                 _movement.CurrentPosition.IsCardinallyAdjacentTo(_chaser.CurrentPosition))
             {
                 PlayerDamageResult contactDamage = _health.ApplyContactDamage(
@@ -669,6 +803,10 @@ namespace BombSwap
             {
                 BombExploded?.Invoke(explosions[index]);
             }
+            if (bossTransition.HasValue)
+            {
+                BossPatternTransitioned?.Invoke(bossTransition.Value);
+            }
             for (int index = 0; index < _appliedDamageResults.Count; index++)
             {
                 PlayerDamageResult damage = _appliedDamageResults[index];
@@ -692,6 +830,10 @@ namespace BombSwap
                     EnemyDied?.Invoke(damage);
                 }
             }
+            for (int index = 0; index < _bossDamageResults.Count; index++)
+            {
+                BossDamaged?.Invoke(_bossDamageResults[index]);
+            }
             if (!_roomCleared && EnemyActiveCount == 0)
             {
                 _roomCleared = true;
@@ -702,19 +844,21 @@ namespace BombSwap
         private void Initialize()
         {
             bool combatEnabledForVisit = IsCombatEnabledForVisit;
+            bool bossEnabledForVisit = IsBossEnabledForVisit;
             if (context == null || inputReader == null || bombLoadout == null ||
-                playerVitals == null || (combatEnabledForVisit && chaserDefinition == null))
+                playerVitals == null || (HasChaser && chaserDefinition == null) ||
+                (bossEnabledForVisit && bossDefinition == null))
             {
                 throw new InvalidOperationException(
-                    "PrototypeGameSession requires context, input reader, bomb loadout, player-vitals, and a chaser reference when combat is enabled.");
+                    "PrototypeGameSession is missing one or more required encounter references.");
             }
 
             ValidateFinitePositive(cellsPerSecond, nameof(cellsPerSecond));
             ValidateFinitePositive(chainDelaySeconds, nameof(chainDelaySeconds));
             CombatRoomDefinition roomDefinition = _runtimeRoomDefinition ??
                 context.RoomDefinition.CreateCoreDefinition();
-            _hasCharger = combatEnabledForVisit && roomDefinition.ChargerSpawn.HasValue;
-            _hasArmored = combatEnabledForVisit && roomDefinition.ArmoredSpawn.HasValue;
+            _hasCharger = HasChaser && roomDefinition.ChargerSpawn.HasValue;
+            _hasArmored = HasChaser && roomDefinition.ArmoredSpawn.HasValue;
             if (_hasCharger && chargerDefinition == null)
             {
                 throw new InvalidOperationException(
@@ -753,7 +897,7 @@ namespace BombSwap
                 _clock,
                 playerVitals.CreateCoreDefinition());
 
-            if (combatEnabledForVisit)
+            if (HasChaser)
             {
                 _coreChaserDefinition = chaserDefinition.CreateCoreDefinition();
                 _chaser = new ChaserEnemySimulation(
@@ -804,12 +948,27 @@ namespace BombSwap
                     _movement.ActorId,
                     roomDefinition.ArmoredSpawn.Value);
             }
+            if (bossEnabledForVisit)
+            {
+                BossBattleDefinition coreBossDefinition =
+                    bossDefinition.CreateCoreDefinition();
+                _boss = new BossBattleSimulation(
+                    _grid,
+                    _clock,
+                    coreBossDefinition,
+                    PrototypeBossActorId,
+                    bossDefinition.BossSpawn,
+                    CreatePlayableArenaCells(roomDefinition));
+            }
             _roomCleared = !combatEnabledForVisit;
 
         }
 
         private bool IsCombatEnabledForVisit =>
             _runtimeCombatEnabled ?? combatEnabled;
+
+        private bool IsBossEnabledForVisit =>
+            _runtimeBossEnabled ?? bossEnabled;
 
         private void OnCommandIssued(PlayerCommand command)
         {
@@ -916,6 +1075,43 @@ namespace BombSwap
 
             _armoredDamageResults.Add(result);
             _appliedEnemyDamageResults.Add(result.Damage);
+        }
+
+        private void ApplyBossExplosionDamage(BombExplosion explosion)
+        {
+            if (_boss.IsDead ||
+                !Contains(explosion.AffectedCells, _boss.BossPosition))
+            {
+                return;
+            }
+
+            BossDamageResult result = _boss.ApplyExplosion(
+                explosion.BombId,
+                DefaultEnemyExplosionDamage);
+            if (result.WasApplied)
+            {
+                _bossDamageResults.Add(result);
+            }
+        }
+
+        private static IReadOnlyList<GridPosition> CreatePlayableArenaCells(
+            CombatRoomDefinition roomDefinition)
+        {
+            var cells = new List<GridPosition>();
+            int halfWidth = roomDefinition.Width / 2;
+            int halfDepth = roomDefinition.Depth / 2;
+            for (int z = -halfDepth; z <= halfDepth; z++)
+            {
+                for (int x = -halfWidth; x <= halfWidth; x++)
+                {
+                    var position = new GridPosition(x, z);
+                    if (!roomDefinition.IsBlocked(position))
+                    {
+                        cells.Add(position);
+                    }
+                }
+            }
+            return cells;
         }
 
         private static GridState CreateGrid(CombatRoomDefinition roomDefinition)

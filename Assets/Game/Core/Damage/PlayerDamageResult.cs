@@ -6,6 +6,7 @@ namespace BombSwap.Core
     {
         Explosion = 0,
         EnemyContact = 1,
+        BossPattern = 2,
     }
 
     public enum PlayerDamageStatus

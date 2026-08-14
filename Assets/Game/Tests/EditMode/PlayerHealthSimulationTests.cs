@@ -108,6 +108,30 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void BossPatternDamage_PreservesBossSourceAndSharesInvulnerability()
+        {
+            var clock = new ManualGameClock();
+            var simulation = CreateSimulation(clock);
+
+            PlayerDamageResult applied = simulation.ApplyBossPatternDamage(EnemyActor, 1);
+            PlayerDamageResult ignoredExplosion =
+                simulation.ApplyExplosionDamage(CreateBombId(1), 1);
+            clock.Advance(Invulnerability);
+            PlayerDamageResult repeated =
+                simulation.ApplyBossPatternDamage(EnemyActor, 2);
+
+            Assert.That(applied.SourceKind, Is.EqualTo(PlayerDamageSourceKind.BossPattern));
+            Assert.That(applied.SourceActorId, Is.EqualTo(EnemyActor));
+            Assert.That(applied.ExplosionId.IsValid, Is.False);
+            Assert.That(applied.WasApplied, Is.True);
+            Assert.That(
+                ignoredExplosion.Status,
+                Is.EqualTo(PlayerDamageStatus.IgnoredInvulnerable));
+            Assert.That(repeated.WasApplied, Is.True);
+            Assert.That(simulation.CurrentHealth, Is.EqualTo(2));
+        }
+
+        [Test]
         public void ApplyContactDamage_RejectsInvalidSelfSourceAndDamage()
         {
             var simulation = CreateSimulation(new ManualGameClock());
@@ -118,6 +142,20 @@ namespace BombSwap.Tests.EditMode
                 simulation.ApplyContactDamage(PlayerActor, 1));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 simulation.ApplyContactDamage(EnemyActor, 0));
+            Assert.That(simulation.CurrentHealth, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void ApplyBossPatternDamage_RejectsInvalidSelfSourceAndDamage()
+        {
+            var simulation = CreateSimulation(new ManualGameClock());
+
+            Assert.Throws<ArgumentException>(() =>
+                simulation.ApplyBossPatternDamage(default, 1));
+            Assert.Throws<ArgumentException>(() =>
+                simulation.ApplyBossPatternDamage(PlayerActor, 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                simulation.ApplyBossPatternDamage(EnemyActor, 0));
             Assert.That(simulation.CurrentHealth, Is.EqualTo(5));
         }
 

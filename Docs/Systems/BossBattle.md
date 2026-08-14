@@ -1,6 +1,6 @@
 # 보스 전투
 
-- 상태: 핵심 방향과 Core 상태 계약 `Accepted`, Unity 콘텐츠·수치 `Proposed`
+- 상태: 핵심 방향·Core·Unity 수직 슬라이스 `Accepted`, 튜닝·사람 플레이테스트 `Proposed`
 - 설계 원본: `GDD_v0.2.md` 24~25, 35, 36장, `ProtoType_v0.2.md` 가설 F
 - 코드 소유: 패턴 규칙은 `BombSwap.Core`, 연출은 `BombSwap.Unity`
 
@@ -34,9 +34,18 @@ phase 변경은 현재 패턴의 안전한 전환 지점에서 일어난다. 시
 - 1페이즈는 짝/홀 parity를 바꾸며 열 위험과 행 위험을 교대한다. 현재 Recovery 종료 시 체력이 임계값 이하이면 안전 전환 지점에서 2페이즈가 되고, 이후 parity가 바뀌는 체크무늬 위험을 사용한다.
 - 각 패턴은 보행 가능한 arena cell만 대상으로 하며 위험 셀과 안전 셀이 모두 존재하지 않는 arena를 초기화 단계에서 거부한다.
 - 보스는 `Recovery`에서만 폭탄 피해를 받는다. 같은 `BombId` 중복, 비취약 구간과 사망 뒤 피해를 구분하고, 치명 피해 시 보스 actor 점유와 위험 셀을 한 번만 제거한다.
-- 큰 시계 진행에서도 각 전이의 논리 예약 시각을 보존한다. Unity 연결은 frame마다 최대 한 전이를 소비해 놓친 Recovery를 건너뛰지 않도록 구성할 예정이다.
+- 큰 시계 진행에서도 각 전이의 논리 예약 시각을 보존한다. Unity 연결은 frame마다 최대 한 전이를 소비해 놓친 Recovery를 건너뛰지 않는다.
 
-Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1을 사용한다. 1페이즈 시간은 1.0초 예고·0.25초 실행·2.0초 회복, 2페이즈는 0.75초·0.25초·1.5초다. 이는 ScriptableObject로 채택된 실제 콘텐츠 값이 아니라 Unity 수직 슬라이스를 연결하기 전의 `Proposed` 기준선이다.
+Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1을 사용한다. 1페이즈 시간은 1.0초 예고·0.25초 실행·2.0초 회복, 2페이즈는 0.75초·0.25초·1.5초다. 이는 상태 경계 테스트를 빠르게 실행하기 위한 값이며 실제 콘텐츠 튜닝의 권위 원본이 아니다.
+
+## 구현된 Unity 수직 슬라이스
+
+- `PrototypeBossDefinitionAsset`이 실제 콘텐츠의 체력·phase·피해·시간·spawn과 보스/위험 셀 prefab을 소유한다. 현재 저작값은 체력 4, 체력 2 이하에서 2페이즈, 패턴 피해 1, 1페이즈 1.0초 예고·0.25초 실행·2.75초 회복, 2페이즈 0.75초·0.25초·2.75초 회복이다.
+- 2.75초 Recovery는 현재 두 보상 후보를 포함한 가장 긴 2.25초 신관 뒤에도 최소 0.5초의 반격 여유를 보장한다. 패턴을 피한 뒤 폭탄을 설치하는 계약을 만족시키기 위한 실제 콘텐츠 기준선이며, 사람 플레이테스트 전까지 튜닝 값은 `Proposed`다.
+- `PrototypeGameSession`은 일반 전투와 보스 전투 활성화를 분리하고 보스 `ActorId(5)`를 Core 시뮬레이션에 연결한다. Execute 위험 셀의 플레이어 피해는 기존 `PlayerHealthSimulation` 무적 시간과 공유한다.
+- 폭발은 보스 위치가 영향 셀에 포함되고 상태가 Recovery일 때만 Core 피해가 된다. 치명 피해는 보스 표현 제거, 단일 `RoomCleared`, 출구 개방으로 이어진다.
+- `PrototypeBossPresenter`는 collider 없는 placeholder와 pooled 위험 셀을 property block으로 표현한다. Telegraph는 노란색, Execute는 빨간색, Recovery는 위험 셀을 숨기고, 2페이즈와 사망을 별도 색/상태로 표시한다.
+- `DungeonBoss`만 보스 활성 씬이며 다른 일곱 씬은 같은 presenter 참조를 가지되 보스를 생성하지 않는다. Editor builder와 validator가 이 계약과 asset 수치·참조·collider 부재를 재현·검증한다.
 
 상세 구현·검증 범위와 다음 연결 순서는 [보스 Core 수직 슬라이스](../Development/BossCoreSlice.md)가 소유한다.
 
@@ -58,4 +67,4 @@ Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1�
 - 실제 WebGL에서 예고 가독성, 프레임 안정성, 입력 반응.
 - 플레이테스트에서 “폭탄 게임으로 느껴지는가” 인터뷰와 행동 관찰.
 
-현재 앞의 세 Core 항목만 자동 검증됐다. Unity 보스 정의 asset, 보스방 session/presenter, 플레이어 패턴 피해, HUD·승리와 WebGL 가독성은 아직 구현되지 않았다.
+Core·Unity 연결·실제 WebGL 항목은 자동 검증됐다. WebGL에서 Telegraph/Execute/Recovery 4회, Recovery 폭탄 피해 4회, 2페이즈 전환, 사망과 방 클리어를 확인했고 브라우저 Console/page error는 0이었다. 전용 보스 체력 HUD, 승리 화면·다음 층과 “폭탄 게임으로 느껴지는가” 사람 플레이테스트는 아직 남아 있다.
