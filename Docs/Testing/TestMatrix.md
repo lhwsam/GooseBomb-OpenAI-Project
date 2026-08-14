@@ -22,6 +22,7 @@
 - 피해 무적과 사망 단일 발생.
 - 보스 Telegraph→Execute→Recovery exact boundary, 예고/실행 셀 동일성, Recovery 한정 폭탄 피해, 안전한 phase 전환과 사망 점유 단일 제거.
 - Unity 보스방 단일 활성, 패턴 피해와 기존 무적 공유, 위험 셀 presenter의 Telegraph/Execute 일치, Recovery 반격 4회, 2페이즈·격파·단일 방 클리어와 실제 WebGL 가독성.
+- 플레이어 HUD의 초기/피해/사망 체력 snapshot과 bar 비율, 일반 방의 보스 panel 비표시, 보스 HUD의 초기/피해/2페이즈/격파 반영, 여덟 씬의 단일 HUD·session 참조와 실제 WebGL 배치 가독성.
 - 보스방 도착과 클리어 완료 구분, 완료 UI 단일 표시와 전투 정지, 완료 전·pending 중 재시작 거부, 같은 seed의 새 run state·시작방·초기 한 슬롯 복구, WebGL `R` 재시작.
 - 갑옷 적의 서로 다른 폭발 2회, 첫 피격 상태·cadence 변화, 같은 `BombId` 중복 차단과 두 번째 사망 뒤 점유 단일 제거.
 - 방 경계·연결성, 서로 다른 첫 이동의 퇴로 2개, 닫힌 유도 경로와 씬 표현 일치.

@@ -1732,6 +1732,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBossPresenter bossPresenter =
                 systems.AddComponent<PrototypeBossPresenter>();
             PrototypeWeaponHud weaponHud = systems.AddComponent<PrototypeWeaponHud>();
+            PrototypeHealthHud healthHud = systems.AddComponent<PrototypeHealthHud>();
             PrototypeInputHarnessProbe harnessProbe = systems.AddComponent<PrototypeInputHarnessProbe>();
             PrototypeRoomAdvanceController roomAdvanceController =
                 systems.AddComponent<PrototypeRoomAdvanceController>();
@@ -1885,6 +1886,7 @@ namespace BombSwap.Editor.ContentValidation
             bossPresenter.Configure(gameSession, runtimePresentation);
             SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
+            healthHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
             systems.SetActive(true);
@@ -1965,6 +1967,11 @@ namespace BombSwap.Editor.ContentValidation
             if (weaponHud == null)
             {
                 weaponHud = systems.AddComponent<PrototypeWeaponHud>();
+            }
+            PrototypeHealthHud healthHud = systems.GetComponent<PrototypeHealthHud>();
+            if (healthHud == null)
+            {
+                healthHud = systems.AddComponent<PrototypeHealthHud>();
             }
             PrototypeRoomAdvanceController roomAdvanceController =
                 systems.GetComponent<PrototypeRoomAdvanceController>();
@@ -2066,6 +2073,7 @@ namespace BombSwap.Editor.ContentValidation
             bossPresenter.Configure(gameSession, runtimePresentation);
             SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
+            healthHud.Configure(gameSession);
             harnessProbe.Configure(inputReader, gameSession);
             roomAdvanceController.Configure(gameSession, nextSceneName);
             EditorUtility.SetDirty(context);

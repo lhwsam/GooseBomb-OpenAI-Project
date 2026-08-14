@@ -980,6 +980,7 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeBossPresenter[] bossPresenters =
                     FindComponents<PrototypeBossPresenter>(scene);
                 PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
+                PrototypeHealthHud[] healthHuds = FindComponents<PrototypeHealthHud>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 PrototypeRoomAdvanceController[] roomAdvanceControllers =
                     FindComponents<PrototypeRoomAdvanceController>(scene);
@@ -1054,6 +1055,11 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeWeaponHud; found {weaponHuds.Length}.");
+                }
+                if (healthHuds.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeHealthHud; found {healthHuds.Length}.");
                 }
                 if (probes.Length != 1)
                 {
@@ -1279,6 +1285,12 @@ namespace BombSwap.Editor.ContentValidation
                     weaponHuds[0].Session != sessions[0])
                 {
                     errors.Add("TestSandbox weapon HUD has an inconsistent session reference.");
+                }
+
+                if (healthHuds.Length == 1 && sessions.Length == 1 &&
+                    healthHuds[0].Session != sessions[0])
+                {
+                    errors.Add("TestSandbox health HUD has an inconsistent session reference.");
                 }
 
                 if (probes.Length == 1 && readers.Length == 1 && sessions.Length == 1 &&
