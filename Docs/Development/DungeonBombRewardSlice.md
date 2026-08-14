@@ -41,6 +41,7 @@
 - 던전 대상 PlayMode 17/17: catalog, 보상방 한정 선택, 실제 `DungeonReward` 씬의 빈 슬롯→수집→다음 scene 유지, 기존 host·문·재입장 회귀.
 - 최종 전체 EditMode 251/251과 PlayMode 95/95가 통과했다. 증거는 `Artifacts/Verification/ConnectedTests/20260814-151258-803.json`, `Artifacts/Verification/ConnectedTests/20260814-151310-363.json`에 있다.
 - Development WebGL 8개 씬 빌드와 Edge headless에서 시작 폭탄만으로 첫 전투 클리어, 왼쪽 광역 후보 수집, 클리어 방 왕복, 다음 전투방 `X` 교체·광역 설치, Console/page error 0을 확인했다. 증거는 `Artifacts/Verification/20260815-000500-bomb-reward-web/`에 있다.
+- 같은 선택이 나머지 주 경로 전투방 2개와 보스 placeholder까지 유지되는 전체 경로 smoke도 통과했다. 증거는 `Artifacts/Verification/20260815-003200-full-boss-path-web/`에 있다.
 
 ## 비목표와 후속
 

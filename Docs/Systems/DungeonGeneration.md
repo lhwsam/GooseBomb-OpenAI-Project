@@ -95,4 +95,4 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 첫 전투 잠금, 안전방 비잠금, 클리어 중복, 클리어 전 퇴실 차단, 클리어 뒤 양방향 재방문과 전체 트리 왕복.
 - 카탈로그 순서 무관 배정 재현, 128개 seed 다양성, 사용 횟수 균형, 회전 방향과 활성 출구 호환, 부족한 카탈로그의 명시 실패.
 
-실제 문 GameObject, room 회전·씬 로드·탐색과 첫 폭탄 보상은 Unity runtime/PlayMode에 연결됐다. 다음 범위는 선택한 loadout으로 보스 전실·보스 placeholder까지 전체 주 경로를 자동·수동 검증하는 것이다.
+실제 문 GameObject, room 회전·씬 로드·탐색과 첫 폭탄 보상은 Unity runtime/PlayMode에 연결됐다. seed-0 전체 주 경로는 선택한 loadout을 유지한 채 보스 전실·보스 placeholder까지 Development WebGL 자동 검증을 통과했다. 다음 범위는 실제 보스 규칙과 선택 가지, 되돌아가기 피로를 포함한 사람 플레이테스트다.

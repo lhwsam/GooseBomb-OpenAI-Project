@@ -117,6 +117,62 @@ async function getLastPlayerCell(page) {
   });
 }
 
+async function waitForChaserAdjacent(page, timeout = 15_000) {
+  await page.waitForFunction(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return false;
+    let roomStart = 0;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (/^dungeon-room-ready-\d+-combat-active$/.test(name ?? "")) {
+        roomStart = index;
+        break;
+      }
+    }
+    let player = null;
+    let chaser = null;
+    for (let index = events.length - 1; index >= roomStart && (!player || !chaser); index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (!player) {
+        const match = /^player-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+        if (match) player = { x: Number(match[1]), z: Number(match[2]) };
+      }
+      if (!chaser) {
+        const match = /^chaser-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+        if (match) chaser = { x: Number(match[1]), z: Number(match[2]) };
+      }
+    }
+    return player && chaser &&
+      Math.abs(player.x - chaser.x) + Math.abs(player.z - chaser.z) === 1;
+  }, null, { timeout });
+
+  return page.evaluate(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    let roomStart = 0;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (/^dungeon-room-ready-\d+-combat-active$/.test(name ?? "")) {
+        roomStart = index;
+        break;
+      }
+    }
+    let player = null;
+    let chaser = null;
+    for (let index = events.length - 1; index >= roomStart && (!player || !chaser); index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (!player) {
+        const match = /^player-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+        if (match) player = { x: Number(match[1]), z: Number(match[2]) };
+      }
+      if (!chaser) {
+        const match = /^chaser-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+        if (match) chaser = { x: Number(match[1]), z: Number(match[2]) };
+      }
+    }
+    return { player, chaser };
+  });
+}
+
 async function moveToCell(page, targetX, targetZ, order = "xz") {
   const axes = order === "zx" ? ["z", "x"] : ["x", "z"];
   for (const axis of axes) {
@@ -465,6 +521,160 @@ async function main() {
       detail: "The selected area bomb remained in slot 2 and placed successfully in room 4.",
     });
 
+    const room4ExplosionsBefore = await eventCount(page, "bomb-exploded");
+    const room4ClearsBefore = await eventCount(page, "room-cleared");
+    await moveToCell(page, -3, -4);
+    await waitForEvent(page, "bomb-exploded", {
+      count: room4ExplosionsBefore + 1,
+      timeout: 15_000,
+    });
+    if (await eventCount(page, "room-cleared") === room4ClearsBefore) {
+      await moveToCell(page, -3, -5);
+      const adjacent = await waitForChaserAdjacent(page);
+      await page.waitForTimeout(850);
+      const room4AreaPlacementsBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-area",
+      );
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-area", {
+        count: room4AreaPlacementsBefore + 1,
+        timeout: 5_000,
+      });
+      const secondRoom4ExplosionBefore = await eventCount(page, "bomb-exploded");
+      await page.waitForTimeout(1_200);
+      if (adjacent.player.z === adjacent.chaser.z) {
+        await moveToCell(page, -3, -2);
+      } else {
+        await moveToCell(page, -1, -4);
+      }
+      await waitForEvent(page, "bomb-exploded", {
+        count: secondRoom4ExplosionBefore + 1,
+        timeout: 5_000,
+      });
+    }
+    await waitForEvent(page, "room-cleared", {
+      count: room4ClearsBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "second-main-path-combat-clear",
+      status: "passed",
+      detail: "The selected area bomb cleared the rotated loop combat room 4.",
+    });
+
+    await moveToCell(page, -3, -4);
+    await moveToCell(page, 4, -4);
+    await moveToCell(page, 4, 0);
+    await triggerBoundaryTransition(
+      page,
+      "ArrowRight",
+      "dungeon-room-ready-5-combat-active",
+    );
+    await waitForEvent(page, "room-ready-prototype-combat-lanes", {
+      timeout: 60_000,
+    });
+
+    await page.keyboard.press("KeyX");
+    const room5AreaPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-area",
+    );
+    await waitForEvent(page, "active-bomb-slot-1", {
+      count: 2,
+      timeout: 5_000,
+    });
+    await moveToCell(page, -3, 2);
+    const room5Adjacent = await waitForChaserAdjacent(page);
+    await page.keyboard.press("KeyZ");
+    await waitForEvent(page, "place-bomb-definition-prototype-area", {
+      count: room5AreaPlacementsBefore + 1,
+      timeout: 5_000,
+    });
+    const room5ExplosionsBefore = await eventCount(page, "bomb-exploded");
+    const room5ClearsBefore = await eventCount(page, "room-cleared");
+    await page.waitForTimeout(1_200);
+    if (room5Adjacent.player.z === room5Adjacent.chaser.z) {
+      await moveToCell(page, -3, 0);
+    } else {
+      await moveToCell(page, -5, 2);
+    }
+    await waitForEvent(page, "bomb-exploded", {
+      count: room5ExplosionsBefore + 1,
+      timeout: 15_000,
+    });
+    if (await eventCount(page, "room-cleared") === room5ClearsBefore) {
+      await page.waitForTimeout(850);
+      const secondRoom5AreaPlacementBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-area",
+      );
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-area", {
+        count: secondRoom5AreaPlacementBefore + 1,
+        timeout: 5_000,
+      });
+      const secondRoom5ExplosionBefore = await eventCount(page, "bomb-exploded");
+      await page.waitForTimeout(1_200);
+      await moveToCell(page, -5, 0);
+      await waitForEvent(page, "bomb-exploded", {
+        count: secondRoom5ExplosionBefore + 1,
+        timeout: 5_000,
+      });
+    }
+    await waitForEvent(page, "room-cleared", {
+      count: room5ClearsBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "third-main-path-combat-clear",
+      status: "passed",
+      detail: "The persisted reward loadout cleared the lanes combat room 5.",
+    });
+
+    const room5PostClearCell = await getLastPlayerCell(page);
+    await moveToCell(page, room5PostClearCell.x, -2);
+    await moveToCell(page, -5, -2);
+    await moveToCell(page, 5, -2);
+    await moveToCell(page, 5, 0);
+    await triggerBoundaryTransition(
+      page,
+      "ArrowRight",
+      "dungeon-room-ready-6-boss-antechamber-safe",
+    );
+    checks.push({
+      name: "boss-antechamber-reached",
+      status: "passed",
+      detail: "The full seed-0 main path reached the safe boss antechamber room 6.",
+    });
+
+    await moveToCell(page, -4, -3);
+    await moveToCell(page, 0, -3);
+    await triggerBoundaryTransition(
+      page,
+      "ArrowDown",
+      "dungeon-room-ready-7-boss-active",
+    );
+    await page.keyboard.press("KeyX");
+    await waitForEvent(page, "active-bomb-slot-1", {
+      count: 3,
+      timeout: 5_000,
+    });
+    const bossAreaPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-area",
+    );
+    await page.keyboard.press("KeyZ");
+    await waitForEvent(page, "place-bomb-definition-prototype-area", {
+      count: bossAreaPlacementsBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "boss-placeholder-reached",
+      status: "passed",
+      detail: "Room 7 initialized as the active boss placeholder and retained the selected area bomb.",
+    });
+
     await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await waitForEvent(page, "pause-resume", { timeout: 5_000 });
@@ -499,6 +709,10 @@ async function main() {
       "bomb-reward-selected-prototype-area",
       "dungeon-room-ready-2-combat-cleared",
       "dungeon-room-ready-4-combat-active",
+      "dungeon-room-ready-5-combat-active",
+      "room-ready-prototype-combat-lanes",
+      "dungeon-room-ready-6-boss-antechamber-safe",
+      "dungeon-room-ready-7-boss-active",
       "swap-bomb",
       "pause-resume",
       "audio-unlocked",

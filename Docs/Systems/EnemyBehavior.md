@@ -30,7 +30,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - `EnemyHealthSimulation`은 폭발 `BombId`별 중복 처리를 차단한다. 내구도 1 추격자가 폭발 영향 셀에 있으면 사망하고 actor 점유가 한 번 제거되며, 세션은 `EnemyDied`와 마지막 적의 `RoomCleared`를 한 번 발행한다.
 - `PrototypeChaserPresenter`는 Core 이동 결과를 선형 보간하고 사망 색을 `MaterialPropertyBlock`으로 잠시 표시한 뒤 placeholder를 비활성화한다.
 
-이 국소 Manhattan 선택은 복잡한 미로의 최단 경로를 보장하지 않는다. 첫 수제 방에서 실제 막힘이 관찰되기 전에는 BFS/A*나 AI Navigation을 추가하지 않는다.
+이 국소 Manhattan 선택은 복잡한 미로의 최단 경로를 보장하지 않는다. seed-0 전체 경로 smoke에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합일 때 추격자가 `(1,-3) → (1,-4) → (1,-5)`를 왕복하는 결정론적 동률 순환이 실제로 관찰됐다. 자동 smoke는 플레이어를 `(-3,-5)`로 옮겨 동률을 깨고 폭탄 유도를 계속하지만, 이는 AI 수정이 아니다. 실제 공정성과 유도 재미를 사람 플레이에서 확인한 뒤 BFS 거리장, 목표 방향 동률 우선 또는 반복 상태 탈출 중 가장 작은 규칙 변경을 선택한다.
 
 ## 구현된 돌진형
 
@@ -79,5 +79,6 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 갑옷 적의 첫/두 번째 서로 다른 폭발, 같은 `BombId` 중복, 사망 뒤 무시, 1→3 cells/s cadence 경계와 첫 피격 재판단.
 - 갑옷 적의 벽·폭탄·actor 차단, cardinal 인접 접촉, 시계 역행과 잘못된 정의·spawn 거부.
 - PlayMode의 첫 피격 표현·상태 사건·빠른 이동, 두 번째 사망·점유 제거·단일 방 클리어와 적별 presenter 생존 상태.
+- Development WebGL의 `chaser-cell-x-<x>-z-<z>` marker로 실제 확정 셀 이동과 플레이어 cardinal 인접 상태를 관측한다. 이 marker는 자동 경로 동기화와 순환 진단용이며 행동의 재미를 통과 판정하지 않는다.
 
 다음 적 단계에서는 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책을 추가한다.
