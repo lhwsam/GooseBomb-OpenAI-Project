@@ -6,6 +6,7 @@ import { startStaticServer } from "./WebGLStaticServer.mjs";
 const StandardButton = Object.freeze({
   South: 0,
   West: 2,
+  Select: 8,
   Start: 9,
   DpadUp: 12,
 });
@@ -307,21 +308,60 @@ async function main() {
       detail: "Standard button 9 entered and resumed the authoritative session pause state.",
     });
 
-    const placementsBefore = await eventCount(
-      page,
-      "place-bomb-definition-prototype-cross",
-    );
-    await setButton(page, StandardButton.South, 1);
-    await waitForEvent(page, "place-bomb-definition-prototype-cross", {
-      count: placementsBefore + 1,
-      timeout: 5_000,
-    });
-    await setButton(page, StandardButton.South, 0);
-    await page.waitForTimeout(100);
+    for (let hit = 0; hit < 5; hit++) {
+      const placementsBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-cross",
+      );
+      const explosionsBefore = await eventCount(page, "bomb-exploded");
+      await setButton(page, StandardButton.South, 1);
+      await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+        count: placementsBefore + 1,
+        timeout: 5_000,
+      });
+      await setButton(page, StandardButton.South, 0);
+      await page.waitForTimeout(100);
+      await waitForEvent(page, "bomb-exploded", {
+        count: explosionsBefore + 1,
+        timeout: 5_000,
+      });
+    }
     checks.push({
       name: "south-button-place-bomb",
       status: "passed",
-      detail: "Standard button 0 placed the active prototype-cross bomb through Core.",
+      detail: "Standard button 0 placed and exploded five prototype-cross bombs through Core.",
+    });
+
+    await waitForEvent(page, "player-died", { timeout: 5_000 });
+    await waitForEvent(page, "run-failed", { timeout: 5_000 });
+    await waitForEvent(page, "run-failed-cause-bomb-explosion", { timeout: 5_000 });
+    checks.push({
+      name: "gamepad-self-damage-run-failure",
+      status: "passed",
+      detail: "Five South-button self explosions produced the authoritative bomb-explosion run failure.",
+    });
+
+    const restartRequestsBefore = await eventCount(page, "run-restart-requested");
+    const restartsBefore = await eventCount(page, "dungeon-run-restarted");
+    const startReadyBefore = await eventCount(page, "dungeon-room-ready-1-start-safe");
+    await setButton(page, StandardButton.Select, 1);
+    await waitForEvent(page, "run-restart-requested", {
+      count: restartRequestsBefore + 1,
+      timeout: 5_000,
+    });
+    await setButton(page, StandardButton.Select, 0);
+    await waitForEvent(page, "dungeon-run-restarted", {
+      count: restartsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
+      count: startReadyBefore + 1,
+      timeout: 20_000,
+    });
+    checks.push({
+      name: "select-button-failed-run-restart",
+      status: "passed",
+      detail: "Standard button 8 restarted the failed run into a fresh safe start room without reloading the page.",
     });
 
     checks.push({
