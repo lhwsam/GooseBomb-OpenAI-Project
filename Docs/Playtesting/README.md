@@ -11,8 +11,9 @@
 ## 첫 읽기 경로
 
 1. [첫 기본 전투 플레이테스트](FirstCombatProtocol.md)
-2. [세션 기록 템플릿](SessionTemplate.md)
-3. 해당 시점의 [현재 프로젝트 상태](../Development/CurrentState.md)
+2. [로컬 WebGL 관찰 세션 실행](ManualWebGLRun.md)
+3. [세션 기록 템플릿](SessionTemplate.md)
+4. 해당 시점의 [현재 프로젝트 상태](../Development/CurrentState.md)
 
 ## 증거와 결과 분리
 

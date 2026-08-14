@@ -196,6 +196,19 @@ function Test-StaticContracts {
         }
     }
 
+    $requiredToolPaths = @(
+        'Tools/Verify.ps1',
+        'Tools/WebGLSmoke.mjs',
+        'Tools/WebGLStaticServer.mjs',
+        'Tools/WebGLStaticServerTests.mjs',
+        'Tools/ServeWebGL.mjs'
+    )
+    foreach ($relativeToolPath in $requiredToolPaths) {
+        if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $relativeToolPath) -PathType Leaf)) {
+            $issues.Add("Missing required verification tool: $relativeToolPath")
+        }
+    }
+
     $skillFiles = @(Get-ChildItem -LiteralPath (Join-Path $ProjectRoot '.agents/skills') -Recurse -Filter 'SKILL.md' -ErrorAction SilentlyContinue)
     foreach ($skillFile in $skillFiles) {
         $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $skillFile.FullName
@@ -422,14 +435,20 @@ function Invoke-BrowserSmoke {
     }
 
     $scriptPath = Join-Path $ProjectRoot 'Tools/WebGLSmoke.mjs'
+    $serverTestPath = Join-Path $ProjectRoot 'Tools/WebGLStaticServerTests.mjs'
     $reportPath = Join-Path $ArtifactDirectory 'browser-smoke.json'
     $browserLogPath = Join-Path $ArtifactDirectory 'browser-smoke.log'
-    & $node.Source $scriptPath --buildPath $BuildPath --reportPath $reportPath *> $browserLogPath
+    & $node.Source $serverTestPath *> $browserLogPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "WebGL static server tests failed with code $LASTEXITCODE. See $browserLogPath"
+    }
+
+    & $node.Source $scriptPath --buildPath $BuildPath --reportPath $reportPath *>> $browserLogPath
     if ($LASTEXITCODE -ne 0) {
         throw "Browser smoke failed with code $LASTEXITCODE. See $browserLogPath"
     }
 
-    return "Browser smoke passed. Report: $reportPath"
+    return "WebGL static server tests and browser smoke passed. Report: $reportPath"
 }
 
 $projectRoot = Get-ProjectRoot
