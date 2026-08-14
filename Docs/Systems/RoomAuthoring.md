@@ -45,6 +45,12 @@
 
 유도 경로는 사람과 플레이테스트 도구가 읽는 공간 의도다. 현재 추격 AI에 waypoint를 강제하지 않으며 실제 유도 재미는 관찰 플레이테스트로 판단한다.
 
+## 던전 런 카탈로그
+
+`PrototypeDungeonCombatRoomCatalog.asset`은 네 전투방 ScriptableObject와 현재 대응 TestSandbox 씬 이름을 명시적으로 매핑한다. 런 시작 시 `PrototypeDungeonRunSession`이 카탈로그를 Core 정의로 변환하고 결정론적 배정 결과의 room ID를 다시 Unity asset·scene으로 해석한다. 현재 방, 방문과 클리어 같은 mutable 상태는 카탈로그에 쓰지 않는다.
+
+카탈로그의 entry는 null 방, 빈 씬 이름, 중복 room ID와 중복 씬 이름을 허용하지 않는다. 실제 씬 로드와 문 표현은 아직 연결되지 않았으므로 이 카탈로그는 검증된 조회 경계이며 독립적인 씬 수명 소유자는 아니다.
+
 ## 저작 불변식
 
 - 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형과 갑옷 적도 플레이어와 즉시 인접하지 않는다.
@@ -68,6 +74,7 @@
 - 누락된 출구, 안전 셀, spawn, 퇴로 anchor, 유도 경로.
 - 경계 방향이 틀린 출구, 끊긴 유도 경로, 연결되지 않은 플레이 영역, 단일 퇴로.
 - 네 room asset의 ID 중복 또는 각 TestSandbox 씬이 순서에 맞지 않는 room asset을 참조하는 상태.
+- 던전 전투방 카탈로그 누락, 잘못된 entry 수, room asset·씬 매핑 순서 불일치 또는 Core 변환 실패.
 - 필수 추격자 또는 선택적 돌진형·갑옷 적 spawn Transform이 저작 셀과 다르거나 방 전환 controller의 session·다음 씬·지연이 잘못된 상태.
 - 논리 고정 벽과 `Environment/InteriorObstacles` 표현 셀의 누락·중복·추가.
 - 논리 파괴 벽과 `Environment/DestructibleObstacles`의 황갈색 4분할 표현 셀·재질·Collider·presenter 참조 불일치.

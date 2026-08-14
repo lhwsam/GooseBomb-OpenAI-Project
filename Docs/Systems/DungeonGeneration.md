@@ -31,6 +31,7 @@
 - `DungeonCombatRoomAssigner`는 그래프 seed에서 topology와 분리된 고정 salt RNG를 만들고, 안정 ID로 정렬한 전투방 카탈로그를 `prototype-combat-assignment-v1`로 배정한다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
 - 호환성은 회전된 잠재 출구가 노드의 모든 연결 방향을 포함하는지로 판단한다. 후보 중 사용 횟수가 가장 적은 정의를 우선해 네 방을 한 번씩 쓰기 전 불필요한 중복을 막는다.
+- Unity `PrototypeDungeonRunSession`은 검증된 전투방 카탈로그를 Core 정의로 변환해 그래프·배정·탐색 상태를 조합하고, 전투 노드의 definition ID를 실제 room asset·씬 이름으로 해석한다. 특수방 콘텐츠는 아직 반환하지 않는다.
 
 현재 필수 주 경로는 다음과 같다.
 
@@ -51,7 +52,8 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 6. 연결 수, 좌표, 필수 노드, 첫 보상, 보스 경로, 선택 가지를 `DungeonGraph` 생성 시 다시 검증한다.
 7. Core `DungeonRunState`가 인접 이동, 최초 방문, 전투 잠금·클리어와 양방향 재방문을 처리한다.
 8. 전투 노드별 활성 출구와 호환되는 수제 방 정의·회전을 결정적으로 배정한다.
-9. 후속 Unity 단계에서 배정 결과에 맞춰 실제 room prefab과 활성·비활성 문을 표현한다. 이 단계는 아직 구현되지 않았다.
+9. Unity 런 카탈로그가 배정된 definition ID를 실제 room asset·씬 이름으로 해석한다.
+10. 후속 Unity 단계에서 배정 결과에 맞춰 실제 room prefab과 활성·비활성 문을 표현한다. 이 단계는 아직 구현되지 않았다.
 
 ## 불변식
 

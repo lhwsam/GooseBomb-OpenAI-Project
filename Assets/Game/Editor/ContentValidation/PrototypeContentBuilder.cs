@@ -52,6 +52,7 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeArmoredContentIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
+            CreatePrototypeDungeonCombatRoomCatalog(roomDefinitions);
             bool sceneCreated = EnsureTestSandbox(
                 inputActions,
                 bombLoadout,
@@ -697,6 +698,41 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = assetName;
             AssetDatabase.CreateAsset(definition, assetPath);
             return definition;
+        }
+
+        private static PrototypeDungeonCombatRoomCatalogAsset
+            CreatePrototypeDungeonCombatRoomCatalog(
+                IReadOnlyList<PrototypeCombatRoomDefinitionAsset> roomDefinitions)
+        {
+            if (roomDefinitions == null || roomDefinitions.Count != 4)
+            {
+                throw new ArgumentException(
+                    "Prototype dungeon combat room catalog requires four definitions.",
+                    nameof(roomDefinitions));
+            }
+
+            PrototypeDungeonCombatRoomCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonCombatRoomCatalogAsset>(
+                    PrototypeContentValidator.PrototypeDungeonCombatRoomCatalogPath);
+            if (catalog == null)
+            {
+                catalog = ScriptableObject.CreateInstance<
+                    PrototypeDungeonCombatRoomCatalogAsset>();
+                catalog.name = "PrototypeDungeonCombatRoomCatalog";
+                AssetDatabase.CreateAsset(
+                    catalog,
+                    PrototypeContentValidator.PrototypeDungeonCombatRoomCatalogPath);
+            }
+
+            catalog.Configure(new[]
+            {
+                new PrototypeDungeonCombatRoomEntry(roomDefinitions[0], "TestSandbox"),
+                new PrototypeDungeonCombatRoomEntry(roomDefinitions[1], "TestSandboxLanes"),
+                new PrototypeDungeonCombatRoomEntry(roomDefinitions[2], "TestSandboxPillars"),
+                new PrototypeDungeonCombatRoomEntry(roomDefinitions[3], "TestSandboxArmor"),
+            });
+            EditorUtility.SetDirty(catalog);
+            return catalog;
         }
 
         private static Vector2Int[] CreateRectangleLoop(

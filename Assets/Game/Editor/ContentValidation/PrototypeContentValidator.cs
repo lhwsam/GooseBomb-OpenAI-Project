@@ -58,6 +58,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
+        public const string PrototypeDungeonCombatRoomCatalogPath =
+            "Assets/Game/Content/Rooms/PrototypeDungeonCombatRoomCatalog.asset";
 
         public static void Validate(ICollection<string> errors)
         {
@@ -73,6 +75,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeArmoredDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
+            ValidatePrototypeDungeonCombatRoomCatalog(errors);
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
             ValidateBuildSettings(errors);
@@ -426,6 +429,70 @@ namespace BombSwap.Editor.ContentValidation
                 catch (Exception exception)
                 {
                     errors.Add($"Invalid prototype combat room definition '{path}': {exception.Message}");
+                }
+            }
+        }
+
+        private static void ValidatePrototypeDungeonCombatRoomCatalog(
+            ICollection<string> errors)
+        {
+            PrototypeDungeonCombatRoomCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonCombatRoomCatalogAsset>(
+                    PrototypeDungeonCombatRoomCatalogPath);
+            if (catalog == null)
+            {
+                errors.Add(
+                    $"Missing prototype dungeon combat room catalog: " +
+                    PrototypeDungeonCombatRoomCatalogPath);
+                return;
+            }
+
+            string[] expectedRoomPaths =
+            {
+                PrototypeCombatRoomDefinitionPath,
+                PrototypeCombatLanesDefinitionPath,
+                PrototypeCombatPillarsDefinitionPath,
+                PrototypeCombatArmorDefinitionPath,
+            };
+            string[] expectedSceneNames =
+            {
+                "TestSandbox",
+                "TestSandboxLanes",
+                "TestSandboxPillars",
+                "TestSandboxArmor",
+            };
+            if (catalog.Entries.Count != expectedRoomPaths.Length)
+            {
+                errors.Add("Prototype dungeon combat room catalog must contain four entries.");
+                return;
+            }
+
+            try
+            {
+                catalog.CreateCoreDefinitions();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(
+                    $"Invalid prototype dungeon combat room catalog: {exception.Message}");
+                return;
+            }
+
+            for (int index = 0; index < expectedRoomPaths.Length; index++)
+            {
+                PrototypeCombatRoomDefinitionAsset expectedRoom =
+                    AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
+                        expectedRoomPaths[index]);
+                PrototypeDungeonCombatRoomEntry entry = catalog.Entries[index];
+                if (entry.RoomDefinition != expectedRoom ||
+                    !string.Equals(
+                        entry.SceneName,
+                        expectedSceneNames[index],
+                        StringComparison.Ordinal))
+                {
+                    errors.Add(
+                        $"Prototype dungeon catalog entry {index} must map " +
+                        $"'{expectedRoomPaths[index]}' to '{expectedSceneNames[index]}'.");
                 }
             }
         }
