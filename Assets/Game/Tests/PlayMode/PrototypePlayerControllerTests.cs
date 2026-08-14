@@ -47,6 +47,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeArmoredPresenter _armoredPresenter;
         private PrototypeBossPresenter _bossPresenter;
         private PrototypeWeaponHud _weaponHud;
+        private PrototypeHealthHud _healthHud;
         private PrototypeRoomAdvanceController _roomAdvanceController;
         private Transform _player;
 
@@ -711,6 +712,32 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator HealthHud_ReflectsPlayerDamageAndHidesBossOutsideBossRoom()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeHealthHud: true,
+                fuseSeconds: 0.08f);
+            yield return null;
+
+            Assert.That(_healthHud.IsInitialized, Is.True);
+            Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(5));
+            Assert.That(_healthHud.DisplayedPlayerMaxHealth, Is.EqualTo(5));
+            Assert.That(_healthHud.PlayerHealthFillFraction, Is.EqualTo(1f));
+            Assert.That(_healthHud.PlayerHealthText, Does.Contain("5 / 5"));
+            Assert.That(_healthHud.IsBossPanelVisible, Is.False);
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(4));
+            Assert.That(_healthHud.PlayerHealthFillFraction, Is.EqualTo(0.8f));
+            Assert.That(_healthHud.PlayerHealthText, Does.Contain("4 / 5"));
+            Assert.That(_healthHud.IsBossPanelVisible, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator BombPresenter_PoolsPlacedBombAndExplosionCells()
         {
             CreateRuntime(
@@ -1257,6 +1284,69 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator HealthHud_TracksBossHealthPhaseAndDefeat()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeHealthHud: true,
+                fuseSeconds: 0.03f,
+                placementCooldownSeconds: 0.01f,
+                combatEnabled: true,
+                bossEnabled: true,
+                bossMaxHealth: 2,
+                bossPhaseTwoHealthThreshold: 1,
+                bossPhaseOneRecoverySeconds: 0.15f,
+                bossPhaseTwoRecoverySeconds: 0.25f);
+            yield return null;
+
+            Assert.That(_healthHud.IsInitialized, Is.True);
+            Assert.That(_healthHud.IsBossPanelVisible, Is.True);
+            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
+            Assert.That(_healthHud.DisplayedBossMaxHealth, Is.EqualTo(2));
+            Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.One));
+            Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(1f));
+
+            int frameGuard = 0;
+            while (_session.CurrentBossState != BossBattleState.Recovery &&
+                   frameGuard++ < 60)
+            {
+                yield return null;
+            }
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(1));
+            Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(0.5f));
+
+            frameGuard = 0;
+            while (_session.CurrentBossPhase != BossPhase.Two && frameGuard++ < 60)
+            {
+                yield return null;
+            }
+            Assert.That(_session.CurrentBossPhase, Is.EqualTo(BossPhase.Two));
+            Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.Two));
+            Assert.That(_healthHud.BossHealthText, Does.Contain("PHASE 2"));
+
+            frameGuard = 0;
+            while (_session.CurrentBossState != BossBattleState.Recovery &&
+                   frameGuard++ < 60)
+            {
+                yield return null;
+            }
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(_healthHud.DisplayedBossHealth, Is.Zero);
+            Assert.That(_healthHud.BossHealthFillFraction, Is.Zero);
+            Assert.That(_healthHud.BossHealthText, Does.Contain("DEFEATED"));
+        }
+
+        [UnityTest]
         public IEnumerator HarnessProbe_RemainsEnabledAcrossSessionInitializationOrder()
         {
             CreateRuntime(Vector2Int.zero, false, includeProbe: true);
@@ -1279,6 +1369,7 @@ namespace BombSwap.Tests.PlayMode
             bool includeHealthPresenter = false,
             bool includeChaserPresenter = false,
             bool includeWeaponHud = false,
+            bool includeHealthHud = false,
             float fuseSeconds = 1f,
             float explosionVisualSeconds = 0.25f,
             float placementCooldownSeconds = 0.01f,
@@ -1648,6 +1739,11 @@ namespace BombSwap.Tests.PlayMode
             {
                 _weaponHud = _root.AddComponent<PrototypeWeaponHud>();
                 _weaponHud.Configure(_session);
+            }
+            if (includeHealthHud)
+            {
+                _healthHud = _root.AddComponent<PrototypeHealthHud>();
+                _healthHud.Configure(_session);
             }
             if (includeProbe)
             {

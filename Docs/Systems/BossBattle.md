@@ -45,6 +45,7 @@ Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1�
 - `PrototypeGameSession`은 일반 전투와 보스 전투 활성화를 분리하고 보스 `ActorId(5)`를 Core 시뮬레이션에 연결한다. Execute 위험 셀의 플레이어 피해는 기존 `PlayerHealthSimulation` 무적 시간과 공유한다.
 - 폭발은 보스 위치가 영향 셀에 포함되고 상태가 Recovery일 때만 Core 피해가 된다. 치명 피해는 보스 표현 제거, 단일 `RoomCleared`, 출구 개방으로 이어진다.
 - `PrototypeBossPresenter`는 collider 없는 placeholder와 pooled 위험 셀을 property block으로 표현한다. Telegraph는 노란색, Execute는 빨간색, Recovery는 위험 셀을 숨기고, 2페이즈와 사망을 별도 색/상태로 표시한다.
+- `PrototypeHealthHud`는 보스방에서만 세션의 현재/최대 보스 체력과 phase를 상단 panel에 표시하고 피해·phase 전환·사망 사건에 맞춰 갱신한다. 취약/Recovery 여부는 표시하지 않아 반격 타이밍을 UI 정답으로 노출하지 않는다.
 - `DungeonBoss`만 보스 활성 씬이며 다른 일곱 씬은 같은 presenter 참조를 가지되 보스를 생성하지 않는다. Editor builder와 validator가 이 계약과 asset 수치·참조·collider 부재를 재현·검증한다.
 
 상세 구현·검증 범위와 다음 연결 순서는 [보스 Core 수직 슬라이스](../Development/BossCoreSlice.md)가 소유한다.
@@ -67,4 +68,4 @@ Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1�
 - 실제 WebGL에서 예고 가독성, 프레임 안정성, 입력 반응.
 - 플레이테스트에서 “폭탄 게임으로 느껴지는가” 인터뷰와 행동 관찰.
 
-Core·Unity 연결·실제 WebGL 항목은 자동 검증됐다. WebGL에서 Telegraph/Execute/Recovery 4회, Recovery 폭탄 피해 4회, 2페이즈 전환, 사망과 방 클리어를 확인했고 브라우저 Console/page error는 0이었다. 전용 보스 체력 HUD, 승리 화면·다음 층과 “폭탄 게임으로 느껴지는가” 사람 플레이테스트는 아직 남아 있다.
+Core·Unity 연결·실제 WebGL 항목은 자동 검증됐다. WebGL에서 Telegraph/Execute/Recovery 4회, Recovery 폭탄 피해 4회, 2페이즈 전환, 사망과 방 클리어, 보스 체력·phase HUD와 완료 화면을 확인했고 브라우저 Console/page error는 0이었다. 다음 층, 최종 아트·오디오와 “폭탄 게임으로 느껴지는가” 사람 플레이테스트는 아직 남아 있다.
