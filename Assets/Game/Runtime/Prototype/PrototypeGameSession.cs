@@ -49,6 +49,9 @@ namespace BombSwap
         [SerializeField]
         private float chainDelaySeconds = DefaultChainDelaySeconds;
 
+        [SerializeField]
+        private bool combatEnabled = true;
+
         private GridState _grid;
         private ManualGameClock _clock;
         private PlayerMovementSimulation _movement;
@@ -63,6 +66,8 @@ namespace BombSwap
         private ChargerEnemyDefinition _coreChargerDefinition;
         private ArmoredEnemySimulation _armored;
         private ArmoredEnemyDefinition _coreArmoredDefinition;
+        private CombatRoomDefinition _runtimeRoomDefinition;
+        private GridPosition? _runtimePlayerStart;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
@@ -124,9 +129,11 @@ namespace BombSwap
 
         public float ChainDelaySeconds => chainDelaySeconds;
 
+        public bool HasChaser => combatEnabled;
+
         public bool IsInitialized => _movement != null && _bombs != null && _weapons != null &&
             _health != null &&
-            _chaser != null && _chaserHealth != null &&
+            (!combatEnabled || (_chaser != null && _chaserHealth != null)) &&
             (!_hasCharger || (_charger != null && _chargerHealth != null)) &&
             (!_hasArmored || _armored != null);
 
@@ -229,7 +236,8 @@ namespace BombSwap
             float movementCellsPerSecond = DefaultCellsPerSecond,
             float bombChainDelaySeconds = DefaultChainDelaySeconds,
             PrototypeChargerDefinitionAsset startingCharger = null,
-            PrototypeArmoredDefinitionAsset startingArmored = null)
+            PrototypeArmoredDefinitionAsset startingArmored = null,
+            bool startingCombatEnabled = true)
         {
             if (Application.isPlaying && isActiveAndEnabled)
             {
@@ -252,7 +260,7 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(startingPlayerVitals));
             }
-            if (startingChaser == null)
+            if (startingCombatEnabled && startingChaser == null)
             {
                 throw new ArgumentNullException(nameof(startingChaser));
             }
@@ -270,6 +278,42 @@ namespace BombSwap
             armoredDefinition = startingArmored;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
+            combatEnabled = startingCombatEnabled;
+        }
+
+        public void PrepareRuntimeRoom(
+            CombatRoomDefinition roomDefinition,
+            GridPosition playerStart)
+        {
+            if (_movement != null)
+            {
+                throw new InvalidOperationException(
+                    "Runtime room configuration must be prepared before session initialization.");
+            }
+            if (roomDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(roomDefinition));
+            }
+            if (!roomDefinition.IsInside(playerStart) || roomDefinition.IsBlocked(playerStart))
+            {
+                throw new ArgumentException(
+                    $"Runtime player start {playerStart} must be a traversable room cell.",
+                    nameof(playerStart));
+            }
+            if (combatEnabled &&
+                (playerStart == roomDefinition.ChaserSpawn ||
+                 (roomDefinition.ChargerSpawn.HasValue &&
+                  playerStart == roomDefinition.ChargerSpawn.Value) ||
+                 (roomDefinition.ArmoredSpawn.HasValue &&
+                  playerStart == roomDefinition.ArmoredSpawn.Value)))
+            {
+                throw new ArgumentException(
+                    $"Runtime player start {playerStart} cannot overlap an enemy spawn.",
+                    nameof(playerStart));
+            }
+
+            _runtimeRoomDefinition = roomDefinition;
+            _runtimePlayerStart = playerStart;
         }
 
         public GridCellState GetCell(GridPosition position)
@@ -370,7 +414,8 @@ namespace BombSwap
                         _movement.MoveDirection);
                 }
             }
-            if (!_chaserHealth.IsDead && _chaser.TryAdvance(out EnemyMovementStep chaserStep))
+            if (combatEnabled && !_chaserHealth.IsDead &&
+                _chaser.TryAdvance(out EnemyMovementStep chaserStep))
             {
                 ChaserMoved?.Invoke(chaserStep);
             }
@@ -407,11 +452,14 @@ namespace BombSwap
                         _appliedDamageResults.Add(damage);
                     }
                 }
-                ApplyEnemyExplosionDamage(
-                    explosion,
-                    _chaser.ActorId,
-                    _chaserHealth,
-                    "chaser");
+                if (combatEnabled)
+                {
+                    ApplyEnemyExplosionDamage(
+                        explosion,
+                        _chaser.ActorId,
+                        _chaserHealth,
+                        "chaser");
+                }
                 if (_hasCharger)
                 {
                     ApplyEnemyExplosionDamage(
@@ -426,7 +474,7 @@ namespace BombSwap
                 }
             }
 
-            if (!_health.IsDead && !_chaserHealth.IsDead &&
+            if (!_health.IsDead && combatEnabled && !_chaserHealth.IsDead &&
                 _movement.CurrentPosition.IsCardinallyAdjacentTo(_chaser.CurrentPosition))
             {
                 PlayerDamageResult contactDamage = _health.ApplyContactDamage(
@@ -497,17 +545,18 @@ namespace BombSwap
         private void Initialize()
         {
             if (context == null || inputReader == null || bombLoadout == null ||
-                playerVitals == null || chaserDefinition == null)
+                playerVitals == null || (combatEnabled && chaserDefinition == null))
             {
                 throw new InvalidOperationException(
-                    "PrototypeGameSession requires context, input reader, bomb loadout, player-vitals, and chaser references.");
+                    "PrototypeGameSession requires context, input reader, bomb loadout, player-vitals, and a chaser reference when combat is enabled.");
             }
 
             ValidateFinitePositive(cellsPerSecond, nameof(cellsPerSecond));
             ValidateFinitePositive(chainDelaySeconds, nameof(chainDelaySeconds));
-            CombatRoomDefinition roomDefinition = context.RoomDefinition.CreateCoreDefinition();
-            _hasCharger = roomDefinition.ChargerSpawn.HasValue;
-            _hasArmored = roomDefinition.ArmoredSpawn.HasValue;
+            CombatRoomDefinition roomDefinition = _runtimeRoomDefinition ??
+                context.RoomDefinition.CreateCoreDefinition();
+            _hasCharger = combatEnabled && roomDefinition.ChargerSpawn.HasValue;
+            _hasArmored = combatEnabled && roomDefinition.ArmoredSpawn.HasValue;
             if (_hasCharger && chargerDefinition == null)
             {
                 throw new InvalidOperationException(
@@ -519,9 +568,9 @@ namespace BombSwap
                     "A room with an armored spawn requires an armored definition reference.");
             }
 
-            _grid = CreateGrid(context);
+            _grid = CreateGrid(roomDefinition);
             _clock = new ManualGameClock();
-            GridPosition start = context.GridSpace.WorldToGrid(context.PlayerSpawn.position);
+            GridPosition start = _runtimePlayerStart ?? roomDefinition.PlayerSpawn;
             _movement = new PlayerMovementSimulation(
                 _grid,
                 _clock,
@@ -538,19 +587,20 @@ namespace BombSwap
                 _clock,
                 playerVitals.CreateCoreDefinition());
 
-            _coreChaserDefinition = chaserDefinition.CreateCoreDefinition();
-            GridPosition chaserStart = context.GridSpace.WorldToGrid(
-                context.ChaserSpawn.position);
-            _chaser = new ChaserEnemySimulation(
-                _grid,
-                _clock,
-                _coreChaserDefinition,
-                PrototypeChaserActorId,
-                _movement.ActorId,
-                chaserStart);
-            _chaserHealth = new EnemyHealthSimulation(
-                _chaser.ActorId,
-                _coreChaserDefinition.MaxHealth);
+            if (combatEnabled)
+            {
+                _coreChaserDefinition = chaserDefinition.CreateCoreDefinition();
+                _chaser = new ChaserEnemySimulation(
+                    _grid,
+                    _clock,
+                    _coreChaserDefinition,
+                    PrototypeChaserActorId,
+                    _movement.ActorId,
+                    roomDefinition.ChaserSpawn);
+                _chaserHealth = new EnemyHealthSimulation(
+                    _chaser.ActorId,
+                    _coreChaserDefinition.MaxHealth);
+            }
             if (_hasCharger)
             {
                 if (context.ChargerSpawn == null)
@@ -560,15 +610,13 @@ namespace BombSwap
                 }
 
                 _coreChargerDefinition = chargerDefinition.CreateCoreDefinition();
-                GridPosition chargerStart = context.GridSpace.WorldToGrid(
-                    context.ChargerSpawn.position);
                 _charger = new ChargerEnemySimulation(
                     _grid,
                     _clock,
                     _coreChargerDefinition,
                     PrototypeChargerActorId,
                     _movement.ActorId,
-                    chargerStart);
+                    roomDefinition.ChargerSpawn.Value);
                 _chargerHealth = new EnemyHealthSimulation(
                     _charger.ActorId,
                     _coreChargerDefinition.MaxHealth);
@@ -582,17 +630,15 @@ namespace BombSwap
                 }
 
                 _coreArmoredDefinition = armoredDefinition.CreateCoreDefinition();
-                GridPosition armoredStart = context.GridSpace.WorldToGrid(
-                    context.ArmoredSpawn.position);
                 _armored = new ArmoredEnemySimulation(
                     _grid,
                     _clock,
                     _coreArmoredDefinition,
                     PrototypeArmoredActorId,
                     _movement.ActorId,
-                    armoredStart);
+                    roomDefinition.ArmoredSpawn.Value);
             }
-            _roomCleared = false;
+            _roomCleared = !combatEnabled;
 
         }
 
@@ -703,11 +749,11 @@ namespace BombSwap
             _appliedEnemyDamageResults.Add(result.Damage);
         }
 
-        private static GridState CreateGrid(TestSandboxContext sandboxContext)
+        private static GridState CreateGrid(CombatRoomDefinition roomDefinition)
         {
             var grid = new GridState();
-            int halfWidth = sandboxContext.GridWidth / 2;
-            int halfDepth = sandboxContext.GridDepth / 2;
+            int halfWidth = roomDefinition.Width / 2;
+            int halfDepth = roomDefinition.Depth / 2;
             for (int x = -halfWidth; x <= halfWidth; x++)
             {
                 for (int z = -halfDepth; z <= halfDepth; z++)
@@ -719,20 +765,20 @@ namespace BombSwap
                 }
             }
 
-            foreach (Vector2Int blocker in sandboxContext.BlockedCells)
+            foreach (GridPosition blocker in roomDefinition.IndestructibleWalls)
             {
                 if (!grid.TrySetTerrain(
-                    new GridPosition(blocker.x, blocker.y),
+                    blocker,
                     GridTerrain.IndestructibleWall))
                 {
                     throw new InvalidOperationException($"Could not author blocked cell {blocker}.");
                 }
             }
 
-            foreach (Vector2Int blocker in sandboxContext.DestructibleCells)
+            foreach (GridPosition blocker in roomDefinition.DestructibleWalls)
             {
                 if (!grid.TrySetTerrain(
-                    new GridPosition(blocker.x, blocker.y),
+                    blocker,
                     GridTerrain.DestructibleWall))
                 {
                     throw new InvalidOperationException(
