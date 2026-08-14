@@ -29,6 +29,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity
     guid: f67bfeafd9f67204a94e8439d824996b
+  - enabled: 1
+    path: Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity
+    guid: e289b29f5ec06f947b1d0b41be2b7988
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05

@@ -426,6 +426,117 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator GatesCombatScene_LoadsAuthoredLogicalAndVisualGatePair()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                DungeonCombatRoomAssignment gatesAssignment =
+                    run.CombatRoomLayout.Assignments.Single(assignment =>
+                        assignment.DefinitionId ==
+                        new RoomDefinitionId("prototype-combat-gates"));
+                Assert.That(gatesAssignment.Rotation, Is.EqualTo(RoomRotation.None));
+
+                IReadOnlyList<DungeonRoomNodeId> path =
+                    run.Graph.GetShortestPath(
+                        run.Graph.StartRoomId,
+                        gatesAssignment.RoomId);
+                for (int index = 1; index < path.Count; index++)
+                {
+                    DungeonRoomNode current = run.Graph.GetRoom(run.CurrentRoomId);
+                    if (DungeonRunState.RequiresClear(current.RoomType) &&
+                        !run.RunState.IsCleared(current.Id))
+                    {
+                        Assert.That(
+                            run.TryClearCurrentRoom(),
+                            Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                    }
+                    Assert.That(run.TryTravelTo(path[index]).Moved, Is.True);
+                }
+
+                Assert.That(
+                    run.TryGetCurrentSceneName(out string sceneName),
+                    Is.True);
+                Assert.That(sceneName, Is.EqualTo("TestSandboxGates"));
+                yield return SceneManager.LoadSceneAsync(
+                    sceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder binder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession session = binder.RoomSession;
+                TestSandboxContext context = session.Context;
+                CombatRoomDefinition room = context.RoomDefinition.CreateCoreDefinition();
+                PrototypeDestructibleWallPresenter wallPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDestructibleWallPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud healthHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+
+                Assert.That(session.IsReady, Is.True);
+                Assert.That(session.HasChaser, Is.True);
+                Assert.That(session.HasCharger, Is.False);
+                Assert.That(session.HasArmored, Is.False);
+                Assert.That(room.Id, Is.EqualTo(gatesAssignment.DefinitionId));
+                Assert.That(room.PlayerSpawn, Is.EqualTo(new GridPosition(0, -3)));
+                Assert.That(room.ChaserSpawn, Is.EqualTo(new GridPosition(0, 3)));
+                Assert.That(room.IndestructibleWalls, Has.Count.EqualTo(8));
+                Assert.That(room.DestructibleWalls, Has.Count.EqualTo(2));
+                Assert.That(
+                    session.GetCell(new GridPosition(0, -1)).Terrain,
+                    Is.EqualTo(GridTerrain.DestructibleWall));
+                Assert.That(
+                    session.GetCell(new GridPosition(0, 1)).Terrain,
+                    Is.EqualTo(GridTerrain.DestructibleWall));
+                Assert.That(wallPresenter.ActiveWallVisualCount, Is.EqualTo(2));
+                Assert.That(healthHud.IsInitialized, Is.True);
+                Assert.That(healthHud.IsBossPanelVisible, Is.False);
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "GatesCombatPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator DungeonBossScene_AuthorsBossInsteadOfRegularCombatEnemies()
         {
             Scene loadedDungeonScene = default;

@@ -104,6 +104,16 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinitions[3],
+                "TestSandboxGates");
+            bool gatesSceneCreated = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.TestSandboxGatesScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[4],
                 string.Empty);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxScenePath,
@@ -125,6 +135,12 @@ namespace BombSwap.Editor.ContentValidation
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxArmorScenePath,
+                combatRoomCatalog,
+                specialRoomCatalog,
+                bombRewardCatalog,
+                true);
+            EnsureDungeonRoomBinding(
+                PrototypeContentValidator.TestSandboxGatesScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
@@ -189,9 +205,10 @@ namespace BombSwap.Editor.ContentValidation
             AssetDatabase.SaveAssets();
 
             return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
-                armorSceneCreated || startSceneCreated || rewardSceneCreated ||
+                armorSceneCreated || gatesSceneCreated || startSceneCreated ||
+                rewardSceneCreated ||
                 bossAnteSceneCreated || bossSceneCreated
-                ? "Created BombSwap prototype dungeon content and eight graph room scenes."
+                ? "Created BombSwap prototype dungeon content and nine graph room scenes."
                 : "BombSwap prototype dungeon content exists; synchronized room scenes, graph bindings, references, and Build Settings.";
         }
 
@@ -972,7 +989,49 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector2Int(0, 1));
             EditorUtility.SetDirty(armor);
 
-            return new[] { loop, lanes, pillars, armor };
+            PrototypeCombatRoomDefinitionAsset gates = GetOrCreateRoomDefinition(
+                PrototypeContentValidator.PrototypeCombatGatesDefinitionPath,
+                "PrototypeCombatGates");
+            gates.Configure(
+                "prototype-combat-gates",
+                RoomType.Combat,
+                11,
+                9,
+                1f,
+                new Vector2Int(0, -3),
+                new Vector2Int(0, 3),
+                new[]
+                {
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(-1, -1),
+                    new Vector2Int(1, -1),
+                    new Vector2Int(2, -1),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(-1, 1),
+                    new Vector2Int(1, 1),
+                    new Vector2Int(2, 1),
+                },
+                new[]
+                {
+                    new Vector2Int(0, -3),
+                    new Vector2Int(-1, -3),
+                    new Vector2Int(1, -3),
+                },
+                new[]
+                {
+                    new Vector2Int(-3, -2),
+                    new Vector2Int(3, -2),
+                },
+                CreateRectangleLoop(-3, 3, -2, 2),
+                CreateCardinalRoomExits(5, 4),
+                new[]
+                {
+                    new Vector2Int(0, -1),
+                    new Vector2Int(0, 1),
+                });
+            EditorUtility.SetDirty(gates);
+
+            return new[] { loop, lanes, pillars, armor, gates };
         }
 
         private static PrototypeCombatRoomDefinitionAsset GetOrCreateRoomDefinition(
@@ -996,10 +1055,10 @@ namespace BombSwap.Editor.ContentValidation
             CreatePrototypeDungeonCombatRoomCatalog(
                 IReadOnlyList<PrototypeCombatRoomDefinitionAsset> roomDefinitions)
         {
-            if (roomDefinitions == null || roomDefinitions.Count != 4)
+            if (roomDefinitions == null || roomDefinitions.Count != 5)
             {
                 throw new ArgumentException(
-                    "Prototype dungeon combat room catalog requires four definitions.",
+                    "Prototype dungeon combat room catalog requires five definitions.",
                     nameof(roomDefinitions));
             }
 
@@ -1022,6 +1081,7 @@ namespace BombSwap.Editor.ContentValidation
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[1], "TestSandboxLanes"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[2], "TestSandboxPillars"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[3], "TestSandboxArmor"),
+                new PrototypeDungeonCombatRoomEntry(roomDefinitions[4], "TestSandboxGates"),
             });
             EditorUtility.SetDirty(catalog);
             return catalog;
@@ -2296,6 +2356,9 @@ namespace BombSwap.Editor.ContentValidation
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.TestSandboxArmorScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.TestSandboxGatesScenePath,
                     true),
             };
 

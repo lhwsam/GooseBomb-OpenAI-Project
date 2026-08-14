@@ -20,6 +20,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string TestSandboxArmorScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity";
+        public const string TestSandboxGatesScenePath =
+            "Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity";
         public const string DungeonStartScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonStart.unity";
         public const string DungeonRewardScenePath =
@@ -56,6 +58,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Rooms/PrototypeCombatPillars.asset";
         public const string PrototypeCombatArmorDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatArmor.asset";
+        public const string PrototypeCombatGatesDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeCombatGates.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -490,6 +494,7 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatLanesDefinitionPath,
                 PrototypeCombatPillarsDefinitionPath,
                 PrototypeCombatArmorDefinitionPath,
+                PrototypeCombatGatesDefinitionPath,
             };
             string[] expectedIds =
             {
@@ -497,12 +502,14 @@ namespace BombSwap.Editor.ContentValidation
                 "prototype-combat-lanes",
                 "prototype-combat-pillars",
                 "prototype-combat-armor",
+                "prototype-combat-gates",
             };
             GridPosition?[] expectedChargerSpawns =
             {
                 null,
                 null,
                 new GridPosition(-3, 2),
+                null,
                 null,
             };
             GridPosition?[] expectedArmoredSpawns =
@@ -511,6 +518,7 @@ namespace BombSwap.Editor.ContentValidation
                 null,
                 null,
                 new GridPosition(0, 1),
+                null,
             };
 
             var seenIds = new HashSet<string>(StringComparer.Ordinal);
@@ -594,6 +602,7 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatLanesDefinitionPath,
                 PrototypeCombatPillarsDefinitionPath,
                 PrototypeCombatArmorDefinitionPath,
+                PrototypeCombatGatesDefinitionPath,
             };
             string[] expectedSceneNames =
             {
@@ -601,10 +610,11 @@ namespace BombSwap.Editor.ContentValidation
                 "TestSandboxLanes",
                 "TestSandboxPillars",
                 "TestSandboxArmor",
+                "TestSandboxGates",
             };
             if (catalog.Entries.Count != expectedRoomPaths.Length)
             {
-                errors.Add("Prototype dungeon combat room catalog must contain four entries.");
+                errors.Add("Prototype dungeon combat room catalog must contain five entries.");
                 return;
             }
 
@@ -889,6 +899,12 @@ namespace BombSwap.Editor.ContentValidation
             ValidateTestSandboxScene(
                 TestSandboxArmorScenePath,
                 PrototypeCombatArmorDefinitionPath,
+                true,
+                false,
+                errors);
+            ValidateTestSandboxScene(
+                TestSandboxGatesScenePath,
+                PrototypeCombatGatesDefinitionPath,
                 true,
                 false,
                 errors);
@@ -1663,6 +1679,7 @@ namespace BombSwap.Editor.ContentValidation
                 TestSandboxLanesScenePath,
                 TestSandboxPillarsScenePath,
                 TestSandboxArmorScenePath,
+                TestSandboxGatesScenePath,
             };
             EditorBuildSettingsScene[] enabledScenes = EditorBuildSettings.scenes
                 .Where(scene => scene.enabled)

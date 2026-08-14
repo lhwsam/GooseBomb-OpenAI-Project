@@ -45,7 +45,7 @@
 
 ## 저작과 검증
 
-- 여덟 던전 씬 모두 Systems 오브젝트에 `PrototypeRunCompletionPresenter` 한 개를 가지며 같은 씬의 room binder와 input reader를 참조한다.
+- 아홉 던전·TestSandbox 씬 모두 Systems 오브젝트에 `PrototypeRunCompletionPresenter` 한 개를 가지며 같은 씬의 room binder와 input reader를 참조한다.
 - presenter는 보스방 완료 또는 어느 방에서든 실패했을 때만 UI를 표시한다.
 - Input Actions의 `Gameplay/RestartRun`은 Button이며 `<Keyboard>/r`, `<Gamepad>/select` binding을 가진다.
 - Editor builder와 validator는 action·binding·컴포넌트 수·참조를 검사한다.

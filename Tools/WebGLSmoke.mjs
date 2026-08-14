@@ -333,6 +333,10 @@ async function main() {
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-boss-telegraph.png`,
   );
+  const gatesRoomScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-gates-room.png`,
+  );
   const pauseScreenshotPath = path.join(
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-paused.png`,
@@ -639,8 +643,15 @@ async function main() {
       "ArrowRight",
       "dungeon-room-ready-5-combat-active",
     );
-    await waitForEvent(page, "room-ready-prototype-combat-lanes", {
+    await waitForEvent(page, "room-ready-prototype-combat-gates", {
       timeout: 60_000,
+    });
+    fs.mkdirSync(path.dirname(gatesRoomScreenshotPath), { recursive: true });
+    await page.screenshot({ path: gatesRoomScreenshotPath });
+    checks.push({
+      name: "gates-room-visible",
+      status: "passed",
+      detail: gatesRoomScreenshotPath,
     });
 
     await page.keyboard.press("KeyX");
@@ -697,14 +708,10 @@ async function main() {
     checks.push({
       name: "third-main-path-combat-clear",
       status: "passed",
-      detail: "The persisted reward loadout cleared the lanes combat room 5.",
+      detail: "The persisted reward loadout cleared the gates combat room 5 after using its west-side detour.",
     });
 
-    const room5PostClearCell = await getLastPlayerCell(page);
-    await moveToCell(page, room5PostClearCell.x, -2);
-    await moveToCell(page, -5, -2);
-    await moveToCell(page, 5, -2);
-    await moveToCell(page, 5, 0);
+    await moveToCell(page, 4, 0);
     await triggerBoundaryTransition(
       page,
       "ArrowRight",
@@ -886,7 +893,7 @@ async function main() {
       "dungeon-room-ready-2-combat-cleared",
       "dungeon-room-ready-4-combat-active",
       "dungeon-room-ready-5-combat-active",
-      "room-ready-prototype-combat-lanes",
+      "room-ready-prototype-combat-gates",
       "dungeon-room-ready-6-boss-antechamber-safe",
       "dungeon-room-ready-7-boss-active",
       "boss-pattern-telegraph",
@@ -942,6 +949,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      gatesRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),
@@ -973,6 +981,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      gatesRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),

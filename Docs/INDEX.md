@@ -51,7 +51,7 @@
 | 완료·사망 결과와 즉시 재시작 | `Systems/RunCompletion.md`, `Systems/DungeonGeneration.md`, `Systems/DamageAndInvulnerability.md`, `Systems/InputAndCommands.md` |
 | 플레이어 피해 | `Systems/DamageAndInvulnerability.md` |
 | 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md` |
-| 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |
+| 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
 | 보스 | `Systems/BossBattle.md`, `Development/BossCoreSlice.md` |
 | 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/FirstCombatProtocol.md`, `Systems/Telemetry.md` |
