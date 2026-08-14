@@ -117,6 +117,69 @@ async function getLastPlayerCell(page) {
   });
 }
 
+async function verifyFocusLossClearsHeldInput(page) {
+  const eastCommandsBefore = await eventCount(page, "move-direction-east");
+  const eastMotionBefore = await eventCount(page, "move-motion-direction-east");
+  const noneCommandsBefore = await eventCount(page, "move-direction-none");
+  let focusRestored = false;
+  await page.keyboard.down("ArrowRight");
+  try {
+    await waitForEvent(page, "move-direction-east", {
+      count: eastCommandsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "move-motion-direction-east", {
+      count: eastMotionBefore + 1,
+      timeout: 5_000,
+    });
+
+    await page.evaluate(() => globalThis.dispatchEvent(new Event("blur")));
+    await waitForEvent(page, "move-direction-none", {
+      count: noneCommandsBefore + 1,
+      timeout: 5_000,
+    });
+    await page.waitForTimeout(100);
+    const settledMotion = await eventCount(page, "move-motion-direction-east");
+    const settledCell = await getLastPlayerCell(page);
+    await page.waitForTimeout(300);
+    const blurredMotion = await eventCount(page, "move-motion-direction-east");
+    const blurredCell = await getLastPlayerCell(page);
+    if (blurredMotion !== settledMotion ||
+        JSON.stringify(blurredCell) !== JSON.stringify(settledCell)) {
+      throw new Error(
+        `Browser blur left movement active: cell ${JSON.stringify(settledCell)} -> ` +
+        `${JSON.stringify(blurredCell)}, east motion ${settledMotion} -> ${blurredMotion}.`,
+      );
+    }
+
+    await page.evaluate(() => globalThis.dispatchEvent(new Event("focus")));
+    focusRestored = true;
+    await page.waitForTimeout(300);
+    const restoredMotion = await eventCount(page, "move-motion-direction-east");
+    const restoredCell = await getLastPlayerCell(page);
+    if (restoredMotion !== settledMotion ||
+        JSON.stringify(restoredCell) !== JSON.stringify(settledCell)) {
+      throw new Error(
+        `Browser focus restored a lost key-up: cell ${JSON.stringify(settledCell)} -> ` +
+        `${JSON.stringify(restoredCell)}, east motion ${settledMotion} -> ${restoredMotion}.`,
+      );
+    }
+
+    return {
+      cell: settledCell,
+      eastMotionCount: settledMotion,
+      releasedCommand: "move-direction-none",
+      lifecycleEvents: ["blur", "focus"],
+    };
+  } finally {
+    if (!focusRestored) {
+      await page.evaluate(() => globalThis.dispatchEvent(new Event("focus")));
+    }
+    await page.keyboard.up("ArrowRight");
+    await page.locator("canvas").first().click({ position: { x: 20, y: 20 } });
+  }
+}
+
 async function waitForChaserAdjacent(page, timeout = 15_000) {
   await page.waitForFunction(() => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -392,6 +455,13 @@ async function main() {
       name: "dungeon-start-ready",
       status: "passed",
       detail: "The safe Start placeholder initialized with the reusable loop shell.",
+    });
+
+    const focusRecovery = await verifyFocusLossClearsHeldInput(page);
+    checks.push({
+      name: "focus-loss-clears-held-input",
+      status: "passed",
+      detail: focusRecovery,
     });
 
     const pauseCellBefore = await getLastPlayerCell(page);
