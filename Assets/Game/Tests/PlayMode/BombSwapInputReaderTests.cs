@@ -57,7 +57,9 @@ namespace BombSwap.Tests.PlayMode
         public void KeyboardMove_EmitsCardinalIntentAndRelease()
         {
             QueueKeyboardState(Key.W);
+            _reader.RefreshMoveIntent();
             QueueKeyboardState();
+            _reader.RefreshMoveIntent();
 
             Assert.That(_commands, Is.EqualTo(new[]
             {
@@ -70,7 +72,9 @@ namespace BombSwap.Tests.PlayMode
         public void KeyboardTurn_EmitsNewPerpendicularDirectionBeforePreviousKeyRelease()
         {
             QueueKeyboardState(Key.UpArrow);
+            _reader.RefreshMoveIntent();
             QueueKeyboardState(Key.UpArrow, Key.RightArrow);
+            _reader.RefreshMoveIntent();
 
             Assert.That(_commands, Is.EqualTo(new[]
             {
@@ -80,6 +84,7 @@ namespace BombSwap.Tests.PlayMode
 
             QueueKeyboardState(Key.RightArrow);
             QueueKeyboardState();
+            _reader.RefreshMoveIntent();
 
             Assert.That(_commands, Is.EqualTo(new[]
             {
@@ -93,7 +98,9 @@ namespace BombSwap.Tests.PlayMode
         public void RefreshMoveIntent_UnchangedDiagonalKeepsLatestPressedAxis()
         {
             QueueKeyboardState(Key.UpArrow);
+            _reader.RefreshMoveIntent();
             QueueKeyboardState(Key.UpArrow, Key.RightArrow);
+            _reader.RefreshMoveIntent();
             _commands.Clear();
 
             _reader.RefreshMoveIntent();
@@ -105,6 +112,63 @@ namespace BombSwap.Tests.PlayMode
                 _commands,
                 Is.Empty,
                 "Unchanged held keys must not be reinterpreted or emit duplicate commands each frame.");
+        }
+
+        [Test]
+        public void TapCompletedBetweenFrames_IsVisibleForOneFrameThenReleases()
+        {
+            QueueKeyboardState(Key.UpArrow);
+            QueueKeyboardState();
+
+            _reader.RefreshMoveIntent();
+            _reader.RefreshMoveIntent();
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(CardinalDirection.North),
+                PlayerCommand.Move(CardinalDirection.None),
+            }), "A press and release inside one frame must not collapse into no movement.");
+        }
+
+        [Test]
+        public void PerpendicularTapWhileHeld_WinsOneFrameThenRestoresHeldDirection()
+        {
+            QueueKeyboardState(Key.UpArrow);
+            _reader.RefreshMoveIntent();
+            _commands.Clear();
+
+            QueueKeyboardState(Key.UpArrow, Key.RightArrow);
+            QueueKeyboardState(Key.UpArrow);
+            _reader.RefreshMoveIntent();
+            _reader.RefreshMoveIntent();
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(CardinalDirection.East),
+                PlayerCommand.Move(CardinalDirection.North),
+            }), "A short perpendicular turn must affect one frame before the held fallback resumes.");
+        }
+
+        [Test]
+        public void RapidAlternatingSubframeTaps_EmitOneDirectionPerFrame()
+        {
+            Key[] keys = { Key.UpArrow, Key.RightArrow, Key.UpArrow, Key.RightArrow };
+            for (int index = 0; index < keys.Length; index++)
+            {
+                QueueKeyboardState(keys[index]);
+                QueueKeyboardState();
+                _reader.RefreshMoveIntent();
+            }
+            _reader.RefreshMoveIntent();
+
+            Assert.That(_commands, Is.EqualTo(new[]
+            {
+                PlayerCommand.Move(CardinalDirection.North),
+                PlayerCommand.Move(CardinalDirection.East),
+                PlayerCommand.Move(CardinalDirection.North),
+                PlayerCommand.Move(CardinalDirection.East),
+                PlayerCommand.Move(CardinalDirection.None),
+            }));
         }
 
         [Test]
@@ -128,6 +192,7 @@ namespace BombSwap.Tests.PlayMode
         public void FocusLoss_ReleasesMoveAndBlocksCommandsUntilFocusReturns()
         {
             QueueKeyboardState(Key.D);
+            _reader.RefreshMoveIntent();
 
             _reader.SetInputFocus(false);
             QueueKeyboardState(Key.Z);
@@ -149,6 +214,7 @@ namespace BombSwap.Tests.PlayMode
         public void FocusReturn_DoesNotRestoreAKeyWhoseReleaseWasLost()
         {
             QueueKeyboardState(Key.W);
+            _reader.RefreshMoveIntent();
 
             _reader.SetInputFocus(false);
             _reader.SetInputFocus(true);

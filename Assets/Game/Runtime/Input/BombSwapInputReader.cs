@@ -22,6 +22,11 @@ namespace BombSwap
         private bool _hasInputFocus = true;
         private bool _hasSampledMoveValue;
         private Vector2 _lastSampledMoveValue;
+        private bool _hasPendingMoveChanges;
+        private CardinalDirection _latestPendingNonZeroDirection;
+        private CardinalDirection _latestPendingDirectionDifferentFromFrameStart;
+        private CardinalDirection _moveDirectionAtLastRefresh;
+        private CardinalDirection _lastIssuedMoveDirection;
 
         public event Action<PlayerCommand> CommandIssued;
 
@@ -39,6 +44,7 @@ namespace BombSwap
             }
 
             ApplyMoveValue(_moveAction.ReadValue<Vector2>());
+            FlushFrameMoveIntent();
         }
 
         public void Configure(InputActionAsset actions)
@@ -222,7 +228,15 @@ namespace BombSwap
             }
 
             CurrentMoveDirection = direction;
-            Issue(PlayerCommand.Move(direction));
+            _hasPendingMoveChanges = true;
+            if (direction != CardinalDirection.None)
+            {
+                _latestPendingNonZeroDirection = direction;
+                if (direction != _moveDirectionAtLastRefresh)
+                {
+                    _latestPendingDirectionDifferentFromFrameStart = direction;
+                }
+            }
         }
 
         private void ApplyMoveValue(Vector2 value)
@@ -244,7 +258,64 @@ namespace BombSwap
         {
             _lastSampledMoveValue = Vector2.zero;
             _hasSampledMoveValue = true;
-            SetMoveDirection(CardinalDirection.None);
+            CurrentMoveDirection = CardinalDirection.None;
+            _moveDirectionAtLastRefresh = CardinalDirection.None;
+            ClearPendingMoveChanges();
+            IssueMoveIfChanged(CardinalDirection.None);
+        }
+
+        private void FlushFrameMoveIntent()
+        {
+            CardinalDirection frameDirection = SelectFrameMoveDirection();
+            _moveDirectionAtLastRefresh = CurrentMoveDirection;
+            ClearPendingMoveChanges();
+            IssueMoveIfChanged(frameDirection);
+        }
+
+        private CardinalDirection SelectFrameMoveDirection()
+        {
+            if (!_hasPendingMoveChanges)
+            {
+                return CurrentMoveDirection;
+            }
+
+            if (CurrentMoveDirection == _moveDirectionAtLastRefresh &&
+                _latestPendingDirectionDifferentFromFrameStart != CardinalDirection.None)
+            {
+                return _latestPendingDirectionDifferentFromFrameStart;
+            }
+
+            if (CurrentMoveDirection != CardinalDirection.None)
+            {
+                return CurrentMoveDirection;
+            }
+
+            if (_latestPendingDirectionDifferentFromFrameStart != CardinalDirection.None)
+            {
+                return _latestPendingDirectionDifferentFromFrameStart;
+            }
+
+            return _moveDirectionAtLastRefresh == CardinalDirection.None
+                ? _latestPendingNonZeroDirection
+                : CardinalDirection.None;
+        }
+
+        private void IssueMoveIfChanged(CardinalDirection direction)
+        {
+            if (direction == _lastIssuedMoveDirection)
+            {
+                return;
+            }
+
+            _lastIssuedMoveDirection = direction;
+            Issue(PlayerCommand.Move(direction));
+        }
+
+        private void ClearPendingMoveChanges()
+        {
+            _hasPendingMoveChanges = false;
+            _latestPendingNonZeroDirection = CardinalDirection.None;
+            _latestPendingDirectionDifferentFromFrameStart = CardinalDirection.None;
         }
 
         private void Issue(PlayerCommand command)
@@ -262,6 +333,10 @@ namespace BombSwap
             _restartRunAction = null;
             _lastSampledMoveValue = Vector2.zero;
             _hasSampledMoveValue = false;
+            CurrentMoveDirection = CardinalDirection.None;
+            _moveDirectionAtLastRefresh = CardinalDirection.None;
+            _lastIssuedMoveDirection = CardinalDirection.None;
+            ClearPendingMoveChanges();
         }
 
         private void ResetBoundDevices()

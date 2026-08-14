@@ -244,6 +244,7 @@ async function verifyRapidCardinalTurns(page) {
     for (const [key, motionEvent] of rapidDirections) {
       expectedMotionEvents.push(motionEvent);
       await page.keyboard.down(key);
+      await page.keyboard.up(key);
       await page.waitForFunction(({ eventStartIndex, expected }) => {
         const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
         if (!Array.isArray(events)) return false;
@@ -257,7 +258,14 @@ async function verifyRapidCardinalTurns(page) {
         }
         return false;
       }, { eventStartIndex: startIndex, expected: expectedMotionEvents }, { timeout: 2_000 });
-      await page.keyboard.up(key);
+      const motionCountAfterTap = await eventCount(page, motionEvent);
+      await page.waitForTimeout(50);
+      const motionCountAfterStop = await eventCount(page, motionEvent);
+      if (motionCountAfterStop !== motionCountAfterTap) {
+        throw new Error(
+          `Released ${key} kept moving: ${motionCountAfterTap} -> ${motionCountAfterStop}.`,
+        );
+      }
     }
   } finally {
     await page.keyboard.up("ArrowLeft");
@@ -411,7 +419,7 @@ async function main() {
     checks.push({
       name: "frame-responsive-cardinal-turns",
       status: "passed",
-      detail: "Six alternating west/north presses each changed motion before release.",
+      detail: "Six alternating west/north press-release taps each produced motion for one frame and then stopped.",
     });
 
     await page.keyboard.press("KeyZ");

@@ -399,6 +399,43 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RapidAlternatingSubframeTaps_MoveOnEveryFollowingFrame()
+        {
+            CreateRuntime(Vector2Int.zero, false);
+            var directions = new List<CardinalDirection>();
+            _session.PlayerPositionChanged += (_, direction) =>
+            {
+                if (directions.Count == 0 || directions[directions.Count - 1] != direction)
+                {
+                    directions.Add(direction);
+                }
+            };
+            yield return null;
+
+            Key[] keys = { Key.W, Key.D, Key.W, Key.D, Key.W, Key.D };
+            for (int index = 0; index < keys.Length; index++)
+            {
+                QueueKeyboardState(keys[index]);
+                QueueKeyboardState();
+                yield return null;
+            }
+            yield return null;
+
+            Assert.That(directions, Has.Count.GreaterThanOrEqualTo(keys.Length));
+            for (int index = 0; index < keys.Length; index++)
+            {
+                CardinalDirection expected = index % 2 == 0
+                    ? CardinalDirection.North
+                    : CardinalDirection.East;
+                Assert.That(directions[index], Is.EqualTo(expected));
+            }
+
+            GridSubcellPosition stopped = _session.CurrentMovementPosition;
+            yield return new WaitForSecondsRealtime(0.1f);
+            Assert.That(_session.CurrentMovementPosition, Is.EqualTo(stopped));
+        }
+
+        [UnityTest]
         public IEnumerator AuthoredBlockedCell_PreventsLogicalAndVisualMovement()
         {
             CreateRuntime(new Vector2Int(0, 1), true);
