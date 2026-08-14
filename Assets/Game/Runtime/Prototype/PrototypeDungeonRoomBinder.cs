@@ -176,12 +176,20 @@ namespace BombSwap
             CombatRoomDefinition authoredDefinition =
                 roomSession.Context.RoomDefinition.CreateCoreDefinition();
             bool roomRequiresCombat = DungeonRunState.RequiresClear(room.RoomType);
+            bool roomRequiresBoss = room.RoomType == RoomType.Boss;
             if (roomSession.IsCombatEnabledByDefault != roomRequiresCombat)
             {
                 throw new InvalidOperationException(
                     roomRequiresCombat
                         ? $"Dungeon room {room.RoomType} requires an authored combat session."
                         : $"Safe dungeon room {room.RoomType} must disable authored combat.");
+            }
+            if (roomSession.IsBossEnabledByDefault != roomRequiresBoss)
+            {
+                throw new InvalidOperationException(
+                    roomRequiresBoss
+                        ? "Dungeon boss room requires an authored boss session."
+                        : $"Dungeon room {room.RoomType} must not enable the boss encounter.");
             }
             if (room.RoomType == RoomType.Combat)
             {
@@ -215,6 +223,8 @@ namespace BombSwap
                 : _runtimeRoomDefinition.PlayerSpawn;
             bool combatEnabledForVisit =
                 roomRequiresCombat && !run.RunState.IsCleared(roomId);
+            bool bossEnabledForVisit =
+                roomRequiresBoss && combatEnabledForVisit;
             PrototypeBombRewardCatalogAsset rewardCatalog =
                 _runHost.BombRewardCatalog;
             DungeonBombLoadoutState runLoadout = run.BombLoadoutState ??
@@ -231,7 +241,8 @@ namespace BombSwap
             roomSession.PrepareRuntimeRoom(
                 _runtimeRoomDefinition,
                 playerStart,
-                combatEnabledForVisit);
+                combatEnabledForVisit,
+                bossEnabledForVisit);
             WebGlHarnessReporter.ReportDungeonRoomReady(
                 roomId,
                 room.RoomType,

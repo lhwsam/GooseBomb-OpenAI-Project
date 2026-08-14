@@ -293,6 +293,101 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator DungeonBossScene_AuthorsBossInsteadOfRegularCombatEnemies()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                IReadOnlyList<DungeonRoomNodeId> path = run.Graph.GetShortestPath(
+                    run.Graph.StartRoomId,
+                    run.Graph.BossRoomId);
+                for (int index = 1; index < path.Count; index++)
+                {
+                    DungeonRoomNode current = run.Graph.GetRoom(run.CurrentRoomId);
+                    if (DungeonRunState.RequiresClear(current.RoomType) &&
+                        !run.RunState.IsCleared(current.Id))
+                    {
+                        Assert.That(
+                            run.TryClearCurrentRoom(),
+                            Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                    }
+                    Assert.That(run.TryTravelTo(path[index]).Moved, Is.True);
+                }
+
+                Assert.That(run.CurrentRoomId, Is.EqualTo(run.Graph.BossRoomId));
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonBoss",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder binder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession session = binder.RoomSession;
+                PrototypeBossPresenter presenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeBossPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+
+                Assert.That(binder.RuntimeRoomType, Is.EqualTo(RoomType.Boss));
+                Assert.That(session.IsCombatEnabledByDefault, Is.True);
+                Assert.That(session.IsBossEnabledByDefault, Is.True);
+                Assert.That(session.HasBoss, Is.True);
+                Assert.That(session.HasChaser, Is.False);
+                Assert.That(session.HasCharger, Is.False);
+                Assert.That(session.HasArmored, Is.False);
+                Assert.That(session.BossActorId, Is.EqualTo(new ActorId(5)));
+                Assert.That(session.EnemyActiveCount, Is.EqualTo(1));
+                Assert.That(session.IsRoomCleared, Is.False);
+                Assert.That(presenter.IsInitialized, Is.True);
+                Assert.That(presenter.IsBossVisible, Is.True);
+                Assert.That(presenter.VisibleDangerCellCount, Is.GreaterThan(0));
+                AssertDisplayedStatusesMatchGraph(
+                    binder.DoorPresenter,
+                    run,
+                    binder.RoomRotation,
+                    DungeonRoomExitStatus.Locked);
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonBossPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator BombRewardScene_CollectsEmptySecondSlotAndPersistsAcrossSceneLoad()
         {
             Scene loadedDungeonScene = default;

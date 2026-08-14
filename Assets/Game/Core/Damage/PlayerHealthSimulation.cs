@@ -97,18 +97,7 @@ namespace BombSwap.Core
 
         public PlayerDamageResult ApplyContactDamage(ActorId sourceActorId, int damage)
         {
-            if (!sourceActorId.IsValid)
-            {
-                throw new ArgumentException(
-                    "Contact damage source actor ID must be valid.",
-                    nameof(sourceActorId));
-            }
-            if (sourceActorId == ActorId)
-            {
-                throw new ArgumentException(
-                    "Player cannot be the source of enemy contact damage.",
-                    nameof(sourceActorId));
-            }
+            ValidateEnemyDamageSource(sourceActorId, nameof(sourceActorId));
             ValidateDamage(damage);
 
             TimeSpan now = clock.Now;
@@ -126,6 +115,34 @@ namespace BombSwap.Core
 
             return ApplyDamage(
                 PlayerDamageSourceKind.EnemyContact,
+                default,
+                sourceActorId,
+                damage,
+                now);
+        }
+
+        public PlayerDamageResult ApplyBossPatternDamage(
+            ActorId sourceActorId,
+            int damage)
+        {
+            ValidateEnemyDamageSource(sourceActorId, nameof(sourceActorId));
+            ValidateDamage(damage);
+
+            TimeSpan now = clock.Now;
+            ObserveTime(now);
+            if (IsDead)
+            {
+                return CreateIgnoredResult(
+                    PlayerDamageSourceKind.BossPattern,
+                    default,
+                    sourceActorId,
+                    damage,
+                    now,
+                    PlayerDamageStatus.IgnoredDead);
+            }
+
+            return ApplyDamage(
+                PlayerDamageSourceKind.BossPattern,
                 default,
                 sourceActorId,
                 damage,
@@ -199,6 +216,24 @@ namespace BombSwap.Core
                     nameof(damage),
                     damage,
                     "Damage must be positive.");
+            }
+        }
+
+        private void ValidateEnemyDamageSource(
+            ActorId sourceActorId,
+            string parameterName)
+        {
+            if (!sourceActorId.IsValid)
+            {
+                throw new ArgumentException(
+                    "Enemy damage source actor ID must be valid.",
+                    parameterName);
+            }
+            if (sourceActorId == ActorId)
+            {
+                throw new ArgumentException(
+                    "Player cannot be the source of enemy damage.",
+                    parameterName);
             }
         }
 

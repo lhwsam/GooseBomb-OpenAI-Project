@@ -19,6 +19,8 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _chaserPrefab;
         private GameObject _chargerPrefab;
         private GameObject _armoredPrefab;
+        private GameObject _bossPrefab;
+        private GameObject _bossDangerCellPrefab;
         private PrototypeBombDefinitionAsset _definition;
         private PrototypeBombDefinitionAsset _areaDefinition;
         private PrototypeBombLoadoutAsset _loadout;
@@ -26,11 +28,14 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeChaserDefinitionAsset _chaserDefinition;
         private PrototypeChargerDefinitionAsset _chargerDefinition;
         private PrototypeArmoredDefinitionAsset _armoredDefinition;
+        private PrototypeBossDefinitionAsset _bossDefinition;
         private PrototypeCombatRoomDefinitionAsset _roomDefinition;
         private Material _playerMaterial;
         private Material _chaserMaterial;
         private Material _chargerMaterial;
         private Material _armoredMaterial;
+        private Material _bossMaterial;
+        private Material _bossDangerCellMaterial;
         private PrototypeGameSession _session;
         private PrototypePlayerController _controller;
         private PrototypeBombPresenter _presenter;
@@ -40,6 +45,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeChaserPresenter _chaserPresenter;
         private PrototypeChargerPresenter _chargerPresenter;
         private PrototypeArmoredPresenter _armoredPresenter;
+        private PrototypeBossPresenter _bossPresenter;
         private PrototypeWeaponHud _weaponHud;
         private PrototypeRoomAdvanceController _roomAdvanceController;
         private Transform _player;
@@ -71,6 +77,14 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_armoredPrefab);
             }
+            if (_bossPrefab != null)
+            {
+                Object.DestroyImmediate(_bossPrefab);
+            }
+            if (_bossDangerCellPrefab != null)
+            {
+                Object.DestroyImmediate(_bossDangerCellPrefab);
+            }
             if (_definition != null)
             {
                 Object.DestroyImmediate(_definition);
@@ -99,6 +113,10 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_armoredDefinition);
             }
+            if (_bossDefinition != null)
+            {
+                Object.DestroyImmediate(_bossDefinition);
+            }
             if (_roomDefinition != null)
             {
                 Object.DestroyImmediate(_roomDefinition);
@@ -118,6 +136,14 @@ namespace BombSwap.Tests.PlayMode
             if (_armoredMaterial != null)
             {
                 Object.DestroyImmediate(_armoredMaterial);
+            }
+            if (_bossMaterial != null)
+            {
+                Object.DestroyImmediate(_bossMaterial);
+            }
+            if (_bossDangerCellMaterial != null)
+            {
+                Object.DestroyImmediate(_bossDangerCellMaterial);
             }
             if (_inputActions != null)
             {
@@ -667,6 +693,12 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthPresenter.IsDisplayingDeath, Is.False);
 
             yield return new WaitForSecondsRealtime(0.35f);
+            int pulseFrameGuard = 0;
+            while (_healthPresenter.CurrentColor != normalColor &&
+                   pulseFrameGuard++ < 30)
+            {
+                yield return null;
+            }
 
             Assert.That(_healthPresenter.CurrentColor, Is.EqualTo(normalColor));
             Assert.That(_playerMaterial.color, Is.EqualTo(normalColor));
@@ -1049,6 +1081,80 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator BossEncounter_TelegraphsDamagesOpensAndClearsAfterTwoHits()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.03f,
+                placementCooldownSeconds: 0.01f,
+                invulnerabilitySeconds: 0.75f,
+                combatEnabled: true,
+                bossEnabled: true,
+                includeBossPresenter: true,
+                bossPhaseOneRecoverySeconds: 1f);
+            int patternDamageCount = 0;
+            int bossDamageCount = 0;
+            int roomClearedCount = 0;
+            _session.PlayerDamaged += result =>
+            {
+                if (result.SourceKind == PlayerDamageSourceKind.BossPattern)
+                {
+                    patternDamageCount++;
+                }
+            };
+            _session.BossDamaged += _ => bossDamageCount++;
+            _session.RoomCleared += () => roomClearedCount++;
+
+            Assert.That(_session.IsInitialized, Is.True);
+            Assert.That(_session.HasBoss, Is.True);
+            Assert.That(_session.HasChaser, Is.False);
+            Assert.That(_session.BossActorId, Is.EqualTo(new ActorId(5)));
+            Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
+            Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
+            Assert.That(_bossPresenter.IsBossVisible, Is.True);
+            Assert.That(_bossPresenter.VisibleDangerCellCount, Is.GreaterThan(0));
+
+            int frameGuard = 0;
+            while (_session.CurrentBossState != BossBattleState.Recovery &&
+                   frameGuard++ < 60)
+            {
+                yield return null;
+            }
+
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
+            Assert.That(_session.IsBossVulnerable, Is.True);
+            Assert.That(patternDamageCount, Is.EqualTo(1));
+            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
+            Assert.That(_bossPresenter.PatternTransitionCount, Is.EqualTo(2));
+            Assert.That(_bossPresenter.VisibleDangerCellCount, Is.Zero);
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(_session.CurrentBossHealth, Is.EqualTo(1));
+            Assert.That(bossDamageCount, Is.EqualTo(1));
+            Assert.That(_session.IsRoomCleared, Is.False);
+            Assert.That(_bossPresenter.DisplayedHealth, Is.EqualTo(1));
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(_session.IsBossAlive, Is.False);
+            Assert.That(_session.CurrentBossHealth, Is.Zero);
+            Assert.That(_session.EnemyActiveCount, Is.Zero);
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(bossDamageCount, Is.EqualTo(2));
+            Assert.That(roomClearedCount, Is.EqualTo(1));
+            Assert.That(_bossPresenter.DeathCount, Is.EqualTo(1));
+            Assert.That(_bossPresenter.VisibleDangerCellCount, Is.Zero);
+            Assert.That(
+                _session.GetCell(new GridPosition(0, 1)).HasActor,
+                Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator HarnessProbe_RemainsEnabledAcrossSessionInitializationOrder()
         {
             CreateRuntime(Vector2Int.zero, false, includeProbe: true);
@@ -1100,7 +1206,18 @@ namespace BombSwap.Tests.PlayMode
             float brokenCellsPerSecond = 3f,
             bool combatEnabled = true,
             GridPosition? runtimePlayerStart = null,
-            bool? runtimeCombatEnabled = null)
+            bool? runtimeCombatEnabled = null,
+            bool bossEnabled = false,
+            bool includeBossPresenter = false,
+            Vector2Int? bossSpawnPosition = null,
+            int bossMaxHealth = 2,
+            int bossPhaseTwoHealthThreshold = 1,
+            float bossPhaseOneTelegraphSeconds = 0.05f,
+            float bossPhaseOneExecuteSeconds = 0.02f,
+            float bossPhaseOneRecoverySeconds = 0.3f,
+            float bossPhaseTwoTelegraphSeconds = 0.04f,
+            float bossPhaseTwoExecuteSeconds = 0.02f,
+            float bossPhaseTwoRecoverySeconds = 0.25f)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -1240,6 +1357,47 @@ namespace BombSwap.Tests.PlayMode
                     0.5f,
                     0.12f);
             }
+            if (bossEnabled)
+            {
+                _bossPrefab = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                _bossPrefab.name = "BossVisualPrefab";
+                Object.DestroyImmediate(_bossPrefab.GetComponent<Collider>());
+                _bossMaterial = new Material(playerShader);
+                _bossMaterial.color = new Color(0.46f, 0.12f, 0.68f, 1f);
+                _bossPrefab.GetComponent<Renderer>().sharedMaterial = _bossMaterial;
+                _bossPrefab.SetActive(false);
+
+                _bossDangerCellPrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _bossDangerCellPrefab.name = "BossDangerCellVisualPrefab";
+                Object.DestroyImmediate(_bossDangerCellPrefab.GetComponent<Collider>());
+                _bossDangerCellMaterial = new Material(playerShader);
+                _bossDangerCellMaterial.color = new Color(1f, 0.7f, 0.08f, 1f);
+                _bossDangerCellPrefab.GetComponent<Renderer>().sharedMaterial =
+                    _bossDangerCellMaterial;
+                _bossDangerCellPrefab.SetActive(false);
+
+                _bossDefinition =
+                    ScriptableObject.CreateInstance<PrototypeBossDefinitionAsset>();
+                Vector2Int authoredBossSpawn =
+                    bossSpawnPosition ?? new Vector2Int(0, 1);
+                _bossDefinition.Configure(
+                    "test-boss",
+                    bossMaxHealth,
+                    bossPhaseTwoHealthThreshold,
+                    1,
+                    bossPhaseOneTelegraphSeconds,
+                    bossPhaseOneExecuteSeconds,
+                    bossPhaseOneRecoverySeconds,
+                    bossPhaseTwoTelegraphSeconds,
+                    bossPhaseTwoExecuteSeconds,
+                    bossPhaseTwoRecoverySeconds,
+                    authoredBossSpawn,
+                    _bossPrefab,
+                    _bossDangerCellPrefab,
+                    0.6f,
+                    0.03f,
+                    0.12f);
+            }
             _roomDefinition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
             _roomDefinition.Configure(
                 "test-combat-loop",
@@ -1312,7 +1470,9 @@ namespace BombSwap.Tests.PlayMode
                 0.05f,
                 _chargerDefinition,
                 _armoredDefinition,
-                combatEnabled);
+                combatEnabled,
+                _bossDefinition,
+                bossEnabled);
             if (runtimePlayerStart.HasValue || runtimeCombatEnabled.HasValue)
             {
                 CombatRoomDefinition runtimeRoom =
@@ -1376,6 +1536,11 @@ namespace BombSwap.Tests.PlayMode
             {
                 _armoredPresenter = _root.AddComponent<PrototypeArmoredPresenter>();
                 _armoredPresenter.Configure(_session, presentationRoot);
+            }
+            if (includeBossPresenter)
+            {
+                _bossPresenter = _root.AddComponent<PrototypeBossPresenter>();
+                _bossPresenter.Configure(_session, presentationRoot);
             }
             if (includeWeaponHud)
             {

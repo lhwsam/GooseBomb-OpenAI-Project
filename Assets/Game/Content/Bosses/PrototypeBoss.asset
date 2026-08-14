@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79cfd05f21a576046b9edac6d69bff54, type: 3}
+  m_Name: PrototypeBoss
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossDefinitionAsset
+  definitionId: prototype-boss
+  maxHealth: 4
+  phaseTwoHealthThreshold: 2
+  patternDamage: 1
+  phaseOneTelegraphSeconds: 1
+  phaseOneExecuteSeconds: 0.25
+  phaseOneRecoverySeconds: 2.75
+  phaseTwoTelegraphSeconds: 0.75
+  phaseTwoExecuteSeconds: 0.25
+  phaseTwoRecoverySeconds: 2.75
+  bossSpawn: {x: 0, y: 1}
+  bossPrefab: {fileID: 3692990424253940051, guid: 3b792cdab45b3e444b030bdd9798b725, type: 3}
+  dangerCellPrefab: {fileID: 2260241691694644187, guid: 1f2bdbdb9e127864daf1bf754f6cc360, type: 3}
+  visualHeight: 0.6
+  dangerCellVisualHeight: 0.03
+  deathVisualSeconds: 0.2

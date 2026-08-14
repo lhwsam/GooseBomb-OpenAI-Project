@@ -21,6 +21,7 @@
 - 두 슬롯 독립 쿨타임과 비활성 회복.
 - 피해 무적과 사망 단일 발생.
 - 보스 Telegraph→Execute→Recovery exact boundary, 예고/실행 셀 동일성, Recovery 한정 폭탄 피해, 안전한 phase 전환과 사망 점유 단일 제거.
+- Unity 보스방 단일 활성, 패턴 피해와 기존 무적 공유, 위험 셀 presenter의 Telegraph/Execute 일치, Recovery 반격 4회, 2페이즈·격파·단일 방 클리어와 실제 WebGL 가독성.
 - 갑옷 적의 서로 다른 폭발 2회, 첫 피격 상태·cadence 변화, 같은 `BombId` 중복 차단과 두 번째 사망 뒤 점유 단일 제거.
 - 방 경계·연결성, 서로 다른 첫 이동의 퇴로 2개, 닫힌 유도 경로와 씬 표현 일치.
 - 동일 버전·정의·seed 던전 재현과 golden snapshot, 4~5 전투방·첫 보상·보스 전실/보스 경로·선택 가지·연결 트리·암시적 좌표 루프 방지.

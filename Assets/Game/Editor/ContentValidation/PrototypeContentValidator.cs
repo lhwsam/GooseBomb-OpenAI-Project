@@ -46,6 +46,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Enemies/PrototypeCharger.asset";
         public const string PrototypeArmoredDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeArmored.asset";
+        public const string PrototypeBossDefinitionPath =
+            "Assets/Game/Content/Bosses/PrototypeBoss.asset";
         public const string PrototypeCombatRoomDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatLoop.asset";
         public const string PrototypeCombatLanesDefinitionPath =
@@ -72,6 +74,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/ChargerPlaceholder.prefab";
         public const string ArmoredPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPlaceholder.prefab";
+        public const string BossPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BossPlaceholder.prefab";
+        public const string BossDangerCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BossDangerCellPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
         public const string PrototypeDungeonCombatRoomCatalogPath =
@@ -92,6 +98,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeChaserDefinition(errors);
             ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeArmoredDefinition(errors);
+            ValidatePrototypeBossDefinition(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
             ValidatePrototypeDungeonCombatRoomCatalog(errors);
             ValidatePrototypeDungeonSpecialRoomCatalog(errors);
@@ -396,6 +403,82 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Prototype armored prefab must not contain a Collider; logical grid owns collision.");
+            }
+        }
+
+        private static void ValidatePrototypeBossDefinition(ICollection<string> errors)
+        {
+            PrototypeBossDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossDefinitionAsset>(
+                    PrototypeBossDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add($"Missing prototype boss definition: {PrototypeBossDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                BossBattleDefinition core = definition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+                if (core.Id != new EnemyDefinitionId("prototype-boss") ||
+                    core.MaxHealth != 4 ||
+                    core.PhaseTwoHealthThreshold != 2 ||
+                    core.PatternDamage != 1 ||
+                    core.PhaseOneTimings.TelegraphDuration != TimeSpan.FromSeconds(1) ||
+                    core.PhaseOneTimings.ExecuteDuration != TimeSpan.FromSeconds(0.25) ||
+                    core.PhaseOneTimings.RecoveryDuration != TimeSpan.FromSeconds(2.75) ||
+                    core.PhaseTwoTimings.TelegraphDuration != TimeSpan.FromSeconds(0.75) ||
+                    core.PhaseTwoTimings.ExecuteDuration != TimeSpan.FromSeconds(0.25) ||
+                    core.PhaseTwoTimings.RecoveryDuration != TimeSpan.FromSeconds(2.75) ||
+                    definition.BossSpawn != new GridPosition(0, 1))
+                {
+                    errors.Add(
+                        "Prototype boss definition does not match the validated two-phase encounter contract.");
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype boss definition: {exception.Message}");
+            }
+
+            string bossPrefabPath = AssetDatabase.GetAssetPath(definition.BossPrefab);
+            string dangerPrefabPath = AssetDatabase.GetAssetPath(definition.DangerCellPrefab);
+            if (!string.Equals(bossPrefabPath, BossPrefabPath, StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype boss definition must reference '{BossPrefabPath}', found '{bossPrefabPath}'.");
+            }
+            if (!string.Equals(
+                    dangerPrefabPath,
+                    BossDangerCellPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype boss definition must reference '{BossDangerCellPrefabPath}', found '{dangerPrefabPath}'.");
+            }
+            if ((definition.BossPrefab != null &&
+                 definition.BossPrefab.GetComponentInChildren<Collider>(true) != null) ||
+                (definition.DangerCellPrefab != null &&
+                 definition.DangerCellPrefab.GetComponentInChildren<Collider>(true) != null))
+            {
+                errors.Add(
+                    "Prototype boss presentation prefabs must not contain Colliders; logical grid owns collision.");
+            }
+
+            PrototypeCombatRoomDefinitionAsset shell =
+                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
+                    PrototypeCombatRoomDefinitionPath);
+            if (shell != null)
+            {
+                CombatRoomDefinition room = shell.CreateCoreDefinition();
+                if (!room.IsInside(definition.BossSpawn) ||
+                    room.IsBlocked(definition.BossSpawn) ||
+                    room.PlayerSpawn == definition.BossSpawn)
+                {
+                    errors.Add(
+                        "Prototype boss spawn must be a traversable shell-room cell distinct from the player spawn.");
+                }
             }
         }
 
@@ -780,40 +863,48 @@ namespace BombSwap.Editor.ContentValidation
                 TestSandboxScenePath,
                 PrototypeCombatRoomDefinitionPath,
                 true,
+                false,
                 errors);
             ValidateTestSandboxScene(
                 TestSandboxLanesScenePath,
                 PrototypeCombatLanesDefinitionPath,
                 true,
+                false,
                 errors);
             ValidateTestSandboxScene(
                 TestSandboxPillarsScenePath,
                 PrototypeCombatPillarsDefinitionPath,
                 true,
+                false,
                 errors);
             ValidateTestSandboxScene(
                 TestSandboxArmorScenePath,
                 PrototypeCombatArmorDefinitionPath,
                 true,
+                false,
                 errors);
             ValidateTestSandboxScene(
                 DungeonStartScenePath,
                 PrototypeCombatRoomDefinitionPath,
+                false,
                 false,
                 errors);
             ValidateTestSandboxScene(
                 DungeonRewardScenePath,
                 PrototypeCombatRoomDefinitionPath,
                 false,
+                false,
                 errors);
             ValidateTestSandboxScene(
                 DungeonBossAnteScenePath,
                 PrototypeCombatRoomDefinitionPath,
                 false,
+                false,
                 errors);
             ValidateTestSandboxScene(
                 DungeonBossScenePath,
                 PrototypeCombatRoomDefinitionPath,
+                true,
                 true,
                 errors);
         }
@@ -822,6 +913,7 @@ namespace BombSwap.Editor.ContentValidation
             string scenePath,
             string expectedRoomPath,
             bool expectedCombatEnabled,
+            bool expectedBossEnabled,
             ICollection<string> errors)
         {
             var sceneErrors = new List<string>();
@@ -829,6 +921,7 @@ namespace BombSwap.Editor.ContentValidation
                 scenePath,
                 expectedRoomPath,
                 expectedCombatEnabled,
+                expectedBossEnabled,
                 sceneErrors);
             foreach (string error in sceneErrors)
             {
@@ -840,6 +933,7 @@ namespace BombSwap.Editor.ContentValidation
             string scenePath,
             string expectedRoomPath,
             bool expectedCombatEnabled,
+            bool expectedBossEnabled,
             ICollection<string> errors)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
@@ -874,6 +968,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeChargerPresenter>(scene);
                 PrototypeArmoredPresenter[] armoredPresenters =
                     FindComponents<PrototypeArmoredPresenter>(scene);
+                PrototypeBossPresenter[] bossPresenters =
+                    FindComponents<PrototypeBossPresenter>(scene);
                 PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
                 PrototypeInputHarnessProbe[] probes = FindComponents<PrototypeInputHarnessProbe>(scene);
                 PrototypeRoomAdvanceController[] roomAdvanceControllers =
@@ -937,6 +1033,11 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeArmoredPresenter; found {armoredPresenters.Length}.");
+                }
+                if (bossPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain exactly one PrototypeBossPresenter; found {bossPresenters.Length}.");
                 }
                 if (weaponHuds.Length != 1)
                 {
@@ -1008,6 +1109,8 @@ namespace BombSwap.Editor.ContentValidation
                         session.ChargerDefinition);
                     string armoredDefinitionPath = AssetDatabase.GetAssetPath(
                         session.ArmoredDefinition);
+                    string bossDefinitionPath = AssetDatabase.GetAssetPath(
+                        session.BossDefinition);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
                         !string.Equals(
                             loadoutPath,
@@ -1028,6 +1131,10 @@ namespace BombSwap.Editor.ContentValidation
                         !string.Equals(
                             armoredDefinitionPath,
                             PrototypeArmoredDefinitionPath,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            bossDefinitionPath,
+                            PrototypeBossDefinitionPath,
                             StringComparison.Ordinal))
                     {
                         errors.Add("TestSandbox game session has inconsistent runtime references.");
@@ -1037,11 +1144,15 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add("TestSandbox game session timing values must be finite and positive.");
                     }
-                    if (session.HasChaser != expectedCombatEnabled)
+                    bool expectedChaserEnabled =
+                        expectedCombatEnabled && !expectedBossEnabled;
+                    if (session.IsCombatEnabledByDefault != expectedCombatEnabled ||
+                        session.IsBossEnabledByDefault != expectedBossEnabled ||
+                        session.HasChaser != expectedChaserEnabled ||
+                        session.HasBoss != expectedBossEnabled)
                     {
                         errors.Add(
-                            $"Dungeon room combat mode must be {expectedCombatEnabled}; " +
-                            $"found {session.HasChaser}.");
+                            "Dungeon room encounter mode is inconsistent with its room type.");
                     }
                 }
 
@@ -1133,6 +1244,17 @@ namespace BombSwap.Editor.ContentValidation
                         presenter.PresentationRoot != runtimePresentation)
                     {
                         errors.Add("TestSandbox armored presenter has inconsistent scene references.");
+                    }
+                }
+
+                if (bossPresenters.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypeBossPresenter presenter = bossPresenters[0];
+                    Transform runtimePresentation = contexts[0].GridRoot.Find("RuntimePresentation");
+                    if (presenter.Session != sessions[0] ||
+                        presenter.PresentationRoot != runtimePresentation)
+                    {
+                        errors.Add("TestSandbox boss presenter has inconsistent scene references.");
                     }
                 }
 

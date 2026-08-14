@@ -22,6 +22,7 @@ namespace BombSwap
         private bool _playerDamagedReported;
         private bool _playerExplosionDamagedReported;
         private bool _playerContactDamagedReported;
+        private bool _playerBossPatternDamagedReported;
         private bool _chaserMovedReported;
         private bool _chargerTelegraphReported;
         private bool _chargerChargeReported;
@@ -30,6 +31,8 @@ namespace BombSwap
         private bool _armoredBrokenReported;
         private bool _armoredDiedReported;
         private bool _enemyDiedReported;
+        private bool _bossPhaseTwoReported;
+        private bool _bossDefeatedReported;
         private bool _roomClearedReported;
         private bool _swapBombReported;
         private bool _pauseReported;
@@ -90,6 +93,8 @@ namespace BombSwap
             session.ArmoredMoved += OnArmoredMoved;
             session.ArmoredStateChanged += OnArmoredStateChanged;
             session.EnemyDied += OnEnemyDied;
+            session.BossPatternTransitioned += OnBossPatternTransitioned;
+            session.BossDamaged += OnBossDamaged;
             session.RoomCleared += OnRoomCleared;
             session.Ready += OnSessionReady;
             if (session.IsReady)
@@ -118,6 +123,8 @@ namespace BombSwap
                 session.ArmoredMoved -= OnArmoredMoved;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
                 session.EnemyDied -= OnEnemyDied;
+                session.BossPatternTransitioned -= OnBossPatternTransitioned;
+                session.BossDamaged -= OnBossDamaged;
                 session.RoomCleared -= OnRoomCleared;
                 session.Ready -= OnSessionReady;
             }
@@ -140,6 +147,11 @@ namespace BombSwap
             if (room != null)
             {
                 WebGlHarnessReporter.Report("room-ready-" + room.RoomId);
+            }
+            if (session.HasBoss &&
+                session.CurrentBossState == BossBattleState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("boss-pattern-telegraph");
             }
             WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
             _readyReported = true;
@@ -228,6 +240,13 @@ namespace BombSwap
                         _playerContactDamagedReported = true;
                     }
                     break;
+                case PlayerDamageSourceKind.BossPattern:
+                    if (!_playerBossPatternDamagedReported)
+                    {
+                        WebGlHarnessReporter.Report("player-boss-pattern-damaged");
+                        _playerBossPatternDamagedReported = true;
+                    }
+                    break;
                 default:
                     throw new System.ArgumentOutOfRangeException(
                         nameof(result),
@@ -303,6 +322,45 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("enemy-died");
             _enemyDiedReported = true;
+        }
+
+        private void OnBossPatternTransitioned(BossPatternTransition transition)
+        {
+            switch (transition.State)
+            {
+                case BossBattleState.Telegraph:
+                    WebGlHarnessReporter.Report("boss-pattern-telegraph");
+                    break;
+                case BossBattleState.Execute:
+                    WebGlHarnessReporter.Report("boss-pattern-execute");
+                    break;
+                case BossBattleState.Recovery:
+                    WebGlHarnessReporter.Report("boss-pattern-recovery");
+                    break;
+                case BossBattleState.Defeated:
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(
+                        nameof(transition),
+                        transition.State,
+                        "Unsupported boss battle state.");
+            }
+
+            if (!_bossPhaseTwoReported && transition.Phase == BossPhase.Two)
+            {
+                WebGlHarnessReporter.Report("boss-phase-two");
+                _bossPhaseTwoReported = true;
+            }
+        }
+
+        private void OnBossDamaged(BossDamageResult result)
+        {
+            WebGlHarnessReporter.Report("boss-damaged");
+            if (!_bossDefeatedReported && result.WasFatal)
+            {
+                WebGlHarnessReporter.Report("boss-defeated");
+                _bossDefeatedReported = true;
+            }
         }
 
         private void OnRoomCleared()

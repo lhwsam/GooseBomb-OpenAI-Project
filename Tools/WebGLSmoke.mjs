@@ -321,6 +321,10 @@ async function main() {
   const screenshotPath = path.resolve(
     args.screenshotPath ?? path.join(path.dirname(reportPath), "webgl-dungeon.png"),
   );
+  const bossTelegraphScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-boss-telegraph.png`,
+  );
   const { chromium } = await loadPlaywright();
   const { server, url } = await startStaticServer(buildPath);
   const consoleErrors = [];
@@ -655,24 +659,60 @@ async function main() {
       "ArrowDown",
       "dungeon-room-ready-7-boss-active",
     );
+    await waitForEvent(page, "boss-pattern-telegraph", { timeout: 5_000 });
+    fs.mkdirSync(path.dirname(bossTelegraphScreenshotPath), { recursive: true });
+    await page.screenshot({ path: bossTelegraphScreenshotPath });
+    checks.push({
+      name: "boss-telegraph-visible",
+      status: "passed",
+      detail: bossTelegraphScreenshotPath,
+    });
+
     await page.keyboard.press("KeyX");
     await waitForEvent(page, "active-bomb-slot-1", {
       count: 3,
       timeout: 5_000,
     });
-    const bossAreaPlacementsBefore = await eventCount(
-      page,
-      "place-bomb-definition-prototype-area",
-    );
-    await page.keyboard.press("KeyZ");
-    await waitForEvent(page, "place-bomb-definition-prototype-area", {
-      count: bossAreaPlacementsBefore + 1,
+    const bossRecoveriesBefore = await eventCount(page, "boss-pattern-recovery");
+    const bossDamageBefore = await eventCount(page, "boss-damaged");
+    const bossClearBefore = await eventCount(page, "room-cleared");
+    const bossBombTargets = [
+      { x: 1, z: 1 },
+      { x: 1, z: 0 },
+      { x: 1, z: 0 },
+      { x: 1, z: 1 },
+    ];
+    for (let index = 0; index < bossBombTargets.length; index++) {
+      const target = bossBombTargets[index];
+      await moveToCell(page, target.x, target.z);
+      await waitForEvent(page, "boss-pattern-recovery", {
+        count: bossRecoveriesBefore + index + 1,
+        timeout: 10_000,
+      });
+      const placementsBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-area",
+      );
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-area", {
+        count: placementsBefore + 1,
+        timeout: 5_000,
+      });
+      await waitForEvent(page, "boss-damaged", {
+        count: bossDamageBefore + index + 1,
+        timeout: 8_000,
+      });
+    }
+    await waitForEvent(page, "boss-phase-two", { timeout: 10_000 });
+    await waitForEvent(page, "boss-defeated", { timeout: 5_000 });
+    await waitForEvent(page, "room-cleared", {
+      count: bossClearBefore + 1,
       timeout: 5_000,
     });
     checks.push({
-      name: "boss-placeholder-reached",
+      name: "boss-battle-cleared",
       status: "passed",
-      detail: "Room 7 initialized as the active boss placeholder and retained the selected area bomb.",
+      detail: "Room 7 telegraphed deterministic grid attacks and accepted four area-bomb counterattacks only during Recovery before clearing once.",
     });
 
     await page.keyboard.press("Escape");
@@ -713,6 +753,12 @@ async function main() {
       "room-ready-prototype-combat-lanes",
       "dungeon-room-ready-6-boss-antechamber-safe",
       "dungeon-room-ready-7-boss-active",
+      "boss-pattern-telegraph",
+      "boss-pattern-execute",
+      "boss-pattern-recovery",
+      "boss-damaged",
+      "boss-phase-two",
+      "boss-defeated",
       "swap-bomb",
       "pause-resume",
       "audio-unlocked",
