@@ -93,6 +93,7 @@
 - 기존 네 전투방을 선형 `PrototypeRoomAdvanceController`에서 graph binder로 마이그레이션하고, 중앙 문 틈을 가진 8개 분할 외벽·collider 없는 네 문 패널을 Editor builder로 저작.
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.
+- `PrototypeDungeonRoomBinder`가 저작된 전투 가능 여부와 Core 클리어 상태에서 방문별 전투 활성 여부를 분리해, 클리어한 전투·보스방 재입장에서는 적 simulation·표현을 생성하지 않고 열린 문을 유지하도록 구현.
 
 ## 현재 저장소 사실
 
@@ -105,7 +106,7 @@
 - `DungeonRunState`는 시작방을 최초 방문으로 시작하고, 연결된 방만 이동하며 전투·보스방 클리어 전 퇴실을 막는다. 안전방은 잠기지 않고 클리어한 전투방은 다시 잠기지 않으며, 네 방향 문 snapshot이 실제 문 presenter와 scene travel의 권위다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 회전과 그래프 연결 방향인 활성 출구를 read-only로 소유한다. 같은 그래프·카탈로그는 입력 배열 순서와 무관하게 같은 배정을 만들며 호환 출구가 없으면 명시적으로 실패한다.
 - `PrototypeDungeonRunSession`은 combat/special catalog asset을 mutable run 상태와 분리하고 모든 그래프 노드를 실제 scene으로 해석하며 `DungeonRunState`에 이동·클리어를 위임한다.
-- `PrototypeGameSession`은 `combatEnabled=false`일 때 추격자·돌진형·갑옷 적을 생성하지 않고 `EnemyActiveCount=0`, `IsRoomCleared=true`로 시작하지만 플레이어 이동, 두 폭탄 슬롯, 자기 피해와 표현 사건은 유지한다. Start·보상·보스 전실 placeholder가 이 구성을 사용한다.
+- `PrototypeGameSession`은 저작된 전투 가능 여부와 방문별 활성 여부를 분리한다. 안전방과 이미 클리어한 전투·보스방 방문은 적 actor·simulation·presenter를 생성하지 않고 `EnemyActiveCount=0`, `IsRoomCleared=true`로 시작하지만 플레이어 이동, 두 폭탄 슬롯, 자기 피해와 표현 사건은 유지한다.
 - 각 던전 씬은 동일한 seed-0 bootstrap을 포함하지만 scene load 뒤 persistent primary host가 중복 bootstrap을 제거한다. Core 이동은 기대한 대상 씬이 실제 로드된 뒤 한 번만 commit된다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다. 광역 폭발은 반경 내 각 셀을 독립 평가해 원점을 포함한 최대 3×3을 만들며 한 셀의 벽이 다른 영역 셀을 가리지 않는다.
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다.
@@ -120,7 +121,7 @@
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
 - EditMode 테스트 244개가 하네스 발견성, 좌표·격자·시계와 cardinal 인접, actor 식별, 십자·광역 폭탄 설치·폭발·벽·연쇄, 두 슬롯 독립 쿨타임·실패 미소비·교체 경계·주입 시계 정지, 플레이어 명령과 frame 연속 진행·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·점유 전이·설치자 한정 통과, 폭발/접촉 피해 원인·공유 무적 경계, 추격자·돌진형·갑옷 적의 결정론·cadence·상태 전이·충돌 차단·피격 단계, 전투방 저작 불변식과 전체 셀 회전, 던전 동일 seed·필수 경로·선택 가지·연결 트리·좌표 배치·실패 경계, 전투 잠금·클리어·양방향 재방문, 안정된 네 방향 문 상태와 콘텐츠 배정 재현·회전·호환·균형을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 86개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타의 같은 frame 반영, 폭탄·파괴 벽·HUD, 안전방과 세 적 유형, 전투 클리어, combat/special catalog, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 표현 생명주기와 하네스 발견성을 검증한다.
+- PlayMode 전체 91개가 `GridSpace`의 정수·연속 좌표 변환, room asset→격자·spawn·고정/파괴 cell 연결과 `Awake` 전 runtime spawn, cardinal 입력과 새 직교 방향 우선의 키 겹침, 실제 Input System 유지·해제·빠른 방향 단타의 같은 frame 반영, 폭탄·파괴 벽·HUD, 안전방과 세 적 유형, 전투 클리어, combat/special catalog, 회전된 저작 문↔graph 문 상태, 로드 전 불변·기대 씬 뒤 단일 Core commit과 persistent host primary 단일성, 실제 씬에서 클리어한 전투방 재입장의 적 미생성·문 개방, 표현 생명주기와 하네스 발견성을 검증한다.
 - 네 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
 - Build Settings의 첫 enabled 씬 여덟 개는 `DungeonStart`, `DungeonReward`, `DungeonBossAnte`, `DungeonBoss`, `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
@@ -138,7 +139,7 @@
 ## 바로 다음 권장 작업
 
 1. [갑옷 적 2회 피격 플레이테스트](../Playtesting/ArmoredEnemyProtocol.md)로 첫 피격의 외형 축소·색 변화와 1→3 cells/s 변화가 즉시 읽히는지, 두 번째 폭탄 위치를 다시 계획하게 만드는지 관찰한다.
-2. seed-0 Start→첫 전투 자동 스모크를 전투 클리어→보상방→다음 전투·이전 방 왕복까지 확장하고, 재입장 시 전투 상태 정책을 명시한다.
+2. seed-0 Start→첫 전투 자동 스모크를 전투 클리어→보상방→다음 전투·이전 방 왕복까지 확장하고, 구현된 클리어 방 재입장 정책을 실제 WebGL에서 확인한다.
 3. `DungeonReward`에 첫 실제 폭탄 선택을 연결하고 선택 결과를 두 슬롯 loadout persistence로 넘긴다.
 
 ## 알려진 위험과 미정
@@ -154,9 +155,9 @@
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - TestSandbox의 설치·교체 명령은 실제 게임 상태를 바꾸지만 pause 명령은 아직 probe 외 실제 규칙 소비자가 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
-- 네 room asset의 cardinal 잠재 출구와 Core 배정은 구현됐지만 TestSandbox의 외곽 벽은 아직 실제 문으로 분할되지 않았다. 미사용 잠재 출구의 닫힘, 활성 문의 열림·입장 안전 spawn과 회전된 방 geometry 표현은 Unity 어댑터 검증 전까지 미구현이다.
+- 네 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 재입장 시 플레이어 체력·loadout, 파괴 가능 벽과 적의 부분 체력 같은 room-local 세부 상태는 아직 보존하지 않는다.
 - Core 그래프의 기본 4~5 전투방과 단일 선택 가지는 `Proposed`다. 자동 검증은 재현성과 구조만 보장하며 탐색 동기, 되돌아가기 피로와 방 반복 체감은 Unity 탐색 loop와 사람 플레이테스트 전에는 판정할 수 없다.
-- 현재 4방 전환은 씬 이름과 realtime 1.25초 지연을 쓰는 플레이테스트 어댑터로 새 `PrototypeDungeonRunSession`을 소비하지 않는다. Core 방문/클리어와 그래프 노드별 전투방 asset·scene 선택은 구현됐지만 실제 문, 보상, Unity 수명 연결, 저장·재시작과 그래프 기반 방 전환 연출은 아직 없다.
+- 그래프 기반 실제 문 전환과 Unity 씬 수명 연결은 구현됐다. 다만 보상 선택, 저장·재시작, 로딩 연출과 room-local 세부 상태 persistence는 아직 없다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
 - 게임패드 binding은 구조 검증만 완료했다. 정확한 대각선 값을 만드는 게임패드·D-pad에도 새 직교 축 우선 정책이 적용되므로 목표 기기 수동 플레이가 남아 있다.
 
@@ -218,3 +219,5 @@
 - 회전·안전 session 기반 연결 뒤 전체 EditMode 244/244, PlayMode 80/80 통과, 실패·건너뜀 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-120956-813.json`, `Artifacts/Verification/ConnectedTests/20260814-121013-190.json`. Unity Console Error 0, 정적 검증 `Artifacts/Verification/20260814-211516-static/` 통과. 씬·입력·빌드 산출물을 아직 변경하지 않아 WebGL 재빌드는 다음 실제 문/전환 슬라이스에서 수행한다.
 - 특수방 catalog·navigator·host 대상 `PrototypeDungeonRunSessionTests` 10/10 통과. 직렬화 catalog 시작 검증, 필수 타입과 고유 씬, 로드 불가·중복·씬 불일치의 Core 불변, 기대 씬 단일 commit과 host primary 단일성을 포함한다. 최종 증거 `Artifacts/Verification/ConnectedTests/20260814-122518-725.json`.
 - 전환 host 연결 뒤 전체 EditMode 244/244, PlayMode 84/84 통과, 실패·건너뜀 0. 증거 `Artifacts/Verification/ConnectedTests/20260814-122150-723.json`, `Artifacts/Verification/ConnectedTests/20260814-122207-191.json`. Unity Console Error 0, 정적 검증 `Artifacts/Verification/20260814-212627-static/` 통과. 실제 씬·Build Settings는 아직 변경하지 않아 WebGL 재빌드는 문/씬 authoring 슬라이스에 남겼다.
+- 프레임 입력 재샘플링과 던전 씬 연결 뒤 전체 EditMode 244/244, PlayMode 88/88 통과. 실제 8씬 Development WebGL에서 빠른 방향 반복, Start→첫 전투, 폭탄·Console 회귀를 확인했다. 증거 `Artifacts/Verification/20260814-223500-frame-input-web/`.
+- 클리어 방 재입장 대상 PlayMode 3/3과 전체 PlayMode 91/91 통과. 실제 `DungeonStart`·seed-0 첫 전투 씬을 왕복해 첫 입장의 적·잠긴 문과 재입장의 적 0·미생성 chaser presenter·열린 문을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-134758-245.json`, `Artifacts/Verification/ConnectedTests/20260814-134906-797.json`. 브라우저 연속 왕복 검증은 다음 슬라이스에서 수행한다.

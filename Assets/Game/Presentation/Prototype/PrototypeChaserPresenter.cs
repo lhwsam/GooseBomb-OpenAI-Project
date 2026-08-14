@@ -144,6 +144,11 @@ namespace BombSwap
             {
                 return;
             }
+            if (!session.HasChaser)
+            {
+                IsInitialized = true;
+                return;
+            }
 
             PrototypeChaserDefinitionAsset definition = session.ChaserDefinition;
             definition.ValidatePresentationReferences();

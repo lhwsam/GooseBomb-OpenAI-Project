@@ -5,6 +5,7 @@ using System.Linq;
 using BombSwap.Core;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace BombSwap.Tests.PlayMode
@@ -173,6 +174,122 @@ namespace BombSwap.Tests.PlayMode
                 presenter.Configure(north, east, south, null));
             Assert.Throws<InvalidOperationException>(() =>
                 presenter.Configure(north, east, south, north));
+        }
+
+        [UnityTest]
+        public IEnumerator ClearedCombatScene_ReentryDoesNotRespawnEnemiesOrRelockDoors()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                DungeonRoomNodeId startRoom = run.Graph.StartRoomId;
+                DungeonRoomNodeId firstCombat =
+                    run.Graph.GetNeighbors(startRoom)[0];
+                DungeonTravelResult firstEntry = run.TryTravelTo(firstCombat);
+                Assert.That(firstEntry.Moved, Is.True);
+                Assert.That(firstEntry.EnteredFirstTime, Is.True);
+                Assert.That(
+                    run.TryGetSceneName(firstCombat, out string combatSceneName),
+                    Is.True);
+
+                yield return SceneManager.LoadSceneAsync(
+                    combatSceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder firstBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(firstBinder.RoomSession.IsCombatEnabledByDefault, Is.True);
+                Assert.That(firstBinder.RoomSession.HasChaser, Is.True);
+                Assert.That(firstBinder.RoomSession.EnemyActiveCount, Is.GreaterThan(0));
+                Assert.That(firstBinder.RoomSession.IsRoomCleared, Is.False);
+                AssertDisplayedStatusesMatchGraph(
+                    firstBinder.DoorPresenter,
+                    run,
+                    firstBinder.RoomRotation,
+                    DungeonRoomExitStatus.Locked);
+
+                Assert.That(
+                    run.TryClearCurrentRoom(),
+                    Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                Assert.That(run.TryTravelTo(startRoom).Moved, Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                DungeonTravelResult reentry = run.TryTravelTo(firstCombat);
+                Assert.That(reentry.Moved, Is.True);
+                Assert.That(reentry.EnteredFirstTime, Is.False);
+                Assert.That(run.RunState.IsCleared(firstCombat), Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    combatSceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder reentryBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession reentrySession = reentryBinder.RoomSession;
+                Assert.That(reentrySession.IsCombatEnabledByDefault, Is.True);
+                Assert.That(reentrySession.HasChaser, Is.False);
+                Assert.That(reentrySession.IsChaserAlive, Is.False);
+                Assert.That(reentrySession.HasCharger, Is.False);
+                Assert.That(reentrySession.HasArmored, Is.False);
+                Assert.That(reentrySession.EnemyActiveCount, Is.Zero);
+                Assert.That(reentrySession.IsRoomCleared, Is.True);
+                Assert.That(run.RunState.IsRoomLocked(firstCombat), Is.False);
+                PrototypeChaserPresenter reentryChaser =
+                    UnityEngine.Object.FindObjectsByType<PrototypeChaserPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(reentryChaser.IsInitialized, Is.True);
+                Assert.That(reentryChaser.Instance, Is.Null);
+                AssertDisplayedStatusesMatchGraph(
+                    reentryBinder.DoorPresenter,
+                    run,
+                    reentryBinder.RoomRotation,
+                    DungeonRoomExitStatus.Open);
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonReentryPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
         }
 
         [Test]

@@ -204,6 +204,45 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RuntimeRoomPreparation_DisablesAuthoredCombatForClearedVisit()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeChaserPresenter: true,
+                combatEnabled: true,
+                runtimeCombatEnabled: false);
+
+            yield return null;
+
+            Assert.That(_session.IsCombatEnabledByDefault, Is.True);
+            Assert.That(_session.HasChaser, Is.False);
+            Assert.That(_session.IsChaserAlive, Is.False);
+            Assert.That(_session.EnemyActiveCount, Is.Zero);
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(_chaserPresenter.IsInitialized, Is.True);
+            Assert.That(_chaserPresenter.Instance, Is.Null);
+            Assert.That(
+                _session.GetCell(_roomDefinition.CreateCoreDefinition().ChaserSpawn).Occupancy,
+                Is.EqualTo(GridOccupancy.None));
+        }
+
+        [Test]
+        public void RuntimeRoomPreparation_CannotEnableCombatInAuthoredSafeRoom()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                combatEnabled: false);
+
+            Assert.Throws<System.InvalidOperationException>(() =>
+                _session.PrepareRuntimeRoom(
+                    _roomDefinition.CreateCoreDefinition(),
+                    _roomDefinition.CreateCoreDefinition().PlayerSpawn,
+                    true));
+        }
+
+        [UnityTest]
         public IEnumerator HeldDirection_AdvancesSubcellPositionAndPresentationEveryFrame()
         {
             CreateRuntime(Vector2Int.zero, false);
@@ -1060,7 +1099,8 @@ namespace BombSwap.Tests.PlayMode
             float armoredCellsPerSecond = 1f,
             float brokenCellsPerSecond = 3f,
             bool combatEnabled = true,
-            GridPosition? runtimePlayerStart = null)
+            GridPosition? runtimePlayerStart = null,
+            bool? runtimeCombatEnabled = null)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -1273,11 +1313,23 @@ namespace BombSwap.Tests.PlayMode
                 _chargerDefinition,
                 _armoredDefinition,
                 combatEnabled);
-            if (runtimePlayerStart.HasValue)
+            if (runtimePlayerStart.HasValue || runtimeCombatEnabled.HasValue)
             {
-                _session.PrepareRuntimeRoom(
-                    _roomDefinition.CreateCoreDefinition(),
-                    runtimePlayerStart.Value);
+                CombatRoomDefinition runtimeRoom =
+                    _roomDefinition.CreateCoreDefinition();
+                GridPosition runtimeStart =
+                    runtimePlayerStart ?? runtimeRoom.PlayerSpawn;
+                if (runtimeCombatEnabled.HasValue)
+                {
+                    _session.PrepareRuntimeRoom(
+                        runtimeRoom,
+                        runtimeStart,
+                        runtimeCombatEnabled.Value);
+                }
+                else
+                {
+                    _session.PrepareRuntimeRoom(runtimeRoom, runtimeStart);
+                }
             }
             Transform destructibleRoot = new GameObject("DestructibleObstacles").transform;
             destructibleRoot.SetParent(gridRoot, false);

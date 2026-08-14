@@ -140,6 +140,14 @@ namespace BombSwap
             DungeonRoomNode room = run.Graph.GetRoom(roomId);
             CombatRoomDefinition authoredDefinition =
                 roomSession.Context.RoomDefinition.CreateCoreDefinition();
+            bool roomRequiresCombat = DungeonRunState.RequiresClear(room.RoomType);
+            if (roomSession.IsCombatEnabledByDefault != roomRequiresCombat)
+            {
+                throw new InvalidOperationException(
+                    roomRequiresCombat
+                        ? $"Dungeon room {room.RoomType} requires an authored combat session."
+                        : $"Safe dungeon room {room.RoomType} must disable authored combat.");
+            }
             if (room.RoomType == RoomType.Combat)
             {
                 if (!run.TryGetCombatRoom(
@@ -150,11 +158,6 @@ namespace BombSwap
                     throw new InvalidOperationException(
                         $"Combat scene '{expectedSceneName}' does not use its assigned room asset.");
                 }
-                if (!roomSession.HasChaser)
-                {
-                    throw new InvalidOperationException(
-                        "Combat dungeon rooms require an enabled combat session.");
-                }
                 _roomRotation = selection.Assignment.Rotation;
                 _runtimeRoomDefinition = CombatRoomRotationUtility.Rotate(
                     authoredDefinition,
@@ -162,14 +165,6 @@ namespace BombSwap
             }
             else
             {
-                bool bossRequiresCombat = room.RoomType == RoomType.Boss;
-                if (roomSession.HasChaser != bossRequiresCombat)
-                {
-                    throw new InvalidOperationException(
-                        bossRequiresCombat
-                            ? "Boss placeholder requires an enabled combat session."
-                            : $"Safe dungeon room {room.RoomType} must disable combat.");
-                }
                 _roomRotation = RoomRotation.None;
                 _runtimeRoomDefinition = authoredDefinition;
             }
@@ -183,7 +178,12 @@ namespace BombSwap
                     _runtimeRoomDefinition.Exits,
                     _runHost.PendingTransition.EntryDirection)
                 : _runtimeRoomDefinition.PlayerSpawn;
-            roomSession.PrepareRuntimeRoom(_runtimeRoomDefinition, playerStart);
+            bool combatEnabledForVisit =
+                roomRequiresCombat && !run.RunState.IsCleared(roomId);
+            roomSession.PrepareRuntimeRoom(
+                _runtimeRoomDefinition,
+                playerStart,
+                combatEnabledForVisit);
         }
 
         private void OnRoomCommitted()
