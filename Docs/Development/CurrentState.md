@@ -19,6 +19,7 @@
 - `Tools/Verify.ps1` 기반 StaticOnly/Fast/Full/Web 검증 하네스와 구조화된 산출물 구현.
 - Unity command-line Editor validator/WebGL build 도구와 EditMode/PlayMode 하네스 smoke test 구현.
 - Playwright 기반 WebGL 정적 서버·canvas/input/console/gameplay probe 스모크 구현.
+- 자동 스모크와 수동 관찰 세션이 공유하는 loopback WebGL 정적 서버, 수동 실행 CLI와 MIME·압축·경로 보안 회귀 테스트 구현.
 - `GridPosition`, `GridState`, `IGameClock`, `ManualGameClock` 최소 Core 계약 구현.
 - 논리 좌표, 지형·점유 불변식, 수동 시계 계약을 검증하는 EditMode 테스트 구현.
 - 기본 십자 폭탄 정의, 설치, fuse, 폭발 셀, 벽 차단·파괴, 지연 연쇄를 소유하는 `BombSimulation` 구현.
@@ -73,6 +74,7 @@
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
 - WebGL platform quality는 Mobile 프로필을 사용한다.
 - WebGL threads support는 꺼져 있고 data caching은 켜져 있다.
+- `Tools/ServeWebGL.mjs`는 검증 빌드를 `127.0.0.1`에서 수동 관찰용으로 제공하고 자동 스모크와 동일한 `WebGLStaticServer.mjs`를 사용한다. 외부 배포 서버는 아니다.
 - Feel 등 vendor 에셋이 있으나 Core/first-party 구현과 아직 연결되지 않았다.
 
 ## 진행 중
@@ -103,9 +105,11 @@
 ## 최근 검증
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
-- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-110831-static/`.
+- `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260814-112132-static/`.
 - `skill-creator` 공식 `quick_validate.py`: 프로젝트 스킬 4종 모두 통과.
-- PowerShell AST parse와 `node --check Tools/WebGLSmoke.mjs`: 통과.
+- PowerShell AST parse와 `node --check`로 `WebGLSmoke.mjs`, `WebGLStaticServer.mjs`, `ServeWebGL.mjs`, `WebGLStaticServerTests.mjs`: 통과.
+- `node Tools/WebGLStaticServerTests.mjs`: HTML/WASM/data/symbols MIME, gzip/Brotli `Content-Encoding`, GET/HEAD 제한, 404와 경로 이탈 403 계약 통과.
+- 수동 CLI를 실제 3방 WebGL 빌드에 loopback 기동: index 200 `text/html`, WASM HEAD 200 `application/wasm`, `Cache-Control: no-store`, 경로 이탈 403 확인.
 - 하네스 C# 3개를 Unity 6000.5.3f1 설치 어셈블리 기준으로 외부 컴파일: 경고 0, 오류 0.
 - WebGL smoke의 입력 반응·지연 이벤트 fixture를 설치된 Edge headless에서 실행: load, canvas focus, keyboard, resize, gameplay probe, Console 모두 통과.
 - Fast 잠금 보호: 실행 중 Editor의 `Temp/UnityLockfile`을 감지해 종료 코드 3과 summary를 기록하는 동작 확인.
@@ -124,3 +128,4 @@
 - Development WebGL 3방 빌드 성공: 140,537,511 bytes, 69.669초, 오류 0. 설치된 Sentis·vendor·TextMeshPro 관련 기존 범주의 경고 359개가 보고됐다.
 - 실제 Edge headless browser smoke: load, canvas focus, 기존 `W`·`Z`·`A`·`X`·`Esc` 입력과 접촉/폭발 source·적 사망·방 클리어를 관측하고 중앙 루프→평행 통로→엇갈린 기둥을 한 세션에서 전환, browser Console/page error 0.
 - 최신 WebGL 검증 증거: `Artifacts/Verification/20260814-105806-web-connected/` (Git 제외). 빌드 후 자동 생성된 URP/ProjectSettings/Burst 부산물은 작업 diff에서 제거했다.
+- 공통 정적 서버 리팩터링 뒤 기존 빌드 Edge headless 회귀: load, canvas focus, keyboard, 3방 시퀀스, resize, gameplay probe, browser Console 모두 통과. 증거 `Artifacts/Verification/20260814-111845-shared-server-browser/`.

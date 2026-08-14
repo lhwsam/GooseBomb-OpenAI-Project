@@ -1,7 +1,7 @@
 import fs from "node:fs";
-import http from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { startStaticServer } from "./WebGLStaticServer.mjs";
 
 function parseArguments(argv) {
   const values = {};
@@ -14,73 +14,6 @@ function parseArguments(argv) {
     values[key.slice(2)] = value;
   }
   return values;
-}
-
-function getContentType(filePath) {
-  const uncompressedPath = filePath.replace(/\.(br|gz)$/i, "");
-  const extension = path.extname(uncompressedPath).toLowerCase();
-  return {
-    ".html": "text/html; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
-    ".mjs": "text/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".json": "application/json",
-    ".wasm": "application/wasm",
-    ".data": "application/octet-stream",
-    ".symbols.json": "application/json",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".ico": "image/x-icon",
-  }[extension] ?? "application/octet-stream";
-}
-
-function startStaticServer(rootDirectory) {
-  const normalizedRoot = path.resolve(rootDirectory);
-  const server = http.createServer((request, response) => {
-    try {
-      const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
-      const relativePath = decodeURIComponent(requestUrl.pathname).replace(/^\/+/, "") || "index.html";
-      const resolvedPath = path.resolve(normalizedRoot, relativePath);
-      if (!resolvedPath.startsWith(`${normalizedRoot}${path.sep}`) && resolvedPath !== normalizedRoot) {
-        response.writeHead(403).end("Forbidden");
-        return;
-      }
-
-      let filePath = resolvedPath;
-      if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-        filePath = path.join(filePath, "index.html");
-      }
-      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-        if (relativePath === "favicon.ico") {
-          response.writeHead(204).end();
-          return;
-        }
-        response.writeHead(404).end("Not found");
-        return;
-      }
-
-      const headers = { "Content-Type": getContentType(filePath), "Cache-Control": "no-store" };
-      if (filePath.endsWith(".br")) headers["Content-Encoding"] = "br";
-      if (filePath.endsWith(".gz")) headers["Content-Encoding"] = "gzip";
-      response.writeHead(200, headers);
-      fs.createReadStream(filePath).pipe(response);
-    } catch (error) {
-      response.writeHead(500).end(String(error));
-    }
-  });
-
-  return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        reject(new Error("Static server did not expose a TCP port."));
-        return;
-      }
-      resolve({ server, url: `http://127.0.0.1:${address.port}/` });
-    });
-  });
 }
 
 async function loadPlaywright() {

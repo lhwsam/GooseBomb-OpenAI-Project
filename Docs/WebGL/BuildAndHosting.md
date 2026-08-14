@@ -30,6 +30,12 @@
 - 범위 요청, cache policy, 버전 경로를 배포 서비스에서 확인한다.
 - threads를 켜는 결정은 COOP/COEP 헤더와 브라우저 호환 영향을 포함한 별도 ADR 없이는 하지 않는다.
 
+## 로컬 관찰 플레이테스트
+
+`Tools/ServeWebGL.mjs`는 검증 빌드를 참가자와 같은 PC의 `127.0.0.1`에서 여는 로컬 전용 서버다. `Tools/WebGLSmoke.mjs`와 `Tools/WebGLStaticServer.mjs`를 공유해 Unity 파일의 MIME·gzip/Brotli 헤더와 경로 이탈 차단을 동일하게 적용한다. 기본 no-store 정책은 세션 중 이전 빌드 캐시 혼동을 줄인다.
+
+이 서버는 HTTP loopback, 개발용 no-store와 최소 파일 제공만 보장한다. HTTPS, CDN cache, 범위 요청, 원격 장치 접근이나 배포 보안을 검증하지 않으므로 release 호스팅 요구를 충족했다는 근거로 사용하지 않는다. 구체적인 실행·증거 기록은 [로컬 WebGL 관찰 세션 실행](../Playtesting/ManualWebGLRun.md)을 따른다.
+
 ## 브라우저 smoke 진입점
 
 최소 루프는 로드→canvas focus→이동→폭탄 설치→교체→폭발→피해/적 처치→pause/resume이다. 자동화 가능한 이벤트는 `HARNESS|event|json` 같은 안정된 개발 로그 형식을 검토하되 게임 규칙의 권위 API로 사용하지 않는다.

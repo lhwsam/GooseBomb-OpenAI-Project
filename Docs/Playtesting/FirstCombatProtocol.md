@@ -26,6 +26,7 @@
 - 방 구조와 좌표는 [방 저작과 검증](../Systems/RoomAuthoring.md)의 현재 수제 전투방 세트를 사용한다.
 
 세션 기록에는 commit과 실행 환경을 반드시 남긴다. 빌드가 다르면 같은 조건의 결과로 합치지 않는다.
+로컬 WebGL 빌드를 실행하고 build reference·브라우저 로그를 남기는 절차는 [로컬 WebGL 관찰 세션 실행](ManualWebGLRun.md)을 따른다.
 
 ## 참가자와 시간
 
