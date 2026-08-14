@@ -19,6 +19,7 @@
 - `Tools/Verify.ps1` 기반 StaticOnly/Fast/Full/Web 검증 하네스와 구조화된 산출물 구현.
 - Unity command-line Editor validator/WebGL build 도구와 EditMode/PlayMode 하네스 smoke test 구현.
 - Playwright 기반 WebGL 정적 서버·canvas/input/console/gameplay probe 스모크 구현.
+- 표준 가상 Gamepad를 브라우저 `navigator.getGamepads()`와 연결 사건에 주입해 스틱·D-pad·South/West/Start의 WebGL→Input System→의미 명령·Core 설치 경로를 검증하는 전용 smoke를 표준 Web tier에 연결.
 - 자동 스모크와 수동 관찰 세션이 공유하는 loopback WebGL 정적 서버, 수동 실행 CLI와 MIME·압축·경로 보안 회귀 테스트 구현.
 - `GridPosition`, `GridState`, `IGameClock`, `ManualGameClock` 최소 Core 계약 구현.
 - 논리 좌표, 지형·점유 불변식, 수동 시계 계약을 검증하는 EditMode 테스트 구현.
@@ -178,7 +179,7 @@
 - Core 그래프의 기본 4~5 전투방과 단일 선택 가지는 `Proposed`다. 자동 검증은 재현성과 구조만 보장하며 탐색 동기, 되돌아가기 피로와 방 반복 체감은 Unity 탐색 loop와 사람 플레이테스트 전에는 판정할 수 없다.
 - 그래프 기반 실제 문 전환, Unity 씬 수명, 첫 보상 선택의 run persistence와 완료 뒤 같은 seed의 새 run 재시작은 구현됐다. 다만 두 슬롯이 찬 뒤 교체·버린 무기 보존, 저장·불러오기, 로딩 연출과 room-local 세부 상태 persistence는 아직 없다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
-- 게임패드 binding 구조와 합성 Input System 장치의 왼쪽 스틱·D-pad 네 방향, South/West/Start/Select 의미 명령 변환은 자동 검증했다. 실제 WebGL 브라우저의 목표 물리 컨트롤러 연결·버튼 표기·deadzone·대각선 값과 새 직교 축 우선 조작감은 수동 플레이가 남아 있다.
+- 게임패드 binding 구조와 합성 Input System 장치의 왼쪽 스틱·D-pad 네 방향, South/West/Start/Select 의미 명령 변환을 자동 검증했다. WebGL에서는 표준 가상 장치 연결부터 스틱·D-pad 해제, South의 Core 폭탄 설치, West 교체 명령, Start 확정 pause/resume까지 자동 검증했다. 실제 목표 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이와 새 직교 축 우선 조작감은 수동 플레이가 남아 있다.
 
 ## 최근 검증
 
@@ -266,3 +267,4 @@
 - commit `048abf6`의 post-commit WebGL 9씬 빌드는 141,895,480 bytes, 391.710초, 오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. 기본 Edge headless smoke 27/27과 입력 marker race를 제거한 직선 전용 smoke 5/5가 Console/page error 0으로 통과했고, 캡처에서 슬롯 2 `prototype-line`과 동쪽 방향 설치체를 다시 확인했다. 증거 `Artifacts/Verification/20260815-070100-directional-line-postcommit-web/`.
 - 같은 post-commit WebGL 빌드에서 기본 Edge headless smoke를 28개 검사로 확장했다. 오른쪽 키 유지→브라우저 `blur`의 `move-direction-none`→300ms 셀·motion 정지→누락 key-up 상태의 `focus` 복귀 후 이동 비재개→이어지는 실제 pause 입력을 포함해 전체 seed-0 경로와 Console/page error 0이 통과했다. 증거 `Artifacts/Verification/20260815-070100-directional-line-postcommit-web/browser-smoke-focus.json`.
 - 합성 Input System Gamepad 입력 회귀를 추가한 뒤 `BombSwapInputReaderTests` 19/19, 전체 EditMode 277/277, PlayMode 120/120이 실패·건너뜀 0으로 통과했고 Unity Console 오류도 0이다. 왼쪽 스틱·D-pad 네 방향의 `Move`/`Move(None)`와 South/West/Start/Select의 설치·교체·pause·재시작 의미 명령을 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-223116-027.json`, `Artifacts/Verification/ConnectedTests/20260814-223239-144.json`, `Artifacts/Verification/ConnectedTests/20260814-223257-877.json`.
+- 같은 post-commit WebGL 빌드에 표준 가상 Gamepad를 연결한 Edge 151 smoke 8/8이 통과했다. 왼쪽 스틱 `East → None`, D-pad `North → None`, West 교체 명령, Start 확정 pause/resume, South의 실제 `prototype-cross` 설치와 browser Console/page error 0을 확인했고 `PAUSED` 화면을 캡처했다. 첫 시도는 엔진 준비 뒤 연결 사건이 없어 입력이 전달되지 않은 실패로 보존했고, 실제 `gamepadconnected` 발생 뒤 재시도가 통과했다. 증거 `Artifacts/Verification/20260815-074000-gamepad-browser/gamepad-smoke.json`, `Artifacts/Verification/20260815-074200-gamepad-browser/gamepad-smoke.json`, `Artifacts/Verification/20260815-074200-gamepad-browser/gamepad-paused.png`.

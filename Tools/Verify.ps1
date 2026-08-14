@@ -201,6 +201,7 @@ function Test-StaticContracts {
         'Tools/WebGLSmoke.mjs',
         'Tools/ArmoredWebGLSmoke.mjs',
         'Tools/DirectionalLineWebGLSmoke.mjs',
+        'Tools/GamepadWebGLSmoke.mjs',
         'Tools/WebGLStaticServer.mjs',
         'Tools/WebGLStaticServerTests.mjs',
         'Tools/ServeWebGL.mjs'
@@ -438,8 +439,11 @@ function Invoke-BrowserSmoke {
     }
 
     $scriptPath = Join-Path $ProjectRoot 'Tools/WebGLSmoke.mjs'
+    $gamepadScriptPath = Join-Path $ProjectRoot 'Tools/GamepadWebGLSmoke.mjs'
     $serverTestPath = Join-Path $ProjectRoot 'Tools/WebGLStaticServerTests.mjs'
     $reportPath = Join-Path $ArtifactDirectory 'browser-smoke.json'
+    $gamepadReportPath = Join-Path $ArtifactDirectory 'gamepad-smoke.json'
+    $gamepadScreenshotPath = Join-Path $ArtifactDirectory 'gamepad-paused.png'
     $browserLogPath = Join-Path $ArtifactDirectory 'browser-smoke.log'
     & $node.Source $serverTestPath *> $browserLogPath
     if ($LASTEXITCODE -ne 0) {
@@ -451,7 +455,12 @@ function Invoke-BrowserSmoke {
         throw "Browser smoke failed with code $LASTEXITCODE. See $browserLogPath"
     }
 
-    return "WebGL static server tests and browser smoke passed. Report: $reportPath"
+    & $node.Source $gamepadScriptPath --buildPath $BuildPath --reportPath $gamepadReportPath --screenshotPath $gamepadScreenshotPath *>> $browserLogPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Virtual gamepad browser smoke failed with code $LASTEXITCODE. See $browserLogPath"
+    }
+
+    return "WebGL static server tests, keyboard browser smoke, and virtual gamepad browser smoke passed. Reports: $reportPath, $gamepadReportPath"
 }
 
 $projectRoot = Get-ProjectRoot
@@ -554,7 +563,12 @@ try {
             else {
                 Write-Stage 'Browser smoke'
                 $browserDetail = Invoke-BrowserSmoke -ProjectRoot $projectRoot -BuildPath $webBuildPath -ArtifactDirectory $artifactDirectory
-                Add-StepResult -Name 'Browser smoke' -Status 'Passed' -Detail $browserDetail -Artifacts @((Join-Path $artifactDirectory 'browser-smoke.json'), (Join-Path $artifactDirectory 'browser-smoke.log'))
+                Add-StepResult -Name 'Browser smoke' -Status 'Passed' -Detail $browserDetail -Artifacts @(
+                    (Join-Path $artifactDirectory 'browser-smoke.json'),
+                    (Join-Path $artifactDirectory 'gamepad-smoke.json'),
+                    (Join-Path $artifactDirectory 'gamepad-paused.png'),
+                    (Join-Path $artifactDirectory 'browser-smoke.log')
+                )
             }
         }
     }
