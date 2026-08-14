@@ -89,7 +89,8 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - 생성 결과는 read-only `DungeonGraph`가 소유한다. 현재 TestSandbox 씬 전환은 아직 이 그래프를 소비하지 않으므로 한 층 런타임 재현까지 완료된 것은 아니다.
 - Core `DungeonRunState`가 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방·보스방은 클리어 전 연결 이동을 막고, 안전방과 이미 클리어한 전투방은 양방향 통과를 허용한다.
 - 이동 요청은 연결된 노드 ID 또는 그래프 XZ 좌표에서 해석한 `RoomExitDirection`이며, 씬 이름·Transform·realtime 전환 지연은 Core 계약에 들어가지 않는다.
-- 후속 콘텐츠 선택도 같은 run seed에서 분리된 결정적 흐름을 받아야 하며, topology RNG 호출 순서와 결합해 한 선택 추가가 전체 그래프를 조용히 바꾸지 않게 설계한다.
+- `DungeonCombatRoomAssigner`는 같은 run seed에서 고정 salt로 분리한 결정적 흐름을 사용한다. 카탈로그를 안정 room ID로 정렬하고 그래프 연결을 지원하는 회전·정의를 선택하므로 입력 배열 순서나 topology RNG 호출 순서 변화와 결합하지 않는다.
+- 방 정의의 cardinal 출구는 잠재 후보이며 배정의 활성 출구 부분집합만 실제 문으로 열어야 한다. Unity 어댑터는 선택된 `RoomRotation`을 Y축 회전에 적용하고 미사용 출구를 닫힌 경계로 표현한다.
 - Core에서 `UnityEngine.Random`을 사용하지 않는다.
 - seed, 생성 버전, 게임 정의 버전, 필요 최소한의 명령 로그로 실패 상황을 재현할 수 있어야 한다.
 - 시각적 파티클 랜덤은 규칙 결과에 영향을 주지 않는 한 재현 대상이 아니다.

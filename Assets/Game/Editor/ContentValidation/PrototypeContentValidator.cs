@@ -406,6 +406,22 @@ namespace BombSwap.Editor.ContentValidation
                             $"Prototype combat room '{path}' has unexpected armored spawn " +
                             $"'{room.ArmoredSpawn}'; expected '{expectedArmoredSpawns[index]}'.");
                     }
+                    RoomExitDirection[] exitDirections = room.Exits
+                        .Select(roomExit => roomExit.Direction)
+                        .OrderBy(direction => direction)
+                        .ToArray();
+                    if (!exitDirections.SequenceEqual(new[]
+                        {
+                            RoomExitDirection.North,
+                            RoomExitDirection.East,
+                            RoomExitDirection.South,
+                            RoomExitDirection.West,
+                        }))
+                    {
+                        errors.Add(
+                            $"Prototype combat room '{path}' must author one potential exit " +
+                            "in each cardinal direction.");
+                    }
                 }
                 catch (Exception exception)
                 {

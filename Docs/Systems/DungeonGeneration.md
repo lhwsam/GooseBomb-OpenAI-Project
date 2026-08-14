@@ -2,7 +2,7 @@
 
 - 상태: 결정론적 Core 그래프·탐색 상태 `Accepted`, Unity 콘텐츠 배정·씬 연결·정확한 분포 `Proposed`
 - 설계 원본: `GDD_v0.2.md` 19~21장, `ProtoType_v0.2.md` 가설 E
-- 코드 소유: 그래프는 `BombSwap.Core`, 프리팹 배치는 `BombSwap.Unity`
+- 코드 소유: 그래프·배정은 `BombSwap.Core`, 저작 변환은 `BombSwap.Authoring`, 실제 프리팹·문 배치는 `BombSwap.Unity`
 
 ## 목적
 
@@ -28,6 +28,9 @@
 - 조회 API는 방, 정렬된 이웃, 최단 경로와 거리를 제공한다. 반환 컬렉션은 read-only이며 호출자가 생성 결과를 변경할 수 없다.
 - `DungeonGraph`는 연결된 두 노드의 XZ 좌표에서 `RoomExitDirection`을 계산하고, 현재 방과 방향으로 이웃을 조회한다. 연결되지 않은 노드나 정의되지 않은 방향은 상태를 만들지 않는다.
 - `DungeonRunState`는 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방과 보스방은 첫 입장 뒤 클리어 전까지 퇴실을 막고, 클리어한 전투방은 재방문 때 다시 잠그지 않는다.
+- `DungeonCombatRoomAssigner`는 그래프 seed에서 topology와 분리된 고정 salt RNG를 만들고, 안정 ID로 정렬한 전투방 카탈로그를 `prototype-combat-assignment-v1`로 배정한다.
+- `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
+- 호환성은 회전된 잠재 출구가 노드의 모든 연결 방향을 포함하는지로 판단한다. 후보 중 사용 횟수가 가장 적은 정의를 우선해 네 방을 한 번씩 쓰기 전 불필요한 중복을 막는다.
 
 현재 필수 주 경로는 다음과 같다.
 
@@ -47,7 +50,8 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 5. 노드별 고정 방향 후보 순서로 정수 XZ 좌표를 유한 backtracking 배치한다. 연결되지 않은 방의 cardinal 인접은 거부해 암시적 문과 루프를 막는다.
 6. 연결 수, 좌표, 필수 노드, 첫 보상, 보스 경로, 선택 가지를 `DungeonGraph` 생성 시 다시 검증한다.
 7. Core `DungeonRunState`가 인접 이동, 최초 방문, 전투 잠금·클리어와 양방향 재방문을 처리한다.
-8. 후속 Unity 단계에서 출입구와 호환되는 수제 방 정의를 선택한다. 이 단계는 아직 구현되지 않았다.
+8. 전투 노드별 활성 출구와 호환되는 수제 방 정의·회전을 결정적으로 배정한다.
+9. 후속 Unity 단계에서 배정 결과에 맞춰 실제 room prefab과 활성·비활성 문을 표현한다. 이 단계는 아직 구현되지 않았다.
 
 ## 불변식
 
@@ -65,6 +69,9 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 안전방은 클리어 상태를 만들지 않으며 일반 전투방과 보스방만 클리어할 수 있다.
 - 현재 전투방을 클리어하기 전에는 연결된 방으로도 나갈 수 없고, 실패한 이동은 현재·직전·방문 상태를 바꾸지 않는다.
 - 클리어한 방은 어느 연결 방향에서 재진입해도 잠기지 않는다.
+- 같은 graph·catalog는 catalog 입력 배열 순서와 무관하게 같은 콘텐츠 배정을 만든다.
+- 모든 전투 노드는 정확히 한 번 배정되고 모든 활성 출구는 회전된 저작 잠재 출구에 존재한다.
+- 호환 가능한 room asset이 없으면 다른 방향 문에 임의 연결하거나 무한 재시도하지 않는다.
 
 ## 자동 테스트
 
@@ -77,5 +84,6 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 잘못된 정의, null 정의, 유효하지 않거나 범위 밖 노드 조회, read-only snapshot.
 - 모든 연결의 양방향 출구가 서로 반대 방향인지, 없는 방향과 비연결 이동이 상태를 바꾸지 않는지 검증.
 - 첫 전투 잠금, 안전방 비잠금, 클리어 중복, 클리어 전 퇴실 차단, 클리어 뒤 양방향 재방문과 전체 트리 왕복.
+- 카탈로그 순서 무관 배정 재현, 128개 seed 다양성, 사용 횟수 균형, 회전 방향과 활성 출구 호환, 부족한 카탈로그의 명시 실패.
 
-호환 room asset 부족, 출입구 회전, prefab 중복 선택 분포와 실제 탐색은 후속 Unity authoring/runtime 테스트에서 추가한다.
+실제 문 GameObject, room prefab 회전·씬 로드와 탐색은 후속 Unity runtime/PlayMode 작업에서 추가한다.

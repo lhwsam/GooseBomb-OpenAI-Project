@@ -190,6 +190,17 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Definition_RejectsDuplicateExitDirectionEvenAtDifferentCells()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(exits: new[]
+                {
+                    new RoomExit(new GridPosition(0, 4), RoomExitDirection.North),
+                    new RoomExit(new GridPosition(1, 4), RoomExitDirection.North),
+                }));
+        }
+
+        [Test]
         public void Definition_RejectsDisconnectedPlayableArea()
         {
             var separatingWall = new GridPosition[9];

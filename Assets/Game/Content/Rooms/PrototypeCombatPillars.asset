@@ -60,7 +60,11 @@ MonoBehaviour:
   - {x: 0, y: -3}
   - {x: -1, y: -3}
   exits:
-  - cell: {x: -5, y: 0}
-    direction: 3
+  - cell: {x: 0, y: 4}
+    direction: 0
   - cell: {x: 5, y: 0}
     direction: 1
+  - cell: {x: 0, y: -4}
+    direction: 2
+  - cell: {x: -5, y: 0}
+    direction: 3
