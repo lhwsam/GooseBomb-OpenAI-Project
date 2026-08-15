@@ -33,6 +33,69 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void MinimapSnapshot_InitiallyRevealsOnlyStartAndItsDirectConnection()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(0);
+            var run = new DungeonRunState(graph);
+            DungeonRoomNodeId firstCombat = graph.GetNeighbors(graph.StartRoomId).Single();
+            DungeonRoomNodeId reward = graph.BombRewardRoomId;
+
+            DungeonMinimapSnapshot snapshot = run.CreateMinimapSnapshot();
+
+            Assert.That(snapshot.CurrentRoomId, Is.EqualTo(graph.StartRoomId));
+            Assert.That(snapshot.Rooms.Select(room => room.RoomId), Is.EqualTo(
+                new[] { graph.StartRoomId, firstCombat }));
+            Assert.That(
+                snapshot.GetRoom(graph.StartRoomId).State,
+                Is.EqualTo(DungeonMinimapRoomState.Current));
+            Assert.That(
+                snapshot.GetRoom(firstCombat).State,
+                Is.EqualTo(DungeonMinimapRoomState.Discovered));
+            Assert.That(
+                snapshot.Connections,
+                Is.EqualTo(new[] { graph.Connections.Single(
+                    connection => connection.Contains(graph.StartRoomId)) }));
+            Assert.Throws<KeyNotFoundException>(() => snapshot.GetRoom(reward));
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<DungeonMinimapRoomSnapshot>)snapshot.Rooms).Clear());
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<DungeonRoomConnection>)snapshot.Connections).Clear());
+        }
+
+        [Test]
+        public void MinimapSnapshot_AfterTravelShowsVisitedRoomsAndOneStepFrontierOnly()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(0);
+            var run = new DungeonRunState(graph);
+            DungeonRoomNodeId firstCombat = graph.GetNeighbors(graph.StartRoomId).Single();
+            Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+
+            DungeonMinimapSnapshot snapshot = run.CreateMinimapSnapshot();
+
+            Assert.That(snapshot.Rooms.Count, Is.EqualTo(3));
+            Assert.That(snapshot.Connections.Count, Is.EqualTo(2));
+            Assert.That(
+                snapshot.GetRoom(graph.StartRoomId).State,
+                Is.EqualTo(DungeonMinimapRoomState.Visited));
+            Assert.That(
+                snapshot.GetRoom(firstCombat).State,
+                Is.EqualTo(DungeonMinimapRoomState.Current));
+            Assert.That(
+                snapshot.GetRoom(graph.BombRewardRoomId).State,
+                Is.EqualTo(DungeonMinimapRoomState.Discovered));
+            Assert.That(
+                snapshot.Rooms.All(room =>
+                    run.IsVisited(room.RoomId) ||
+                    graph.GetNeighbors(room.RoomId).Any(run.IsVisited)),
+                Is.True);
+            Assert.That(
+                snapshot.Connections.All(connection =>
+                    run.IsVisited(connection.First) ||
+                    run.IsVisited(connection.Second)),
+                Is.True);
+        }
+
+        [Test]
         public void FirstCombatEntry_LocksAllConnectedTravelUntilCleared()
         {
             DungeonGraph graph = DungeonGenerator.Generate(0);

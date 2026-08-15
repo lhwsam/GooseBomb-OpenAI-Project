@@ -75,5 +75,20 @@ namespace BombSwap
                 $"dungeon-room-ready-{roomId.Value}-{typeName}-{stateName}");
 #endif
         }
+
+        public static void ReportMinimapSnapshot(
+            DungeonRoomNodeId currentRoomId,
+            int visibleRoomCount,
+            int visibleConnectionCount)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            BombSwapHarnessReport(
+                $"minimap-current-room-{currentRoomId.Value}");
+            BombSwapHarnessReport(
+                $"minimap-visible-rooms-{visibleRoomCount}");
+            BombSwapHarnessReport(
+                $"minimap-visible-connections-{visibleConnectionCount}");
+#endif
+        }
     }
 }

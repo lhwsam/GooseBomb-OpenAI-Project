@@ -868,6 +868,106 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator DungeonScenes_MinimapShowsCurrentVisitedAndDiscoveredFrontier()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                PrototypeDungeonMinimapPresenter startMinimap =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonMinimapPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(startMinimap.IsInitialized, Is.True);
+                Assert.That(
+                    startMinimap.DisplayedCurrentRoomId,
+                    Is.EqualTo(run.Graph.StartRoomId));
+                Assert.That(startMinimap.DisplayedRoomCount, Is.EqualTo(2));
+                Assert.That(startMinimap.DisplayedConnectionCount, Is.EqualTo(1));
+                Assert.That(
+                    startMinimap.DisplayedSnapshot.GetRoom(run.Graph.StartRoomId).State,
+                    Is.EqualTo(DungeonMinimapRoomState.Current));
+
+                RectTransform minimapPanel =
+                    UnityEngine.Object.FindObjectsByType<RectTransform>(
+                            FindObjectsInactive.Include)
+                        .Single(rect => rect.name == "MinimapPanel");
+                RectTransform rewardPanel =
+                    UnityEngine.Object.FindObjectsByType<RectTransform>(
+                            FindObjectsInactive.Include)
+                        .Single(rect => rect.name == "CombatRewardPanel");
+                Assert.That(
+                    minimapPanel.anchoredPosition.y,
+                    Is.LessThanOrEqualTo(
+                        rewardPanel.anchoredPosition.y -
+                        rewardPanel.sizeDelta.y - 10f));
+
+                DungeonRoomNodeId firstCombat =
+                    run.Graph.GetNeighbors(run.Graph.StartRoomId).Single();
+                Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+                Assert.That(
+                    run.TryGetSceneName(firstCombat, out string combatSceneName),
+                    Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    combatSceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonMinimapPresenter combatMinimap =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonMinimapPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(combatMinimap.IsInitialized, Is.True);
+                Assert.That(
+                    combatMinimap.DisplayedCurrentRoomId,
+                    Is.EqualTo(firstCombat));
+                Assert.That(combatMinimap.DisplayedRoomCount, Is.EqualTo(3));
+                Assert.That(combatMinimap.DisplayedConnectionCount, Is.EqualTo(2));
+                Assert.That(
+                    combatMinimap.DisplayedSnapshot.GetRoom(run.Graph.StartRoomId).State,
+                    Is.EqualTo(DungeonMinimapRoomState.Visited));
+                Assert.That(
+                    combatMinimap.DisplayedSnapshot.GetRoom(
+                        run.Graph.BombRewardRoomId).State,
+                    Is.EqualTo(DungeonMinimapRoomState.Discovered));
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonMinimapPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator RecoveryScene_SavesAtFullHealthRestoresOnceAndPersistsAcrossReentry()
         {
             Scene loadedDungeonScene = default;

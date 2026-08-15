@@ -28,6 +28,7 @@
 - 조회 API는 방, 정렬된 이웃, 최단 경로와 거리를 제공한다. 반환 컬렉션은 read-only이며 호출자가 생성 결과를 변경할 수 없다.
 - `DungeonGraph`는 연결된 두 노드의 XZ 좌표에서 `RoomExitDirection`을 계산하고, 현재 방과 방향으로 이웃을 조회한다. 연결되지 않은 노드나 정의되지 않은 방향은 상태를 만들지 않는다.
 - `DungeonRunState`는 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방과 보스방은 첫 입장 뒤 클리어 전까지 퇴실을 막고, 클리어한 전투방은 재방문 때 다시 잠그지 않는다. 일반 전투방 최초 클리어는 현재 런의 `CombatRewardTokenCount`를 1 올리며 중복 클리어·안전방·보스방은 토큰을 지급하지 않는다.
+- `DungeonRunState.CreateMinimapSnapshot()`은 방문 방, 방문 방의 직접 인접 방과 적어도 한쪽 끝을 방문한 연결만 read-only로 복사한다. 현재·방문·발견 상태와 정수 XZ 좌표만 제공하고 미방문 방 종류·그 너머 연결은 숨긴다. 반환 순서는 graph 순서를 따른다.
 - 현재 방의 문 조회는 북·동·남·서 고정 순서로 연결 없음 `Inactive`, 미클리어 전투·보스방 연결 `Locked`, 이동 가능한 연결 `Open`을 반환한다. 연결 상태는 대상 방 ID를 포함하며 read-only snapshot이다.
 - `DungeonCombatRoomAssigner`는 그래프 seed에서 topology와 분리된 고정 salt RNG를 만들고, 안정 ID로 정렬한 전투방 카탈로그를 `prototype-combat-assignment-v1`로 배정한다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
@@ -65,12 +66,13 @@ Recovery detour:                                               Final Combat → 
 10. Unity 런 카탈로그가 배정된 definition ID를 실제 room asset·씬 이름으로 해석한다.
 11. Core 탐색 상태가 그래프 연결과 클리어 여부에서 네 방향 문의 비활성·잠금·개방 snapshot을 계산한다.
 12. Unity navigator가 대상 콘텐츠·씬을 검증하고 실제 로드 완료 뒤 Core 이동을 단일 commit한다.
-13. Unity room binder와 door presenter가 배정 결과와 문 상태에 맞춰 회전된 room geometry와 활성·비활성 문을 표현한다.
-14. 첫 `BombReward` 진입에서 논리 셀 후보 선택을 run loadout에 기록하고, 성공한 슬롯 교체와 함께 이후 방 session에 다시 주입한다.
-15. 방 session은 run 현재 체력으로 시작하고 적용된 피해 결과를 같은 run 상태에 즉시 기록한다.
-16. Recovery의 중앙 논리 셀 진입은 최대 체력이 아닐 때만 `+2` 회복과 노드 소비를 함께 확정한다.
-17. 일반 전투방 최초 클리어에서 Core run 토큰을 1 지급하고 HUD에 확정 값을 전달한다.
-18. 보스방 클리어를 run 완료로 판정하고 플레이어가 요청하면 토큰 0·최대 체력·미소비 Recovery의 새 run state로 시작 씬을 다시 로드한다.
+13. room commit 뒤 미니맵 presenter가 Core snapshot을 읽어 현재·방문·직접 인접 방과 확인된 연결만 우측 상단에 다시 그린다.
+14. Unity room binder와 door presenter가 배정 결과와 문 상태에 맞춰 회전된 room geometry와 활성·비활성 문을 표현한다.
+15. 첫 `BombReward` 진입에서 논리 셀 후보 선택을 run loadout에 기록하고, 성공한 슬롯 교체와 함께 이후 방 session에 다시 주입한다.
+16. 방 session은 run 현재 체력으로 시작하고 적용된 피해 결과를 같은 run 상태에 즉시 기록한다.
+17. Recovery의 중앙 논리 셀 진입은 최대 체력이 아닐 때만 `+2` 회복과 노드 소비를 함께 확정한다.
+18. 일반 전투방 최초 클리어에서 Core run 토큰을 1 지급하고 HUD에 확정 값을 전달한다.
+19. 보스방 클리어를 run 완료로 판정하고 플레이어가 요청하면 토큰 0·최대 체력·미소비 Recovery·초기 미니맵 공개 범위의 새 run state로 시작 씬을 다시 로드한다.
 
 ## 불변식
 
@@ -84,6 +86,7 @@ Recovery detour:                                               Final Combat → 
 - 보스 주 경로 밖 전투방이 최소 하나 존재하고 그 경로도 폭탄 보상을 지난다.
 - 연결된 방만 cardinal 인접하며 연결되지 않은 좌표 인접은 허용하지 않는다.
 - 노드 ID는 1부터 연속이고 연결·이웃 순서는 안정적이다.
+- 미니맵에는 방문 방과 그 직접 이웃만 보이며, 연결은 적어도 한쪽 끝을 방문했을 때만 보인다. 현재 방은 정확히 하나이고 새 run은 시작방과 첫 이웃·한 연결만 공개한다.
 - 생성 알고리즘 변경 시 버전을 함께 바꾸며 seed 0 golden snapshot을 조용히 변경하지 않는다.
 - 안전방은 클리어 상태를 만들지 않으며 일반 전투방과 보스방만 클리어할 수 있다.
 - 전투 보상 토큰은 일반 전투방 하나당 최초 클리어에서만 정확히 1 증가하며 보스·안전방·terminal 클리어 요청은 값을 바꾸지 않는다.
@@ -112,4 +115,4 @@ Recovery detour:                                               Final Combat → 
 - 카탈로그 순서 무관 배정 재현, 128개 seed 다양성, 사용 횟수 균형, 5전투 노드·5정의의 각 1회 사용, 회전 방향과 활성 출구 호환, 부족한 카탈로그의 명시 실패.
 - Recovery의 상한 회복·최대 체력 비소비·단일 소비·재입장 유지와 다른 방·사망·terminal 거부.
 
-실제 문 GameObject, room 회전·씬 로드·탐색, 첫 폭탄 보상과 Recovery 우회는 Unity runtime/PlayMode에 연결됐다. seed-0 전체 경로는 선택한 loadout과 체력을 유지한 채 8번 Recovery를 우회해 `1→3` 회복하고 보스 전실·2페이즈 보스 격파·한 층 완료·새 run 재시작까지 Development WebGL 자동 검증을 통과했다. 같은 세션에서 새 안전방 자기 폭발 사망·실패 결과·두 번째 새 run 재시작도 검증했다. 다음 범위는 선택 가지 발견성, 되돌아가기 피로와 보스·결과 흐름을 포함한 사람 플레이테스트다.
+실제 문 GameObject, room 회전·씬 로드·탐색, 첫 폭탄 보상, Recovery 우회와 제한 정보 미니맵은 Unity runtime/PlayMode에 연결됐다. seed-0 전체 경로는 선택한 loadout과 체력을 유지한 채 8번 Recovery를 우회해 `1→3` 회복하고, 미니맵이 시작 `2방/1연결`에서 보스 전실 `9방/8연결`까지 방문에 따라 확장된 뒤 2페이즈 보스 격파·한 층 완료·새 run 초기 지도로 재시작하는 것을 Development WebGL 자동 검증했다. 같은 세션에서 새 안전방 자기 폭발 사망·실패 결과·두 번째 새 run 재시작도 검증했다. 다음 범위는 미니맵이 실제로 길 찾기 피로를 줄이는지, 선택 가지 발견성과 보스 흐름을 포함한 사람 플레이테스트다.
