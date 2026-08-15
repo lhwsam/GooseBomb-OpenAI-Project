@@ -1044,6 +1044,8 @@ async function main() {
       "dungeon-room-ready-7-boss-active",
     );
     await waitForEvent(page, "boss-pattern-telegraph", { timeout: 5_000 });
+    await waitForEvent(page, "boss-cell-x-0-z-1", { timeout: 5_000 });
+    await waitForEvent(page, "boss-move-target-x-1-z-1", { timeout: 5_000 });
     fs.mkdirSync(path.dirname(bossTelegraphScreenshotPath), { recursive: true });
     await page.screenshot({ path: bossTelegraphScreenshotPath });
     checks.push({
@@ -1055,34 +1057,109 @@ async function main() {
     const bossRecoveriesBefore = await eventCount(page, "boss-pattern-recovery");
     const bossDamageBefore = await eventCount(page, "boss-damaged");
     const bossClearBefore = await eventCount(page, "room-cleared");
-    const bossBombTargets = [
-      { x: 1, z: 1, escapeX: 3, escapeZ: 1 },
-      { x: 1, z: 0, escapeX: 1, escapeZ: 2 },
-      { x: 1, z: 0, escapeX: 1, escapeZ: 2 },
-      { x: 1, z: 1, escapeX: 3, escapeZ: 1 },
+    const bossMovesBefore = await eventCount(page, "boss-moved");
+    const bossMoveBlocksBefore = await eventCount(page, "boss-move-blocked");
+    const bossCycles = [
+      {
+        targetEvent: "boss-move-target-x-1-z-1",
+        movedCellEvent: "boss-cell-x-1-z-1",
+        placementX: 1,
+        placementZ: 2,
+        escapeX: 3,
+        escapeZ: 2,
+        preplace: true,
+      },
+      {
+        targetEvent: "boss-move-target-x-1-z-0",
+        movedCellEvent: "boss-cell-x-1-z-0",
+        placementX: 1,
+        placementZ: -1,
+        placementOrder: "zx",
+        escapeX: 3,
+        escapeZ: -1,
+      },
+      {
+        targetEvent: "boss-move-target-x-1-z--1",
+        movedCellEvent: "boss-cell-x-1-z--1",
+        placementX: 2,
+        placementZ: -1,
+        escapeX: 4,
+        escapeZ: -1,
+      },
+      {
+        targetEvent: "boss-move-target-x-0-z--1",
+        movedCellEvent: "boss-cell-x-0-z--1",
+        placementX: 1,
+        placementZ: -2,
+        placementOrder: "zx",
+        escapeX: 3,
+        escapeZ: -2,
+      },
     ];
-    for (let index = 0; index < bossBombTargets.length; index++) {
-      const target = bossBombTargets[index];
-      await moveToCell(page, target.x, target.z);
+    for (let index = 0; index < bossCycles.length; index++) {
+      const cycle = bossCycles[index];
+      await moveToCell(
+        page,
+        cycle.placementX,
+        cycle.placementZ,
+        cycle.placementOrder ?? "xz",
+      );
+      await waitForEvent(page, cycle.targetEvent, { timeout: 10_000 });
+
+      let placementsBefore = null;
+      if (cycle.preplace) {
+        const executesBeforePlacement = await eventCount(page, "boss-pattern-execute");
+        placementsBefore = await eventCount(
+          page,
+          "place-bomb-definition-prototype-area",
+        );
+        await page.keyboard.press("KeyZ");
+        await waitForEvent(page, "place-bomb-definition-prototype-area", {
+          count: placementsBefore + 1,
+          timeout: 5_000,
+        });
+        const executesAfterPlacement = await eventCount(page, "boss-pattern-execute");
+        if (executesAfterPlacement !== executesBeforePlacement) {
+          throw new Error(
+            "The first boss bomb was not preplaced during Telegraph.",
+          );
+        }
+      }
+
+      await waitForEvent(page, "boss-moved", {
+        count: bossMovesBefore + index + 1,
+        timeout: 10_000,
+      });
+      await waitForEvent(page, cycle.movedCellEvent, { timeout: 10_000 });
       await waitForEvent(page, "boss-pattern-recovery", {
         count: bossRecoveriesBefore + index + 1,
         timeout: 10_000,
       });
-      const placementsBefore = await eventCount(
-        page,
-        "place-bomb-definition-prototype-area",
-      );
-      await page.keyboard.press("KeyZ");
-      await waitForEvent(page, "place-bomb-definition-prototype-area", {
-        count: placementsBefore + 1,
-        timeout: 5_000,
-      });
-      await moveToCell(page, target.escapeX, target.escapeZ);
+      if (!cycle.preplace) {
+        placementsBefore = await eventCount(
+          page,
+          "place-bomb-definition-prototype-area",
+        );
+        await page.keyboard.press("KeyZ");
+        await waitForEvent(page, "place-bomb-definition-prototype-area", {
+          count: placementsBefore + 1,
+          timeout: 5_000,
+        });
+      }
+      await moveToCell(page, cycle.escapeX, cycle.escapeZ);
       await waitForEvent(page, "boss-damaged", {
         count: bossDamageBefore + index + 1,
         timeout: 8_000,
       });
     }
+    if (await eventCount(page, "boss-move-blocked") !== bossMoveBlocksBefore) {
+      throw new Error("The authored boss route was unexpectedly blocked.");
+    }
+    checks.push({
+      name: "boss-telegraphed-movement",
+      status: "passed",
+      detail: "The first area bomb was preplaced during Telegraph, then four authored targets matched four authoritative boss moves without blocking.",
+    });
     await waitForEvent(page, "boss-phase-two", { timeout: 10_000 });
     await waitForEvent(page, "boss-defeated", { timeout: 5_000 });
     await waitForEvent(page, "room-cleared", {
@@ -1093,7 +1170,7 @@ async function main() {
     checks.push({
       name: "boss-battle-cleared",
       status: "passed",
-      detail: "Room 7 telegraphed deterministic grid attacks, accepted four area-bomb counterattacks only during Recovery, and presented the floor-clear result once.",
+      detail: "Room 7 telegraphed deterministic attacks and movement, accepted a preplaced hit plus three Recovery counterattacks, and presented the floor-clear result once.",
     });
 
     await page.setViewportSize({ width: 1024, height: 768 });
@@ -1292,6 +1369,16 @@ async function main() {
       "minimap-visible-connections-8",
       "dungeon-room-ready-7-boss-active",
       "boss-pattern-telegraph",
+      "boss-cell-x-0-z-1",
+      "boss-move-target-x-1-z-1",
+      "boss-move-target-x-1-z-0",
+      "boss-move-target-x-1-z--1",
+      "boss-move-target-x-0-z--1",
+      "boss-moved",
+      "boss-cell-x-1-z-1",
+      "boss-cell-x-1-z-0",
+      "boss-cell-x-1-z--1",
+      "boss-cell-x-0-z--1",
       "boss-pattern-execute",
       "boss-pattern-recovery",
       "boss-damaged",

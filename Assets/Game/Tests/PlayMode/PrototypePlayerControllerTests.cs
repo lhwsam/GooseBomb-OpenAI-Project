@@ -1299,10 +1299,19 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.HasChaser, Is.False);
             Assert.That(_session.BossActorId, Is.EqualTo(new ActorId(5)));
             Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(_session.NextBossGridPosition, Is.EqualTo(new GridPosition(1, 1)));
             Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
             Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
             Assert.That(_bossPresenter.IsBossVisible, Is.True);
+            Assert.That(_bossPresenter.IsMoveTargetVisible, Is.True);
+            Assert.That(
+                _bossPresenter.DisplayedMoveTarget,
+                Is.EqualTo(new GridPosition(1, 1)));
             Assert.That(_bossPresenter.VisibleDangerCellCount, Is.GreaterThan(0));
+
+            PressAndRelease(Key.X);
+            yield return null;
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
 
             int frameGuard = 0;
             while (_session.CurrentBossState != BossBattleState.Recovery &&
@@ -1313,10 +1322,24 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
             Assert.That(_session.IsBossVulnerable, Is.True);
+            Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(1, 1)));
             Assert.That(patternDamageCount, Is.EqualTo(1));
             Assert.That(_session.CurrentHealth, Is.EqualTo(4));
             Assert.That(_bossPresenter.PatternTransitionCount, Is.EqualTo(2));
+            Assert.That(_bossPresenter.MovementCount, Is.EqualTo(1));
+            Assert.That(
+                _bossPresenter.DisplayedBossPosition,
+                Is.EqualTo(new GridPosition(1, 1)));
+            Assert.That(_bossPresenter.IsMoveTargetVisible, Is.False);
             Assert.That(_bossPresenter.VisibleDangerCellCount, Is.Zero);
+            Vector3 expectedBossPosition =
+                _session.GridSpace.GridToWorld(new GridPosition(1, 1)) +
+                (Vector3.up * _session.BossDefinition.VisualHeight);
+            Assert.That(
+                Vector3.Distance(
+                    _bossPresenter.BossInstance.transform.position,
+                    expectedBossPosition),
+                Is.LessThan(0.001f));
 
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.08f);
@@ -1338,8 +1361,106 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_bossPresenter.DeathCount, Is.EqualTo(1));
             Assert.That(_bossPresenter.VisibleDangerCellCount, Is.Zero);
             Assert.That(
-                _session.GetCell(new GridPosition(0, 1)).HasActor,
+                _session.GetCell(new GridPosition(1, 1)).HasActor,
                 Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator BossEncounter_PreplacedAreaBombHitsAfterTelegraphedMove()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.14f,
+                placementCooldownSeconds: 0.01f,
+                areaPlacementCooldownSeconds: 0.01f,
+                combatEnabled: true,
+                bossEnabled: true,
+                includeBossPresenter: true,
+                bossMaxHealth: 2,
+                bossPhaseOneTelegraphSeconds: 0.06f,
+                bossPhaseOneExecuteSeconds: 0.03f,
+                bossPhaseOneRecoverySeconds: 0.35f);
+            var sequence = new List<string>();
+            _session.BossMoved += _ => sequence.Add("moved");
+            _session.BossPatternTransitioned += transition =>
+            {
+                if (transition.State == BossBattleState.Recovery)
+                {
+                    sequence.Add("recovery");
+                }
+            };
+            _session.BombExploded += _ => sequence.Add("exploded");
+            _session.BossDamaged += _ => sequence.Add("damaged");
+
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
+            Assert.That(_bossPresenter.DisplayedMoveTarget, Is.EqualTo(new GridPosition(1, 1)));
+            PressAndRelease(Key.X);
+            yield return null;
+            PressAndRelease(Key.Z);
+
+            yield return new WaitForSecondsRealtime(0.22f);
+
+            Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(1, 1)));
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
+            Assert.That(_session.CurrentBossHealth, Is.EqualTo(1));
+            Assert.That(_bossPresenter.MovementCount, Is.EqualTo(1));
+            Assert.That(_bossPresenter.DamageCount, Is.EqualTo(1));
+            Assert.That(sequence, Is.EqualTo(new[]
+            {
+                "moved",
+                "recovery",
+                "exploded",
+                "damaged",
+            }));
+        }
+
+        [UnityTest]
+        public IEnumerator BossPresenter_PauseFreezesExecuteInterpolationUntilResume()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                combatEnabled: true,
+                bossEnabled: true,
+                includeBossPresenter: true,
+                bossPhaseOneTelegraphSeconds: 0.04f,
+                bossPhaseOneExecuteSeconds: 0.3f,
+                bossPhaseOneRecoverySeconds: 0.3f);
+
+            int frameGuard = 0;
+            while (_bossPresenter.MovementCount == 0 && frameGuard++ < 60)
+            {
+                yield return null;
+            }
+            Assert.That(_bossPresenter.MovementCount, Is.EqualTo(1));
+
+            PressAndRelease(Key.Escape);
+            yield return null;
+            Assert.That(_session.IsPaused, Is.True);
+            Vector3 pausedPosition = _bossPresenter.BossInstance.transform.position;
+
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            Assert.That(
+                Vector3.Distance(
+                    _bossPresenter.BossInstance.transform.position,
+                    pausedPosition),
+                Is.LessThan(0.0001f));
+            PressAndRelease(Key.Escape);
+            yield return null;
+            Assert.That(_session.IsPaused, Is.False);
+
+            yield return new WaitForSecondsRealtime(0.35f);
+
+            Vector3 expectedBossPosition =
+                _session.GridSpace.GridToWorld(new GridPosition(1, 1)) +
+                (Vector3.up * _session.BossDefinition.VisualHeight);
+            Assert.That(
+                Vector3.Distance(
+                    _bossPresenter.BossInstance.transform.position,
+                    expectedBossPosition),
+                Is.LessThan(0.001f));
         }
 
         [UnityTest]
@@ -1365,6 +1486,10 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthHud.DisplayedBossMaxHealth, Is.EqualTo(2));
             Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.One));
             Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(1f));
+
+            PressAndRelease(Key.X);
+            yield return null;
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
 
             int frameGuard = 0;
             while (_session.CurrentBossState != BossBattleState.Recovery &&
@@ -1653,22 +1778,19 @@ namespace BombSwap.Tests.PlayMode
                     0.12f);
             }
             _roomDefinition = ScriptableObject.CreateInstance<PrototypeCombatRoomDefinitionAsset>();
-            _roomDefinition.Configure(
-                "test-combat-loop",
-                RoomType.Combat,
-                5,
-                5,
-                1f,
-                Vector2Int.zero,
-                authoredChaserSpawn,
-                includeBlocker ? new[] { blocker } : new Vector2Int[0],
-                new[] { Vector2Int.zero },
-                new[]
+            Vector2Int[] authoredLureLoop = bossEnabled
+                ? new[]
                 {
+                    new Vector2Int(-1, -1),
+                    new Vector2Int(-1, 0),
                     new Vector2Int(-1, 1),
+                    new Vector2Int(0, 1),
                     new Vector2Int(1, 1),
-                },
-                new[]
+                    new Vector2Int(1, 0),
+                    new Vector2Int(1, -1),
+                    new Vector2Int(0, -1),
+                }
+                : new[]
                 {
                     new Vector2Int(-2, -2),
                     new Vector2Int(-2, -1),
@@ -1686,7 +1808,23 @@ namespace BombSwap.Tests.PlayMode
                     new Vector2Int(1, -2),
                     new Vector2Int(0, -2),
                     new Vector2Int(-1, -2),
+                };
+            _roomDefinition.Configure(
+                "test-combat-loop",
+                RoomType.Combat,
+                5,
+                5,
+                1f,
+                Vector2Int.zero,
+                authoredChaserSpawn,
+                includeBlocker ? new[] { blocker } : new Vector2Int[0],
+                new[] { Vector2Int.zero },
+                new[]
+                {
+                    new Vector2Int(-1, 1),
+                    new Vector2Int(1, 1),
                 },
+                authoredLureLoop,
                 new[]
                 {
                     new PrototypeRoomExitData(

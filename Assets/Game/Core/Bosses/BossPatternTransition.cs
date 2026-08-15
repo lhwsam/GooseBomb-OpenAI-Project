@@ -13,7 +13,11 @@ namespace BombSwap.Core
             BossPatternKind pattern,
             int patternSequence,
             TimeSpan scheduledAt,
-            IReadOnlyList<GridPosition> dangerCells)
+            IReadOnlyList<GridPosition> dangerCells,
+            GridPosition bossPosition,
+            GridPosition nextBossPosition,
+            EnemyMovementStep movement,
+            bool movementBlocked)
         {
             ActorId = actorId;
             PreviousState = previousState;
@@ -23,6 +27,10 @@ namespace BombSwap.Core
             PatternSequence = patternSequence;
             ScheduledAt = scheduledAt;
             DangerCells = dangerCells;
+            BossPosition = bossPosition;
+            NextBossPosition = nextBossPosition;
+            Movement = movement;
+            MovementBlocked = movementBlocked;
         }
 
         public ActorId ActorId { get; }
@@ -40,6 +48,16 @@ namespace BombSwap.Core
         public TimeSpan ScheduledAt { get; }
 
         public IReadOnlyList<GridPosition> DangerCells { get; }
+
+        public GridPosition BossPosition { get; }
+
+        public GridPosition NextBossPosition { get; }
+
+        public EnemyMovementStep Movement { get; }
+
+        public bool BossMoved => Movement.ActorId.IsValid;
+
+        public bool MovementBlocked { get; }
 
         public bool AttackResolved =>
             PreviousState == BossBattleState.Telegraph && State == BossBattleState.Execute;

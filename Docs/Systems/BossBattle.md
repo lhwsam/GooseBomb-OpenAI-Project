@@ -31,6 +31,8 @@ phase 변경은 현재 패턴의 안전한 전환 지점에서 일어난다. 시
 - `BossBattleDefinition`은 안정 `EnemyDefinitionId`, 최대 체력, 2페이즈 진입 체력, 패턴 피해와 페이즈별 Telegraph·Execute·Recovery 시간을 소유한다.
 - `BossBattleSimulation`은 주입된 `IGameClock`, 권위 `GridState`, 보스 `ActorId`와 보행 가능한 arena cell snapshot을 사용한다. Unity `Time`, Transform, Physics를 읽지 않는다.
 - 전투는 입장 직후 `Telegraph`로 시작해 피할 시간을 먼저 제공한다. 예고에서 확정한 read-only 위험 셀 snapshot을 `Execute` 전이에도 같은 객체로 전달한다.
+- 보스는 검증된 수제 방 `LureLoop`의 저작 순서를 따라 한 패턴당 한 cardinal 셀을 순환한다. 현재 route 위치의 다음 셀을 `NextBossPosition`으로 소유하고 Telegraph 위험 snapshot에 포함하며, Telegraph→Execute exact 경계에서 권위 `GridState` actor를 이동한다.
+- 목적지의 폭탄은 보스 이동만 막지 않는다. `GridState.TryMoveActorAllowingBombOverlap`이 다른 actor와 비바닥은 계속 차단하면서 actor+bomb 동시 점유를 원자적으로 만들고, 이후 폭탄 제거와 보스 사망은 서로의 점유를 보존한다. 다른 actor가 목적지를 막으면 route index를 진행하지 않고 다음 패턴에 같은 목적지를 재시도한다.
 - 1페이즈는 짝/홀 parity를 바꾸며 열 위험과 행 위험을 교대한다. 현재 Recovery 종료 시 체력이 임계값 이하이면 안전 전환 지점에서 2페이즈가 되고, 이후 parity가 바뀌는 체크무늬 위험을 사용한다.
 - 각 패턴은 보행 가능한 arena cell만 대상으로 하며 위험 셀과 안전 셀이 모두 존재하지 않는 arena를 초기화 단계에서 거부한다.
 - 보스는 `Recovery`에서만 폭탄 피해를 받는다. 같은 `BombId` 중복, 비취약 구간과 사망 뒤 피해를 구분하고, 치명 피해 시 보스 actor 점유와 위험 셀을 한 번만 제거한다.
@@ -45,6 +47,7 @@ Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1�
 - `PrototypeGameSession`은 일반 전투와 보스 전투 활성화를 분리하고 보스 `ActorId(5)`를 Core 시뮬레이션에 연결한다. Execute 위험 셀의 플레이어 피해는 기존 `PlayerHealthSimulation` 무적 시간과 공유한다.
 - 폭발은 보스 위치가 영향 셀에 포함되고 상태가 Recovery일 때만 Core 피해가 된다. 치명 피해는 보스 표현 제거, 단일 `RoomCleared`, 출구 개방으로 이어진다.
 - `PrototypeBossPresenter`는 collider 없는 placeholder와 pooled 위험 셀을 property block으로 표현한다. Telegraph는 노란색, Execute는 빨간색, Recovery는 위험 셀을 숨기고, 2페이즈와 사망을 별도 색/상태로 표시한다.
+- 같은 presenter는 Telegraph 동안 다음 논리 목적지에 작은 청록색 boss ghost를 표시하고 `BossMoved`의 확정 `EnemyMovementStep`만 Execute 시간 동안 보간한다. pause 중에는 Core 시계와 함께 보간도 정지하며 Transform으로 목적지나 이동 성공을 다시 판정하지 않는다.
 - `PrototypeHealthHud`는 보스방에서만 세션의 현재/최대 보스 체력과 phase를 상단 panel에 표시하고 피해·phase 전환·사망 사건에 맞춰 갱신한다. 취약/Recovery 여부는 표시하지 않아 반격 타이밍을 UI 정답으로 노출하지 않는다.
 - `DungeonBoss`만 보스 활성 씬이며 다른 일곱 씬은 같은 presenter 참조를 가지되 보스를 생성하지 않는다. Editor builder와 validator가 이 계약과 asset 수치·참조·collider 부재를 재현·검증한다.
 
@@ -55,6 +58,8 @@ Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1�
 - 피해 가능한 기회가 플레이어에게 읽힌다.
 - 피할 수 없는 입장 직후 공격을 하지 않는다.
 - 예고 셀과 실제 위험 셀이 동일한 규칙 좌표를 사용한다.
+- 예고한 이동 목적지와 성공한 논리 이동 셀이 일치하고 한 패턴에 최대 한 칸만 이동한다.
+- 일반 actor의 폭탄 차단과 보스의 제한된 목적지 bomb overlap을 섞지 않는다.
 - phase 전환 중 중복 패턴 또는 무한 무적이 발생하지 않는다.
 - 보스 사망과 방 클리어는 한 번만 발생한다.
 
@@ -68,4 +73,4 @@ Core 테스트 fixture는 체력 4, 2 이하에서 2페이즈, 패턴 피해 1�
 - 실제 WebGL에서 예고 가독성, 프레임 안정성, 입력 반응.
 - 플레이테스트에서 “폭탄 게임으로 느껴지는가” 인터뷰와 행동 관찰.
 
-Core·Unity 연결·실제 WebGL 항목은 자동 검증됐다. WebGL에서 Telegraph/Execute/Recovery 4회, Recovery 폭탄 피해 4회, 2페이즈 전환, 사망과 방 클리어, 보스 체력·phase HUD와 완료 화면을 확인했고 브라우저 Console/page error는 0이었다. 다음 층, 최종 아트·오디오와 “폭탄 게임으로 느껴지는가” 사람 플레이테스트는 아직 남아 있다.
+Core·Unity 연결·실제 WebGL 항목은 자동 검증됐다. 최신 WebGL은 초기 `(0,1)`에서 `(1,1) → (1,0) → (1,-1) → (0,-1)` 네 목적지 예고와 이동, 첫 Telegraph 선행 설치 적중, 이후 세 Recovery 반격, 차단 0, 2페이즈 전환, 사망과 방 클리어, 보스 체력·phase HUD와 완료 화면을 확인했고 브라우저 Console/page error는 0이었다. 다음 층, 최종 아트·오디오와 “목적지 예고를 읽고 선행 설치하는 폭탄 게임으로 느껴지는가” 사람 플레이테스트는 아직 남아 있다.

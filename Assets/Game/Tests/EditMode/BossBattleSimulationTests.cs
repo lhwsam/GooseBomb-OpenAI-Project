@@ -76,10 +76,17 @@ namespace BombSwap.Tests.EditMode
                 new GridPosition(-2, -2), new GridPosition(0, -2), new GridPosition(2, -2),
                 new GridPosition(-2, -1), new GridPosition(0, -1), new GridPosition(2, -1),
                 new GridPosition(-2, 0), new GridPosition(0, 0), new GridPosition(2, 0),
-                new GridPosition(-2, 1), new GridPosition(0, 1), new GridPosition(2, 1),
+                new GridPosition(-2, 1), new GridPosition(0, 1),
+                new GridPosition(1, 1), new GridPosition(2, 1),
                 new GridPosition(-2, 2), new GridPosition(0, 2), new GridPosition(2, 2),
             }));
             Assert.That(boss.CurrentDangerCells, Is.Not.InstanceOf<GridPosition[]>());
+            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(boss.NextBossPosition, Is.EqualTo(new GridPosition(1, 1)));
+            Assert.That(boss.MovementRoute, Is.EqualTo(CreateMovementRoute()));
+            Assert.That(boss.MovementRoute, Is.Not.InstanceOf<GridPosition[]>());
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<GridPosition>)boss.MovementRoute).Clear());
             Assert.That(grid.TryGetActorPosition(BossActor, out GridPosition position), Is.True);
             Assert.That(position, Is.EqualTo(new GridPosition(0, 1)));
         }
@@ -105,7 +112,79 @@ namespace BombSwap.Tests.EditMode
             Assert.That(transition.AttackResolved, Is.True);
             Assert.That(transition.BecameVulnerable, Is.False);
             Assert.That(transition.DangerCells, Is.SameAs(telegraphed));
+            Assert.That(transition.BossMoved, Is.True);
+            Assert.That(transition.MovementBlocked, Is.False);
+            Assert.That(transition.BossPosition, Is.EqualTo(new GridPosition(1, 1)));
+            Assert.That(transition.NextBossPosition, Is.EqualTo(new GridPosition(1, 0)));
+            Assert.That(
+                transition.Movement,
+                Is.EqualTo(new EnemyMovementStep(
+                    BossActor,
+                    new GridPosition(0, 1),
+                    new GridPosition(1, 1),
+                    CardinalDirection.East)));
+            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(1, 1)));
+            Assert.That(boss.NextBossPosition, Is.EqualTo(new GridPosition(1, 0)));
             Assert.That(boss.StateEndsAt, Is.EqualTo(PhaseOneTelegraph + PhaseOneExecute));
+        }
+
+        [Test]
+        public void TelegraphMove_CanEnterBombCellAndBombRemovalPreservesBossOccupancy()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateArenaGrid();
+            BossBattleSimulation boss = CreateSimulation(grid, clock);
+            GridPosition destination = new GridPosition(1, 1);
+            Assert.That(grid.TryAddBomb(destination), Is.True);
+
+            clock.Advance(PhaseOneTelegraph);
+
+            Assert.That(boss.TryAdvance(out BossPatternTransition transition), Is.True);
+            Assert.That(transition.BossMoved, Is.True);
+            Assert.That(grid.GetCell(destination).HasActor, Is.True);
+            Assert.That(grid.GetCell(destination).HasBomb, Is.True);
+            Assert.That(grid.TryRemoveBomb(destination), Is.True);
+            Assert.That(grid.GetCell(destination).HasActor, Is.True);
+            Assert.That(grid.GetCell(destination).HasBomb, Is.False);
+            Assert.That(grid.TryGetActorPosition(BossActor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(destination));
+        }
+
+        [Test]
+        public void TelegraphMove_BlockedByActorRetriesSameTargetOnNextPattern()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateArenaGrid();
+            BossBattleSimulation boss = CreateSimulation(grid, clock);
+            var blocker = new ActorId(6);
+            GridPosition destination = new GridPosition(1, 1);
+            Assert.That(grid.TryAddActor(blocker, destination), Is.True);
+
+            clock.Advance(PhaseOneTelegraph);
+            Assert.That(boss.TryAdvance(out BossPatternTransition blocked), Is.True);
+
+            Assert.That(blocked.BossMoved, Is.False);
+            Assert.That(blocked.MovementBlocked, Is.True);
+            Assert.That(blocked.BossPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(blocked.NextBossPosition, Is.EqualTo(destination));
+            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(boss.NextBossPosition, Is.EqualTo(destination));
+
+            clock.Advance(PhaseOneExecute);
+            Assert.That(boss.TryAdvance(out _), Is.True);
+            clock.Advance(PhaseOneRecovery);
+            Assert.That(boss.TryAdvance(out BossPatternTransition telegraph), Is.True);
+            Assert.That(telegraph.State, Is.EqualTo(BossBattleState.Telegraph));
+            Assert.That(telegraph.NextBossPosition, Is.EqualTo(destination));
+            Assert.That(telegraph.DangerCells, Does.Contain(destination));
+            Assert.That(grid.TryRemoveActor(blocker), Is.True);
+
+            clock.Advance(PhaseOneTelegraph);
+            Assert.That(boss.TryAdvance(out BossPatternTransition retried), Is.True);
+            Assert.That(retried.BossMoved, Is.True);
+            Assert.That(retried.MovementBlocked, Is.False);
+            Assert.That(retried.BossPosition, Is.EqualTo(destination));
+            Assert.That(boss.BossPosition, Is.EqualTo(destination));
         }
 
         [Test]
@@ -168,6 +247,7 @@ namespace BombSwap.Tests.EditMode
             {
                 new GridPosition(-2, -1), new GridPosition(-1, -1),
                 new GridPosition(0, -1), new GridPosition(1, -1), new GridPosition(2, -1),
+                new GridPosition(1, 0),
                 new GridPosition(-2, 1), new GridPosition(-1, 1),
                 new GridPosition(0, 1), new GridPosition(1, 1), new GridPosition(2, 1),
             }));
@@ -262,7 +342,8 @@ namespace BombSwap.Tests.EditMode
                     CreateDefinition(),
                     default,
                     new GridPosition(0, 1),
-                    arena));
+                    arena,
+                    CreateMovementRoute()));
             Assert.Throws<ArgumentException>(() =>
                 new BossBattleSimulation(
                     grid,
@@ -270,7 +351,8 @@ namespace BombSwap.Tests.EditMode
                     CreateDefinition(),
                     BossActor,
                     new GridPosition(3, 3),
-                    arena));
+                    arena,
+                    CreateMovementRoute()));
             Assert.Throws<ArgumentException>(() =>
                 new BossBattleSimulation(
                     grid,
@@ -278,13 +360,77 @@ namespace BombSwap.Tests.EditMode
                     CreateDefinition(),
                     BossActor,
                     new GridPosition(0, 1),
-                    new[] { new GridPosition(0, 1), new GridPosition(0, 1) }));
+                    new[] { new GridPosition(0, 1), new GridPosition(0, 1) },
+                    CreateMovementRoute()));
 
             BossBattleSimulation boss = CreateSimulation(grid, clock);
             clock.Now = TimeSpan.FromSeconds(2);
             Assert.That(boss.TryAdvance(out _), Is.True);
             clock.Now = TimeSpan.FromSeconds(1);
             Assert.Throws<InvalidOperationException>(() => boss.TryAdvance(out _));
+        }
+
+        [Test]
+        public void Constructor_RejectsInvalidMovementRoutesAndCopiesValidRoute()
+        {
+            IReadOnlyList<GridPosition> arena = CreateArenaCells();
+            GridPosition start = new GridPosition(0, 1);
+
+            Assert.Throws<ArgumentNullException>(() =>
+                CreateSimulationWithRoute(null));
+            Assert.Throws<ArgumentException>(() =>
+                CreateSimulationWithRoute(new[]
+                {
+                    start,
+                    new GridPosition(1, 1),
+                    new GridPosition(1, 0),
+                }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateSimulationWithRoute(new[]
+                {
+                    start,
+                    new GridPosition(1, 1),
+                    new GridPosition(1, 0),
+                    new GridPosition(1, 1),
+                }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateSimulationWithRoute(new[]
+                {
+                    start,
+                    new GridPosition(1, 1),
+                    new GridPosition(3, 1),
+                    new GridPosition(0, 2),
+                }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateSimulationWithRoute(new[]
+                {
+                    new GridPosition(-2, -2),
+                    new GridPosition(-2, -1),
+                    new GridPosition(-1, -1),
+                    new GridPosition(-1, -2),
+                }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateSimulationWithRoute(new[]
+                {
+                    start,
+                    new GridPosition(1, 0),
+                    new GridPosition(1, -1),
+                    new GridPosition(0, -1),
+                }));
+
+            var authored = new List<GridPosition>(CreateMovementRoute());
+            BossBattleSimulation boss = new BossBattleSimulation(
+                CreateArenaGrid(),
+                new ManualGameClock(),
+                CreateDefinition(),
+                BossActor,
+                start,
+                arena,
+                authored);
+            authored[4] = new GridPosition(2, 2);
+
+            Assert.That(boss.MovementRoute, Is.EqualTo(CreateMovementRoute()));
+            Assert.That(boss.NextBossPosition, Is.EqualTo(new GridPosition(1, 1)));
         }
 
         private static BossBattleSimulation CreateSimulation(GridState grid, IGameClock clock)
@@ -295,7 +441,21 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(),
                 BossActor,
                 new GridPosition(0, 1),
-                CreateArenaCells());
+                CreateArenaCells(),
+                CreateMovementRoute());
+        }
+
+        private static BossBattleSimulation CreateSimulationWithRoute(
+            IReadOnlyList<GridPosition> route)
+        {
+            return new BossBattleSimulation(
+                CreateArenaGrid(),
+                new ManualGameClock(),
+                CreateDefinition(),
+                BossActor,
+                new GridPosition(0, 1),
+                CreateArenaCells(),
+                route);
         }
 
         private static BossBattleDefinition CreateDefinition()
@@ -336,6 +496,21 @@ namespace BombSwap.Tests.EditMode
                 }
             }
             return cells;
+        }
+
+        private static IReadOnlyList<GridPosition> CreateMovementRoute()
+        {
+            return new[]
+            {
+                new GridPosition(-1, -1),
+                new GridPosition(-1, 0),
+                new GridPosition(-1, 1),
+                new GridPosition(0, 1),
+                new GridPosition(1, 1),
+                new GridPosition(1, 0),
+                new GridPosition(1, -1),
+                new GridPosition(0, -1),
+            };
         }
 
         private static void AdvanceToRecovery(

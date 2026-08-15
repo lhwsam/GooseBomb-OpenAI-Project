@@ -526,10 +526,11 @@ namespace BombSwap.Editor.ContentValidation
                 CombatRoomDefinition room = shell.CreateCoreDefinition();
                 if (!room.IsInside(definition.BossSpawn) ||
                     room.IsBlocked(definition.BossSpawn) ||
-                    room.PlayerSpawn == definition.BossSpawn)
+                    room.PlayerSpawn == definition.BossSpawn ||
+                    !room.LureLoop.Contains(definition.BossSpawn))
                 {
                     errors.Add(
-                        "Prototype boss spawn must be a traversable shell-room cell distinct from the player spawn.");
+                        "Prototype boss spawn must be a traversable shell-room lure-loop cell distinct from the player spawn.");
                 }
             }
         }
