@@ -8,5 +8,6 @@ namespace BombSwap.Core
         BossAntechamber = 3,
         Boss = 4,
         Recovery = 5,
+        Secret = 6,
     }
 }

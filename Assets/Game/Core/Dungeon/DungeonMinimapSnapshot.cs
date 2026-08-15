@@ -42,6 +42,24 @@ namespace BombSwap.Core
 
         public IReadOnlyList<DungeonRoomConnection> Connections { get; }
 
+        public bool ContainsRoom(DungeonRoomNodeId roomId)
+        {
+            if (!roomId.IsValid)
+            {
+                throw new ArgumentException(
+                    "Minimap room ID must be valid.",
+                    nameof(roomId));
+            }
+            for (int index = 0; index < _rooms.Length; index++)
+            {
+                if (_rooms[index].RoomId == roomId)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public DungeonMinimapRoomSnapshot GetRoom(DungeonRoomNodeId roomId)
         {
             for (int index = 0; index < _rooms.Length; index++)

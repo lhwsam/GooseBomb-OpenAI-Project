@@ -21,6 +21,8 @@ namespace BombSwap
         private static readonly ActorId PrototypeBossActorId = new ActorId(5);
         private static readonly IReadOnlyList<GridPosition> NoBossDangerCells =
             Array.AsReadOnly(Array.Empty<GridPosition>());
+        private static readonly IReadOnlyList<GridPosition> NoRuntimeDestructibleWalls =
+            Array.AsReadOnly(Array.Empty<GridPosition>());
 
         [SerializeField]
         private TestSandboxContext context;
@@ -86,6 +88,8 @@ namespace BombSwap
         private float _runtimeSwapCooldownSeconds;
         private int _runtimeActiveBombSlotIndex;
         private int? _runtimeInitialPlayerHealth;
+        private IReadOnlyList<GridPosition> _runtimeDestructibleWalls =
+            NoRuntimeDestructibleWalls;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
@@ -300,6 +304,9 @@ namespace BombSwap
         public bool HasPlayerBombPassThrough =>
             _movement != null && _movement.HasBombPassThrough;
 
+        public IReadOnlyList<GridPosition> RuntimeDestructibleWalls =>
+            _runtimeDestructibleWalls;
+
         public GridSpace GridSpace
         {
             get
@@ -382,6 +389,7 @@ namespace BombSwap
             _runtimeCombatEnabled = null;
             _runtimeBossEnabled = null;
             _runtimeInitialPlayerHealth = null;
+            _runtimeDestructibleWalls = NoRuntimeDestructibleWalls;
         }
 
         public void PrepareRuntimePlayerHealth(int currentHealth)
@@ -430,7 +438,8 @@ namespace BombSwap
             CombatRoomDefinition roomDefinition,
             GridPosition playerStart,
             bool combatEnabledForVisit,
-            bool bossEnabledForVisit)
+            bool bossEnabledForVisit,
+            IReadOnlyList<GridPosition> runtimeDestructibleWalls = null)
         {
             if (_movement != null)
             {
@@ -493,10 +502,49 @@ namespace BombSwap
                     nameof(playerStart));
             }
 
+            IReadOnlyList<GridPosition> authoredRuntimeWalls =
+                runtimeDestructibleWalls ?? NoRuntimeDestructibleWalls;
+            var runtimeWallSet = new HashSet<GridPosition>();
+            var runtimeWallCopy = new GridPosition[authoredRuntimeWalls.Count];
+            for (int index = 0; index < authoredRuntimeWalls.Count; index++)
+            {
+                GridPosition wall = authoredRuntimeWalls[index];
+                if (!runtimeWallSet.Add(wall))
+                {
+                    throw new ArgumentException(
+                        $"Runtime destructible wall {wall} is duplicated.",
+                        nameof(runtimeDestructibleWalls));
+                }
+                if (!roomDefinition.IsInside(wall) ||
+                    roomDefinition.IsBlocked(wall) ||
+                    !IsPotentialExit(roomDefinition.Exits, wall) ||
+                    wall == playerStart)
+                {
+                    throw new ArgumentException(
+                        $"Runtime destructible wall {wall} must be a free potential exit " +
+                        "that does not overlap the player start.",
+                        nameof(runtimeDestructibleWalls));
+                }
+                runtimeWallCopy[index] = wall;
+            }
+
             _runtimeRoomDefinition = roomDefinition;
             _runtimePlayerStart = playerStart;
             _runtimeCombatEnabled = combatEnabledForVisit;
             _runtimeBossEnabled = bossEnabledForVisit;
+            _runtimeDestructibleWalls = Array.AsReadOnly(runtimeWallCopy);
+        }
+
+        public bool IsRuntimeDestructibleWall(GridPosition position)
+        {
+            for (int index = 0; index < _runtimeDestructibleWalls.Count; index++)
+            {
+                if (_runtimeDestructibleWalls[index] == position)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public void PrepareRuntimeBombLoadout(
@@ -1267,7 +1315,7 @@ namespace BombSwap
             return cells;
         }
 
-        private static GridState CreateGrid(CombatRoomDefinition roomDefinition)
+        private GridState CreateGrid(CombatRoomDefinition roomDefinition)
         {
             var grid = new GridState();
             int halfWidth = roomDefinition.Width / 2;
@@ -1303,8 +1351,31 @@ namespace BombSwap
                         $"Could not author destructible cell {blocker}.");
                 }
             }
+            for (int index = 0; index < _runtimeDestructibleWalls.Count; index++)
+            {
+                GridPosition blocker = _runtimeDestructibleWalls[index];
+                if (!grid.TrySetTerrain(blocker, GridTerrain.DestructibleWall))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not author runtime destructible exit {blocker}.");
+                }
+            }
 
             return grid;
+        }
+
+        private static bool IsPotentialExit(
+            IReadOnlyList<RoomExit> exits,
+            GridPosition cell)
+        {
+            for (int index = 0; index < exits.Count; index++)
+            {
+                if (exits[index].Cell == cell)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static void ValidateFinitePositive(float value, string parameterName)

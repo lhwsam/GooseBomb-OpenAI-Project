@@ -7,6 +7,7 @@ namespace BombSwap.Core
         Inactive = 0,
         Locked = 1,
         Open = 2,
+        SecretWall = 3,
     }
 
     public readonly struct DungeonRoomExitState : IEquatable<DungeonRoomExitState>
@@ -99,6 +100,7 @@ namespace BombSwap.Core
                 case DungeonRoomExitStatus.Inactive:
                 case DungeonRoomExitStatus.Locked:
                 case DungeonRoomExitStatus.Open:
+                case DungeonRoomExitStatus.SecretWall:
                     return;
                 default:
                     throw new ArgumentOutOfRangeException(

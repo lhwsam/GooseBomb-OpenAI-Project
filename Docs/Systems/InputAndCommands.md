@@ -59,7 +59,7 @@
 - actions: `Move`(`Value/Vector2`), `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun`(`Button`)
 - control schemes: 필수 Keyboard 한 개, 필수 Gamepad 한 개
 - 생성/복구 도구: `Bomb Swap/Prototype/Create Missing Prototype Content`
-- `PrototypeContentValidator`가 액션, 필수 binding, 중복 binding, control scheme, 열 던전·TestSandbox 씬 참조와 Build Settings 순서를 검사한다.
+- `PrototypeContentValidator`가 액션, 필수 binding, 중복 binding, control scheme, 11개 던전·TestSandbox 씬 참조와 Build Settings 순서를 검사한다.
 
 기존 Unity 템플릿 `Assets/InputSystem_Actions.inputactions`는 수정하지 않는다. BombSwap 런타임은 게임 전용 에셋만 참조한다.
 

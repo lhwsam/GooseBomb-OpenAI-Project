@@ -39,6 +39,7 @@ namespace BombSwap
             RoomType.BossAntechamber,
             RoomType.Boss,
             RoomType.Recovery,
+            RoomType.Secret,
         };
 
         [SerializeField]
@@ -137,6 +138,7 @@ namespace BombSwap
                 case RoomType.BossAntechamber:
                 case RoomType.Boss:
                 case RoomType.Recovery:
+                case RoomType.Secret:
                     return;
                 case RoomType.Combat:
                     throw new ArgumentOutOfRangeException(

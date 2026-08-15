@@ -23,3 +23,5 @@ MonoBehaviour:
     sceneName: DungeonBoss
   - roomType: 5
     sceneName: DungeonRecovery
+  - roomType: 6
+    sceneName: DungeonSecret

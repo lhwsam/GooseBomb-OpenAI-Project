@@ -13,6 +13,7 @@ namespace BombSwap.Core
         private DungeonRoomNodeId _bossAntechamberRoomId;
         private DungeonRoomNodeId _bossRoomId;
         private DungeonRoomNodeId _recoveryRoomId;
+        private DungeonRoomNodeId _secretRoomId;
 
         internal DungeonGraph(
             int seed,
@@ -67,6 +68,10 @@ namespace BombSwap.Core
 
         public DungeonRoomNodeId RecoveryRoomId => _recoveryRoomId;
 
+        public DungeonRoomNodeId SecretRoomId => _secretRoomId;
+
+        public bool HasSecretRoom => _secretRoomId.IsValid;
+
         public int CombatRoomCount { get; private set; }
 
         public DungeonRoomNode GetRoom(DungeonRoomNodeId roomId)
@@ -78,6 +83,27 @@ namespace BombSwap.Core
         public IReadOnlyList<DungeonRoomNodeId> GetNeighbors(DungeonRoomNodeId roomId)
         {
             return _neighbors[GetRoomIndex(roomId)];
+        }
+
+        public bool TryGetConnection(
+            DungeonRoomNodeId first,
+            DungeonRoomNodeId second,
+            out DungeonRoomConnection connection)
+        {
+            GetRoomIndex(first);
+            GetRoomIndex(second);
+            for (int index = 0; index < _connections.Length; index++)
+            {
+                DungeonRoomConnection candidate = _connections[index];
+                if (candidate.Contains(first) && candidate.Contains(second))
+                {
+                    connection = candidate;
+                    return true;
+                }
+            }
+
+            connection = default;
+            return false;
         }
 
         public bool TryGetNeighbor(
@@ -165,6 +191,9 @@ namespace BombSwap.Core
             }
 
             var queue = new Queue<int>();
+            bool includeSecretConnections =
+                _rooms[fromIndex].RoomType == RoomType.Secret ||
+                _rooms[toIndex].RoomType == RoomType.Secret;
             previous[fromIndex] = fromIndex;
             queue.Enqueue(fromIndex);
             while (queue.Count > 0 && previous[toIndex] < 0)
@@ -173,7 +202,18 @@ namespace BombSwap.Core
                 IReadOnlyList<DungeonRoomNodeId> neighbors = _neighbors[current];
                 for (int index = 0; index < neighbors.Count; index++)
                 {
-                    int neighbor = neighbors[index].Value - 1;
+                    DungeonRoomNodeId neighborId = neighbors[index];
+                    if (!TryGetConnection(
+                            _rooms[current].Id,
+                            neighborId,
+                            out DungeonRoomConnection connection) ||
+                        (!includeSecretConnections &&
+                            connection.Kind == DungeonRoomConnectionKind.Secret))
+                    {
+                        continue;
+                    }
+
+                    int neighbor = neighborId.Value - 1;
                     if (previous[neighbor] >= 0)
                     {
                         continue;
@@ -208,14 +248,10 @@ namespace BombSwap.Core
             {
                 throw new ArgumentException("Dungeon graph requires rooms.");
             }
-            if (_connections.Length != _rooms.Length - 1)
-            {
-                throw new ArgumentException(
-                    "A dungeon tree requires exactly room-count minus one connections.");
-            }
 
             var positions = new HashSet<RoomGraphPosition>();
             var mutableNeighbors = new List<DungeonRoomNodeId>[_rooms.Length];
+            int secretRoomCount = 0;
             for (int index = 0; index < _rooms.Length; index++)
             {
                 DungeonRoomNode room = _rooms[index] ??
@@ -231,19 +267,32 @@ namespace BombSwap.Core
                     throw new ArgumentException(
                         $"Dungeon room position {room.Position} is duplicated.");
                 }
+                if (room.RoomType == RoomType.Secret)
+                {
+                    secretRoomCount++;
+                }
                 mutableNeighbors[index] = new List<DungeonRoomNodeId>();
             }
 
-            var connectionSet = new HashSet<DungeonRoomConnection>();
+            if (secretRoomCount > 1)
+            {
+                throw new ArgumentException(
+                    "Dungeon graph supports at most one secret room.");
+            }
+
+            var connectionEndpoints = new HashSet<long>();
+            int normalConnectionCount = 0;
+            int secretConnectionCount = 0;
             for (int index = 0; index < _connections.Length; index++)
             {
                 DungeonRoomConnection connection = _connections[index];
                 int first = GetRoomIndex(connection.First);
                 int second = GetRoomIndex(connection.Second);
-                if (!connectionSet.Add(connection))
+                if (!connectionEndpoints.Add(CreateEndpointKey(connection.First, connection.Second)))
                 {
                     throw new ArgumentException(
-                        $"Dungeon connection {connection} is duplicated.");
+                        $"Dungeon connection endpoints {connection.First} and " +
+                        $"{connection.Second} are duplicated.");
                 }
                 if (!_rooms[first].Position.IsCardinallyAdjacentTo(_rooms[second].Position))
                 {
@@ -251,8 +300,51 @@ namespace BombSwap.Core
                         $"Connected rooms {connection} must be cardinally adjacent.");
                 }
 
+                bool firstSecret = _rooms[first].RoomType == RoomType.Secret;
+                bool secondSecret = _rooms[second].RoomType == RoomType.Secret;
+                switch (connection.Kind)
+                {
+                    case DungeonRoomConnectionKind.Normal:
+                        normalConnectionCount++;
+                        if (firstSecret || secondSecret)
+                        {
+                            throw new ArgumentException(
+                                "Normal dungeon connections cannot include a secret room.");
+                        }
+                        break;
+                    case DungeonRoomConnectionKind.Secret:
+                        secretConnectionCount++;
+                        if (firstSecret == secondSecret ||
+                            (!firstSecret && _rooms[first].RoomType != RoomType.Combat) ||
+                            (!secondSecret && _rooms[second].RoomType != RoomType.Combat))
+                        {
+                            throw new ArgumentException(
+                                "Secret connections must connect one secret room to one combat room.");
+                        }
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(
+                            nameof(connection.Kind),
+                            connection.Kind,
+                            "Unsupported dungeon connection kind.");
+                }
+
                 mutableNeighbors[first].Add(connection.Second);
                 mutableNeighbors[second].Add(connection.First);
+            }
+
+            int normalRoomCount = _rooms.Length - secretRoomCount;
+            if (normalConnectionCount != normalRoomCount - 1)
+            {
+                throw new ArgumentException(
+                    "Normal dungeon rooms must form a tree with room-count minus one connections.");
+            }
+            if ((secretRoomCount == 0 && secretConnectionCount != 0) ||
+                (secretRoomCount == 1 &&
+                    (secretConnectionCount < 2 || secretConnectionCount > 3)))
+            {
+                throw new ArgumentException(
+                    "A secret room must have exactly two or three secret connections.");
             }
 
             for (int left = 0; left < _rooms.Length; left++)
@@ -264,8 +356,8 @@ namespace BombSwap.Core
                         continue;
                     }
 
-                    var implied = new DungeonRoomConnection(_rooms[left].Id, _rooms[right].Id);
-                    if (!connectionSet.Contains(implied))
+                    if (!connectionEndpoints.Contains(
+                        CreateEndpointKey(_rooms[left].Id, _rooms[right].Id)))
                     {
                         throw new ArgumentException(
                             $"Unconnected rooms {_rooms[left].Id} and {_rooms[right].Id} " +
@@ -281,8 +373,66 @@ namespace BombSwap.Core
                 neighbors[index] = Array.AsReadOnly(mutableNeighbors[index].ToArray());
             }
 
+            ValidateNormalRoomsConnected(neighbors);
             ValidateConnected(neighbors);
             return neighbors;
+        }
+
+        private void ValidateNormalRoomsConnected(
+            IReadOnlyList<DungeonRoomNodeId>[] neighbors)
+        {
+            int firstNormalIndex = -1;
+            int expectedCount = 0;
+            for (int index = 0; index < _rooms.Length; index++)
+            {
+                if (_rooms[index].RoomType == RoomType.Secret)
+                {
+                    continue;
+                }
+                expectedCount++;
+                if (firstNormalIndex < 0)
+                {
+                    firstNormalIndex = index;
+                }
+            }
+
+            var visited = new bool[_rooms.Length];
+            var queue = new Queue<int>();
+            visited[firstNormalIndex] = true;
+            queue.Enqueue(firstNormalIndex);
+            int visitedCount = 0;
+            while (queue.Count > 0)
+            {
+                int current = queue.Dequeue();
+                visitedCount++;
+                IReadOnlyList<DungeonRoomNodeId> currentNeighbors = neighbors[current];
+                for (int index = 0; index < currentNeighbors.Count; index++)
+                {
+                    DungeonRoomNodeId neighborId = currentNeighbors[index];
+                    int neighbor = neighborId.Value - 1;
+                    if (_rooms[neighbor].RoomType == RoomType.Secret || visited[neighbor])
+                    {
+                        continue;
+                    }
+                    if (!TryGetConnection(
+                            _rooms[current].Id,
+                            neighborId,
+                            out DungeonRoomConnection connection) ||
+                        connection.Kind != DungeonRoomConnectionKind.Normal)
+                    {
+                        continue;
+                    }
+
+                    visited[neighbor] = true;
+                    queue.Enqueue(neighbor);
+                }
+            }
+
+            if (visitedCount != expectedCount)
+            {
+                throw new ArgumentException(
+                    "Normal dungeon rooms must remain connected without secret-room shortcuts.");
+            }
         }
 
         private void ValidateConnected(IReadOnlyList<DungeonRoomNodeId>[] neighbors)
@@ -345,6 +495,9 @@ namespace BombSwap.Core
                             room.Id,
                             RoomType.Recovery);
                         break;
+                    case RoomType.Secret:
+                        AssignUnique(ref _secretRoomId, room.Id, RoomType.Secret);
+                        break;
                     case RoomType.Combat:
                         CombatRoomCount++;
                         break;
@@ -377,6 +530,31 @@ namespace BombSwap.Core
             {
                 throw new ArgumentException(
                     "Boss antechamber must connect the combat path and boss only.");
+            }
+
+            if (HasSecretRoom)
+            {
+                IReadOnlyList<DungeonRoomNodeId> secretNeighbors =
+                    _neighbors[SecretRoomId.Value - 1];
+                if (secretNeighbors.Count < 2 || secretNeighbors.Count > 3)
+                {
+                    throw new ArgumentException(
+                        "Secret room must connect to two or three combat rooms.");
+                }
+                for (int index = 0; index < secretNeighbors.Count; index++)
+                {
+                    DungeonRoomNodeId neighbor = secretNeighbors[index];
+                    if (GetRoom(neighbor).RoomType != RoomType.Combat ||
+                        !TryGetConnection(
+                            SecretRoomId,
+                            neighbor,
+                            out DungeonRoomConnection connection) ||
+                        connection.Kind != DungeonRoomConnectionKind.Secret)
+                    {
+                        throw new ArgumentException(
+                            "Secret room connections must lead only to combat rooms.");
+                    }
+                }
             }
 
             IReadOnlyList<DungeonRoomNodeId> rewardPath =
@@ -464,6 +642,10 @@ namespace BombSwap.Core
 
             for (int index = 0; index < _connections.Length; index++)
             {
+                if (_connections[index].Kind != DungeonRoomConnectionKind.Normal)
+                {
+                    continue;
+                }
                 DungeonRoomNode firstRoom = GetRoom(_connections[index].First);
                 DungeonRoomNode secondRoom = GetRoom(_connections[index].Second);
                 bool firstOnBossPath = bossPathSet.Contains(firstRoom.Id);
@@ -518,6 +700,15 @@ namespace BombSwap.Core
             {
                 throw new ArgumentException($"Dungeon graph requires one {roomType} room.");
             }
+        }
+
+        private static long CreateEndpointKey(
+            DungeonRoomNodeId first,
+            DungeonRoomNodeId second)
+        {
+            int lower = first.Value < second.Value ? first.Value : second.Value;
+            int upper = first.Value < second.Value ? second.Value : first.Value;
+            return ((long)lower << 32) | (uint)upper;
         }
 
         private static void ValidateExitDirection(RoomExitDirection direction)

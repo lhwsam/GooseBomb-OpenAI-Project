@@ -82,7 +82,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 확정된 폭발 셀에 현재 플레이어 논리 셀이 포함되면 체력 시스템에 해당 `BombId`의 피해를 한 번 전달하고, 무적 계약을 통과한 결과만 `PlayerDamaged`로 발행한다.
 - 확정된 폭발 셀에 살아 있는 기본 추격자 또는 선택적 돌진형의 논리 셀이 포함되면 각 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 두 적은 모두 내구도 1이며 같은 결과에서 사망하면 각 논리 점유가 제거된다.
 - `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 직선 폭탄의 비대칭 설치체를 확정된 방향으로 회전한다. 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
-- `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. 같은 시각의 여러 폭발이 같은 벽을 보고해도 표현 제거는 멱등이다.
+- `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. 예외는 binder가 현재 run의 미공개 Secret 출구에 겹쳐 놓은 runtime boundary wall이며, 이 셀은 정적 내부 블록 없이도 논리 파괴 결과를 허용하고 문 crack presenter가 표현을 제거한다. 같은 시각의 여러 폭발이 같은 벽을 보고해도 표현 제거와 연결 공개는 멱등이다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
 - 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자·돌진형 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자·3×3 광역·앞쪽 직선 폭발을 포함한다. 추격자 뒤 돌진형 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 범용 다중 적 목록·중형 적 피해 단계는 아직 없다.
 

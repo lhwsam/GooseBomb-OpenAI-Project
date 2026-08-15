@@ -41,6 +41,7 @@ namespace BombSwap.Core
                 case RoomType.BossAntechamber:
                 case RoomType.Boss:
                 case RoomType.Recovery:
+                case RoomType.Secret:
                     return;
                 default:
                     throw new ArgumentOutOfRangeException(

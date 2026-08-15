@@ -46,10 +46,12 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 BuildSignature(graph),
                 Is.EqualTo(
-                    "prototype-tree-v2|" +
+                    "prototype-secret-v3|" +
                     "1:1@0,0;2:0@-1,0;3:2@-1,1;4:0@-1,2;" +
-                    "5:0@0,2;6:3@1,2;7:4@1,1;8:5@0,3;9:0@-2,1;|" +
-                    "1-2;2-3;3-4;4-5;5-6;6-7;5-8;3-9;"));
+                    "5:0@0,2;6:3@1,2;7:4@1,1;8:5@0,3;9:0@-2,1;" +
+                    "10:6@-2,0;|" +
+                    "1-2:0;2-3:0;3-4:0;4-5:0;5-6:0;6-7:0;" +
+                    "5-8:0;3-9:0;2-10:1;9-10:1;"));
         }
 
         [Test]
@@ -59,8 +61,13 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(graph.Seed, Is.EqualTo(1729));
             Assert.That(graph.CombatRoomCount, Is.InRange(4, 5));
-            Assert.That(graph.Rooms.Count, Is.EqualTo(graph.CombatRoomCount + 5));
-            Assert.That(graph.Connections.Count, Is.EqualTo(graph.Rooms.Count - 1));
+            Assert.That(
+                graph.Rooms.Count,
+                Is.EqualTo(graph.CombatRoomCount + 5 + (graph.HasSecretRoom ? 1 : 0)));
+            Assert.That(
+                graph.Connections.Count(connection =>
+                    connection.Kind == DungeonRoomConnectionKind.Normal),
+                Is.EqualTo(graph.CombatRoomCount + 4));
             Assert.That(graph.GetRoom(graph.StartRoomId).RoomType, Is.EqualTo(RoomType.Start));
             Assert.That(
                 graph.GetRoom(graph.BombRewardRoomId).RoomType,
@@ -72,6 +79,12 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 graph.GetRoom(graph.RecoveryRoomId).RoomType,
                 Is.EqualTo(RoomType.Recovery));
+            if (graph.HasSecretRoom)
+            {
+                Assert.That(
+                    graph.GetRoom(graph.SecretRoomId).RoomType,
+                    Is.EqualTo(RoomType.Secret));
+            }
 
             IReadOnlyList<DungeonRoomNodeId> bossPath =
                 graph.GetShortestPath(graph.StartRoomId, graph.BossRoomId);
@@ -251,7 +264,24 @@ namespace BombSwap.Tests.EditMode
 
         private static void AssertGraphLayout(DungeonGraph graph)
         {
-            Assert.That(graph.Connections.Count, Is.EqualTo(graph.Rooms.Count - 1));
+            int normalRoomCount = graph.Rooms.Count(room => room.RoomType != RoomType.Secret);
+            DungeonRoomConnection[] normalConnections = graph.Connections
+                .Where(connection =>
+                    connection.Kind == DungeonRoomConnectionKind.Normal)
+                .ToArray();
+            DungeonRoomConnection[] secretConnections = graph.Connections
+                .Where(connection =>
+                    connection.Kind == DungeonRoomConnectionKind.Secret)
+                .ToArray();
+            Assert.That(normalConnections.Length, Is.EqualTo(normalRoomCount - 1));
+            if (graph.HasSecretRoom)
+            {
+                Assert.That(secretConnections.Length, Is.InRange(2, 3));
+            }
+            else
+            {
+                Assert.That(secretConnections.Length, Is.Zero);
+            }
             Assert.That(graph.Rooms.Select(room => room.Id.Value), Is.EqualTo(
                 Enumerable.Range(1, graph.Rooms.Count)));
             Assert.That(
@@ -264,6 +294,19 @@ namespace BombSwap.Tests.EditMode
                     graph.GetRoom(connection.First).Position.IsCardinallyAdjacentTo(
                         graph.GetRoom(connection.Second).Position),
                     Is.True);
+                DungeonRoomNode first = graph.GetRoom(connection.First);
+                DungeonRoomNode second = graph.GetRoom(connection.Second);
+                if (connection.Kind == DungeonRoomConnectionKind.Secret)
+                {
+                    Assert.That(
+                        new[] { first.RoomType, second.RoomType },
+                        Is.EquivalentTo(new[] { RoomType.Secret, RoomType.Combat }));
+                }
+                else
+                {
+                    Assert.That(first.RoomType, Is.Not.EqualTo(RoomType.Secret));
+                    Assert.That(second.RoomType, Is.Not.EqualTo(RoomType.Secret));
+                }
             }
 
             for (int left = 0; left < graph.Rooms.Count; left++)
@@ -289,6 +332,79 @@ namespace BombSwap.Tests.EditMode
                     graph.GetDistance(graph.StartRoomId, room.Id),
                     Is.GreaterThanOrEqualTo(0));
             }
+
+            AssertSecretPlacement(graph);
+        }
+
+        private static void AssertSecretPlacement(DungeonGraph graph)
+        {
+            DungeonRoomNode[] normalRooms = graph.Rooms
+                .Where(room => room.RoomType != RoomType.Secret)
+                .ToArray();
+            var occupied = new HashSet<RoomGraphPosition>(
+                normalRooms.Select(room => room.Position));
+            var candidates = new HashSet<RoomGraphPosition>();
+            var offsets = new[]
+            {
+                new RoomGraphPosition(0, 1),
+                new RoomGraphPosition(1, 0),
+                new RoomGraphPosition(0, -1),
+                new RoomGraphPosition(-1, 0),
+            };
+            foreach (DungeonRoomNode combat in normalRooms.Where(
+                room => room.RoomType == RoomType.Combat))
+            {
+                foreach (RoomGraphPosition offset in offsets)
+                {
+                    RoomGraphPosition candidate = combat.Position.Offset(offset.X, offset.Z);
+                    if (!occupied.Contains(candidate))
+                    {
+                        candidates.Add(candidate);
+                    }
+                }
+            }
+
+            RoomGraphPosition? expectedPosition = null;
+            int expectedCombatCount = 0;
+            foreach (RoomGraphPosition candidate in candidates)
+            {
+                DungeonRoomNode[] adjacent = normalRooms.Where(room =>
+                    candidate.IsCardinallyAdjacentTo(room.Position)).ToArray();
+                if (adjacent.Any(room => room.RoomType != RoomType.Combat) ||
+                    adjacent.Length < 2 || adjacent.Length > 3)
+                {
+                    continue;
+                }
+
+                if (!expectedPosition.HasValue ||
+                    adjacent.Length > expectedCombatCount ||
+                    (adjacent.Length == expectedCombatCount &&
+                        (candidate.X < expectedPosition.Value.X ||
+                            (candidate.X == expectedPosition.Value.X &&
+                                candidate.Z < expectedPosition.Value.Z))))
+                {
+                    expectedPosition = candidate;
+                    expectedCombatCount = adjacent.Length;
+                }
+            }
+
+            Assert.That(graph.HasSecretRoom, Is.EqualTo(expectedPosition.HasValue));
+            if (!expectedPosition.HasValue)
+            {
+                return;
+            }
+
+            DungeonRoomNode secret = graph.GetRoom(graph.SecretRoomId);
+            Assert.That(secret.Position, Is.EqualTo(expectedPosition.Value));
+            Assert.That(graph.GetNeighbors(secret.Id).Count, Is.EqualTo(expectedCombatCount));
+            Assert.That(
+                graph.GetNeighbors(secret.Id).Select(id => graph.GetRoom(id).RoomType),
+                Is.All.EqualTo(RoomType.Combat));
+            Assert.That(
+                normalRooms.Any(room =>
+                    room.RoomType == RoomType.Boss &&
+                    secret.Position.IsCardinallyAdjacentTo(room.Position)),
+                Is.False);
         }
 
         private static string BuildSignature(DungeonGraph graph)
@@ -313,6 +429,8 @@ namespace BombSwap.Tests.EditMode
                 builder.Append(connection.First.Value);
                 builder.Append('-');
                 builder.Append(connection.Second.Value);
+                builder.Append(':');
+                builder.Append((int)connection.Kind);
                 builder.Append(';');
             }
             return builder.ToString();

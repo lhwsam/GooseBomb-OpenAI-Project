@@ -5,7 +5,7 @@ namespace BombSwap.Core
 {
     public static class DungeonGenerator
     {
-        public const string GenerationVersion = "prototype-tree-v2";
+        public const string GenerationVersion = "prototype-secret-v3";
 
         private const int MaximumPlacementAttempts = 1000000;
 
@@ -104,19 +104,40 @@ namespace BombSwap.Core
                     $"version {GenerationVersion} after {placementAttempts} attempts.");
             }
 
-            var rooms = new DungeonRoomNode[roomTypes.Count];
-            var connections = new DungeonRoomConnection[roomTypes.Count - 1];
+            var rooms = new List<DungeonRoomNode>(roomTypes.Count + 1);
+            var connections = new List<DungeonRoomConnection>(roomTypes.Count + 2);
             for (int index = 0; index < roomTypes.Count; index++)
             {
-                rooms[index] = new DungeonRoomNode(
+                var room = new DungeonRoomNode(
                     new DungeonRoomNodeId(index + 1),
                     roomTypes[index],
                     positions[index]);
+                rooms.Add(room);
                 if (index > 0)
                 {
-                    connections[index - 1] = new DungeonRoomConnection(
-                        rooms[index].Id,
-                        new DungeonRoomNodeId(parents[index] + 1));
+                    connections.Add(new DungeonRoomConnection(
+                        room.Id,
+                        new DungeonRoomNodeId(parents[index] + 1)));
+                }
+            }
+
+            if (TryFindSecretRoomPosition(
+                rooms,
+                occupied,
+                out RoomGraphPosition secretPosition,
+                out IReadOnlyList<DungeonRoomNodeId> adjacentCombatRooms))
+            {
+                var secretRoom = new DungeonRoomNode(
+                    new DungeonRoomNodeId(rooms.Count + 1),
+                    RoomType.Secret,
+                    secretPosition);
+                rooms.Add(secretRoom);
+                for (int index = 0; index < adjacentCombatRooms.Count; index++)
+                {
+                    connections.Add(new DungeonRoomConnection(
+                        secretRoom.Id,
+                        adjacentCombatRooms[index],
+                        DungeonRoomConnectionKind.Secret));
                 }
             }
 
@@ -124,8 +145,92 @@ namespace BombSwap.Core
                 seed,
                 GenerationVersion,
                 definition,
-                rooms,
-                connections);
+                rooms.ToArray(),
+                connections.ToArray());
+        }
+
+        private static bool TryFindSecretRoomPosition(
+            IReadOnlyList<DungeonRoomNode> rooms,
+            ISet<RoomGraphPosition> occupied,
+            out RoomGraphPosition position,
+            out IReadOnlyList<DungeonRoomNodeId> adjacentCombatRooms)
+        {
+            var candidates = new HashSet<RoomGraphPosition>();
+            for (int roomIndex = 0; roomIndex < rooms.Count; roomIndex++)
+            {
+                if (rooms[roomIndex].RoomType != RoomType.Combat)
+                {
+                    continue;
+                }
+
+                for (int offsetIndex = 0;
+                    offsetIndex < CardinalOffsets.Length;
+                    offsetIndex++)
+                {
+                    RoomGraphPosition offset = CardinalOffsets[offsetIndex];
+                    RoomGraphPosition candidate = rooms[roomIndex].Position.Offset(
+                        offset.X,
+                        offset.Z);
+                    if (!occupied.Contains(candidate))
+                    {
+                        candidates.Add(candidate);
+                    }
+                }
+            }
+
+            bool found = false;
+            int bestAdjacentCombatCount = 0;
+            RoomGraphPosition bestPosition = default;
+            DungeonRoomNodeId[] bestAdjacentCombatRooms = null;
+            foreach (RoomGraphPosition candidate in candidates)
+            {
+                var combatNeighbors = new List<DungeonRoomNodeId>(3);
+                bool touchesNonCombatRoom = false;
+                for (int roomIndex = 0; roomIndex < rooms.Count; roomIndex++)
+                {
+                    DungeonRoomNode room = rooms[roomIndex];
+                    if (!candidate.IsCardinallyAdjacentTo(room.Position))
+                    {
+                        continue;
+                    }
+
+                    if (room.RoomType != RoomType.Combat)
+                    {
+                        touchesNonCombatRoom = true;
+                        break;
+                    }
+                    combatNeighbors.Add(room.Id);
+                }
+
+                if (touchesNonCombatRoom ||
+                    combatNeighbors.Count < 2 ||
+                    combatNeighbors.Count > 3)
+                {
+                    continue;
+                }
+
+                bool isBetter = !found ||
+                    combatNeighbors.Count > bestAdjacentCombatCount ||
+                    (combatNeighbors.Count == bestAdjacentCombatCount &&
+                        (candidate.X < bestPosition.X ||
+                            (candidate.X == bestPosition.X &&
+                                candidate.Z < bestPosition.Z)));
+                if (!isBetter)
+                {
+                    continue;
+                }
+
+                found = true;
+                bestAdjacentCombatCount = combatNeighbors.Count;
+                bestPosition = candidate;
+                bestAdjacentCombatRooms = combatNeighbors.ToArray();
+            }
+
+            position = bestPosition;
+            adjacentCombatRooms = found
+                ? Array.AsReadOnly(bestAdjacentCombatRooms)
+                : Array.AsReadOnly(Array.Empty<DungeonRoomNodeId>());
+            return found;
         }
 
         private static void AddRoom(

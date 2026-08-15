@@ -32,6 +32,18 @@ namespace BombSwap
         private Renderer westDoor;
 
         [SerializeField]
+        private GameObject northSecretCracks;
+
+        [SerializeField]
+        private GameObject eastSecretCracks;
+
+        [SerializeField]
+        private GameObject southSecretCracks;
+
+        [SerializeField]
+        private GameObject westSecretCracks;
+
+        [SerializeField]
         private Color inactiveColor = new Color(0.18f, 0.22f, 0.27f, 1f);
 
         [SerializeField]
@@ -40,12 +52,17 @@ namespace BombSwap
         [SerializeField]
         private Color openColor = new Color(0.08f, 0.82f, 0.45f, 1f);
 
+        [SerializeField]
+        private Color secretWallColor = new Color(0.64f, 0.38f, 0.16f, 1f);
+
         private readonly DungeonRoomExitStatus[] _localStatuses =
             new DungeonRoomExitStatus[4];
         private MaterialPropertyBlock _propertyBlock;
 
         public bool IsConfigured =>
-            northDoor != null && eastDoor != null && southDoor != null && westDoor != null;
+            northDoor != null && eastDoor != null && southDoor != null && westDoor != null &&
+            northSecretCracks != null && eastSecretCracks != null &&
+            southSecretCracks != null && westSecretCracks != null;
 
         public Renderer NorthDoor => northDoor;
 
@@ -55,11 +72,23 @@ namespace BombSwap
 
         public Renderer WestDoor => westDoor;
 
+        public GameObject NorthSecretCracks => northSecretCracks;
+
+        public GameObject EastSecretCracks => eastSecretCracks;
+
+        public GameObject SouthSecretCracks => southSecretCracks;
+
+        public GameObject WestSecretCracks => westSecretCracks;
+
         public void Configure(
             Renderer authoredNorthDoor,
             Renderer authoredEastDoor,
             Renderer authoredSouthDoor,
-            Renderer authoredWestDoor)
+            Renderer authoredWestDoor,
+            GameObject authoredNorthSecretCracks,
+            GameObject authoredEastSecretCracks,
+            GameObject authoredSouthSecretCracks,
+            GameObject authoredWestSecretCracks)
         {
             northDoor = authoredNorthDoor ??
                 throw new ArgumentNullException(nameof(authoredNorthDoor));
@@ -69,7 +98,16 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredSouthDoor));
             westDoor = authoredWestDoor ??
                 throw new ArgumentNullException(nameof(authoredWestDoor));
+            northSecretCracks = authoredNorthSecretCracks ??
+                throw new ArgumentNullException(nameof(authoredNorthSecretCracks));
+            eastSecretCracks = authoredEastSecretCracks ??
+                throw new ArgumentNullException(nameof(authoredEastSecretCracks));
+            southSecretCracks = authoredSouthSecretCracks ??
+                throw new ArgumentNullException(nameof(authoredSouthSecretCracks));
+            westSecretCracks = authoredWestSecretCracks ??
+                throw new ArgumentNullException(nameof(authoredWestSecretCracks));
             ValidateUniqueRenderers();
+            ValidateUniqueCrackRoots();
         }
 
         public void Apply(
@@ -112,7 +150,10 @@ namespace BombSwap
                     graphExitStates,
                     graphDirection);
                 _localStatuses[localIndex] = state.Status;
-                ApplyColor(GetRenderer(LocalDirectionOrder[localIndex]), state.Status);
+                RoomExitDirection localDirection = LocalDirectionOrder[localIndex];
+                ApplyColor(GetRenderer(localDirection), state.Status);
+                GetSecretCracks(localDirection).SetActive(
+                    state.Status == DungeonRoomExitStatus.SecretWall);
             }
         }
 
@@ -121,6 +162,13 @@ namespace BombSwap
         {
             ValidateDirection(localDirection);
             return _localStatuses[(int)localDirection];
+        }
+
+        public bool IsSecretCrackVisible(RoomExitDirection localDirection)
+        {
+            ValidateDirection(localDirection);
+            ValidateConfiguration();
+            return GetSecretCracks(localDirection).activeSelf;
         }
 
         private void ApplyColor(Renderer target, DungeonRoomExitStatus status)
@@ -136,6 +184,9 @@ namespace BombSwap
                     break;
                 case DungeonRoomExitStatus.Open:
                     color = openColor;
+                    break;
+                case DungeonRoomExitStatus.SecretWall:
+                    color = secretWallColor;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(
@@ -174,6 +225,26 @@ namespace BombSwap
             }
         }
 
+        private GameObject GetSecretCracks(RoomExitDirection direction)
+        {
+            switch (direction)
+            {
+                case RoomExitDirection.North:
+                    return northSecretCracks;
+                case RoomExitDirection.East:
+                    return eastSecretCracks;
+                case RoomExitDirection.South:
+                    return southSecretCracks;
+                case RoomExitDirection.West:
+                    return westSecretCracks;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Unknown room exit direction.");
+            }
+        }
+
         private static DungeonRoomExitState FindState(
             IReadOnlyList<DungeonRoomExitState> states,
             RoomExitDirection direction)
@@ -195,9 +266,11 @@ namespace BombSwap
             if (!IsConfigured)
             {
                 throw new InvalidOperationException(
-                    "PrototypeDungeonDoorPresenter requires four door renderers.");
+                    "PrototypeDungeonDoorPresenter requires four door renderers " +
+                    "and four secret-crack roots.");
             }
             ValidateUniqueRenderers();
+            ValidateUniqueCrackRoots();
         }
 
         private void ValidateUniqueRenderers()
@@ -213,6 +286,22 @@ namespace BombSwap
             {
                 throw new InvalidOperationException(
                     "Each dungeon direction requires a distinct door renderer.");
+            }
+        }
+
+        private void ValidateUniqueCrackRoots()
+        {
+            var crackRoots = new HashSet<GameObject>
+            {
+                northSecretCracks,
+                eastSecretCracks,
+                southSecretCracks,
+                westSecretCracks,
+            };
+            if (crackRoots.Contains(null) || crackRoots.Count != LocalDirectionOrder.Length)
+            {
+                throw new InvalidOperationException(
+                    "Each dungeon direction requires a distinct secret-crack root.");
             }
         }
 
