@@ -95,6 +95,7 @@ namespace BombSwap
             session.ArmoredMoved += OnArmoredMoved;
             session.ArmoredStateChanged += OnArmoredStateChanged;
             session.EnemyDied += OnEnemyDied;
+            session.BossMoved += OnBossMoved;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
             session.BossDamaged += OnBossDamaged;
             session.RoomCleared += OnRoomCleared;
@@ -128,6 +129,7 @@ namespace BombSwap
                 session.ArmoredMoved -= OnArmoredMoved;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
                 session.EnemyDied -= OnEnemyDied;
+                session.BossMoved -= OnBossMoved;
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
                 session.BossDamaged -= OnBossDamaged;
                 session.RoomCleared -= OnRoomCleared;
@@ -158,6 +160,10 @@ namespace BombSwap
                 session.CurrentBossState == BossBattleState.Telegraph)
             {
                 WebGlHarnessReporter.Report("boss-pattern-telegraph");
+                WebGlHarnessReporter.ReportBossCell(
+                    session.CurrentBossGridPosition);
+                WebGlHarnessReporter.ReportBossMoveTarget(
+                    session.NextBossGridPosition);
             }
             ReportPlayerHealth(session.CurrentHealth);
             WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
@@ -389,6 +395,8 @@ namespace BombSwap
             {
                 case BossBattleState.Telegraph:
                     WebGlHarnessReporter.Report("boss-pattern-telegraph");
+                    WebGlHarnessReporter.ReportBossMoveTarget(
+                        transition.NextBossPosition);
                     break;
                 case BossBattleState.Execute:
                     WebGlHarnessReporter.Report("boss-pattern-execute");
@@ -405,11 +413,22 @@ namespace BombSwap
                         "Unsupported boss battle state.");
             }
 
+            if (transition.MovementBlocked)
+            {
+                WebGlHarnessReporter.Report("boss-move-blocked");
+            }
+
             if (!_bossPhaseTwoReported && transition.Phase == BossPhase.Two)
             {
                 WebGlHarnessReporter.Report("boss-phase-two");
                 _bossPhaseTwoReported = true;
             }
+        }
+
+        private static void OnBossMoved(EnemyMovementStep step)
+        {
+            WebGlHarnessReporter.Report("boss-moved");
+            WebGlHarnessReporter.ReportBossCell(step.To);
         }
 
         private void OnBossDamaged(BossDamageResult result)

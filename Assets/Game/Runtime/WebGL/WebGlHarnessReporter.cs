@@ -33,6 +33,22 @@ namespace BombSwap
 #endif
         }
 
+        public static void ReportBossCell(GridPosition position)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            BombSwapHarnessReport(
+                $"boss-cell-x-{position.X}-z-{position.Z}");
+#endif
+        }
+
+        public static void ReportBossMoveTarget(GridPosition position)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            BombSwapHarnessReport(
+                $"boss-move-target-x-{position.X}-z-{position.Z}");
+#endif
+        }
+
         public static void ReportDungeonRoomReady(
             DungeonRoomNodeId roomId,
             RoomType roomType,

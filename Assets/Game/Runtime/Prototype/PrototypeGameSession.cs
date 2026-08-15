@@ -125,6 +125,8 @@ namespace BombSwap
 
         public event Action<ArmoredEnemyDamageResult> ArmoredStateChanged;
 
+        public event Action<EnemyMovementStep> BossMoved;
+
         public event Action<EnemyDamageResult> EnemyDamaged;
 
         public event Action<EnemyDamageResult> EnemyDied;
@@ -244,6 +246,9 @@ namespace BombSwap
 
         public GridPosition CurrentBossGridPosition =>
             _boss != null ? _boss.BossPosition : default;
+
+        public GridPosition NextBossGridPosition =>
+            _boss != null ? _boss.NextBossPosition : default;
 
         public BossBattleState CurrentBossState =>
             _boss != null ? _boss.State : BossBattleState.Telegraph;
@@ -842,6 +847,10 @@ namespace BombSwap
             }
 
             var explosions = _bombs.ProcessDueBombs();
+            if (bossTransition.HasValue && bossTransition.Value.BossMoved)
+            {
+                BossMoved?.Invoke(bossTransition.Value.Movement);
+            }
             for (int index = 0; index < explosions.Count; index++)
             {
                 BombExplosion explosion = explosions[index];
@@ -1084,7 +1093,8 @@ namespace BombSwap
                     coreBossDefinition,
                     PrototypeBossActorId,
                     bossDefinition.BossSpawn,
-                    CreatePlayableArenaCells(roomDefinition));
+                    CreatePlayableArenaCells(roomDefinition),
+                    roomDefinition.LureLoop);
             }
             _roomCleared = !combatEnabledForVisit;
 

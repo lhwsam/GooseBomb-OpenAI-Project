@@ -117,6 +117,21 @@ namespace BombSwap.Core
 
         public bool TryMoveActor(ActorId actorId, GridPosition to)
         {
+            return TryMoveActor(actorId, to, false);
+        }
+
+        public bool TryMoveActorAllowingBombOverlap(
+            ActorId actorId,
+            GridPosition to)
+        {
+            return TryMoveActor(actorId, to, true);
+        }
+
+        private bool TryMoveActor(
+            ActorId actorId,
+            GridPosition to,
+            bool allowBombOverlap)
+        {
             ValidateActorId(actorId);
             if (!actorPositions.TryGetValue(actorId, out GridPosition from))
             {
@@ -141,7 +156,8 @@ namespace BombSwap.Core
                 throw new InvalidOperationException("Grid actor identity is inconsistent.");
             }
             if (!destination.IsWalkableTerrain ||
-                destination.Occupancy != GridOccupancy.None)
+                destination.HasActor ||
+                (!allowBombOverlap && destination.HasBomb))
             {
                 return false;
             }

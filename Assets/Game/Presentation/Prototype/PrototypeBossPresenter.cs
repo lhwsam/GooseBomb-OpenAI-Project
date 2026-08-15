@@ -32,15 +32,27 @@ namespace BombSwap
         [SerializeField]
         private Color deathColor = new Color(0.12f, 0.01f, 0.02f, 1f);
 
+        [SerializeField]
+        private Color moveTargetColor = new Color(0.12f, 0.86f, 1f, 1f);
+
         private readonly List<GameObject> _dangerCellInstances = new List<GameObject>();
         private readonly List<Renderer> _dangerCellRenderers = new List<Renderer>();
         private GameObject _bossInstance;
         private Renderer _bossRenderer;
+        private GameObject _moveTargetInstance;
+        private Renderer _moveTargetRenderer;
         private MaterialPropertyBlock _bossPropertyBlock;
+        private MaterialPropertyBlock _moveTargetPropertyBlock;
         private MaterialPropertyBlock _dangerCellPropertyBlock;
         private int _bossColorPropertyId;
+        private int _moveTargetColorPropertyId;
         private Color _baseBossColor;
+        private Vector3 _moveVisualFrom;
+        private Vector3 _moveVisualTo;
+        private float _moveVisualElapsed;
+        private float _moveVisualDuration;
         private float _deathEndsAt;
+        private bool _isMoving;
         private bool _isShowingDeath;
 
         public PrototypeGameSession Session => session;
@@ -57,6 +69,8 @@ namespace BombSwap
 
         public int DamageCount { get; private set; }
 
+        public int MovementCount { get; private set; }
+
         public int DeathCount { get; private set; }
 
         public int DisplayedHealth { get; private set; }
@@ -68,6 +82,13 @@ namespace BombSwap
         public bool IsInitialized { get; private set; }
 
         public bool IsBossVisible => _bossInstance != null && _bossInstance.activeSelf;
+
+        public bool IsMoveTargetVisible =>
+            _moveTargetInstance != null && _moveTargetInstance.activeSelf;
+
+        public GridPosition DisplayedBossPosition { get; private set; }
+
+        public GridPosition DisplayedMoveTarget { get; private set; }
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -93,6 +114,7 @@ namespace BombSwap
             }
 
             session.BossPatternTransitioned += OnBossPatternTransitioned;
+            session.BossMoved += OnBossMoved;
             session.BossDamaged += OnBossDamaged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
@@ -106,12 +128,17 @@ namespace BombSwap
             if (session != null)
             {
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
+                session.BossMoved -= OnBossMoved;
                 session.BossDamaged -= OnBossDamaged;
                 session.Ready -= OnSessionReady;
             }
             if (_bossInstance != null)
             {
                 Destroy(_bossInstance);
+            }
+            if (_moveTargetInstance != null)
+            {
+                Destroy(_moveTargetInstance);
             }
             for (int index = 0; index < _dangerCellInstances.Count; index++)
             {
@@ -123,15 +150,32 @@ namespace BombSwap
 
             _bossInstance = null;
             _bossRenderer = null;
+            _moveTargetInstance = null;
+            _moveTargetRenderer = null;
             _dangerCellInstances.Clear();
             _dangerCellRenderers.Clear();
             VisibleDangerCellCount = 0;
             IsInitialized = false;
+            _isMoving = false;
             _isShowingDeath = false;
         }
 
         private void Update()
         {
+            if (_isMoving && _bossInstance != null && !session.IsPaused)
+            {
+                _moveVisualElapsed = Mathf.Min(
+                    _moveVisualElapsed + Time.unscaledDeltaTime,
+                    _moveVisualDuration);
+                float t = _moveVisualDuration > 0f
+                    ? _moveVisualElapsed / _moveVisualDuration
+                    : 1f;
+                _bossInstance.transform.position = Vector3.Lerp(
+                    _moveVisualFrom,
+                    _moveVisualTo,
+                    t);
+                _isMoving = t < 1f;
+            }
             if (_isShowingDeath && _bossInstance != null &&
                 Time.unscaledTime >= _deathEndsAt)
             {
@@ -169,16 +213,53 @@ namespace BombSwap
             _bossRenderer = _bossInstance.GetComponentInChildren<Renderer>(true);
             _bossColorPropertyId = ResolveColorProperty(_bossRenderer, "Boss");
             _bossPropertyBlock = new MaterialPropertyBlock();
+            _moveTargetPropertyBlock = new MaterialPropertyBlock();
             _dangerCellPropertyBlock = new MaterialPropertyBlock();
             _baseBossColor = _bossRenderer.sharedMaterial.GetColor(_bossColorPropertyId);
 
+            _moveTargetInstance = Instantiate(definition.BossPrefab, presentationRoot);
+            _moveTargetInstance.name = "PrototypeBossMoveTargetVisual";
+            _moveTargetInstance.transform.localScale *= 0.62f;
+            _moveTargetRenderer =
+                _moveTargetInstance.GetComponentInChildren<Renderer>(true);
+            _moveTargetColorPropertyId = ResolveColorProperty(
+                _moveTargetRenderer,
+                "Boss move-target");
+            ApplyMoveTargetColor();
+
             DisplayedHealth = session.CurrentBossHealth;
+            DisplayedBossPosition = session.CurrentBossGridPosition;
             CurrentState = session.CurrentBossState;
             CurrentPhase = session.CurrentBossPhase;
             ApplyBossState(CurrentState, CurrentPhase);
             ApplyDangerCells(CurrentState, session.CurrentBossDangerCells);
+            ApplyMoveTarget(CurrentState, session.NextBossGridPosition);
             _bossInstance.SetActive(session.IsBossAlive);
             IsInitialized = true;
+        }
+
+        private void OnBossMoved(EnemyMovementStep step)
+        {
+            if (!IsInitialized)
+            {
+                InitializePresentation();
+            }
+            if (!session.HasBoss || step.ActorId != session.BossActorId)
+            {
+                throw new InvalidOperationException(
+                    "Prototype boss presenter received another actor's movement.");
+            }
+
+            MovementCount++;
+            DisplayedBossPosition = step.To;
+            _moveVisualFrom = _bossInstance.transform.position;
+            _moveVisualTo = session.GridSpace.GridToWorld(step.To) +
+                (Vector3.up * session.BossDefinition.VisualHeight);
+            _moveVisualElapsed = 0f;
+            _moveVisualDuration = session.CurrentBossPhase == BossPhase.One
+                ? session.BossDefinition.PhaseOneExecuteSeconds
+                : session.BossDefinition.PhaseTwoExecuteSeconds;
+            _isMoving = true;
         }
 
         private void OnBossPatternTransitioned(BossPatternTransition transition)
@@ -196,8 +277,10 @@ namespace BombSwap
             PatternTransitionCount++;
             CurrentState = transition.State;
             CurrentPhase = transition.Phase;
+            DisplayedBossPosition = transition.BossPosition;
             ApplyBossState(CurrentState, CurrentPhase);
             ApplyDangerCells(CurrentState, transition.DangerCells);
+            ApplyMoveTarget(CurrentState, transition.NextBossPosition);
         }
 
         private void OnBossDamaged(BossDamageResult result)
@@ -221,7 +304,9 @@ namespace BombSwap
 
             DeathCount++;
             CurrentState = BossBattleState.Defeated;
+            _isMoving = false;
             ApplyDangerCells(CurrentState, Array.Empty<GridPosition>());
+            ApplyMoveTarget(CurrentState, default);
             ApplyBossColor(deathColor);
             _deathEndsAt = Time.unscaledTime + session.BossDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
@@ -278,6 +363,28 @@ namespace BombSwap
             VisibleDangerCellCount = visibleCount;
         }
 
+        private void ApplyMoveTarget(
+            BossBattleState state,
+            GridPosition target)
+        {
+            if (_moveTargetInstance == null)
+            {
+                return;
+            }
+
+            bool visible = state == BossBattleState.Telegraph;
+            _moveTargetInstance.SetActive(visible);
+            if (!visible)
+            {
+                return;
+            }
+
+            DisplayedMoveTarget = target;
+            _moveTargetInstance.transform.position =
+                session.GridSpace.GridToWorld(target) +
+                (Vector3.up * session.BossDefinition.VisualHeight);
+        }
+
         private void EnsureDangerCellPool(int requiredCount)
         {
             while (_dangerCellInstances.Count < requiredCount)
@@ -298,6 +405,15 @@ namespace BombSwap
             _bossRenderer.GetPropertyBlock(_bossPropertyBlock);
             _bossPropertyBlock.SetColor(_bossColorPropertyId, color);
             _bossRenderer.SetPropertyBlock(_bossPropertyBlock);
+        }
+
+        private void ApplyMoveTargetColor()
+        {
+            _moveTargetRenderer.GetPropertyBlock(_moveTargetPropertyBlock);
+            _moveTargetPropertyBlock.SetColor(
+                _moveTargetColorPropertyId,
+                moveTargetColor);
+            _moveTargetRenderer.SetPropertyBlock(_moveTargetPropertyBlock);
         }
 
         private void ApplyDangerCellColor(Renderer renderer, Color color)

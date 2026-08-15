@@ -232,6 +232,39 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void TryMoveActorAllowingBombOverlap_MovesIntoBombAndPreservesActorAfterBombRemoval()
+        {
+            GridPosition destination = Position.Offset(0, -1);
+            GridPosition occupiedDestination = destination.Offset(1, 0);
+            var grid = CreateFloorGrid();
+            Assert.That(grid.TrySetTerrain(destination, GridTerrain.Floor), Is.True);
+            Assert.That(
+                grid.TrySetTerrain(occupiedDestination, GridTerrain.Floor),
+                Is.True);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.True);
+            Assert.That(grid.TryAddBomb(destination), Is.True);
+            Assert.That(grid.TryAddActor(OtherActor, occupiedDestination), Is.True);
+
+            bool moved = grid.TryMoveActorAllowingBombOverlap(Actor, destination);
+
+            Assert.That(moved, Is.True);
+            Assert.That(grid.GetCell(Position).HasActor, Is.False);
+            Assert.That(grid.GetCell(destination).HasActor, Is.True);
+            Assert.That(grid.GetCell(destination).HasBomb, Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(destination));
+            Assert.That(
+                grid.TryMoveActorAllowingBombOverlap(Actor, occupiedDestination),
+                Is.False);
+
+            Assert.That(grid.TryRemoveBomb(destination), Is.True);
+            Assert.That(grid.GetCell(destination).HasActor, Is.True);
+            Assert.That(grid.GetCell(destination).HasBomb, Is.False);
+            Assert.That(grid.TryGetActorPosition(Actor, out stored), Is.True);
+            Assert.That(stored, Is.EqualTo(destination));
+        }
+
+        [Test]
         public void TryMoveActor_CannotMoveAnotherIdentity()
         {
             GridPosition destination = Position.Offset(1, 0);
@@ -266,6 +299,8 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentException>(() => grid.TryRemoveActor(default));
             Assert.Throws<ArgumentException>(() => grid.TryGetActorPosition(default, out _));
             Assert.Throws<ArgumentException>(() => grid.TryMoveActor(default, Position.Offset(1, 0)));
+            Assert.Throws<ArgumentException>(() =>
+                grid.TryMoveActorAllowingBombOverlap(default, Position.Offset(1, 0)));
         }
 
         [Test]
