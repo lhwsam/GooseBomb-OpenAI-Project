@@ -603,6 +603,8 @@ async function main() {
       status: "passed",
       detail: "Walking onto the left reward equipped prototype-area into the empty second slot.",
     });
+    await page.keyboard.press("KeyX");
+    await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
     await moveToCell(page, -1, -4);
     await moveToCell(page, 0, -4);
 
@@ -652,8 +654,6 @@ async function main() {
       detail: "The reward room north exit committed the next uncleared combat room 4.",
     });
 
-    await page.keyboard.press("KeyX");
-    await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
       timeout: 5_000,
@@ -661,7 +661,7 @@ async function main() {
     checks.push({
       name: "bomb-reward-loadout-persistence",
       status: "passed",
-      detail: "The selected area bomb remained in slot 2 and placed successfully in room 4.",
+      detail: "The area bomb selected before backtracking remained active and placed in room 4 without another swap input.",
     });
 
     const room4ExplosionsBefore = await eventCount(page, "bomb-exploded");
@@ -726,15 +726,10 @@ async function main() {
       detail: gatesRoomScreenshotPath,
     });
 
-    await page.keyboard.press("KeyX");
     const room5AreaPlacementsBefore = await eventCount(
       page,
       "place-bomb-definition-prototype-area",
     );
-    await waitForEvent(page, "active-bomb-slot-1", {
-      count: 2,
-      timeout: 5_000,
-    });
     await moveToCell(page, -3, 2);
     const room5Adjacent = await waitForChaserAdjacent(page);
     await page.keyboard.press("KeyZ");
@@ -812,11 +807,6 @@ async function main() {
       detail: bossTelegraphScreenshotPath,
     });
 
-    await page.keyboard.press("KeyX");
-    await waitForEvent(page, "active-bomb-slot-1", {
-      count: 3,
-      timeout: 5_000,
-    });
     const bossRecoveriesBefore = await eventCount(page, "boss-pattern-recovery");
     const bossDamageBefore = await eventCount(page, "boss-damaged");
     const bossClearBefore = await eventCount(page, "room-cleared");

@@ -155,6 +155,30 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Constructor_RestoresValidatedInitialActiveSlotWithoutCooldown()
+        {
+            ManualGameClock clock = new ManualGameClock();
+            BombWeaponDefinition primary = new BombWeaponDefinition(
+                CreateBombDefinition("primary"),
+                TimeSpan.FromSeconds(2));
+            BombWeaponDefinition reward = new BombWeaponDefinition(
+                CreateBombDefinition("reward"),
+                TimeSpan.FromSeconds(1));
+
+            var loadout = new BombWeaponLoadout(
+                clock,
+                primary,
+                reward,
+                TimeSpan.FromSeconds(0.5),
+                1);
+
+            Assert.That(loadout.ActiveSlotIndex, Is.EqualTo(1));
+            Assert.That(loadout.ActiveDefinition.Id, Is.EqualTo(reward.Id));
+            Assert.That(loadout.IsSwapReady, Is.True);
+            Assert.That(loadout.GetSlot(1).IsReady, Is.True);
+        }
+
+        [Test]
         public void EquipSecondSlot_FillsOnlyOnceWithoutConsumingCooldown()
         {
             ManualGameClock clock = new ManualGameClock();
@@ -219,6 +243,9 @@ namespace BombSwap.Tests.EditMode
             BombWeaponDefinition sameId = new BombWeaponDefinition(
                 CreateBombDefinition("primary"),
                 TimeSpan.FromSeconds(2));
+            BombWeaponDefinition secondary = new BombWeaponDefinition(
+                CreateBombDefinition("secondary"),
+                TimeSpan.FromSeconds(1));
 
             Assert.Throws<ArgumentException>(() => new BombWeaponLoadout(
                 clock,
@@ -231,8 +258,20 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() => new BombWeaponLoadout(
                 clock,
                 primary,
-                new BombWeaponDefinition(CreateBombDefinition("secondary"), TimeSpan.FromSeconds(1)),
+                secondary,
                 TimeSpan.Zero));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BombWeaponLoadout(
+                clock,
+                primary,
+                secondary,
+                TimeSpan.FromSeconds(1),
+                -1));
+            Assert.Throws<ArgumentException>(() => new BombWeaponLoadout(
+                clock,
+                primary,
+                null,
+                TimeSpan.FromSeconds(1),
+                1));
         }
 
         private static BombWeaponLoadout CreateLoadout(ManualGameClock clock)

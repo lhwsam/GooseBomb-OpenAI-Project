@@ -23,8 +23,38 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(state.FirstSlot, Is.EqualTo(Starter));
             Assert.That(state.SecondSlot.HasValue, Is.False);
+            Assert.That(state.ActiveSlotIndex, Is.Zero);
             Assert.That(state.HasSelectedReward, Is.False);
             Assert.That(state.RewardCandidates, Is.EqualTo(new[] { Area, Line }));
+        }
+
+        [Test]
+        public void ActiveSlot_RejectsUnavailableAndOutOfRangeSlotsWithoutChangingState()
+        {
+            var state = new DungeonBombLoadoutState(
+                Starter,
+                new[] { Area, Line });
+
+            Assert.That(state.TrySetActiveSlot(1), Is.False);
+            Assert.That(state.TrySetActiveSlot(-1), Is.False);
+            Assert.That(state.TrySetActiveSlot(BombWeaponLoadout.SlotCount), Is.False);
+            Assert.That(state.ActiveSlotIndex, Is.Zero);
+        }
+
+        [Test]
+        public void ActiveSlot_PersistsSuccessfulSelectionAfterReward()
+        {
+            var state = new DungeonBombLoadoutState(
+                Starter,
+                new[] { Area, Line });
+            Assert.That(
+                state.TrySelectReward(Area),
+                Is.EqualTo(DungeonBombRewardSelectionStatus.Selected));
+
+            Assert.That(state.TrySetActiveSlot(1), Is.True);
+            Assert.That(state.ActiveSlotIndex, Is.EqualTo(1));
+            Assert.That(state.TrySetActiveSlot(0), Is.True);
+            Assert.That(state.ActiveSlotIndex, Is.Zero);
         }
 
         [Test]

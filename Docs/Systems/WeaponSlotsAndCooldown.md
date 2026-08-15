@@ -13,6 +13,7 @@
 - 플레이어는 두 개의 폭탄 슬롯을 가진다.
 - 새 던전 run은 첫 슬롯만 채운다. 첫 전투 뒤 보상방에서 후보 하나를 골라 빈 두 번째 슬롯을 채운다.
 - 한 슬롯이 활성이고 다른 슬롯이 비활성이다.
+- 성공한 마지막 교체의 활성 슬롯은 같은 run의 방 전환과 재방문에서 유지되며, 새 run만 첫 슬롯으로 시작한다.
 - 설치는 활성 슬롯의 폭탄과 해당 슬롯의 설치 쿨타임을 사용한다.
 - 두 슬롯의 설치 쿨타임은 서로 독립적이며 비활성 중에도 회복한다.
 - 교체는 별도 교체 쿨타임의 영향을 받는다.
@@ -29,7 +30,7 @@
 - `BombWeaponDefinition`: 폭발 규칙 `BombDefinition`과 양수 설치 쿨타임을 묶는 Core 불변 정의다.
 - `BombWeaponLoadout`: 주입된 `IGameClock`을 읽어 활성 슬롯, 슬롯별 다음 설치 가능 시각과 다음 교체 가능 시각을 소유한다.
 - `BombWeaponSlotSnapshot`: UI와 검증 계층에 정의 ID, 전체/남은 쿨타임, 준비 비율을 읽기 전용으로 제공한다.
-- `DungeonBombLoadoutState`: 첫 폭탄, 2~3개의 보상 후보 ID와 한 번 선택된 두 번째 폭탄을 run 수명으로 소유한다.
+- `DungeonBombLoadoutState`: 첫 폭탄, 2~3개의 보상 후보 ID, 한 번 선택된 두 번째 폭탄과 현재 활성 슬롯을 run 수명으로 소유한다.
 - `PrototypeBombDefinitionAsset`: 폭발 데이터와 설치 쿨타임을 검증해 Core 무기 정의로 변환한다.
 - `PrototypeBombLoadoutAsset`: 서로 다른 두 폭탄 정의와 교체 쿨타임을 검증하고 Core loadout을 만든다.
 - `PrototypeBombRewardCatalogAsset`: 던전 시작 폭탄과 보상 후보 asset을 검증하고 `DungeonBombLoadoutState`를 만든다.
@@ -46,6 +47,7 @@ standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2
 - 교체 실패는 활성 슬롯을 바꾸지 않는다.
 - 빈 두 번째 슬롯은 교체·설치할 수 없고 유효한 보상 후보로 정확히 한 번만 채울 수 있다.
 - 첫 보상은 현재 `BombReward` 방에서만 선택하며, 선택 결과는 방 scene이 아니라 run session에 남는다.
+- 방 세션은 run의 활성 슬롯으로 시작하고 성공한 교체 사건만 run 상태에 반영한다. 방 전환은 교체 쿨타임을 소비하지 않는다.
 - 슬롯 교체와 폭탄 설치는 세션이 받은 `PlayerCommand` 순서대로 원자적으로 처리하며 각 명령의 성공/실패가 다음 명령에 보인다.
 - UI는 Core 상태를 표시할 뿐 쿨타임을 계산하지 않는다.
 
@@ -68,4 +70,4 @@ standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2
 - 교체 쿨타임 경계와 일시정지.
 - 같은 step의 설치/교체 명령 순서.
 
-현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계·시계 정지와 빈 슬롯·단일 보상 장착을 검증한다. PlayMode는 고정 두 슬롯 씬의 기존 `X`/`Z`, 던전 보상방의 빈 슬롯 수집과 다음 scene persistence, 해제 뒤 바라보기와 직선 폭탄 설치 방향 고정을 검증한다. 기본 WebGL smoke는 시작 십자 2회, `bomb-reward-selected-prototype-area`, 후속 전투방과 실제 보스 반격에서 `active-bomb-slot-1`과 `place-bomb-definition-prototype-area` 성공 사건을 요구한다. `Tools/DirectionalLineWebGLSmoke.mjs`는 오른쪽 `prototype-line` 후보를 고른 뒤 동쪽 설치, 북쪽 이동 명령, 동쪽 폭발 순서를 별도로 검증한다.
+현재 EditMode는 독립 쿨타임, 비활성 회복, 실패 미소비, 교체 경계·시계 정지, 빈 슬롯·단일 보상 장착과 초기 활성 슬롯 검증을 확인한다. PlayMode는 고정 두 슬롯 씬의 기존 `X`/`Z`, 던전 보상방에서 성공한 교체가 run 상태에 기록되고 다음 scene에서 같은 활성 슬롯과 정의로 복원되는지, 해제 뒤 바라보기와 직선 폭탄 설치 방향 고정을 검증한다. 기본 WebGL smoke는 보상방에서 `active-bomb-slot-1`을 만든 뒤 후속 전투방·게이트·보스방에서 추가 `X` 없이 `place-bomb-definition-prototype-area`가 성공하고, 완료 뒤 새 run은 `prototype-cross`로 시작할 것을 요구한다. `Tools/DirectionalLineWebGLSmoke.mjs`는 오른쪽 `prototype-line` 후보를 고른 뒤 동쪽 설치, 북쪽 이동 명령, 동쪽 폭발 순서를 별도로 검증한다.
