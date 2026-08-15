@@ -9,14 +9,15 @@
 - 진행자:
 - 참가자 익명 ID:
 - 유사 장르 경험: 없음 / 약간 / 많음 / 미확인
-- commit: `be35497`
-- WebGL 산출물: `Artifacts/Verification/20260816-035702-boss-movement-connected-web/WebGLBuild`
+- commit: `7ba40e6`
+- WebGL 산출물: `Artifacts/Verification/20260816-044700-responsive-postcommit-web/WebGLBuild`
 - 브라우저/OS/해상도:
 - 원본 증거: `Artifacts/Playtests/<session-id>/...` 또는 not captured
 
 ## 고정 조건 확인
 
 - [ ] commit과 WebGL 산출물이 프로토콜과 일치
+- [ ] canvas와 HUD가 현재 창 안에 모두 보이고 가로·세로 scrollbar가 없음
 - [ ] seed 0, 세션 중 코드·수치·방 데이터 불변
 - [ ] 조작만 설명하고 폭탄 역할·추천 위치 힌트를 주지 않음
 - [ ] 시작과 종료 시 Console/page 오류 없음

@@ -1,8 +1,8 @@
 # 직선·광역 폭탄 선택 관찰 플레이테스트
 
 - 상태: `Ready`
-- 고정 commit: `be35497` (`feat: add telegraphed boss movement`)
-- 고정 WebGL 산출물: `Artifacts/Verification/20260816-035702-boss-movement-connected-web/WebGLBuild`
+- 고정 commit: `7ba40e6` (`feat: add responsive WebGL canvas`)
+- 고정 WebGL 산출물: `Artifacts/Verification/20260816-044700-responsive-postcommit-web/WebGLBuild`
 - 대상 흐름: seed 0 시작방 → 첫 전투 → `BombReward` → 주 경로 전투·보스·결과
 - 연결 가설: `ProtoType_v0.2.md` 가설 B·C·E·F, `GDD_v0.2.md` 1.3·12.2~12.3·20.4·24~25장, [PT-20260815-02 전체 경로 피드백](Results/PT-20260815-02.md)
 
@@ -24,7 +24,7 @@
 
 ## 고정 조건
 
-- Unity 6000.5.3f1 Development WebGL, 10개 enabled 씬, seed 0.
+- Unity 6000.5.3f1 Development WebGL, 10개 enabled 씬, seed 0. 960×600 네이티브 canvas는 browser viewport보다 클 때 16:10으로 축소되고 확대하지 않는다.
 - 플레이어 이동 5 cells/s, 최대 체력 5, 자기 폭발·적 접촉 피해 1, 공유 무적 0.75초.
 - 시작 `prototype-cross`: 십자, fuse 2초, 범위 2, 설치 쿨타임 1.5초.
 - 왼쪽 `prototype-area`: 원점 주변 3×3, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초.
