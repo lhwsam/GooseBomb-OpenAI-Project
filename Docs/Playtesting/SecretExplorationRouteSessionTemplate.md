@@ -10,10 +10,10 @@
 - 참가자 익명 ID:
 - 유사 장르 경험: 없음 / 약간 / 많음 / 미확인
 - BombSwap 이전 플레이 경험: 없음 / 있음(버전·횟수)
-- commit: `134dd06`
-- WebGL build: `Artifacts/Verification/20260816-060528-web-postcommit/WebGLBuild`
+- commit: `923a9b5`
+- WebGL build: `Artifacts/Verification/20260816-062845-playtest-log-web-postcommit/WebGLBuild`
 - 실행 환경: 브라우저/버전, OS, viewport, 키보드 또는 Gamepad
-- 원본 증거: `Artifacts/Playtests/<session-id>/...` 또는 not captured
+- 원본 증거: `Artifacts/Playtests/<session-id>/harness-events.json`, `analysis/`, 영상·메모 또는 not captured
 
 ## 고정 조건 확인
 

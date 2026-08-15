@@ -1,8 +1,8 @@
 # 비밀방·탐색·보스 전체 경로 관찰 플레이테스트
 
 - 상태: `Ready`
-- 고정 commit: `134dd06` (`feat: add cracked-wall secret room`)
-- 고정 WebGL 산출물: `Artifacts/Verification/20260816-060528-web-postcommit/WebGLBuild`
+- 고정 commit: `923a9b5` (`feat: export WebGL playtest logs`)
+- 고정 WebGL 산출물: `Artifacts/Verification/20260816-062845-playtest-log-web-postcommit/WebGLBuild`
 - 대상 흐름: seed 0 시작방 → 첫 전투 → 선택형 비밀방 → 폭탄 보상 → 주 경로·Recovery 가지 → 보스 전실·보스 → 결과
 - 연결 가설: `ProtoType_v0.2.md` 가설 E·F, `GDD_v0.2.md` 20.4~20.5·21.2·24~25·34~35·37장
 - 관련 세부 프로토콜: [직선·광역 폭탄 선택](DirectionalBombChoiceProtocol.md), [갑옷 적 2회 피격](ArmoredEnemyProtocol.md)
@@ -151,6 +151,10 @@ Artifacts/Playtests/PT-YYYYMMDD-EXPLORE-01/
   build-reference.txt
   session-notes.md
   browser-console.txt
+  harness-events.json
+  analysis/
+    playtest-log-summary.json
+    playtest-log-summary.md
   attempt-01.mp4          # 선택
   attempt-02.mp4          # 선택
   secret-before.png       # 선택

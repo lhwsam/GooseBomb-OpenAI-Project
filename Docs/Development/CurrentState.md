@@ -34,6 +34,7 @@
 - Input Actions·TestSandbox·Build Settings를 재생성/검증하는 Editor builder와 validator 구현.
 - 개발 WebGL에서 입력 사건을 브라우저 smoke에 전달하는 제한된 harness probe 구현.
 - Development WebGL의 첫 harness 사건 뒤에만 나타나는 로컬 `SAVE TEST LOG`를 구현했다. `bombswap/playtest-log@1` JSON은 product identity와 시간순 사건만 내려받고 외부 전송하지 않으며, browser smoke가 다운로드 파일과 메모리 snapshot의 완전 일치를 검사한다.
+- `AnalyzePlaytestLog.mjs`가 원본 로그의 schema·사건 수·형식·시간 단조성을 검증하고 런 결과, 방 방문 순서, Secret·미니맵·Recovery·보스 자동 사건을 결정론적인 JSON·Markdown으로 요약한다. Web tier는 fixture 계약과 실제 smoke 다운로드 분석을 모두 통과해야 한다.
 - 주입 시계의 frame 경과 시간, Core 연속 `GridSubcellPosition`, 셀 경계의 원자적 actor 점유 전이, 벽·폭탄 차단을 소유하는 `PlayerMovementSimulation` 구현.
 - TestSandbox 유지 입력을 기본 5 cells/s 연속 논리 이동과 같은 frame의 placeholder Transform 직접 표시에 연결. 변하지 않은 대각선 입력은 마지막 전환 축을 유지해 frame별 재샘플링에서도 방향이 교번하지 않는다.
 - `PrototypeGameSession`이 하나의 논리 격자·수동 시계를 이동과 폭탄 simulation에 공유하도록 런타임 상태 소유를 통합.

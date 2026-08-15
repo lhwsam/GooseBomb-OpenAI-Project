@@ -52,7 +52,7 @@ Unity가 기본 Hub 경로에 없다면 `-UnityPath` 또는 `UNITY_EDITOR_PATH`�
 - `unity-compile.log`, `editor-validation.json`.
 - `editmode-results.xml`, `playmode-results.xml`과 Unity 로그.
 - Web 실행 시 `WebGLBuild/`, `webgl-build-report.json`, build 로그.
-- browser 실행 시 `browser-smoke.json`, `playtest-events.json`, `gamepad-smoke.json`, `gamepad-paused.png`, `browser-smoke.log`.
+- browser 실행 시 `browser-smoke.json`, `playtest-events.json`, `playtest-log-summary.json`, `playtest-log-summary.md`, `gamepad-smoke.json`, `gamepad-paused.png`, `browser-smoke.log`.
 
 실패한 실행의 산출물을 진단 전에 삭제하지 않는다.
 
@@ -87,13 +87,15 @@ PlayMode 표식:
 
 ## 브라우저 스모크 준비 상태
 
-Web tier는 브라우저를 열기 전에 `Tools/WebGLTemplateTests.mjs`와 `Tools/WebGLStaticServerTests.mjs`를 실행한다. template 검사는 Unity 필수 macro, 960×600 네이티브 상한을 둔 viewport fit 식, window/`ResizeObserver` 갱신, 고정 CSS 크기 회귀 금지와 빌드 뒤 `PlayerSettings.WebGL.template` 저장 복원을 확인한다. 기본 browser smoke는 로드 직후와 전체 게임 회귀 뒤 desktop·640px viewport에서 canvas 경계, 문서 overflow, aspect ratio와 네이티브 상한을 실제 DOM geometry로 검증한다.
+Web tier는 브라우저를 열기 전에 `Tools/WebGLTemplateTests.mjs`, `Tools/WebGLStaticServerTests.mjs`, `Tools/PlaytestLogAnalyzerTests.mjs`를 실행한다. template 검사는 Unity 필수 macro, 960×600 네이티브 상한을 둔 viewport fit 식, window/`ResizeObserver` 갱신, 고정 CSS 크기 회귀 금지와 빌드 뒤 `PlayerSettings.WebGL.template` 저장 복원을 확인한다. 기본 browser smoke는 로드 직후와 전체 게임 회귀 뒤 desktop·640px viewport에서 canvas 경계, 문서 overflow, aspect ratio와 네이티브 상한을 실제 DOM geometry로 검증한다.
 
 `Tools/WebGLSmoke.mjs`는 `Tools/WebGLStaticServer.mjs`의 정적 서버와 Playwright를 사용한다. 같은 서버 모듈은 수동 관찰용 `Tools/ServeWebGL.mjs`에서도 사용하므로 자동·수동 실행의 MIME·압축·경로 경계가 갈라지지 않는다. 게임플레이 probe는 먼저 `probe-ready`, 현재 방별 `room-ready-<room-id>`, 그래프 방과 방문 상태를 나타내는 `dungeon-room-ready-<node-id>-<room-type>-<active|cleared|safe>`를 보내 Unity 런타임, 방 권위와 입력 구독이 준비됐음을 알린다. 이후 `move`, 입력 명령 `move-direction-*`, 실제 frame 위치 변화 `move-motion-direction-*`, 논리 셀 경계 `move-step-direction-*`, 현재 셀 `player-cell-x-<x>-z-<z>`, 추격자 확정 셀 `chaser-cell-x-<x>-z-<z>`, `dungeon-transition-started`, `dungeon-room-committed`, 적 이동·상태, 폭탄 설치·폭발·피해·클리어, Core 전투 보상 snapshot `combat-reward-tokens-<count>`, 회복 `player-health-recovered-<amount>`·`recovery-consumed-room-<node-id>`, `swap-bomb`, `pause-entered`, `pause-resumed`, `pause-resume`, `audio-unlocked` 사건을 문자열 또는 `{ name: string }` 형태로 제공해야 한다. pause 사건은 입력 callback이 아니라 세션의 확정 상태 전이를 뜻한다. 방·셀 상세 marker는 Development WebGL build에서만 생성해 release와 Editor의 frame 반복 경로에 문자열 할당을 추가하지 않는다.
 
 현재 던전 개발 빌드는 `PrototypeInputHarnessProbe`, `PrototypeDungeonRunHost`, `BombSwapHarness.jslib`로 이 배열을 제공한다. Playwright는 `DungeonStart` canvas focus와 `dungeon-room-ready-1-start-safe`를 확인한 뒤 오른쪽 키 유지 중 브라우저 `blur`를 발생시켜 `move-direction-none`과 300ms 셀·motion 정지를 확인한다. 누락 key-up 상태로 `focus`를 복구해도 이동이 되살아나지 않아야 하며, 이어지는 `Esc` pause 성공이 입력 map 복구까지 증명한다. 그 뒤 `PAUSED` 화면을 캡처하고 방향키와 `Z`가 현재 셀·frame motion·폭탄 설치 수를 바꾸지 않는지 400ms 동안 확인한 뒤 재개한다. 첫 체력 probe run에서는 시작방 자기 폭발로 `5→4`, 첫 전투방 준비도 `4`임을 확인한 뒤 추격자 접촉 실패와 `R` 재시작으로 새 run `5`를 증명한다. 그 새 run의 첫 전투방에서 최신 직교축 우선과 빠른 방향 교대를 검증하고 십자 폭탄 두 번으로 클리어한다. 이어 서쪽 금 간 출구를 실제 십자 폭탄으로 파괴해 `secret-wall-revealed-room-2-direction-west`, 미니맵 `4방/3연결`, `dungeon-room-ready-10-secret-safe`를 확인한다. 중앙 cache의 `secret-reward-collected-3`·`room-reward-tokens-4` 뒤 같은 입구로 복귀하고, 북쪽 `BombReward` 왼쪽 후보를 수집해 슬롯 2를 활성화한다. 클리어 방 왕복과 주 경로 4·5번 전투를 유지된 광역 폭탄으로 클리어하면 합계 marker는 `combat-reward-tokens-5 → 6`이다. 8번 Recovery에서 입장 체력을 유지하고 중앙 `+2`를 한 번 소비한 뒤 6번 보스 전실과 7번 보스방에 진입한다. 첫 Telegraph 목적지에 광역 폭탄을 선행 설치하고 네 이동 `(1,1) → (1,0) → (1,-1) → (0,-1)`, 피해 4회, 2페이즈·격파·`run-completed`를 확인한다. 완료 뒤와 자기 폭발 실패 뒤 각 `R` 재시작은 Secret 공개·cache·토큰을 포함한 새 run 상태를 0으로 되돌려야 한다. 마지막으로 viewport resize와 Console/page error 0을 확인하고 금 간 벽·비밀방·pause·게이트·회복·보스 예고·완료·실패 화면을 캡처한다. 방 준비·이동·전환은 고정 지연이 아니라 현재 논리 셀, 적 셀과 scene commit 사건으로 동기화하며 fuse와 쿨타임 경계에만 명시적 시간을 사용한다. `swap-bomb`은 입력 수신만 뜻하고 `active-bomb-slot-1`은 Core 교체 성공을 뜻한다. `audio-unlocked`는 사용자 입력 수신 marker일 뿐 실제 오디오 출력 검증을 대체하지 않는다.
 
 개발 빌드에서 첫 harness 사건이 도착하면 WebGL footer의 `SAVE TEST LOG` 버튼이 활성화된다. 버튼은 외부 서버로 전송하지 않고 현재 페이지의 사건 배열을 `bombswap/playtest-log@1` JSON으로 로컬 다운로드한다. 파일에는 생성 시각, product 이름·버전, 사건 수와 `{ name, timestamp }` 사건만 포함하며 commit·빌드 보고서·관찰 메모는 세션 기록에서 별도로 고정한다. 기본 browser smoke는 전체 회귀 뒤 버튼을 실제 클릭해 `playtest-events.json`을 받고, schema·build identity·사건 수와 내려받은 사건 전체가 클릭 직전 메모리 snapshot과 같은지 검증한다. Release WebGL에서는 C# reporter가 호출되지 않으므로 버튼도 계속 숨겨져 있어야 한다.
+
+`Tools/PlaytestLogAnalyzerTests.mjs`는 Web tier의 browser 준비 단계에서 schema 불일치, 사건 수 불일치, 잘못된 사건 형식과 시간 역행을 거부하는 계약을 검사한다. 키보드 smoke가 실제 `playtest-events.json`을 만든 뒤 `Tools/AnalyzePlaytestLog.mjs`가 같은 파일을 다시 검증하고 결정론적인 `bombswap/playtest-summary@1` JSON·Markdown을 생성해야 Gamepad smoke로 진행한다. 요약은 런 시작·완료·실패, 방 방문 순서, Secret·미니맵·Recovery·보스의 자동 사건을 정리하지만 플레이어 의도나 재미를 판정하지 않는다.
 
 체력 persistence 회귀는 각 session 준비와 적용 피해에서 `player-health-current-<count>` marker를 기록한다. 기본 smoke는 첫 run 시작방의 `5`, 자기 폭발 뒤 `4`, 다음 전투방 준비의 `4`를 순서대로 요구해 scene 전환 자동 회복이 없음을 증명한다. 이어 첫 run을 추격자 접촉으로 실패시키고 페이지 reload 없이 `R`로 재시작해 다시 `5`가 되는지 확인한 뒤, 새 run으로 전체 던전 회귀를 수행한다. 완료 뒤와 의도적 자기 폭발 실패 뒤의 각 `R`도 새 run `5`를 요구한다. 무적 종료 시각과 처리한 폭발 ID는 방 로컬이므로 marker는 run 현재 체력만 나타낸다.
 
