@@ -114,7 +114,7 @@ namespace BombSwap
             session.BossPatternTransitioned += OnBossPatternTransitioned;
             if (_roomBinder != null)
             {
-                _roomBinder.CombatRewardTokenCountChanged +=
+                _roomBinder.RoomRewardTokenCountChanged +=
                     OnCombatRewardTokenCountChanged;
             }
             _isSubscribed = true;
@@ -135,7 +135,7 @@ namespace BombSwap
             session.BossPatternTransitioned -= OnBossPatternTransitioned;
             if (_roomBinder != null)
             {
-                _roomBinder.CombatRewardTokenCountChanged -=
+                _roomBinder.RoomRewardTokenCountChanged -=
                     OnCombatRewardTokenCountChanged;
             }
             _isSubscribed = false;
@@ -189,7 +189,7 @@ namespace BombSwap
 
             RefreshPlayer(session.CurrentHealth, session.MaxHealth);
             RefreshCombatRewardTokens(
-                _roomBinder != null ? _roomBinder.CombatRewardTokenCount : 0);
+                _roomBinder != null ? _roomBinder.RoomRewardTokenCount : 0);
             if (session.HasBoss)
             {
                 _bossPanelObject.SetActive(true);

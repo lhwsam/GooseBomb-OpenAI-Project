@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-16
-- 단계: 수제 전투방 최소 5개와 실제 일시정지·한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→run 체력 유지→주 경로 전투 3개 클리어·토큰 보상→선택형 회복방→제한 정보 미니맵→보스 전실→목적지 예고·선행 설치 보스 이동→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
+- 단계: 수제 전투방 최소 5개와 실제 일시정지·한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→run 체력 유지→주 경로 전투 3개 클리어·토큰 보상→금이 간 벽 비밀방→선택형 회복방→제한 정보 미니맵→보스 전실→목적지 예고·선행 설치 보스 이동→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -41,8 +41,9 @@
 - 고유 `ActorId`와 양방향 actor 위치 색인을 도입하고, 설치자에게만 `ActorId`·`BombId`·설치 셀 기반의 한 번 탈출 권한을 부여해 셀 이탈 후 재진입을 차단.
 - 주입 시계 기반 `PlayerHealthSimulation`과 최대 체력 5·무적 0.75초의 검증된 `PrototypePlayerVitalsAsset`을 구현.
 - `DungeonPlayerHealthState`가 적용된 피해의 현재 체력을 run 수명으로 소유하고, 다음 방·재방문·보스방 session과 HUD가 같은 값을 복원하며 새 run만 최대 체력으로 시작하도록 연결.
-- GDD 20.4의 선택형 회복방을 `prototype-tree-v2`의 보스 근처 막다른 leaf로 추가했다. Core가 노드별 1회 소비와 상한 회복을 소유하고 `DungeonRecovery` 중앙 pickup이 `Proposed +2`를 적용하며, 최대 체력에서는 소비하지 않고 재입장에서도 상태를 유지한다.
-- `DungeonRunState`의 제한 정보 snapshot과 우측 상단 `PrototypeDungeonMinimapPresenter`를 연결했다. 현재 방 `C`, 방문 방 `V`, 방문 방의 직접 인접 미방문 방 `?`와 확인된 연결만 표시하며 미방문 방 종류·그 너머 연결·fast travel은 제공하지 않는다. 열 scene의 단일 presenter·binder 참조와 토큰 HUD 하단 배치를 validator·PlayMode·실제 WebGL 캡처로 고정했다.
+- GDD 20.4의 선택형 회복방을 normal progression의 보스 근처 막다른 leaf로 추가했다. Core가 노드별 1회 소비와 상한 회복을 소유하고 `DungeonRecovery` 중앙 pickup이 `Proposed +2`를 적용하며, 최대 체력에서는 소비하지 않고 재입장에서도 상태를 유지한다.
+- `DungeonRunState`의 제한 정보 snapshot과 우측 상단 `PrototypeDungeonMinimapPresenter`를 연결했다. 현재 방 `C`, 방문 방 `V`, 방문 방의 직접 인접 미방문 방 `?`와 확인된 연결만 표시하며 미방문 방 종류·그 너머 연결·미공개 Secret·fast travel은 제공하지 않는다. 11개 scene의 단일 presenter·binder 참조와 토큰 HUD 하단 배치를 validator·PlayMode·실제 WebGL 캡처로 고정했다.
+- GDD 20.5의 `prototype-secret-v3` 후처리로 일반 전투방 2~3개와 맞닿는 빈 좌표에 Secret 하나를 결정론적으로 추가했다. 입구별 공개 상태는 Core run state가 소유하고, 실제 runtime `DestructibleWall` 폭발 뒤 해당 금 간 문·미니맵만 열리며 `DungeonSecret` 중앙 cache가 한 run에 한 번 `ROOM TOKENS +3`을 지급한다.
 - 폭발 영향 셀과 현재 플레이어 논리 셀을 비교해 자기 폭발 피해 1을 적용하고, 같은 폭발 중복·무적 중 별도 폭발·사망 뒤 명령을 차단.
 - `PrototypePlayerHealthPresenter`가 공유 material을 복제하지 않고 피격 pulse와 사망 색을 표시하도록 TestSandbox에 연결.
 - 안정 `EnemyDefinitionId`, 주입 시계 cadence, 결정론적 국소 Manhattan 선택, 두 칸 방향 유지를 소유하는 `ChaserEnemySimulation` 구현.
@@ -80,7 +81,7 @@
 - 연결된 Unity Test Runner의 도메인 리로드 뒤에도 실행 ID와 최종 수치를 JSON으로 보존하는 `ConnectedTestHarness`를 구현.
 - 갑옷 전용 WebGL smoke가 첫 실제 폭발의 상태 파괴·빠른 이동과 두 번째 폭발의 사망·방 클리어를 확인하고, 네 번째 씬을 포함한 기본 빌드의 기존 3방 smoke가 입력·폭탄·파괴 블록·돌진형 회귀를 함께 검증하도록 유지.
 - 갑옷 첫 피격 가독성, 가속 인지, 두 번째 설치 계획과 반복 노동감을 분리해 관찰하는 고정 WebGL 프로토콜과 익명 기록 템플릿을 준비.
-- `prototype-tree-v2` 결정론적 한 층 Core 그래프를 구현해 명시 seed에서 시작→첫 전투→폭탄 보상→주 경로 전투 3개→보스 전실→보스, 선택 전투 가지와 마지막 주 경로 전투에 붙는 단일 Recovery leaf를 생성.
+- `prototype-secret-v3` 결정론적 한 층 Core 그래프를 구현해 명시 seed에서 시작→첫 전투→폭탄 보상→주 경로 전투 3개→보스 전실→보스의 normal tree, 선택 전투 가지, 단일 Recovery leaf와 후보가 있을 때 Combat 2~3개에 연결되는 Secret 하나를 생성.
 - 고정 seed 혼합·LCG·상위 비트 범위 변환과 유한 정수 XZ backtracking으로 연결된 트리, 고유 좌표, 연결되지 않은 방의 암시적 cardinal 인접 금지를 보장.
 - `DungeonGraph`가 생성 버전, 정의, 안정 ID·노드·연결의 read-only snapshot과 이웃·최단 경로 조회를 소유하고 seed 0 golden snapshot과 512개 seed 회귀를 추가.
 - `DungeonRunState`가 시작방부터 현재·직전 방, 방문·클리어 상태를 소유하고 첫 전투·보스방 클리어 전 퇴실 차단, 클리어 방 양방향 재방문을 결정론적으로 처리.
@@ -89,14 +90,14 @@
 - ADR-0007에 따라 네 수제 전투방의 북·동·남·서 중앙 경계 셀을 잠재 출구로 저작하고, 중복 방향과 누락 cardinal 출구를 Core·Editor validator로 거부.
 - `PrototypeDungeonCombatRoomCatalog.asset`이 다섯 전투방 ScriptableObject와 현재 다섯 TestSandbox 씬 이름을 명시적으로 매핑하고 builder·validator가 누락·중복·순서를 검증.
 - `PrototypeDungeonRunSession`이 명시 seed와 카탈로그에서 Core 그래프·배정·탐색 상태를 조합하고 전투 노드의 실제 방 asset·씬·회전·활성 출구를 조회하도록 구현.
-- `DungeonRunState`가 북·동·남·서 네 방향을 `Inactive`·`Locked`·`Open`과 대상 방 ID로 제공하고, Unity 런 세션이 전투방 배정과 일치하는 read-only 문 상태 snapshot을 노출하도록 구현.
+- `DungeonRunState`가 북·동·남·서 네 방향을 `Inactive`·`SecretWall`·`Locked`·`Open`과 대상 방 ID로 제공하고, Unity 런 세션이 전투방 배정·Secret 공개와 일치하는 read-only 문 상태 snapshot을 노출하도록 구현.
 - `CombatRoomRotationUtility`가 0/90/180/270도에서 방 크기, 모든 spawn·벽·안전/퇴로/유도 셀과 출구 셀·방향을 한 번에 회전하도록 구현.
 - `PrototypeGameSession`이 적 비활성 placeholder에서 기존 이동·폭탄·체력을 재사용하고 적 actor 없이 안전방으로 시작하며, 회전된 room 정의와 입장 spawn을 `Awake` 전에만 준비하도록 확장.
-- `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·회복·보스의 정확한 다섯 타입과 고유 씬 이름을 검증하고 run session이 모든 그래프 노드를 씬으로 해석하도록 확장.
+- `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·회복·비밀·보스의 정확한 여섯 타입과 고유 씬 이름을 검증하고 run session이 모든 그래프 노드를 씬으로 해석하도록 확장.
 - `PrototypeDungeonRunNavigator`가 열린 문·대상 콘텐츠·로드 가능성을 검증한 pending 전환을 만들고 기대한 씬 로드 뒤에만 Core 이동을 단일 commit하도록 구현.
 - `PrototypeDungeonRunHost`가 run session·navigator만 전용 root에서 지속하고 중복 bootstrap 중 primary 한 개만 남기도록 구현.
 - `PrototypeDungeonRoomBinder`가 pending 입장 방향과 전투방 배정 회전을 session `Awake` 전에 적용하고, 논리 출구 셀의 바깥 방향 입력을 graph travel 요청으로 연결하도록 구현.
-- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open` 상태를 material property block으로 표시하도록 구현.
+- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태와 금 간 root를 material property block·활성 상태로 표시하도록 구현.
 - 다섯 전투방을 graph binder로 연결하고, 중앙 문 틈을 가진 8개 분할 외벽·collider 없는 네 문 패널을 Editor builder로 저작.
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.
@@ -112,7 +113,7 @@
 - `DungeonRunState`의 `InProgress → Completed | Failed` 단방향 결과, terminal 이동·클리어 차단, `PlayerDied`의 run 실패 연결과 `RUN FAILED` 결과 UI를 구현. 완료와 실패 모두 같은 seed의 새 session·navigator로 즉시 재시작한다.
 - 치명 `PlayerDamageResult`를 run의 `FailureDamage` snapshot으로 보존하고, 실패 화면이 폭발·세 일반 적·보스 source를 `CAUSE` 문구와 WebGL marker로 표시하도록 연결했다.
 - `PrototypeGameSession`이 실제 pause 상태를 소유하고 `Esc`/게임패드 Start toggle 시 이동 의도·입력 버퍼를 해제하며, pause 중 입력 재샘플링과 논리 시계 진행 전에 반환해 이동·설치·교체·fuse·쿨타임·적·보스를 함께 멈추도록 구현했다. `PrototypePausePresenter`는 세션 확정 상태를 받아 재사용 가능한 `PAUSED` 오버레이를 표시한다.
-- `PrototypeHealthHud`가 모든 방에서 플레이어 현재/최대 체력을, 보스방에서 추가로 보스 현재/최대 체력과 phase를 세션의 확정 snapshot·사건만으로 표시하도록 구현했다. 열 씬의 단일 HUD·session 참조를 builder와 validator로 고정하고 WebGL 배치를 캡처로 검증했다.
+- `PrototypeHealthHud`가 모든 방에서 플레이어 현재/최대 체력을, 보스방에서 추가로 보스 현재/최대 체력과 phase를 세션의 확정 snapshot·사건만으로 표시하도록 구현했다. 11개 씬의 단일 HUD·session 참조를 builder와 validator로 고정하고 WebGL 배치를 캡처로 검증했다.
 - GDD 필수 최소치인 다섯 번째 `prototype-combat-gates`를 추가했다. 고정 장벽 8셀과 중앙 파괴 문 2셀은 지름길과 적 진입로를 함께 열며, 파괴하지 않아도 좌우 우회로로 진행할 수 있다. 실제 seed 0 주 경로·WebGL 캡처와 클리어까지 검증했다.
 
 ## 현재 저장소 사실
@@ -121,7 +122,7 @@
 - `GridState`는 미등록 셀을 `Void`로 취급하고 지형, actor/bomb 점유, `ActorId` 양방향 위치 색인을 소유한다. 점유는 바닥에만 존재하며 actor가 있는 셀에 폭탄을 설치하는 제한된 동시 점유를 허용한다.
 - `BombSimulation`은 활성 폭탄, 세션 내 고유 ID, 설치자 ID, 설치 순간 방향, fuse와 종류 독립적인 양수 지연 연쇄를 소유하고 읽기 전용 snapshot·폭발 결과에 설치자 ID와 방향을 보존한다.
 - `BombWeaponLoadout`은 필수 1번 슬롯과 선택적 빈 2번 슬롯, 검증된 초기 활성 슬롯, 각 장착 슬롯의 다음 설치 가능 시각과 다음 교체 가능 시각을 소유한다. 빈 슬롯에서는 교체를 거부하고 첫 보상으로 서로 다른 정의를 한 번 장착할 수 있다. 쿨타임은 매 frame 감소시키지 않고 `IGameClock.Now`와 종료 시각의 차이로 계산한다.
-- `DungeonGenerator`는 모든 `int` seed와 불변 정의에서 `prototype-tree-v2` 그래프를 만든다. 기본 정의는 전투방 4~5개, 보스 주 경로 3개, 보상 이후 선택 전투 가지 1~2개와 마지막 주 경로 전투방의 단일 Recovery leaf이며 `System.Random`, `UnityEngine.Random`, 시간과 호출 순서를 읽지 않는다.
+- `DungeonGenerator`는 모든 `int` seed와 불변 정의에서 `prototype-secret-v3` 그래프를 만든다. 기본 정의는 전투방 4~5개, 보스 주 경로 3개, 보상 이후 선택 전투 가지 1~2개, 마지막 주 경로 전투방의 단일 Recovery leaf와 후보가 있을 때의 Secret 하나이며 `System.Random`, `UnityEngine.Random`, 시간과 호출 순서를 읽지 않는다.
 - `DungeonGraph`는 `Start`, `Combat`, `BombReward`, `BossAntechamber`, `Recovery`, `Boss` 노드, 고유 정수 방 좌표와 연결 트리를 검증하고 read-only 이웃·최단 경로를 제공한다. 실제 열 Unity 씬의 binder와 host가 이 그래프를 소비한다.
 - `DungeonRunState`는 시작방을 최초 방문으로 시작하고, 연결된 방만 이동하며 전투·보스방 클리어 전 퇴실을 막는다. 안전방은 잠기지 않고 클리어한 전투방은 다시 잠기지 않으며, 네 방향 문 snapshot이 실제 문 presenter와 scene travel의 권위다. 일반 전투방 최초 클리어는 현재 런의 임시 토큰을 정확히 1 지급하고 중복·안전·보스 클리어는 지급하지 않는다. Recovery는 현재 노드에서 유효한 회복이 일어난 한 번만 소비된다. 보스방 클리어는 `Completed`, 플레이어 사망은 치명 피해 snapshot을 보존한 `Failed`를 만들고 terminal 결과 뒤에는 이동·추가 클리어·회복을 거부한다.
 - `DungeonRunState.CreateMinimapSnapshot()`은 graph 순서의 read-only 방·연결 목록을 만들며 현재·방문·직접 인접 frontier만 공개한다. `PrototypeDungeonMinimapPresenter`는 별도 저장 상태나 frame polling 없이 시작 초기화와 실제 room commit 뒤 이 snapshot만 다시 그린다.
@@ -143,11 +144,11 @@
 - 다섯 room asset은 모두 11×9이며 cardinal 네 방향의 중앙 잠재 출구와 중앙 십자, 평행 통로, 엇갈린 기둥, 갑옷 실험선, 중앙 게이트의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 `(0,0)` 파괴 벽과 돌진형 spawn `(-3,2)`, 네 번째는 갑옷 적 spawn `(0,1)`, 다섯 번째는 `(0,-1)·(0,1)` 파괴 문과 `x=±3` 우회를 소유한다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
 - 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적 spawn을 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
-- EditMode 테스트 303개가 기존 Core 회귀에 더해 회복 상한·무적 불변·최대 체력/사망 무변경, Recovery 노드 단일 소비·다른 방/terminal 거부, `prototype-tree-v2` seed-0 golden과 512개 seed의 단일 Recovery leaf·보스 필수 경로 제외, 미니맵 제한 정보, 보스 route 검증·목적지 danger·한 칸 이동·actor 차단 재시도·bomb overlap 제거 독립성을 검증한다.
+- EditMode 테스트 305개가 기존 Core 회귀에 더해 회복 상한·Recovery 단일 소비, `prototype-secret-v3` seed-0 golden, 512개 seed의 normal tree·Secret 후보/2~3 Combat 연결, 입구별 공개·travel 차단, 미니맵 숨김/공개, cache `+3`·terminal/새 run 상태, 보스 route·목적지 danger·이동·bomb overlap 독립성을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
-- PlayMode 전체 126개가 기존 Unity 연결 회귀에 더해 special catalog의 Recovery 해석과 실제 `DungeonRecovery` scene의 입장 비자동회복, 최대 체력 비소비, 피해 뒤 `+2` 단일 회복·HUD 갱신·재입장 소비 유지·적/토큰 없음, pickup material 참조, 실제 scene 전환 뒤 미니맵 현재/방문/frontier와 토큰 HUD 하단 배치, 보스 선행 설치 적중·목적지 ghost·이동 표현·pause 보간 정지를 검증한다.
+- PlayMode 전체 127개가 기존 Unity 연결 회귀에 더해 실제 전투방 runtime 금 간 벽의 논리 파괴, 해당 문·미니맵 공개, `RunHost`를 통한 `DungeonSecret` 입장·왕복, 남은 다른 입구 차단, 중앙 cache `+3`·HUD 갱신·재입장 비지급을 검증한다. 기존 Recovery, 미니맵, 보스 이동·pause 회귀도 함께 통과한다.
 - 다섯 TestSandbox 씬의 내부 장애물은 Transform/Collider가 아니라 대응 방 ScriptableObject의 명시적 논리 blocked cell로 저작되어 있다.
-- Build Settings의 첫 enabled 씬 열 개는 `DungeonStart`, `DungeonReward`, `DungeonBossAnte`, `DungeonRecovery`, `DungeonBoss`, `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor`, `TestSandboxGates` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
+- Build Settings의 첫 enabled 씬 11개는 `DungeonStart`, `DungeonReward`, `DungeonBossAnte`, `DungeonRecovery`, `DungeonSecret`, `DungeonBoss`, `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor`, `TestSandboxGates` 순서이며 기존 SampleScene은 보존하되 비활성화했다.
 - BombSwap 런타임은 기존 일반 템플릿을 수정하지 않고 게임 전용 `BombSwapInputActions.inputactions`를 사용한다.
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
 - WebGL platform quality는 Mobile 프로필을 사용한다.
@@ -158,6 +159,7 @@
 
 ## 진행 중
 
+- [금이 간 벽 비밀방](SecretRoomSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 금 간 단서가 설명 없이 읽히는지, `+3` cache가 탐색 비용에 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지는 사람 검증이 남아 있다.
 - [GDD 기반 회복방](RecoveryRoomSlice.md)의 구현과 자동 검증을 완료했다. `+2` 회복량, 방 발견성, 보스 직전 우회 가치와 최대 체력 비소비가 실제 플레이에서 자연스러운지는 사람 검증이 남아 있다. 적 처치 확률 드롭은 계속 보류한다.
 - [제한 정보 미니맵](MinimalMinimapSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 실제 플레이에서 길 찾기 피로를 줄이는지, `?` frontier가 선택지를 충분히 알리면서 과도하게 스포일러하지 않는지는 사람 검증이 남아 있다.
 - 최신 5방 WebGL에서 파괴 블록·돌진형·갑옷 적·중앙 게이트가 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
@@ -167,7 +169,7 @@
 
 ## 바로 다음 권장 작업
 
-1. 제한 정보 미니맵의 길 찾기 피로 감소·선택 가지 발견성, 회복방 `+2`·우회 가치와 보스 목적지 선행 설치 이해를 같은 전체 경로 사람 플레이에서 관찰한다.
+1. 금이 간 벽의 자발적 발견·무작위 벽 검사 여부와 cache `+3`, 제한 정보 미니맵의 길 찾기 피로·선택 가지 발견성, 회복방 `+2`·보스 선행 설치 이해를 같은 전체 경로 사람 플레이에서 관찰한다.
 2. [직선·광역 폭탄 선택](../Playtesting/DirectionalBombChoiceProtocol.md)과 [갑옷 적 2회 피격](../Playtesting/ArmoredEnemyProtocol.md)을 계속 관찰한다.
 3. 관찰 결과에서 우선순위가 확인된 보스 이동·회복·미니맵 튜닝 또는 폭탄과 상호작용하는 방 기믹 하나를 다음 수직 슬라이스로 선택한다.
 
@@ -176,25 +178,25 @@
 - 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. P01은 수정 WebGL에서 일반 키 해제 즉시 정지, 빠른 `상→우` 반복과 벽 모서리 직교 전환이 자연스러움을 확인했다. 보고된 결함의 재현 계약은 `Supported`로 갱신했지만 최종 속도와 코너 보정 수치는 한 사람의 세션만으로 확정하지 않는다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`를 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 설치 방향 앞쪽 범위 3 직선 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 직선 후보는 기존 긴 십자 수치를 유지해 영향 셀이 크게 줄었으므로 복도 정렬 이점보다 약함이 먼저 느껴지는지 확인해야 한다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 함께 관찰한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
-- 전투방당 `+1`과 `ROOM TOKENS`는 GDD의 작은 클리어 보상을 관찰하기 위한 소비처 없는 `Proposed` 임시 점수다. 상점·아이템 드롭·메타 재화·저장과 최종 경제 밸런스를 뜻하지 않으며 실제 반복 동기를 높이는지는 사람 플레이테스트가 필요하다.
+- 전투방당 `+1`, Secret cache `+3`과 `ROOM TOKENS`는 GDD의 작은 클리어·발견 보상을 관찰하기 위한 소비처 없는 `Proposed` 임시 점수다. 상점·아이템 드롭·메타 재화·저장과 최종 경제 밸런스를 뜻하지 않으며 실제 반복 동기를 높이는지는 사람 플레이테스트가 필요하다.
 - 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 지속 인접 시 무적 종료마다 반복 피해가 가능하다. 기본 체력 HUD와 source 기반 사망 원인 문구·재시작은 구현됐지만 공격 이름·위치·시간을 포함한 상세 타임라인, 최종 HUD 아트·오디오는 아직 없다.
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. seed-0 4번 전투방에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합이 `(1,-3)↔(1,-4)↔(1,-5)` 동률 순환을 만들었다. 자동 smoke는 플레이어 위치를 바꿔 진행하지만 AI가 수정된 것은 아니며 실제 공정성·유도 재미와 최소 수정은 사람 플레이 뒤 결정한다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- commit `7ba40e6`의 던전 10개 씬 최신 증분 Development WebGL 빌드는 137,972,718 bytes, 10.581초이며 BuildReport warning/error 0이다. 반응형 hosting shell은 Edge와 인앱 브라우저에서 canvas/HUD 잘림 없이 확인했고 빌드 전후 기존 `ProjectSettings.asset` hash와 `APPLICATION:Default` 템플릿 값이 보존됐다. 최초 빌드에서는 기존 Sentis·vendor·TextMeshPro·셰이더 범주 경고 348건이 보고됐다. 이 development 수치와 증분 빌드 시간을 release 성능이나 cold build 예산으로 해석하지 않는다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
+- 현재 변경 트리의 11-scene Development WebGL 빌드는 138,129,886 bytes, 338.470초, 오류 0과 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 Core 테스트의 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 빠른 상태 경계 fixture다. 실제 Unity asset은 체력 4·phase 임계 2·패턴 피해 1과 1.0/0.25/2.75초→0.75/0.25/2.75초를 사용한다. P01의 정지 보스 한계에 따라 예측 가능한 한 칸 순환과 목적지 ghost·선행 폭탄 적중은 구현했지만, 이동 빈도·예고 가독성과 실제 재미는 새 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
-- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽과 1회 파괴 벽만 지원한다. 범용 여러 적 spawn 후보, 파괴 보상·비밀방, 보상·전환 anchor와 room prefab 선택은 아직 없다.
+- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽·1회 파괴 벽과 runtime Secret 출구 overlay만 지원한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 보상·전환 anchor와 room prefab 선택은 아직 없다.
 - 다섯 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 장착된 두 폭탄 정의·성공한 마지막 활성 슬롯·현재 체력·Recovery 소비 여부는 run 전체에서 보존되고 새 run만 슬롯 0·최대 체력·미소비 Recovery로 시작한다. `+2`와 한 번 사용은 자동 검증을 통과한 `Proposed` 값이며 사람 플레이 전에는 확정하지 않는다.
-- Core 그래프의 기본 4~5 전투방과 단일 선택 가지는 `Proposed`다. P01이 보고한 미니맵 부재 불편에 따라 현재/방문/직접 인접 방과 확인된 연결만 표시하는 최소 미니맵을 구현했지만, 길 찾기 피로 감소·선택 가지 발견성·방 반복 체감은 아직 사람 플레이로 판정하지 않았다.
+- Core 그래프의 기본 4~5 전투방, 단일 선택 가지와 Secret 하나의 2~3 Combat 인접 후보 정책은 `Proposed`다. 제한 정보 미니맵과 미공개 Secret 숨김은 구현했지만, 길 찾기 피로 감소·금 간 단서 발견성·방 반복 체감은 아직 사람 플레이로 판정하지 않았다.
 - 그래프 기반 실제 문 전환, Unity 씬 수명, 첫 보상 정의·활성 슬롯·현재 체력의 run persistence와 완료 뒤 같은 seed의 새 run 재시작은 구현됐다. 다만 두 슬롯이 찬 뒤 교체·버린 무기 보존, 저장·불러오기, 로딩 연출과 슬롯별 쿨타임 등 room-local 세부 상태 persistence는 아직 없다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
 - 게임패드 binding 구조와 합성 Input System 장치의 왼쪽 스틱·D-pad 네 방향, South/West/Start/Select 의미 명령 변환을 자동 검증했다. WebGL에서는 표준 가상 장치 연결부터 스틱·D-pad 해제, 이동 중 분리의 즉시 정지·위치 안정성과 동일 index 재연결 입력 복구, South의 Core 폭탄 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱·South 차단과 재개 뒤 유지 스틱 한 셀 적용, Select의 실패 런 재시작까지 자동 검증했다. 실제 목표 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이와 새 직교 축 우선 조작감은 수동 플레이가 남아 있다.
 
 ## 최근 검증
 
-- 반응형 WebGL template 변경 트리에서 정적 template/server 검사, 연결된 Unity EditMode 303/303·PlayMode 126/126, 콘텐츠 선행 검증과 Unity Console 오류 0이 통과했다. 최초 10-scene build와 Edge keyboard 35/35·Gamepad 14/14는 `Artifacts/Verification/20260816-044000-responsive-web-connected/`에 있다. commit `7ba40e6`의 post-commit StaticOnly `Artifacts/Verification/20260816-044626-static/`과 증분 WebGL `Artifacts/Verification/20260816-044700-responsive-postcommit-web/`도 성공했다. 후자는 137,972,718 bytes, 10.581초, warning/error 0이며 1280×720·1024×768·640×720 canvas 경계·문서 overflow·16:10·네이티브 상한, 전체 던전 keyboard 35/35, 가상 Gamepad 14/14와 Console/page error 0을 재확인했다. 빌드 전후 사용자 `ProjectSettings.asset` hash와 기본 템플릿 값도 동일했다. 변경 전 실패 기준은 `Artifacts/Verification/20260816-043000-responsive-layout-baseline/`에 보존했다.
+- 금이 간 벽 비밀방 변경 트리에서 StaticOnly, content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127이 통과했다. `Artifacts/Verification/20260816-053705-web-connected/`의 11-scene Development WebGL 빌드는 138,129,886 bytes, 338.470초, 오류 0·기존 범주 경고 351건이다. Edge keyboard 38/38은 실제 출구 폭발 공개, 미니맵 `4/3`, 10번 안전방 cache `+3`, 왕복과 이후 Recovery·보스·완료·실패·재시작을 통과했고 가상 Gamepad 14/14와 두 실행의 Console/page error도 0이다. `webgl-dungeon-secret-wall.png`와 `webgl-dungeon-secret-room.png`에서 금 간 벽·중앙 cache·남은 다른 입구를 확인했다. 최신 StaticOnly는 `Artifacts/Verification/20260816-053242-static/`이다.
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
 - `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-042945-static/`.

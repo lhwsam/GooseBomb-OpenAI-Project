@@ -485,6 +485,14 @@ async function main() {
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-recovery-room.png`,
   );
+  const secretWallScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-secret-wall.png`,
+  );
+  const secretRoomScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-secret-room.png`,
+  );
   const pauseScreenshotPath = path.join(
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-paused.png`,
@@ -822,8 +830,96 @@ async function main() {
       detail: "Cleared the first combat room with the single starting cross-bomb slot.",
     });
 
-    const combatCell = await getLastPlayerCell(page);
-    await moveToCell(page, 3, combatCell.z);
+    await moveToCell(page, 3, -3);
+    await moveToCell(page, -3, -3);
+    await moveToCell(page, -3, 0);
+    fs.mkdirSync(path.dirname(secretWallScreenshotPath), { recursive: true });
+    await page.screenshot({ path: secretWallScreenshotPath });
+    const secretRevealBefore = await eventCount(
+      page,
+      "secret-wall-revealed-room-2-direction-west",
+    );
+    const secretBombPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    await page.keyboard.press("KeyZ");
+    await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+      count: secretBombPlacementsBefore + 1,
+      timeout: 5_000,
+    });
+    await moveToCell(page, -3, -3);
+    await waitForEvent(page, "secret-wall-revealed-room-2-direction-west", {
+      count: secretRevealBefore + 1,
+      timeout: 15_000,
+    });
+    await waitForEvent(page, "minimap-current-room-2", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-rooms-4", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-connections-3", { timeout: 5_000 });
+    checks.push({
+      name: "secret-wall-explosion-reveal",
+      status: "passed",
+      detail: "A real cross-bomb explosion destroyed room 2's cracked west exit and revealed the hidden room on the minimap.",
+    });
+
+    await moveToCell(page, -3, 0);
+    const secretReadyBefore = await eventCount(
+      page,
+      "dungeon-room-ready-10-secret-safe",
+    );
+    await triggerBoundaryTransition(
+      page,
+      "ArrowLeft",
+      "dungeon-room-ready-10-secret-safe",
+      secretReadyBefore + 1,
+    );
+    await waitForEvent(page, "minimap-current-room-10", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-rooms-4", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-connections-3", { timeout: 5_000 });
+    fs.mkdirSync(path.dirname(secretRoomScreenshotPath), { recursive: true });
+    await page.screenshot({ path: secretRoomScreenshotPath });
+
+    const secretRewardsBefore = await eventCount(
+      page,
+      "secret-reward-collected-3",
+    );
+    await moveToCell(page, 3, 1);
+    await moveToCell(page, 0, 1);
+    await moveToCell(page, 0, 0);
+    await waitForEvent(page, "secret-reward-collected-3", {
+      count: secretRewardsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "room-reward-tokens-4", { timeout: 5_000 });
+    checks.push({
+      name: "secret-room-cache",
+      status: "passed",
+      detail: "The hidden safe room loaded through the revealed entrance and its central cache awarded three room tokens.",
+    });
+
+    await moveToCell(page, 0, 1);
+    await moveToCell(page, 3, 1);
+    await moveToCell(page, 3, 0);
+    await moveToCell(page, 4, 0);
+    const clearedRoomReadyBeforeSecretExit = await eventCount(
+      page,
+      "dungeon-room-ready-2-combat-cleared",
+    );
+    await triggerBoundaryTransition(
+      page,
+      "ArrowRight",
+      "dungeon-room-ready-2-combat-cleared",
+      clearedRoomReadyBeforeSecretExit + 1,
+    );
+    checks.push({
+      name: "secret-room-return",
+      status: "passed",
+      detail: "The revealed entrance remained traversable in both directions and returned to the already-cleared combat room.",
+    });
+
+    await moveToCell(page, -3, 0);
+    await moveToCell(page, -3, -3);
+    await moveToCell(page, 3, -3);
     await moveToCell(page, 3, 5);
     await moveToCell(page, 0, 5);
     const rewardReadyBefore = await eventCount(
@@ -944,7 +1040,7 @@ async function main() {
       count: room4ClearsBefore + 1,
       timeout: 5_000,
     });
-    await waitForEvent(page, "combat-reward-tokens-2", { timeout: 5_000 });
+    await waitForEvent(page, "combat-reward-tokens-5", { timeout: 5_000 });
     checks.push({
       name: "second-main-path-combat-clear",
       status: "passed",
@@ -1012,7 +1108,7 @@ async function main() {
       count: room5ClearsBefore + 1,
       timeout: 5_000,
     });
-    await waitForEvent(page, "combat-reward-tokens-3", { timeout: 5_000 });
+    await waitForEvent(page, "combat-reward-tokens-6", { timeout: 5_000 });
     checks.push({
       name: "third-main-path-combat-clear",
       status: "passed",
@@ -1039,8 +1135,8 @@ async function main() {
       "dungeon-room-ready-8-recovery-safe",
     );
     await waitForEvent(page, "minimap-current-room-8", { timeout: 5_000 });
-    await waitForEvent(page, "minimap-visible-rooms-8", { timeout: 5_000 });
-    await waitForEvent(page, "minimap-visible-connections-7", {
+    await waitForEvent(page, "minimap-visible-rooms-9", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-connections-8", {
       timeout: 5_000,
     });
     fs.mkdirSync(path.dirname(recoveryRoomScreenshotPath), { recursive: true });
@@ -1108,8 +1204,8 @@ async function main() {
       "dungeon-room-ready-6-boss-antechamber-safe",
     );
     await waitForEvent(page, "minimap-current-room-6", { timeout: 5_000 });
-    await waitForEvent(page, "minimap-visible-rooms-9", { timeout: 5_000 });
-    await waitForEvent(page, "minimap-visible-connections-8", {
+    await waitForEvent(page, "minimap-visible-rooms-10", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-connections-9", {
       timeout: 5_000,
     });
     checks.push({
@@ -1440,8 +1536,15 @@ async function main() {
       "room-cleared",
       "combat-reward-tokens-0",
       "combat-reward-tokens-1",
-      "combat-reward-tokens-2",
-      "combat-reward-tokens-3",
+      "combat-reward-tokens-5",
+      "combat-reward-tokens-6",
+      "secret-wall-revealed-room-2-direction-west",
+      "dungeon-room-ready-10-secret-safe",
+      "minimap-current-room-10",
+      "minimap-visible-rooms-4",
+      "minimap-visible-connections-3",
+      "secret-reward-collected-3",
+      "room-reward-tokens-4",
       "dungeon-room-ready-3-bomb-reward-safe",
       "bomb-reward-selected-prototype-area",
       "dungeon-room-ready-2-combat-cleared",
@@ -1451,14 +1554,14 @@ async function main() {
       "room-ready-prototype-combat-gates",
       "dungeon-room-ready-8-recovery-safe",
       "minimap-current-room-8",
-      "minimap-visible-rooms-8",
-      "minimap-visible-connections-7",
+      "minimap-visible-rooms-9",
+      "minimap-visible-connections-8",
       `player-health-recovered-${expectedRestoredHealth}`,
       "recovery-consumed-room-8",
       "dungeon-room-ready-6-boss-antechamber-safe",
       "minimap-current-room-6",
-      "minimap-visible-rooms-9",
-      "minimap-visible-connections-8",
+      "minimap-visible-rooms-10",
+      "minimap-visible-connections-9",
       "dungeon-room-ready-7-boss-active",
       "boss-pattern-telegraph",
       "boss-cell-x-0-z-1",
@@ -1525,6 +1628,8 @@ async function main() {
       screenshotPath,
       gatesRoomScreenshotPath,
       recoveryRoomScreenshotPath,
+      secretWallScreenshotPath,
+      secretRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),
@@ -1557,6 +1662,8 @@ async function main() {
       harnessEvents,
       screenshotPath,
       gatesRoomScreenshotPath,
+      secretWallScreenshotPath,
+      secretRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),

@@ -26,6 +26,21 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePrefabsPath + "/QuickExplosionCellPlaceholder.prefab"
         };
 
+        private sealed class DungeonBoundaryPresentation
+        {
+            public DungeonBoundaryPresentation(
+                Renderer[] doors,
+                GameObject[] secretCrackRoots)
+            {
+                Doors = doors;
+                SecretCrackRoots = secretCrackRoots;
+            }
+
+            public Renderer[] Doors { get; }
+
+            public GameObject[] SecretCrackRoots { get; }
+        }
+
         [MenuItem("Bomb Swap/Prototype/Create Missing Prototype Content")]
         public static void CreateMissingPrototypeContentMenu()
         {
@@ -60,6 +75,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeBossDefinitionAsset bossDefinition =
                 CreatePrototypeBossContentIfMissing();
             CreatePrototypeRecoveryMaterialIfMissing();
+            CreatePrototypeSecretMaterialsIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog =
@@ -207,6 +223,20 @@ namespace BombSwap.Editor.ContentValidation
                 bombRewardCatalog,
                 false,
                 false);
+            bool secretSceneCreated = EnsureDungeonSpecialRoom(
+                PrototypeContentValidator.DungeonSecretScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[0],
+                combatRoomCatalog,
+                specialRoomCatalog,
+                bombRewardCatalog,
+                false,
+                false);
             bool bossSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonBossScenePath,
                 bombLoadout,
@@ -227,8 +257,9 @@ namespace BombSwap.Editor.ContentValidation
             return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
                 armorSceneCreated || gatesSceneCreated || startSceneCreated ||
                 rewardSceneCreated ||
-                bossAnteSceneCreated || recoverySceneCreated || bossSceneCreated
-                ? "Created BombSwap prototype dungeon content and ten graph room scenes."
+                bossAnteSceneCreated || recoverySceneCreated || secretSceneCreated ||
+                bossSceneCreated
+                ? "Created BombSwap prototype dungeon content and eleven graph room scenes."
                 : "BombSwap prototype dungeon content exists; synchronized room scenes, graph bindings, references, and Build Settings.";
         }
 
@@ -1243,6 +1274,9 @@ namespace BombSwap.Editor.ContentValidation
                 new PrototypeDungeonSpecialRoomEntry(
                     RoomType.Recovery,
                     "DungeonRecovery"),
+                new PrototypeDungeonSpecialRoomEntry(
+                    RoomType.Secret,
+                    "DungeonSecret"),
             });
             EditorUtility.SetDirty(catalog);
             return catalog;
@@ -1448,6 +1482,7 @@ namespace BombSwap.Editor.ContentValidation
                     false);
                 SynchronizeBombRewardPresenter(scene, false);
                 SynchronizeRecoveryPickupPresenter(scene, false);
+                SynchronizeSecretRewardPresenter(scene, false);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -1543,6 +1578,12 @@ namespace BombSwap.Editor.ContentValidation
                         scenePath,
                         PrototypeContentValidator.DungeonRecoveryScenePath,
                         StringComparison.Ordinal));
+                SynchronizeSecretRewardPresenter(
+                    scene,
+                    string.Equals(
+                        scenePath,
+                        PrototypeContentValidator.DungeonSecretScenePath,
+                        StringComparison.Ordinal));
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -1608,7 +1649,8 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             context.GridRoot.localRotation = Quaternion.identity;
-            Renderer[] doors = SynchronizeDungeonBoundary(context);
+            DungeonBoundaryPresentation boundaryPresentation =
+                SynchronizeDungeonBoundary(context);
             GameObject systems = gameSession.gameObject;
             PrototypeRoomAdvanceController[] legacyControllers =
                 systems.GetComponents<PrototypeRoomAdvanceController>();
@@ -1623,7 +1665,15 @@ namespace BombSwap.Editor.ContentValidation
             {
                 doorPresenter = systems.AddComponent<PrototypeDungeonDoorPresenter>();
             }
-            doorPresenter.Configure(doors[0], doors[1], doors[2], doors[3]);
+            doorPresenter.Configure(
+                boundaryPresentation.Doors[0],
+                boundaryPresentation.Doors[1],
+                boundaryPresentation.Doors[2],
+                boundaryPresentation.Doors[3],
+                boundaryPresentation.SecretCrackRoots[0],
+                boundaryPresentation.SecretCrackRoots[1],
+                boundaryPresentation.SecretCrackRoots[2],
+                boundaryPresentation.SecretCrackRoots[3]);
 
             PrototypeDungeonRoomBinder binder =
                 systems.GetComponent<PrototypeDungeonRoomBinder>();
@@ -1773,6 +1823,48 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(presenter);
         }
 
+        private static void SynchronizeSecretRewardPresenter(
+            Scene scene,
+            bool shouldExist)
+        {
+            PrototypeSecretRewardPresenter[] presenters =
+                FindAllInScene<PrototypeSecretRewardPresenter>(scene);
+            if (!shouldExist)
+            {
+                for (int index = 0; index < presenters.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(presenters[index]);
+                }
+                return;
+            }
+            if (presenters.Length > 1)
+            {
+                for (int index = 1; index < presenters.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(presenters[index]);
+                }
+            }
+
+            PrototypeDungeonRoomBinder binder =
+                FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
+            Material rewardMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeContentValidator.SecretRewardMaterialPath);
+            if (rewardMaterial == null)
+            {
+                throw new InvalidOperationException(
+                    "Prototype secret reward material is missing.");
+            }
+            PrototypeSecretRewardPresenter presenter = presenters.Length > 0
+                ? presenters[0]
+                : binder.gameObject.AddComponent<PrototypeSecretRewardPresenter>();
+            presenter.Configure(
+                binder,
+                rewardMaterial,
+                PrototypeSecretRewardPresenter.DefaultTokenReward,
+                Vector2Int.zero);
+            EditorUtility.SetDirty(presenter);
+        }
+
         private static void CreatePrototypeRecoveryMaterialIfMissing()
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
@@ -1787,7 +1879,25 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeRecoveryPickupPresenter.DefaultPickupColor);
         }
 
-        private static Renderer[] SynchronizeDungeonBoundary(
+        private static void CreatePrototypeSecretMaterialsIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException(
+                    "Required URP Lit shader was not found.");
+            }
+            GetOrCreateMaterial(
+                PrototypeContentValidator.SecretRewardMaterialPath,
+                shader,
+                PrototypeSecretRewardPresenter.DefaultRewardColor);
+            GetOrCreateMaterial(
+                PrototypeContentValidator.SecretCrackMaterialPath,
+                shader,
+                new Color(0.08f, 0.045f, 0.025f, 1f));
+        }
+
+        private static DungeonBoundaryPresentation SynchronizeDungeonBoundary(
             TestSandboxContext context)
         {
             Transform environment = context.GridRoot.Find("Environment");
@@ -1809,6 +1919,8 @@ namespace BombSwap.Editor.ContentValidation
                 "EastWallSouth", "EastWallNorth",
                 "WestWallSouth", "WestWallNorth",
                 "NorthDoor", "EastDoor", "SouthDoor", "WestDoor",
+                "NorthSecretCracks", "EastSecretCracks",
+                "SouthSecretCracks", "WestSecretCracks",
             };
             var expected = new HashSet<string>(expectedNames, StringComparer.Ordinal);
             for (int index = boundary.childCount - 1; index >= 0; index--)
@@ -1836,6 +1948,10 @@ namespace BombSwap.Editor.ContentValidation
                 MaterialsPath + "/DungeonDoor.mat",
                 shader,
                 new Color(0.18f, 0.22f, 0.27f, 1f));
+            Material crackMaterial = GetOrCreateMaterial(
+                PrototypeContentValidator.SecretCrackMaterialPath,
+                shader,
+                new Color(0.08f, 0.045f, 0.025f, 1f));
 
             EnsureBoundaryPrimitive(
                 boundary, "NorthWallWest",
@@ -1886,7 +2002,90 @@ namespace BombSwap.Editor.ContentValidation
                 boundary, "WestDoor", new Vector3(-boundaryX, 0.45f, 0f),
                 new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
                 doorMaterial, false);
-            return new[] { north, east, south, west };
+            GameObject northCracks = EnsureSecretCrackRoot(
+                boundary,
+                "NorthSecretCracks",
+                north.transform.localPosition,
+                true,
+                cellSize,
+                crackMaterial);
+            GameObject eastCracks = EnsureSecretCrackRoot(
+                boundary,
+                "EastSecretCracks",
+                east.transform.localPosition,
+                false,
+                cellSize,
+                crackMaterial);
+            GameObject southCracks = EnsureSecretCrackRoot(
+                boundary,
+                "SouthSecretCracks",
+                south.transform.localPosition,
+                true,
+                cellSize,
+                crackMaterial);
+            GameObject westCracks = EnsureSecretCrackRoot(
+                boundary,
+                "WestSecretCracks",
+                west.transform.localPosition,
+                false,
+                cellSize,
+                crackMaterial);
+            return new DungeonBoundaryPresentation(
+                new[] { north, east, south, west },
+                new[] { northCracks, eastCracks, southCracks, westCracks });
+        }
+
+        private static GameObject EnsureSecretCrackRoot(
+            Transform boundary,
+            string rootName,
+            Vector3 doorLocalPosition,
+            bool northSouthDoor,
+            float cellSize,
+            Material material)
+        {
+            Transform root = boundary.Find(rootName);
+            if (root == null)
+            {
+                root = CreateChild(rootName, boundary);
+            }
+            root.localPosition = doorLocalPosition;
+            root.localRotation = Quaternion.identity;
+            root.localScale = Vector3.one;
+
+            string[] barNames = { "CrackA", "CrackB", "CrackC" };
+            var expected = new HashSet<string>(barNames, StringComparer.Ordinal);
+            for (int index = root.childCount - 1; index >= 0; index--)
+            {
+                if (!expected.Contains(root.GetChild(index).name))
+                {
+                    UnityEngine.Object.DestroyImmediate(root.GetChild(index).gameObject);
+                }
+            }
+
+            float[] offsets = { -0.2f, 0f, 0.2f };
+            float[] angles = northSouthDoor
+                ? new[] { 28f, -36f, 32f }
+                : new[] { 62f, -54f, 58f };
+            for (int index = 0; index < barNames.Length; index++)
+            {
+                Vector3 position = northSouthDoor
+                    ? new Vector3(offsets[index] * cellSize, 0.47f, 0f)
+                    : new Vector3(0f, 0.47f, offsets[index] * cellSize);
+                Vector3 scale = northSouthDoor
+                    ? new Vector3(0.38f * cellSize, 0.055f, 0.07f * cellSize)
+                    : new Vector3(0.07f * cellSize, 0.055f, 0.38f * cellSize);
+                Renderer bar = EnsureBoundaryPrimitive(
+                    root,
+                    barNames[index],
+                    position,
+                    scale,
+                    material,
+                    false);
+                bar.transform.localRotation = Quaternion.Euler(0f, angles[index], 0f);
+            }
+
+            root.gameObject.SetActive(false);
+            return root.gameObject;
         }
 
         private static Renderer EnsureBoundaryPrimitive(
@@ -2554,6 +2753,9 @@ namespace BombSwap.Editor.ContentValidation
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.DungeonRecoveryScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.DungeonSecretScenePath,
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.DungeonBossScenePath,

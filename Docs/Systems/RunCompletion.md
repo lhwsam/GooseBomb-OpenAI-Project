@@ -14,7 +14,7 @@
 - 어느 방에서든 플레이어 체력이 0이 되면 런이 실패하고 `RUN FAILED`와 사망 원인을 표시한다. 현재 원인 문구는 `BOMB EXPLOSION`, `CHASER CONTACT`, `CHARGER CHARGE`, `ARMORED ENEMY CONTACT`, 일반 `ENEMY CONTACT`, `BOSS ATTACK`이다.
 - 결과가 확정되면 현재 방 simulation을 멈춘다.
 - 키보드 `R` 또는 게임패드 Select를 한 번 누르면 같은 브라우저 페이지에서 새 런을 시작한다.
-- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·전투 보상 토큰·보상 선택·두 번째 폭탄은 초기 상태이고, 새 `DungeonPlayerHealthState`는 검증된 최대 체력으로 시작한다.
+- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·방 보상 토큰·Secret 연결 공개·Recovery/Secret 보상 소비·보상 선택·두 번째 폭탄은 초기 상태이고, 새 `DungeonPlayerHealthState`는 검증된 최대 체력으로 시작한다.
 - 완료 또는 실패 전의 `RestartRun` 명령은 게임 상태를 바꾸지 않는다.
 
 ## 책임과 상태 전이
@@ -39,14 +39,14 @@
 - terminal run은 방 이동과 추가 방 클리어를 거부하며 연결 문 snapshot은 잠김으로 보인다.
 - 결과 UI와 재시작 요청은 한 번만 발생한다.
 - pending 씬 전환 중이거나 진행 중인 run은 재시작할 수 없다.
-- 재시작은 기존 `DungeonRunState` 또는 `DungeonBombLoadoutState`를 재사용하거나 부분 초기화하지 않으며 전투 보상 토큰은 새 상태의 0에서 시작한다.
+- 재시작은 기존 `DungeonRunState` 또는 `DungeonBombLoadoutState`를 재사용하거나 부분 초기화하지 않으며 방 보상 토큰과 모든 Secret 연결·cache 상태는 새 상태에서 0·미공개·미소비로 시작한다.
 - 재시작은 기존 `DungeonPlayerHealthState`도 재사용하지 않으며 새 상태는 최대 체력이다.
 - 페이지 reload, 전역 mutable singleton, 별도 스레드나 동기 대기를 사용하지 않는다.
 - 결과 UI는 규칙을 판정하지 않고 Core 결과 snapshot을 표현하며 입력을 host 명령으로 전달한다.
 
 ## 저작과 검증
 
-- 열 던전·TestSandbox 씬 모두 Systems 오브젝트에 `PrototypeRunCompletionPresenter` 한 개를 가지며 같은 씬의 room binder와 input reader를 참조한다.
+- 11개 던전·TestSandbox 씬 모두 Systems 오브젝트에 `PrototypeRunCompletionPresenter` 한 개를 가지며 같은 씬의 room binder와 input reader를 참조한다.
 - presenter는 보스방 완료 또는 어느 방에서든 실패했을 때만 UI를 표시한다.
 - Input Actions의 `Gameplay/RestartRun`은 Button이며 `<Keyboard>/r`, `<Gamepad>/select` binding을 가진다.
 - Editor builder와 validator는 action·binding·컴포넌트 수·참조를 검사한다.

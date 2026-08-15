@@ -16,6 +16,7 @@ namespace BombSwap.Core
         NotConnected = 1,
         BlockedByUnclearedRoom = 2,
         RunFinished = 3,
+        BlockedBySecretWall = 4,
     }
 
     public enum DungeonRoomClearStatus
@@ -34,6 +35,80 @@ namespace BombSwap.Core
         AtFullHealth = 3,
         PlayerDead = 4,
         RunFinished = 5,
+    }
+
+    public enum DungeonSecretExitRevealStatus
+    {
+        Revealed = 0,
+        AlreadyRevealed = 1,
+        NotConnected = 2,
+        NotSecretConnection = 3,
+        RunFinished = 4,
+    }
+
+    public enum DungeonSecretRewardCollectStatus
+    {
+        Collected = 0,
+        NotInSecretRoom = 1,
+        AlreadyCollected = 2,
+        RunFinished = 3,
+    }
+
+    public readonly struct DungeonSecretExitRevealResult
+    {
+        internal DungeonSecretExitRevealResult(
+            DungeonRoomNodeId fromRoomId,
+            DungeonRoomNodeId targetRoomId,
+            RoomExitDirection direction,
+            DungeonSecretExitRevealStatus status)
+        {
+            FromRoomId = fromRoomId;
+            TargetRoomId = targetRoomId;
+            Direction = direction;
+            Status = status;
+        }
+
+        public DungeonRoomNodeId FromRoomId { get; }
+
+        public DungeonRoomNodeId TargetRoomId { get; }
+
+        public RoomExitDirection Direction { get; }
+
+        public DungeonSecretExitRevealStatus Status { get; }
+
+        public bool WasRevealed => Status == DungeonSecretExitRevealStatus.Revealed;
+    }
+
+    public readonly struct DungeonSecretRewardCollectResult
+    {
+        internal DungeonSecretRewardCollectResult(
+            DungeonRoomNodeId roomId,
+            int requestedTokens,
+            int previousTokens,
+            int currentTokens,
+            DungeonSecretRewardCollectStatus status)
+        {
+            RoomId = roomId;
+            RequestedTokens = requestedTokens;
+            PreviousTokens = previousTokens;
+            CurrentTokens = currentTokens;
+            Status = status;
+        }
+
+        public DungeonRoomNodeId RoomId { get; }
+
+        public int RequestedTokens { get; }
+
+        public int PreviousTokens { get; }
+
+        public int CurrentTokens { get; }
+
+        public int AwardedTokens => CurrentTokens - PreviousTokens;
+
+        public DungeonSecretRewardCollectStatus Status { get; }
+
+        public bool WasCollected =>
+            Status == DungeonSecretRewardCollectStatus.Collected;
     }
 
     public readonly struct DungeonRecoveryUseResult
@@ -105,6 +180,8 @@ namespace BombSwap.Core
         private readonly bool[] _visited;
         private readonly bool[] _cleared;
         private readonly bool[] _consumedRecoveryRooms;
+        private readonly bool[] _revealedSecretConnections;
+        private readonly bool[] _collectedSecretRewards;
 
         private const int CombatRoomTokenReward = 1;
 
@@ -114,6 +191,8 @@ namespace BombSwap.Core
             _visited = new bool[graph.Rooms.Count];
             _cleared = new bool[graph.Rooms.Count];
             _consumedRecoveryRooms = new bool[graph.Rooms.Count];
+            _revealedSecretConnections = new bool[graph.Connections.Count];
+            _collectedSecretRewards = new bool[graph.Rooms.Count];
             CurrentRoomId = graph.StartRoomId;
             _visited[GetRoomIndex(CurrentRoomId)] = true;
         }
@@ -128,7 +207,9 @@ namespace BombSwap.Core
 
         public PlayerDamageResult? FailureDamage { get; private set; }
 
-        public int CombatRewardTokenCount { get; private set; }
+        public int RoomRewardTokenCount { get; private set; }
+
+        public int CombatRewardTokenCount => RoomRewardTokenCount;
 
         public bool IsTerminal => Outcome != DungeonRunOutcome.InProgress;
 
@@ -162,6 +243,33 @@ namespace BombSwap.Core
             return _consumedRecoveryRooms[roomId.Value - 1];
         }
 
+        public bool IsSecretConnectionRevealed(
+            DungeonRoomNodeId first,
+            DungeonRoomNodeId second)
+        {
+            int connectionIndex = GetConnectionIndex(first, second);
+            DungeonRoomConnection connection = Graph.Connections[connectionIndex];
+            if (connection.Kind != DungeonRoomConnectionKind.Secret)
+            {
+                throw new ArgumentException(
+                    $"Dungeon connection {connection} is not a secret connection.",
+                    nameof(second));
+            }
+            return _revealedSecretConnections[connectionIndex];
+        }
+
+        public bool IsSecretRewardCollected(DungeonRoomNodeId roomId)
+        {
+            DungeonRoomNode room = Graph.GetRoom(roomId);
+            if (room.RoomType != RoomType.Secret)
+            {
+                throw new ArgumentException(
+                    $"Dungeon room {roomId} is not a secret room.",
+                    nameof(roomId));
+            }
+            return _collectedSecretRewards[roomId.Value - 1];
+        }
+
         public IReadOnlyList<DungeonRoomNodeId> GetVisitedRooms()
         {
             return CreateRoomIdSnapshot(_visited);
@@ -190,7 +298,15 @@ namespace BombSwap.Core
                     neighborIndex < neighbors.Count;
                     neighborIndex++)
                 {
-                    visible[neighbors[neighborIndex].Value - 1] = true;
+                    DungeonRoomNodeId neighbor = neighbors[neighborIndex];
+                    if (Graph.TryGetConnection(
+                            visitedRoomId,
+                            neighbor,
+                            out DungeonRoomConnection connection) &&
+                        IsConnectionVisible(connection))
+                    {
+                        visible[neighbor.Value - 1] = true;
+                    }
                 }
             }
 
@@ -221,8 +337,9 @@ namespace BombSwap.Core
             {
                 DungeonRoomConnection connection =
                     Graph.Connections[connectionIndex];
-                if (_visited[connection.First.Value - 1] ||
-                    _visited[connection.Second.Value - 1])
+                if (IsConnectionVisible(connection) &&
+                    (_visited[connection.First.Value - 1] ||
+                        _visited[connection.Second.Value - 1]))
                 {
                     connections.Add(connection);
                 }
@@ -236,7 +353,15 @@ namespace BombSwap.Core
 
         public DungeonRoomExitState GetCurrentExitState(RoomExitDirection direction)
         {
-            if (!Graph.TryGetNeighbor(CurrentRoomId, direction, out DungeonRoomNodeId target))
+            return GetExitState(CurrentRoomId, direction);
+        }
+
+        public DungeonRoomExitState GetExitState(
+            DungeonRoomNodeId roomId,
+            RoomExitDirection direction)
+        {
+            Graph.GetRoom(roomId);
+            if (!Graph.TryGetNeighbor(roomId, direction, out DungeonRoomNodeId target))
             {
                 return new DungeonRoomExitState(
                     direction,
@@ -244,22 +369,101 @@ namespace BombSwap.Core
                     DungeonRoomExitStatus.Inactive);
             }
 
+            if (!Graph.TryGetConnection(
+                    roomId,
+                    target,
+                    out DungeonRoomConnection connection))
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon neighbor {roomId} to {target} has no connection snapshot.");
+            }
+
+            DungeonRoomExitStatus status;
+            if (IsTerminal)
+            {
+                status = DungeonRoomExitStatus.Locked;
+            }
+            else if (connection.Kind == DungeonRoomConnectionKind.Secret &&
+                !_revealedSecretConnections[GetConnectionIndex(roomId, target)])
+            {
+                status = DungeonRoomExitStatus.SecretWall;
+            }
+            else
+            {
+                status = IsRoomLocked(roomId)
+                    ? DungeonRoomExitStatus.Locked
+                    : DungeonRoomExitStatus.Open;
+            }
+
             return new DungeonRoomExitState(
                 direction,
                 target,
-                IsCurrentRoomLocked
-                    ? DungeonRoomExitStatus.Locked
-                    : DungeonRoomExitStatus.Open);
+                status);
         }
 
         public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()
         {
+            return GetExitStates(CurrentRoomId);
+        }
+
+        public IReadOnlyList<DungeonRoomExitState> GetExitStates(
+            DungeonRoomNodeId roomId)
+        {
+            Graph.GetRoom(roomId);
             var exits = new DungeonRoomExitState[ExitDirectionOrder.Length];
             for (int index = 0; index < ExitDirectionOrder.Length; index++)
             {
-                exits[index] = GetCurrentExitState(ExitDirectionOrder[index]);
+                exits[index] = GetExitState(roomId, ExitDirectionOrder[index]);
             }
             return Array.AsReadOnly(exits);
+        }
+
+        public DungeonSecretExitRevealResult TryRevealCurrentSecretExit(
+            RoomExitDirection direction)
+        {
+            DungeonRoomNodeId fromRoomId = CurrentRoomId;
+            if (!Graph.TryGetNeighbor(fromRoomId, direction, out DungeonRoomNodeId target))
+            {
+                return new DungeonSecretExitRevealResult(
+                    fromRoomId,
+                    default,
+                    direction,
+                    DungeonSecretExitRevealStatus.NotConnected);
+            }
+            if (IsTerminal)
+            {
+                return new DungeonSecretExitRevealResult(
+                    fromRoomId,
+                    target,
+                    direction,
+                    DungeonSecretExitRevealStatus.RunFinished);
+            }
+
+            int connectionIndex = GetConnectionIndex(fromRoomId, target);
+            DungeonRoomConnection connection = Graph.Connections[connectionIndex];
+            if (connection.Kind != DungeonRoomConnectionKind.Secret)
+            {
+                return new DungeonSecretExitRevealResult(
+                    fromRoomId,
+                    target,
+                    direction,
+                    DungeonSecretExitRevealStatus.NotSecretConnection);
+            }
+            if (_revealedSecretConnections[connectionIndex])
+            {
+                return new DungeonSecretExitRevealResult(
+                    fromRoomId,
+                    target,
+                    direction,
+                    DungeonSecretExitRevealStatus.AlreadyRevealed);
+            }
+
+            _revealedSecretConnections[connectionIndex] = true;
+            return new DungeonSecretExitRevealResult(
+                fromRoomId,
+                target,
+                direction,
+                DungeonSecretExitRevealStatus.Revealed);
         }
 
         public DungeonTravelResult TryTravelTo(DungeonRoomNodeId targetRoomId)
@@ -280,6 +484,17 @@ namespace BombSwap.Core
                     fromRoomId,
                     targetRoomId,
                     DungeonTravelStatus.NotConnected,
+                    false);
+            }
+            int connectionIndex = GetConnectionIndex(fromRoomId, targetRoomId);
+            if (Graph.Connections[connectionIndex].Kind ==
+                    DungeonRoomConnectionKind.Secret &&
+                !_revealedSecretConnections[connectionIndex])
+            {
+                return new DungeonTravelResult(
+                    fromRoomId,
+                    targetRoomId,
+                    DungeonTravelStatus.BlockedBySecretWall,
                     false);
             }
             if (IsCurrentRoomLocked)
@@ -339,13 +554,64 @@ namespace BombSwap.Core
             _cleared[index] = true;
             if (current.RoomType == RoomType.Combat)
             {
-                CombatRewardTokenCount += CombatRoomTokenReward;
+                RoomRewardTokenCount += CombatRoomTokenReward;
             }
             if (CurrentRoomId == Graph.BossRoomId)
             {
                 Outcome = DungeonRunOutcome.Completed;
             }
             return DungeonRoomClearStatus.Cleared;
+        }
+
+        public DungeonSecretRewardCollectResult TryCollectCurrentSecretReward(
+            int requestedTokens)
+        {
+            if (requestedTokens <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requestedTokens),
+                    requestedTokens,
+                    "Secret-room token reward must be positive.");
+            }
+
+            int previousTokens = RoomRewardTokenCount;
+            if (IsTerminal)
+            {
+                return CreateSecretRewardResult(
+                    requestedTokens,
+                    previousTokens,
+                    DungeonSecretRewardCollectStatus.RunFinished);
+            }
+
+            DungeonRoomNode current = Graph.GetRoom(CurrentRoomId);
+            if (current.RoomType != RoomType.Secret)
+            {
+                return CreateSecretRewardResult(
+                    requestedTokens,
+                    previousTokens,
+                    DungeonSecretRewardCollectStatus.NotInSecretRoom);
+            }
+
+            int roomIndex = GetRoomIndex(CurrentRoomId);
+            if (_collectedSecretRewards[roomIndex])
+            {
+                return CreateSecretRewardResult(
+                    requestedTokens,
+                    previousTokens,
+                    DungeonSecretRewardCollectStatus.AlreadyCollected);
+            }
+
+            checked
+            {
+                RoomRewardTokenCount += requestedTokens;
+            }
+            _collectedSecretRewards[roomIndex] = true;
+            return new DungeonSecretRewardCollectResult(
+                CurrentRoomId,
+                requestedTokens,
+                previousTokens,
+                RoomRewardTokenCount,
+                DungeonSecretRewardCollectStatus.Collected);
         }
 
         public DungeonRecoveryUseResult TryUseCurrentRecovery(
@@ -450,6 +716,7 @@ namespace BombSwap.Core
                 case RoomType.BombReward:
                 case RoomType.BossAntechamber:
                 case RoomType.Recovery:
+                case RoomType.Secret:
                     return false;
                 default:
                     throw new ArgumentOutOfRangeException(
@@ -472,6 +739,36 @@ namespace BombSwap.Core
             return false;
         }
 
+        private bool IsConnectionVisible(DungeonRoomConnection connection)
+        {
+            if (connection.Kind == DungeonRoomConnectionKind.Normal)
+            {
+                return true;
+            }
+            return _revealedSecretConnections[
+                GetConnectionIndex(connection.First, connection.Second)];
+        }
+
+        private int GetConnectionIndex(
+            DungeonRoomNodeId first,
+            DungeonRoomNodeId second)
+        {
+            Graph.GetRoom(first);
+            Graph.GetRoom(second);
+            for (int index = 0; index < Graph.Connections.Count; index++)
+            {
+                DungeonRoomConnection connection = Graph.Connections[index];
+                if (connection.Contains(first) && connection.Contains(second))
+                {
+                    return index;
+                }
+            }
+
+            throw new ArgumentException(
+                $"Dungeon rooms {first} and {second} are not connected.",
+                nameof(second));
+        }
+
         private DungeonRecoveryUseResult CreateRecoveryResult(
             int requestedHealth,
             int currentHealth,
@@ -482,6 +779,19 @@ namespace BombSwap.Core
                 requestedHealth,
                 currentHealth,
                 currentHealth,
+                status);
+        }
+
+        private DungeonSecretRewardCollectResult CreateSecretRewardResult(
+            int requestedTokens,
+            int currentTokens,
+            DungeonSecretRewardCollectStatus status)
+        {
+            return new DungeonSecretRewardCollectResult(
+                CurrentRoomId,
+                requestedTokens,
+                currentTokens,
+                currentTokens,
                 status);
         }
 

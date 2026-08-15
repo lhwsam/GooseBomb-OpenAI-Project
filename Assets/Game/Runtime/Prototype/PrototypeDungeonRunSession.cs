@@ -108,6 +108,8 @@ namespace BombSwap
 
         public int CombatRewardTokenCount => RunState.CombatRewardTokenCount;
 
+        public int RoomRewardTokenCount => RunState.RoomRewardTokenCount;
+
         public bool IsComplete => Outcome == DungeonRunOutcome.Completed;
 
         public bool IsFailed => Outcome == DungeonRunOutcome.Failed;
@@ -161,9 +163,27 @@ namespace BombSwap
                 requestedHealth);
         }
 
+        public DungeonSecretExitRevealResult TryRevealCurrentSecretExit(
+            RoomExitDirection direction)
+        {
+            return RunState.TryRevealCurrentSecretExit(direction);
+        }
+
+        public DungeonSecretRewardCollectResult TryCollectSecretReward(
+            int requestedTokens)
+        {
+            return RunState.TryCollectCurrentSecretReward(requestedTokens);
+        }
+
         public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()
         {
             return RunState.GetCurrentExitStates();
+        }
+
+        public IReadOnlyList<DungeonRoomExitState> GetExitStates(
+            DungeonRoomNodeId roomId)
+        {
+            return RunState.GetExitStates(roomId);
         }
 
         public bool TryGetCurrentSceneName(out string sceneName)

@@ -233,7 +233,7 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void CombatExitSnapshot_LocksEveryConnectionUntilRoomClear()
+        public void CombatExitSnapshot_LocksNormalConnectionsAndPreservesSecretWalls()
         {
             DungeonGraph graph = DungeonGenerator.Generate(91);
             var run = new DungeonRunState(graph);
@@ -244,7 +244,9 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(locked.Where(exit => exit.IsConnected), Is.Not.Empty);
             Assert.That(
-                locked.Where(exit => exit.IsConnected).Select(exit => exit.Status),
+                locked.Where(exit => exit.IsConnected &&
+                    exit.Status != DungeonRoomExitStatus.SecretWall)
+                    .Select(exit => exit.Status),
                 Is.All.EqualTo(DungeonRoomExitStatus.Locked));
             Assert.That(locked.Any(exit => exit.CanTravel), Is.False);
 
@@ -254,12 +256,168 @@ namespace BombSwap.Tests.EditMode
             IReadOnlyList<DungeonRoomExitState> opened = run.GetCurrentExitStates();
 
             Assert.That(
-                opened.Where(exit => exit.IsConnected).Select(exit => exit.Status),
+                opened.Where(exit => exit.IsConnected &&
+                    exit.Status != DungeonRoomExitStatus.SecretWall)
+                    .Select(exit => exit.Status),
                 Is.All.EqualTo(DungeonRoomExitStatus.Open));
+            Assert.That(
+                opened.Count(exit => exit.Status == DungeonRoomExitStatus.SecretWall),
+                Is.EqualTo(locked.Count(exit =>
+                    exit.Status == DungeonRoomExitStatus.SecretWall)));
             Assert.That(
                 opened.Where(exit => exit.IsConnected).Select(exit => exit.TargetRoomId),
                 Is.EqualTo(locked.Where(exit => exit.IsConnected)
                     .Select(exit => exit.TargetRoomId)));
+        }
+
+        [Test]
+        public void SecretExit_StaysOffMinimapAndBlocksTravelUntilRevealedIndividually()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(0);
+            Assert.That(graph.HasSecretRoom, Is.True);
+            var run = new DungeonRunState(graph);
+            DungeonRoomNodeId firstCombat = graph.GetNeighbors(graph.StartRoomId).Single();
+            Assert.That(graph.GetNeighbors(graph.SecretRoomId), Does.Contain(firstCombat));
+            RoomExitDirection secretDirection =
+                graph.GetExitDirection(firstCombat, graph.SecretRoomId);
+
+            Assert.That(run.CreateMinimapSnapshot().ContainsRoom(graph.SecretRoomId), Is.False);
+            Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+            DungeonMinimapSnapshot hidden = run.CreateMinimapSnapshot();
+            Assert.That(hidden.ContainsRoom(graph.SecretRoomId), Is.False);
+            Assert.That(
+                hidden.Connections.Any(connection =>
+                    connection.Contains(graph.SecretRoomId)),
+                Is.False);
+
+            DungeonRoomExitState secretWall = run.GetCurrentExitState(secretDirection);
+            Assert.That(secretWall.TargetRoomId, Is.EqualTo(graph.SecretRoomId));
+            Assert.That(secretWall.Status, Is.EqualTo(DungeonRoomExitStatus.SecretWall));
+            Assert.That(secretWall.CanTravel, Is.False);
+            Assert.That(
+                run.TryTravel(secretDirection).Status,
+                Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
+            Assert.That(run.CurrentRoomId, Is.EqualTo(firstCombat));
+
+            DungeonSecretExitRevealResult revealed =
+                run.TryRevealCurrentSecretExit(secretDirection);
+            Assert.That(revealed.Status, Is.EqualTo(DungeonSecretExitRevealStatus.Revealed));
+            Assert.That(revealed.WasRevealed, Is.True);
+            Assert.That(revealed.TargetRoomId, Is.EqualTo(graph.SecretRoomId));
+            Assert.That(
+                run.IsSecretConnectionRevealed(firstCombat, graph.SecretRoomId),
+                Is.True);
+            Assert.That(
+                run.TryRevealCurrentSecretExit(secretDirection).Status,
+                Is.EqualTo(DungeonSecretExitRevealStatus.AlreadyRevealed));
+
+            DungeonMinimapSnapshot disclosed = run.CreateMinimapSnapshot();
+            Assert.That(disclosed.ContainsRoom(graph.SecretRoomId), Is.True);
+            Assert.That(
+                disclosed.GetRoom(graph.SecretRoomId).State,
+                Is.EqualTo(DungeonMinimapRoomState.Discovered));
+            Assert.That(
+                disclosed.Connections.Count(connection =>
+                    connection.Contains(graph.SecretRoomId)),
+                Is.EqualTo(1));
+            Assert.That(
+                run.GetCurrentExitState(secretDirection).Status,
+                Is.EqualTo(DungeonRoomExitStatus.Locked),
+                "Revealing the wall must not bypass the current combat-room lock.");
+            Assert.That(
+                run.TryTravel(secretDirection).Status,
+                Is.EqualTo(DungeonTravelStatus.BlockedByUnclearedRoom));
+
+            Assert.That(
+                run.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            Assert.That(
+                run.GetCurrentExitState(secretDirection).Status,
+                Is.EqualTo(DungeonRoomExitStatus.Open));
+            Assert.That(run.TryTravel(secretDirection).Moved, Is.True);
+            Assert.That(run.CurrentRoomId, Is.EqualTo(graph.SecretRoomId));
+            Assert.That(run.IsCurrentRoomLocked, Is.False);
+
+            DungeonRoomNodeId[] otherNeighbors = graph.GetNeighbors(graph.SecretRoomId)
+                .Where(roomId => roomId != firstCombat)
+                .ToArray();
+            Assert.That(otherNeighbors, Is.Not.Empty);
+            foreach (DungeonRoomNodeId other in otherNeighbors)
+            {
+                RoomExitDirection direction =
+                    graph.GetExitDirection(graph.SecretRoomId, other);
+                Assert.That(
+                    run.GetCurrentExitState(direction).Status,
+                    Is.EqualTo(DungeonRoomExitStatus.SecretWall));
+                Assert.That(run.IsSecretConnectionRevealed(graph.SecretRoomId, other), Is.False);
+                Assert.That(run.CreateMinimapSnapshot().ContainsRoom(other), Is.False);
+            }
+
+            RoomExitDirection secondDirection =
+                graph.GetExitDirection(graph.SecretRoomId, otherNeighbors[0]);
+            Assert.That(
+                run.TryRevealCurrentSecretExit(secondDirection).Status,
+                Is.EqualTo(DungeonSecretExitRevealStatus.Revealed));
+            Assert.That(
+                run.CreateMinimapSnapshot().ContainsRoom(otherNeighbors[0]),
+                Is.True);
+        }
+
+        [Test]
+        public void SecretReward_AddsThreeRoomTokensOnceAndNewRunResetsState()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(0);
+            var run = new DungeonRunState(graph);
+            EnterSecretRoom(run, graph);
+            int tokensBeforeReward = run.RoomRewardTokenCount;
+
+            DungeonSecretRewardCollectResult collected =
+                run.TryCollectCurrentSecretReward(3);
+
+            Assert.That(collected.Status, Is.EqualTo(
+                DungeonSecretRewardCollectStatus.Collected));
+            Assert.That(collected.WasCollected, Is.True);
+            Assert.That(collected.RequestedTokens, Is.EqualTo(3));
+            Assert.That(collected.PreviousTokens, Is.EqualTo(tokensBeforeReward));
+            Assert.That(collected.AwardedTokens, Is.EqualTo(3));
+            Assert.That(collected.CurrentTokens, Is.EqualTo(tokensBeforeReward + 3));
+            Assert.That(run.RoomRewardTokenCount, Is.EqualTo(tokensBeforeReward + 3));
+            Assert.That(run.CombatRewardTokenCount, Is.EqualTo(run.RoomRewardTokenCount));
+            Assert.That(run.IsSecretRewardCollected(graph.SecretRoomId), Is.True);
+            Assert.That(
+                run.TryClearCurrentRoom(),
+                Is.EqualTo(DungeonRoomClearStatus.NotClearable));
+
+            DungeonSecretRewardCollectResult repeated =
+                run.TryCollectCurrentSecretReward(3);
+            Assert.That(repeated.Status, Is.EqualTo(
+                DungeonSecretRewardCollectStatus.AlreadyCollected));
+            Assert.That(repeated.AwardedTokens, Is.Zero);
+            Assert.That(run.RoomRewardTokenCount, Is.EqualTo(tokensBeforeReward + 3));
+
+            Assert.That(run.TryFail(CreateContactDamage(1, 1)), Is.True);
+            Assert.That(
+                run.TryCollectCurrentSecretReward(3).Status,
+                Is.EqualTo(DungeonSecretRewardCollectStatus.RunFinished));
+            RoomExitDirection hiddenDirection = graph.GetNeighbors(graph.SecretRoomId)
+                .Where(roomId => !run.IsSecretConnectionRevealed(
+                    graph.SecretRoomId,
+                    roomId))
+                .Select(roomId => graph.GetExitDirection(graph.SecretRoomId, roomId))
+                .First();
+            Assert.That(
+                run.TryRevealCurrentSecretExit(hiddenDirection).Status,
+                Is.EqualTo(DungeonSecretExitRevealStatus.RunFinished));
+
+            var restarted = new DungeonRunState(graph);
+            Assert.That(restarted.RoomRewardTokenCount, Is.Zero);
+            Assert.That(restarted.IsSecretRewardCollected(graph.SecretRoomId), Is.False);
+            foreach (DungeonRoomNodeId neighbor in graph.GetNeighbors(graph.SecretRoomId))
+            {
+                Assert.That(
+                    restarted.IsSecretConnectionRevealed(graph.SecretRoomId, neighbor),
+                    Is.False);
+            }
         }
 
         [Test]
@@ -283,15 +441,26 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void FullExploration_CanClearAndRevisitEveryRoomOnTree()
+        public void FullExploration_CanClearAndRevisitEveryRoomIncludingSecretLoop()
         {
             DungeonGraph graph = DungeonGenerator.Generate(144);
             var run = new DungeonRunState(graph);
 
             foreach (DungeonRoomNode room in graph.Rooms.Where(
-                room => room.Id != graph.BossRoomId))
+                room => room.Id != graph.BossRoomId &&
+                    room.RoomType != RoomType.Secret))
             {
                 TraversePath(run, graph.GetShortestPath(run.CurrentRoomId, room.Id));
+            }
+            if (graph.HasSecretRoom)
+            {
+                EnterSecretRoom(run, graph);
+                foreach (DungeonRoomNodeId neighbor in graph.GetNeighbors(graph.SecretRoomId))
+                {
+                    RoomExitDirection direction =
+                        graph.GetExitDirection(graph.SecretRoomId, neighbor);
+                    run.TryRevealCurrentSecretExit(direction);
+                }
             }
             TraversePath(run, graph.GetShortestPath(run.CurrentRoomId, graph.BossRoomId));
 
@@ -505,6 +674,23 @@ namespace BombSwap.Tests.EditMode
                     run.TryClearCurrentRoom(),
                     Is.EqualTo(DungeonRoomClearStatus.Cleared));
             }
+        }
+
+        private static void EnterSecretRoom(DungeonRunState run, DungeonGraph graph)
+        {
+            Assert.That(graph.HasSecretRoom, Is.True);
+            DungeonRoomNodeId entrance = graph.GetNeighbors(graph.SecretRoomId)[0];
+            TraversePath(run, graph.GetShortestPath(run.CurrentRoomId, entrance));
+            RoomExitDirection direction =
+                graph.GetExitDirection(entrance, graph.SecretRoomId);
+            DungeonSecretExitRevealResult reveal =
+                run.TryRevealCurrentSecretExit(direction);
+            Assert.That(
+                reveal.Status,
+                Is.EqualTo(DungeonSecretExitRevealStatus.Revealed).Or.EqualTo(
+                    DungeonSecretExitRevealStatus.AlreadyRevealed));
+            Assert.That(run.TryTravel(direction).Moved, Is.True);
+            Assert.That(run.CurrentRoomId, Is.EqualTo(graph.SecretRoomId));
         }
 
         private static void TraverseToBoss(DungeonRunState run, DungeonGraph graph)

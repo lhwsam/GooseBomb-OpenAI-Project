@@ -72,6 +72,7 @@ namespace BombSwap
             }
 
             roomBinder.RunHost.RoomCommitted += OnRoomCommitted;
+            roomBinder.SecretExitRevealed += OnSecretExitRevealed;
         }
 
         private void Start()
@@ -88,11 +89,23 @@ namespace BombSwap
             {
                 roomBinder.RunHost.RoomCommitted -= OnRoomCommitted;
             }
+            if (roomBinder != null)
+            {
+                roomBinder.SecretExitRevealed -= OnSecretExitRevealed;
+            }
         }
 
         private void OnRoomCommitted()
         {
             RefreshFromRun();
+        }
+
+        private void OnSecretExitRevealed(DungeonSecretExitRevealResult result)
+        {
+            if (result.WasRevealed)
+            {
+                RefreshFromRun();
+            }
         }
 
         public void RefreshFromRun()

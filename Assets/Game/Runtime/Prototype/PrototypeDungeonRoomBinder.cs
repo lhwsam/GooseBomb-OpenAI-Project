@@ -25,8 +25,15 @@ namespace BombSwap
         private RoomType _runtimeRoomType;
         private RoomRotation _roomRotation;
         private bool _transitionRequested;
+        private readonly Dictionary<GridPosition, RoomExitDirection>
+            _runtimeSecretWallDirections =
+                new Dictionary<GridPosition, RoomExitDirection>();
 
         public event Action<int> CombatRewardTokenCountChanged;
+
+        public event Action<int> RoomRewardTokenCountChanged;
+
+        public event Action<DungeonSecretExitRevealResult> SecretExitRevealed;
 
         public PrototypeDungeonRunHost RunHost => _runHost;
 
@@ -45,9 +52,16 @@ namespace BombSwap
         public int CombatRewardTokenCount =>
             _runHost != null ? _runHost.RunSession.CombatRewardTokenCount : 0;
 
+        public int RoomRewardTokenCount =>
+            _runHost != null ? _runHost.RunSession.RoomRewardTokenCount : 0;
+
         public bool IsCurrentRecoveryConsumed =>
             _runHost != null && _runtimeRoomType == RoomType.Recovery &&
             _runHost.RunSession.RunState.IsRecoveryConsumed(_runtimeRoomId);
+
+        public bool IsCurrentSecretRewardCollected =>
+            _runHost != null && _runtimeRoomType == RoomType.Secret &&
+            _runHost.RunSession.RunState.IsSecretRewardCollected(_runtimeRoomId);
 
         public DungeonBombRewardSelectionStatus TrySelectBombReward(
             BombDefinitionId candidateId)
@@ -122,6 +136,28 @@ namespace BombSwap
             return result;
         }
 
+        public DungeonSecretRewardCollectResult TryCollectSecretReward(
+            int requestedTokens)
+        {
+            if (_runHost == null || roomSession == null || !roomSession.IsReady)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon room is not ready to collect a secret-room reward.");
+            }
+
+            DungeonSecretRewardCollectResult result =
+                _runHost.RunSession.TryCollectSecretReward(requestedTokens);
+            if (!result.WasCollected)
+            {
+                return result;
+            }
+
+            ReportRoomRewardTokenCountChanged(result.CurrentTokens, false);
+            WebGlHarnessReporter.Report(
+                "secret-reward-collected-" + result.AwardedTokens);
+            return result;
+        }
+
         public void Configure(
             PrototypeGameSession authoredRoomSession,
             PrototypeDungeonDoorPresenter authoredDoorPresenter,
@@ -174,6 +210,7 @@ namespace BombSwap
             roomSession.PlayerDied += OnPlayerDied;
             roomSession.PlayerMoved += OnPlayerMoved;
             roomSession.ActiveBombSlotChanged += OnActiveBombSlotChanged;
+            roomSession.BombExploded += OnBombExploded;
         }
 
         private void Start()
@@ -210,6 +247,7 @@ namespace BombSwap
                 roomSession.PlayerDied -= OnPlayerDied;
                 roomSession.PlayerMoved -= OnPlayerMoved;
                 roomSession.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
+                roomSession.BombExploded -= OnBombExploded;
             }
         }
 
@@ -315,11 +353,35 @@ namespace BombSwap
                 rewardCatalog.SwapCooldownSeconds,
                 runLoadout.ActiveSlotIndex);
             roomSession.PrepareRuntimePlayerHealth(runHealth.CurrentHealth);
+            _runtimeSecretWallDirections.Clear();
+            var runtimeSecretWalls = new List<GridPosition>();
+            IReadOnlyList<DungeonRoomExitState> roomExitStates =
+                run.GetExitStates(roomId);
+            for (int index = 0; index < roomExitStates.Count; index++)
+            {
+                DungeonRoomExitState exit = roomExitStates[index];
+                if (exit.Status != DungeonRoomExitStatus.SecretWall)
+                {
+                    continue;
+                }
+
+                GridPosition wallCell = FindExitCell(
+                    _runtimeRoomDefinition.Exits,
+                    exit.Direction);
+                if (_runtimeSecretWallDirections.ContainsKey(wallCell))
+                {
+                    throw new InvalidOperationException(
+                        $"Runtime secret wall cell {wallCell} is duplicated.");
+                }
+                _runtimeSecretWallDirections.Add(wallCell, exit.Direction);
+                runtimeSecretWalls.Add(wallCell);
+            }
             roomSession.PrepareRuntimeRoom(
                 _runtimeRoomDefinition,
                 playerStart,
                 combatEnabledForVisit,
-                bossEnabledForVisit);
+                bossEnabledForVisit,
+                runtimeSecretWalls);
             WebGlHarnessReporter.ReportDungeonRoomReady(
                 roomId,
                 room.RoomType,
@@ -327,6 +389,8 @@ namespace BombSwap
                 run.RunState.IsCleared(roomId));
             WebGlHarnessReporter.Report(
                 "combat-reward-tokens-" + run.CombatRewardTokenCount);
+            WebGlHarnessReporter.Report(
+                "room-reward-tokens-" + run.RoomRewardTokenCount);
         }
 
         private void OnRoomCommitted()
@@ -361,10 +425,39 @@ namespace BombSwap
                 _runtimeRoomType == RoomType.Combat)
             {
                 int tokenCount = _runHost.RunSession.CombatRewardTokenCount;
-                CombatRewardTokenCountChanged?.Invoke(tokenCount);
-                WebGlHarnessReporter.Report("combat-reward-tokens-" + tokenCount);
+                ReportRoomRewardTokenCountChanged(tokenCount, true);
             }
             RefreshDoors();
+        }
+
+        private void OnBombExploded(BombExplosion explosion)
+        {
+            for (int index = 0; index < explosion.DestroyedWalls.Count; index++)
+            {
+                GridPosition destroyedWall = explosion.DestroyedWalls[index];
+                if (!_runtimeSecretWallDirections.TryGetValue(
+                        destroyedWall,
+                        out RoomExitDirection direction))
+                {
+                    continue;
+                }
+
+                DungeonSecretExitRevealResult result =
+                    _runHost.RunSession.TryRevealCurrentSecretExit(direction);
+                if (!result.WasRevealed)
+                {
+                    throw new InvalidOperationException(
+                        $"Destroyed secret wall {destroyedWall} did not reveal its " +
+                        $"dungeon connection: {result.Status}.");
+                }
+
+                _runtimeSecretWallDirections.Remove(destroyedWall);
+                RefreshDoors();
+                SecretExitRevealed?.Invoke(result);
+                WebGlHarnessReporter.Report(
+                    "secret-wall-revealed-room-" + result.FromRoomId.Value +
+                    "-direction-" + direction.ToString().ToLowerInvariant());
+            }
         }
 
         private void OnPlayerDied(PlayerDamageResult result)
@@ -415,6 +508,19 @@ namespace BombSwap
             doorPresenter.Apply(
                 _runHost.RunSession.GetCurrentExitStates(),
                 _roomRotation);
+        }
+
+        private void ReportRoomRewardTokenCountChanged(
+            int tokenCount,
+            bool combatReward)
+        {
+            RoomRewardTokenCountChanged?.Invoke(tokenCount);
+            CombatRewardTokenCountChanged?.Invoke(tokenCount);
+            WebGlHarnessReporter.Report("room-reward-tokens-" + tokenCount);
+            if (combatReward)
+            {
+                WebGlHarnessReporter.Report("combat-reward-tokens-" + tokenCount);
+            }
         }
 
         private static PrototypeDungeonRunHost FindPrimaryRunHost()

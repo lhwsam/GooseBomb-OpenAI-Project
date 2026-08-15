@@ -2,9 +2,23 @@ using System;
 
 namespace BombSwap.Core
 {
+    public enum DungeonRoomConnectionKind
+    {
+        Normal = 0,
+        Secret = 1,
+    }
+
     public readonly struct DungeonRoomConnection : IEquatable<DungeonRoomConnection>
     {
         internal DungeonRoomConnection(DungeonRoomNodeId left, DungeonRoomNodeId right)
+            : this(left, right, DungeonRoomConnectionKind.Normal)
+        {
+        }
+
+        internal DungeonRoomConnection(
+            DungeonRoomNodeId left,
+            DungeonRoomNodeId right,
+            DungeonRoomConnectionKind kind)
         {
             if (!left.IsValid)
             {
@@ -18,6 +32,7 @@ namespace BombSwap.Core
             {
                 throw new ArgumentException("A room cannot connect to itself.", nameof(right));
             }
+            ValidateKind(kind);
 
             if (left.CompareTo(right) < 0)
             {
@@ -29,11 +44,14 @@ namespace BombSwap.Core
                 First = right;
                 Second = left;
             }
+            Kind = kind;
         }
 
         public DungeonRoomNodeId First { get; }
 
         public DungeonRoomNodeId Second { get; }
+
+        public DungeonRoomConnectionKind Kind { get; }
 
         public bool Contains(DungeonRoomNodeId roomId)
         {
@@ -58,7 +76,9 @@ namespace BombSwap.Core
 
         public bool Equals(DungeonRoomConnection other)
         {
-            return First == other.First && Second == other.Second;
+            return First == other.First &&
+                Second == other.Second &&
+                Kind == other.Kind;
         }
 
         public override bool Equals(object obj)
@@ -70,13 +90,14 @@ namespace BombSwap.Core
         {
             unchecked
             {
-                return (First.GetHashCode() * 397) ^ Second.GetHashCode();
+                int hashCode = (First.GetHashCode() * 397) ^ Second.GetHashCode();
+                return (hashCode * 397) ^ (int)Kind;
             }
         }
 
         public override string ToString()
         {
-            return $"{First}<->{Second}";
+            return $"{First}<->{Second}:{Kind}";
         }
 
         public static bool operator ==(
@@ -91,6 +112,21 @@ namespace BombSwap.Core
             DungeonRoomConnection right)
         {
             return !left.Equals(right);
+        }
+
+        private static void ValidateKind(DungeonRoomConnectionKind kind)
+        {
+            switch (kind)
+            {
+                case DungeonRoomConnectionKind.Normal:
+                case DungeonRoomConnectionKind.Secret:
+                    return;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(kind),
+                        kind,
+                        "Unsupported dungeon room connection kind.");
+            }
         }
     }
 }

@@ -11,8 +11,8 @@
 ## 권장 프로토타입 범위
 
 - 전투방 프리팹 5~7개.
-- 시작방, 일반 전투방, 첫 폭탄 보상, 보스 전실, 선택형 회복방, 보스방.
-- 보물/비밀방은 시간이 남을 때 또는 프로토타입 이후.
+- 시작방, 일반 전투방, 첫 폭탄 보상, 보스 전실, 선택형 회복방, 금이 간 벽 비밀방, 보스방.
+- 보물방과 추가 비밀방 변형은 시간이 남을 때 또는 프로토타입 이후.
 
 ## 구현된 프로토타입 전투방 스키마
 
@@ -42,7 +42,7 @@
 | 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 좌우 기둥 `(-2,-1)·(2,-1)·(-2,1)·(2,1)`, 열린 중앙 실험선, 파괴 벽 없음: 갑옷 2회 피격과 상태별 속도 비교 | `TestSandboxArmor.unity` / `TestSandboxGates` |
 | 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`: 문을 열면 중앙 지름길과 적 진입로가 함께 열리고, 유지하면 `x=±3` 우회가 남음 | `TestSandboxGates.unity` / 없음 |
 
-다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`으로 표현한다.
+다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
 
 유도 경로는 사람과 플레이테스트 도구가 읽는 공간 의도다. 현재 추격 AI에 waypoint를 강제하지 않으며 실제 유도 재미는 관찰 플레이테스트로 판단한다.
 
@@ -54,6 +54,8 @@
 
 카탈로그의 entry는 null 방, 빈 씬 이름, 중복 room ID와 중복 씬 이름을 허용하지 않는다. 실제 씬 수명은 persistent run host·navigator·room binder가 소유하며, 카탈로그는 mutable 방문 상태를 갖지 않는 검증된 조회 경계다.
 
+special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret`, `Boss` 여섯 타입을 각기 다른 scene으로 해석한다. `DungeonSecret`은 안전방 shell을 재사용하고 적 actor나 클리어 조건을 만들지 않는다.
+
 ## 회복방 저작 계약
 
 - `DungeonRecovery.unity`는 기존 안전방 shell과 문·HUD·run binder를 재사용하며 적 actor와 클리어 조건을 만들지 않는다.
@@ -61,6 +63,14 @@
 - 회복량 `2`와 1회 사용은 GDD에 없는 `Proposed` 튜닝이다. 실제 소비 여부는 scene이 아니라 Core `DungeonRunState`의 Recovery 노드 상태가 소유한다.
 - 최대 체력에서는 `HEALTH FULL`로 남고 소비하지 않는다. 유효한 회복 뒤에는 `RECOVERY USED`, 미소비 상태에서는 `RECOVERY +2`를 표시해 색만으로 상태를 구분하지 않는다.
 - pickup renderer는 `RecoveryPickup.mat`의 URP Lit shared material을 사용한다. 런타임 material 인스턴스를 만들지 않으며 WebGL에서 shader fallback 색으로 보이지 않아야 한다.
+
+## 비밀방과 금 간 출구 저작 계약
+
+- 11개 던전·TestSandbox scene의 네 boundary 방향에는 기본 비활성 crack root가 하나씩 있으며, 각 root는 Collider 없는 막대 3개와 `SecretCrack.mat` URP Lit shared material로 명확한 균열을 표현한다.
+- `DungeonRoomExitStatus.SecretWall`일 때만 해당 crack root가 활성화된다. 문 색·GameObject 활성 여부는 표현이고 연결 공개 상태는 Core run state가 소유한다.
+- 미공개 Secret 출구의 실제 boundary 셀은 room asset을 수정하지 않고 `PrototypeDungeonRoomBinder`가 방 session 초기화 전에 runtime `DestructibleWall`로 전달한다. 폭발로 파괴된 뒤에는 같은 run의 해당 연결만 공개된다.
+- `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 Collider 접촉이 아니라 확정 `PlayerMovementStep`으로만 수집한다.
+- cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.
 
 ## 저작 불변식
 
@@ -77,6 +87,7 @@
 - 폭발을 끊는 벽/기둥과 향후 파괴 가능 벽은 시각적으로 구분되어야 한다.
 - 둘 이상의 폭탄 역할이 도입되면 서로 다른 위치 선택을 만들 공간이 있어야 한다.
 - 보상 후보 visual은 Collider나 Transform 접촉을 규칙으로 사용하지 않는다. 플레이어의 확정된 논리 셀 전이만 선택을 일으킨다.
+- crack visual과 cache primitive에는 Collider가 없으며 runtime Secret 출구의 충돌·파괴는 논리 격자만 판정한다.
 
 ## Editor 검증기
 
@@ -93,9 +104,10 @@
 - 논리 파괴 벽과 `Environment/DestructibleObstacles`의 황갈색 4분할 표현 셀·재질·Collider·presenter 참조 불일치.
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
 - 갑옷 적 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 상태별 표현 구성이 권위 방 데이터와 다른 상태.
-- 열 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
-- 열 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
+- 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
+- 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.
-- Build Settings의 첫 enabled 씬 열 개가 시작→폭탄 보상→보스 전실→회복→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
+- Secret special catalog entry·`DungeonSecret` scene·단일 cache presenter·`+3`·중앙 셀·URP material 또는 11개 scene의 네 방향 3-bar crack root가 계약과 다른 상태.
+- Build Settings의 첫 enabled 씬 11개가 시작→폭탄 보상→보스 전실→회복→비밀방→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
 
 자동 검증이 방의 재미를 보증하지는 않는다. 시각 확인과 플레이테스트를 함께 수행한다.

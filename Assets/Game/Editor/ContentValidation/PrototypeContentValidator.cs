@@ -30,6 +30,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/Dungeon/DungeonBossAnte.unity";
         public const string DungeonRecoveryScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonRecovery.unity";
+        public const string DungeonSecretScenePath =
+            "Assets/Game/Scenes/Dungeon/DungeonSecret.unity";
         public const string DungeonBossScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonBoss.unity";
         public const string PrototypeBombDefinitionPath =
@@ -88,6 +90,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
         public const string RecoveryPickupMaterialPath =
             "Assets/Game/Content/Materials/Prototype/RecoveryPickup.mat";
+        public const string SecretRewardMaterialPath =
+            "Assets/Game/Content/Materials/Prototype/SecretReward.mat";
+        public const string SecretCrackMaterialPath =
+            "Assets/Game/Content/Materials/Prototype/SecretCrack.mat";
         public const string PrototypeDungeonCombatRoomCatalogPath =
             "Assets/Game/Content/Rooms/PrototypeDungeonCombatRoomCatalog.asset";
         public const string PrototypeDungeonSpecialRoomCatalogPath =
@@ -108,6 +114,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeArmoredDefinition(errors);
             ValidatePrototypeBossDefinition(errors);
             ValidatePrototypeRecoveryMaterial(errors);
+            ValidatePrototypeSecretMaterials(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
             ValidatePrototypeDungeonCombatRoomCatalog(errors);
             ValidatePrototypeDungeonSpecialRoomCatalog(errors);
@@ -718,6 +725,7 @@ namespace BombSwap.Editor.ContentValidation
                 RoomType.BossAntechamber,
                 RoomType.Boss,
                 RoomType.Recovery,
+                RoomType.Secret,
             };
             string[] expectedSceneNames =
             {
@@ -726,11 +734,12 @@ namespace BombSwap.Editor.ContentValidation
                 "DungeonBossAnte",
                 "DungeonBoss",
                 "DungeonRecovery",
+                "DungeonSecret",
             };
             if (catalog.Entries.Count != expectedTypes.Length)
             {
                 errors.Add(
-                    "Prototype dungeon special-room catalog must contain five entries.");
+                    "Prototype dungeon special-room catalog must contain six entries.");
                 return;
             }
 
@@ -788,6 +797,41 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Prototype recovery pickup material has the wrong base color.");
+            }
+        }
+
+        private static void ValidatePrototypeSecretMaterials(
+            ICollection<string> errors)
+        {
+            ValidateUrpLitMaterial(
+                SecretRewardMaterialPath,
+                "secret reward",
+                errors);
+            ValidateUrpLitMaterial(
+                SecretCrackMaterialPath,
+                "secret crack",
+                errors);
+        }
+
+        private static void ValidateUrpLitMaterial(
+            string path,
+            string label,
+            ICollection<string> errors)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                errors.Add($"Missing prototype {label} material: {path}");
+                return;
+            }
+            if (material.shader == null ||
+                !string.Equals(
+                    material.shader.name,
+                    "Universal Render Pipeline/Lit",
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype {label} material must use Universal Render Pipeline/Lit.");
             }
         }
 
@@ -1014,6 +1058,12 @@ namespace BombSwap.Editor.ContentValidation
                 false,
                 errors);
             ValidateTestSandboxScene(
+                DungeonSecretScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                false,
+                false,
+                errors);
+            ValidateTestSandboxScene(
                 DungeonBossScenePath,
                 PrototypeCombatRoomDefinitionPath,
                 true,
@@ -1101,6 +1151,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeBombRewardPresenter>(scene);
                 PrototypeRecoveryPickupPresenter[] recoveryPresenters =
                     FindComponents<PrototypeRecoveryPickupPresenter>(scene);
+                PrototypeSecretRewardPresenter[] secretRewardPresenters =
+                    FindComponents<PrototypeSecretRewardPresenter>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
 
@@ -1224,6 +1276,17 @@ namespace BombSwap.Editor.ContentValidation
                         $"Dungeon room must contain {expectedRecoveryPresenterCount} " +
                         "PrototypeRecoveryPickupPresenter component(s); found " +
                         $"{recoveryPresenters.Length}.");
+                }
+                int expectedSecretRewardPresenterCount = string.Equals(
+                    scenePath,
+                    DungeonSecretScenePath,
+                    StringComparison.Ordinal) ? 1 : 0;
+                if (secretRewardPresenters.Length != expectedSecretRewardPresenterCount)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain {expectedSecretRewardPresenterCount} " +
+                        "PrototypeSecretRewardPresenter component(s); found " +
+                        $"{secretRewardPresenters.Length}.");
                 }
                 if (!cameras.Any(camera => camera.enabled && camera.CompareTag("MainCamera")))
                 {
@@ -1500,6 +1563,24 @@ namespace BombSwap.Editor.ContentValidation
                     }
                 }
 
+                if (secretRewardPresenters.Length == 1 && roomBinders.Length == 1)
+                {
+                    PrototypeSecretRewardPresenter presenter =
+                        secretRewardPresenters[0];
+                    Material expectedRewardMaterial =
+                        AssetDatabase.LoadAssetAtPath<Material>(
+                            SecretRewardMaterialPath);
+                    if (presenter.RoomBinder != roomBinders[0] ||
+                        presenter.TokenReward !=
+                            PrototypeSecretRewardPresenter.DefaultTokenReward ||
+                        presenter.PickupCell != Vector2Int.zero ||
+                        presenter.PickupMaterial != expectedRewardMaterial)
+                    {
+                        errors.Add(
+                            "Secret reward presenter has inconsistent binder, material, amount, or cell configuration.");
+                    }
+                }
+
                 if (completionPresenters.Length == 1 && roomBinders.Length == 1 &&
                     readers.Length == 1 &&
                     (completionPresenters[0].RoomBinder != roomBinders[0] ||
@@ -1556,6 +1637,13 @@ namespace BombSwap.Editor.ContentValidation
                 presenter.SouthDoor,
                 presenter.WestDoor,
             };
+            GameObject[] secretCrackRoots =
+            {
+                presenter.NorthSecretCracks,
+                presenter.EastSecretCracks,
+                presenter.SouthSecretCracks,
+                presenter.WestSecretCracks,
+            };
             string[] expectedNames =
             {
                 "NorthDoor",
@@ -1563,16 +1651,23 @@ namespace BombSwap.Editor.ContentValidation
                 "SouthDoor",
                 "WestDoor",
             };
+            string[] expectedCrackNames =
+            {
+                "NorthSecretCracks",
+                "EastSecretCracks",
+                "SouthSecretCracks",
+                "WestSecretCracks",
+            };
             if (new HashSet<Renderer>(doors).Count != doors.Length)
             {
                 errors.Add("Dungeon door presenter requires four distinct renderers.");
             }
 
             Transform boundary = context.GridRoot.Find("Environment/BoundaryWalls");
-            if (boundary == null || boundary.childCount != 12)
+            if (boundary == null || boundary.childCount != 16)
             {
                 errors.Add(
-                    "Dungeon boundary must contain eight split walls and four door panels.");
+                    "Dungeon boundary must contain eight split walls, four door panels, and four secret-crack roots.");
                 return;
             }
             for (int index = 0; index < doors.Length; index++)
@@ -1587,6 +1682,37 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"Dungeon {expectedNames[index]} must be a collider-free panel under BoundaryWalls.");
+                }
+            }
+
+            Material expectedCrackMaterial =
+                AssetDatabase.LoadAssetAtPath<Material>(SecretCrackMaterialPath);
+            if (new HashSet<GameObject>(secretCrackRoots).Count !=
+                secretCrackRoots.Length)
+            {
+                errors.Add(
+                    "Dungeon door presenter requires four distinct secret-crack roots.");
+            }
+            for (int index = 0; index < secretCrackRoots.Length; index++)
+            {
+                GameObject root = secretCrackRoots[index];
+                Renderer[] bars = root != null
+                    ? root.GetComponentsInChildren<Renderer>(true)
+                    : Array.Empty<Renderer>();
+                if (root == null || root.transform.parent != boundary ||
+                    !string.Equals(
+                        root.name,
+                        expectedCrackNames[index],
+                        StringComparison.Ordinal) ||
+                    root.activeSelf || root.transform.childCount != 3 ||
+                    bars.Length != 3 ||
+                    bars.Any(bar =>
+                        bar.sharedMaterial != expectedCrackMaterial ||
+                        bar.GetComponent<Collider>() != null))
+                {
+                    errors.Add(
+                        $"Dungeon {expectedCrackNames[index]} must be an inactive " +
+                        "three-bar collider-free visual using the secret-crack material.");
                 }
             }
 
@@ -1820,6 +1946,7 @@ namespace BombSwap.Editor.ContentValidation
                 DungeonRewardScenePath,
                 DungeonBossAnteScenePath,
                 DungeonRecoveryScenePath,
+                DungeonSecretScenePath,
                 DungeonBossScenePath,
                 TestSandboxScenePath,
                 TestSandboxLanesScenePath,

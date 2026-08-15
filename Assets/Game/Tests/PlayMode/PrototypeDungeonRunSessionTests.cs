@@ -5,6 +5,8 @@ using System.Linq;
 using BombSwap.Core;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -241,7 +243,9 @@ namespace BombSwap.Tests.PlayMode
                 locked.Where(exit => exit.IsConnected).Select(exit => exit.Direction),
                 Is.EqualTo(selection.Assignment.ActiveExitDirections));
             Assert.That(
-                locked.Where(exit => exit.IsConnected).Select(exit => exit.Status),
+                locked.Where(exit => exit.IsConnected &&
+                    exit.Status != DungeonRoomExitStatus.SecretWall)
+                    .Select(exit => exit.Status),
                 Is.All.EqualTo(DungeonRoomExitStatus.Locked));
 
             Assert.That(
@@ -249,7 +253,8 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(DungeonRoomClearStatus.Cleared));
             Assert.That(
                 session.GetCurrentExitStates()
-                    .Where(exit => exit.IsConnected)
+                    .Where(exit => exit.IsConnected &&
+                        exit.Status != DungeonRoomExitStatus.SecretWall)
                     .Select(exit => exit.Status),
                 Is.All.EqualTo(DungeonRoomExitStatus.Open));
         }
@@ -302,11 +307,31 @@ namespace BombSwap.Tests.PlayMode
             Renderer north = CreateDoorRenderer("NorthDoor");
             Renderer east = CreateDoorRenderer("EastDoor");
             Renderer south = CreateDoorRenderer("SouthDoor");
+            GameObject northCracks = CreateCrackRoot("NorthSecretCracks");
+            GameObject eastCracks = CreateCrackRoot("EastSecretCracks");
+            GameObject southCracks = CreateCrackRoot("SouthSecretCracks");
+            GameObject westCracks = CreateCrackRoot("WestSecretCracks");
 
             Assert.Throws<ArgumentNullException>(() =>
-                presenter.Configure(north, east, south, null));
+                presenter.Configure(
+                    north,
+                    east,
+                    south,
+                    null,
+                    northCracks,
+                    eastCracks,
+                    southCracks,
+                    westCracks));
             Assert.Throws<InvalidOperationException>(() =>
-                presenter.Configure(north, east, south, north));
+                presenter.Configure(
+                    north,
+                    east,
+                    south,
+                    north,
+                    northCracks,
+                    eastCracks,
+                    southCracks,
+                    westCracks));
         }
 
         [UnityTest]
@@ -968,6 +993,250 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator SecretRoom_ExplosionRevealsEntranceAndCachePaysOnceAcrossReentry()
+        {
+            Scene loadedDungeonScene = default;
+            Keyboard keyboard = null;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                Assert.That(run.Graph.HasSecretRoom, Is.True);
+                DungeonRoomNodeId secretRoom = run.Graph.SecretRoomId;
+                DungeonRoomNodeId[] secretNeighbors = run.Graph.GetNeighbors(secretRoom)
+                    .OrderBy(roomId => roomId.Value)
+                    .ToArray();
+                Assert.That(secretNeighbors, Has.Length.InRange(2, 3));
+                Assert.That(
+                    secretNeighbors.Select(run.Graph.GetRoom)
+                        .Select(room => room.RoomType),
+                    Is.All.EqualTo(RoomType.Combat));
+
+                DungeonRoomNodeId entranceCombat = secretNeighbors[0];
+                DungeonRoomNodeId hiddenAlternateCombat = secretNeighbors[1];
+                TraverseRunTo(run, entranceCombat);
+                if (run.RunState.IsCurrentRoomLocked)
+                {
+                    Assert.That(
+                        run.TryClearCurrentRoom(),
+                        Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                }
+                int tokensBeforeCache = run.RoomRewardTokenCount;
+                Assert.That(
+                    run.RunState.CreateMinimapSnapshot().ContainsRoom(secretRoom),
+                    Is.False);
+                Assert.That(
+                    run.TryGetSceneName(entranceCombat, out string combatSceneName),
+                    Is.True);
+
+                yield return SceneManager.LoadSceneAsync(
+                    combatSceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder entranceBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession entranceSession = entranceBinder.RoomSession;
+                PrototypeDungeonMinimapPresenter entranceMinimap =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonMinimapPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(entranceBinder.RuntimeRoomId, Is.EqualTo(entranceCombat));
+                Assert.That(entranceSession.EnemyActiveCount, Is.Zero);
+                Assert.That(entranceSession.RuntimeDestructibleWalls, Has.Count.EqualTo(1));
+                GridPosition secretWall = entranceSession.RuntimeDestructibleWalls[0];
+                Assert.That(
+                    entranceSession.GetCell(secretWall).Terrain,
+                    Is.EqualTo(GridTerrain.DestructibleWall));
+                Assert.That(entranceMinimap.DisplayedSnapshot.ContainsRoom(secretRoom), Is.False);
+                Assert.That(
+                    CountDisplayedDoorStatuses(
+                        entranceBinder.DoorPresenter,
+                        DungeonRoomExitStatus.SecretWall),
+                    Is.EqualTo(1));
+                Assert.That(
+                    CountVisibleSecretCracks(entranceBinder.DoorPresenter),
+                    Is.EqualTo(1));
+
+                GridPosition bombCell = FindWalkableNeighbor(entranceSession, secretWall);
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                yield return MoveSessionTo(entranceSession, keyboard, bombCell);
+                Assert.That(entranceSession.CurrentGridPosition, Is.EqualTo(bombCell));
+                bool explosionObserved = false;
+                BombExplosion observedExplosion = default;
+                entranceSession.BombExploded += explosion =>
+                {
+                    explosionObserved = true;
+                    observedExplosion = explosion;
+                };
+                Assert.That(entranceSession.TryPlaceBomb(), Is.True);
+
+                float revealDeadline = Time.realtimeSinceStartup + 5f;
+                while (!explosionObserved &&
+                       Time.realtimeSinceStartup < revealDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(
+                    explosionObserved,
+                    Is.True,
+                    $"Bomb did not explode; active={entranceSession.ActiveBombCount}.");
+                Assert.That(
+                    observedExplosion.AffectedCells,
+                    Does.Contain(secretWall),
+                    $"Bomb {observedExplosion.DefinitionId} at {observedExplosion.Origin} " +
+                    $"did not affect adjacent secret wall {secretWall}.");
+                Assert.That(
+                    observedExplosion.DestroyedWalls,
+                    Does.Contain(secretWall));
+
+                Assert.That(
+                    entranceSession.GetCell(secretWall).Terrain,
+                    Is.EqualTo(GridTerrain.Floor));
+                Assert.That(
+                    run.RunState.CreateMinimapSnapshot().ContainsRoom(secretRoom),
+                    Is.True);
+                Assert.That(
+                    entranceMinimap.DisplayedSnapshot.ContainsRoom(secretRoom),
+                    Is.True);
+                Assert.That(
+                    CountDisplayedDoorStatuses(
+                        entranceBinder.DoorPresenter,
+                        DungeonRoomExitStatus.SecretWall),
+                    Is.Zero);
+                Assert.That(
+                    CountVisibleSecretCracks(entranceBinder.DoorPresenter),
+                    Is.Zero);
+
+                PrototypeDungeonTransitionStartResult secretEntry = host.RequestTravel(
+                    run.Graph.GetExitDirection(entranceCombat, secretRoom));
+                Assert.That(secretEntry.Started, Is.True);
+                Assert.That(secretEntry.Transition.TargetSceneName, Is.EqualTo("DungeonSecret"));
+                yield return null;
+
+                PrototypeDungeonRoomBinder secretBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession secretSession = secretBinder.RoomSession;
+                PrototypeSecretRewardPresenter reward =
+                    UnityEngine.Object.FindObjectsByType<PrototypeSecretRewardPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud secretHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(secretBinder.RuntimeRoomType, Is.EqualTo(RoomType.Secret));
+                Assert.That(secretSession.EnemyActiveCount, Is.Zero);
+                Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
+                Assert.That(secretSession.RuntimeDestructibleWalls, Has.Count.EqualTo(1));
+                Assert.That(
+                    CountDisplayedDoorStatuses(
+                        secretBinder.DoorPresenter,
+                        DungeonRoomExitStatus.SecretWall),
+                    Is.EqualTo(1));
+                Assert.That(
+                    run.TryTravelTo(hiddenAlternateCombat).Status,
+                    Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
+                Assert.That(reward.IsInitialized, Is.True);
+                Assert.That(reward.IsCollected, Is.False);
+                Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
+
+                yield return MoveSessionTo(
+                    secretSession,
+                    keyboard,
+                    new GridPosition(0, 0));
+                yield return null;
+
+                Assert.That(reward.IsCollected, Is.True);
+                Assert.That(reward.IsVisualVisible, Is.False);
+                Assert.That(
+                    reward.LastStatus,
+                    Is.EqualTo(DungeonSecretRewardCollectStatus.Collected));
+                Assert.That(
+                    run.RoomRewardTokenCount,
+                    Is.EqualTo(tokensBeforeCache + PrototypeSecretRewardPresenter.DefaultTokenReward));
+                Assert.That(
+                    secretHud.DisplayedCombatRewardTokenCount,
+                    Is.EqualTo(run.RoomRewardTokenCount));
+
+                PrototypeDungeonTransitionStartResult secretExit = host.RequestTravel(
+                    run.Graph.GetExitDirection(secretRoom, entranceCombat));
+                Assert.That(secretExit.Started, Is.True);
+                Assert.That(
+                    secretExit.Transition.TargetSceneName,
+                    Is.EqualTo(combatSceneName));
+                yield return null;
+                PrototypeDungeonTransitionStartResult secretReentry = host.RequestTravel(
+                    run.Graph.GetExitDirection(entranceCombat, secretRoom));
+                Assert.That(secretReentry.Started, Is.True);
+                Assert.That(
+                    secretReentry.Transition.TargetSceneName,
+                    Is.EqualTo("DungeonSecret"));
+                yield return null;
+
+                PrototypeSecretRewardPresenter reentryReward =
+                    UnityEngine.Object.FindObjectsByType<PrototypeSecretRewardPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(reentryReward.IsCollected, Is.True);
+                Assert.That(reentryReward.IsVisualVisible, Is.False);
+                Assert.That(
+                    reentryReward.InstructionText,
+                    Is.EqualTo("SECRET CACHE COLLECTED"));
+                Assert.That(
+                    run.RoomRewardTokenCount,
+                    Is.EqualTo(tokensBeforeCache + PrototypeSecretRewardPresenter.DefaultTokenReward));
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                if (keyboard != null && keyboard.added)
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                    InputSystem.Update();
+                    InputSystem.RemoveDevice(keyboard);
+                }
+
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonSecretPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator RecoveryScene_SavesAtFullHealthRestoresOnceAndPersistsAcrossReentry()
         {
             Scene loadedDungeonScene = default;
@@ -1141,6 +1410,9 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 catalog.GetSceneName(RoomType.Recovery),
                 Is.EqualTo("DungeonRecovery"));
+            Assert.That(
+                catalog.GetSceneName(RoomType.Secret),
+                Is.EqualTo("DungeonSecret"));
             Assert.Throws<ArgumentNullException>(() => catalog.Configure(null));
             Assert.Throws<ArgumentException>(() =>
                 catalog.Configure(Array.Empty<PrototypeDungeonSpecialRoomEntry>()));
@@ -1156,6 +1428,7 @@ namespace BombSwap.Tests.PlayMode
                     new PrototypeDungeonSpecialRoomEntry(
                         RoomType.Recovery,
                         "Recovery"),
+                    new PrototypeDungeonSpecialRoomEntry(RoomType.Secret, "Secret"),
                 }));
             Assert.Throws<ArgumentException>(() =>
                 catalog.Configure(new[]
@@ -1169,6 +1442,7 @@ namespace BombSwap.Tests.PlayMode
                     new PrototypeDungeonSpecialRoomEntry(
                         RoomType.Recovery,
                         "Recovery"),
+                    new PrototypeDungeonSpecialRoomEntry(RoomType.Secret, "Secret"),
                 }));
             Assert.Throws<ArgumentException>(() =>
                 catalog.Configure(new[]
@@ -1182,6 +1456,7 @@ namespace BombSwap.Tests.PlayMode
                     new PrototypeDungeonSpecialRoomEntry(
                         RoomType.Recovery,
                         "Recovery"),
+                    new PrototypeDungeonSpecialRoomEntry(RoomType.Secret, "Secret"),
                 }));
         }
 
@@ -1774,6 +2049,9 @@ namespace BombSwap.Tests.PlayMode
                 new PrototypeDungeonSpecialRoomEntry(
                     RoomType.Recovery,
                     "DungeonRecovery"),
+                new PrototypeDungeonSpecialRoomEntry(
+                    RoomType.Secret,
+                    "DungeonSecret"),
             };
         }
 
@@ -1793,7 +2071,11 @@ namespace BombSwap.Tests.PlayMode
                 CreateDoorRenderer("NorthDoor"),
                 CreateDoorRenderer("EastDoor"),
                 CreateDoorRenderer("SouthDoor"),
-                CreateDoorRenderer("WestDoor"));
+                CreateDoorRenderer("WestDoor"),
+                CreateCrackRoot("NorthSecretCracks"),
+                CreateCrackRoot("EastSecretCracks"),
+                CreateCrackRoot("SouthSecretCracks"),
+                CreateCrackRoot("WestSecretCracks"));
             return presenter;
         }
 
@@ -1801,6 +2083,203 @@ namespace BombSwap.Tests.PlayMode
         {
             GameObject door = CreateGameObject(name);
             return door.AddComponent<MeshRenderer>();
+        }
+
+        private GameObject CreateCrackRoot(string name)
+        {
+            GameObject root = CreateGameObject(name);
+            root.SetActive(false);
+            return root;
+        }
+
+        private static int CountDisplayedDoorStatuses(
+            PrototypeDungeonDoorPresenter presenter,
+            DungeonRoomExitStatus status)
+        {
+            RoomExitDirection[] directions =
+            {
+                RoomExitDirection.North,
+                RoomExitDirection.East,
+                RoomExitDirection.South,
+                RoomExitDirection.West,
+            };
+            return directions.Count(direction =>
+                presenter.GetDisplayedStatus(direction) == status);
+        }
+
+        private static int CountVisibleSecretCracks(
+            PrototypeDungeonDoorPresenter presenter)
+        {
+            RoomExitDirection[] directions =
+            {
+                RoomExitDirection.North,
+                RoomExitDirection.East,
+                RoomExitDirection.South,
+                RoomExitDirection.West,
+            };
+            return directions.Count(presenter.IsSecretCrackVisible);
+        }
+
+        private static GridPosition FindWalkableNeighbor(
+            PrototypeGameSession session,
+            GridPosition wall)
+        {
+            CardinalDirection[] directions =
+            {
+                CardinalDirection.North,
+                CardinalDirection.East,
+                CardinalDirection.South,
+                CardinalDirection.West,
+            };
+            for (int index = 0; index < directions.Length; index++)
+            {
+                GridPosition candidate = Offset(wall, directions[index]);
+                if (session.GetCell(candidate).IsWalkableTerrain)
+                {
+                    return candidate;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Runtime secret wall {wall} has no walkable interior neighbor.");
+        }
+
+        private static IEnumerator MoveSessionTo(
+            PrototypeGameSession session,
+            Keyboard keyboard,
+            GridPosition destination)
+        {
+            IReadOnlyList<CardinalDirection> path = FindWalkablePath(
+                session,
+                session.CurrentGridPosition,
+                destination);
+            for (int index = 0; index < path.Count; index++)
+            {
+                CardinalDirection direction = path[index];
+                GridPosition expected = Offset(
+                    session.CurrentGridPosition,
+                    direction);
+                InputSystem.QueueStateEvent(
+                    keyboard,
+                    new KeyboardState(ToKey(direction)));
+                InputSystem.Update();
+
+                float deadline = Time.realtimeSinceStartup + 1.5f;
+                while (session.CurrentGridPosition != expected &&
+                       Time.realtimeSinceStartup < deadline)
+                {
+                    yield return null;
+                }
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                InputSystem.Update();
+                Assert.That(
+                    session.CurrentGridPosition,
+                    Is.EqualTo(expected),
+                    $"Timed out moving {direction} toward {destination}.");
+                yield return null;
+            }
+        }
+
+        private static IReadOnlyList<CardinalDirection> FindWalkablePath(
+            PrototypeGameSession session,
+            GridPosition start,
+            GridPosition destination)
+        {
+            if (start == destination)
+            {
+                return Array.Empty<CardinalDirection>();
+            }
+
+            CardinalDirection[] directions =
+            {
+                CardinalDirection.North,
+                CardinalDirection.East,
+                CardinalDirection.South,
+                CardinalDirection.West,
+            };
+            var frontier = new Queue<GridPosition>();
+            var previous = new Dictionary<GridPosition, GridPosition>();
+            var arrivalDirection =
+                new Dictionary<GridPosition, CardinalDirection>();
+            frontier.Enqueue(start);
+            previous.Add(start, start);
+
+            while (frontier.Count > 0)
+            {
+                GridPosition current = frontier.Dequeue();
+                for (int index = 0; index < directions.Length; index++)
+                {
+                    CardinalDirection direction = directions[index];
+                    GridPosition next = Offset(current, direction);
+                    if (previous.ContainsKey(next) ||
+                        !session.GetCell(next).IsWalkableTerrain)
+                    {
+                        continue;
+                    }
+
+                    previous.Add(next, current);
+                    arrivalDirection.Add(next, direction);
+                    if (next == destination)
+                    {
+                        var reversed = new List<CardinalDirection>();
+                        GridPosition step = destination;
+                        while (step != start)
+                        {
+                            reversed.Add(arrivalDirection[step]);
+                            step = previous[step];
+                        }
+                        reversed.Reverse();
+                        return reversed;
+                    }
+                    frontier.Enqueue(next);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"No walkable path from {start} to {destination}.");
+        }
+
+        private static GridPosition Offset(
+            GridPosition position,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return new GridPosition(position.X, position.Z + 1);
+                case CardinalDirection.East:
+                    return new GridPosition(position.X + 1, position.Z);
+                case CardinalDirection.South:
+                    return new GridPosition(position.X, position.Z - 1);
+                case CardinalDirection.West:
+                    return new GridPosition(position.X - 1, position.Z);
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        null);
+            }
+        }
+
+        private static Key ToKey(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return Key.W;
+                case CardinalDirection.East:
+                    return Key.D;
+                case CardinalDirection.South:
+                    return Key.S;
+                case CardinalDirection.West:
+                    return Key.A;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        null);
+            }
         }
 
         private static void AssertDisplayedStatusesMatchGraph(
@@ -1831,7 +2310,19 @@ namespace BombSwap.Tests.PlayMode
                 if (graphState.IsConnected)
                 {
                     connectedCount++;
-                    Assert.That(graphState.Status, Is.EqualTo(expectedConnectedStatus));
+                    if (graphState.Status == DungeonRoomExitStatus.SecretWall)
+                    {
+                        Assert.That(
+                            presenter.IsSecretCrackVisible(localDirections[index]),
+                            Is.True);
+                    }
+                    else
+                    {
+                        Assert.That(graphState.Status, Is.EqualTo(expectedConnectedStatus));
+                        Assert.That(
+                            presenter.IsSecretCrackVisible(localDirections[index]),
+                            Is.False);
+                    }
                 }
             }
             Assert.That(connectedCount, Is.GreaterThan(0));
@@ -1851,6 +2342,8 @@ namespace BombSwap.Tests.PlayMode
                     return "DungeonBoss";
                 case RoomType.Recovery:
                     return "DungeonRecovery";
+                case RoomType.Secret:
+                    return "DungeonSecret";
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(roomType),
