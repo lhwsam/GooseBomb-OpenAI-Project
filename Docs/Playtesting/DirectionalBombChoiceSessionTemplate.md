@@ -22,6 +22,20 @@
 - [ ] 시작과 종료 시 Console/page 오류 없음
 - [ ] 오류가 있었다면 발생 시점과 관찰 영향 기록
 
+## 이동 응답성 재확인 — 첫 시도 시작방에서만
+
+| 항목 | 정확한 입력·방 위치 | 관찰된 화면 motion | 참가자 발언 | 판정 |
+|---|---|---|---|---|
+| 위/오른쪽 약 0.3초 유지 후 해제 정지 | | | | Supported / Mixed / Not supported |
+| `상→우→상→우→상→우` 짧은 반복 | | | | |
+| 벽 접근 중 직교 방향으로 모서리 전환 2회 | | | | |
+
+- canvas focus와 키 겹침 여부:
+- 벽 충돌·frame drop·다른 교란 요인:
+- 이전 PT-20260814-01의 추가 이동·입력 누락 체감이 반복됐는가:
+- 방향 응답성 종합 판정: `Supported / Mixed / Not supported`
+- 재현됐다면 가장 짧은 정확한 입력 순서와 위치:
+
 ## 시도 1 — 자유 선택
 
 - 선택 후보: `prototype-area` / `prototype-line`
@@ -77,6 +91,7 @@
 
 | 질문 | 지지 증거 | 반대 증거 | 판정 |
 |---|---|---|---|
+| 키 해제·빠른 상/우 반복·벽 모서리 전환이 현재 의도를 즉시 반영하는가 | | | Supported / Mixed / Not supported |
 | 방 구조에 따라 폭탄 또는 설치 위치가 달라지는가 | | | Keep candidate / Change candidate / Drop candidate / Insufficient evidence |
 | 직선 방향을 설치 전에 읽는가 | | | |
 | 설치 뒤 이동과 폭발 방향 고정을 이해하는가 | | | |
