@@ -475,10 +475,20 @@ async function main() {
     await waitForEvent(page, "player-health-current-5", {
       timeout: 120_000,
     });
+    await waitForEvent(page, "minimap-current-room-1", { timeout: 120_000 });
+    await waitForEvent(page, "minimap-visible-rooms-2", { timeout: 120_000 });
+    await waitForEvent(page, "minimap-visible-connections-1", {
+      timeout: 120_000,
+    });
     checks.push({
       name: "dungeon-start-ready",
       status: "passed",
       detail: "The safe Start placeholder initialized with the reusable loop shell.",
+    });
+    checks.push({
+      name: "minimap-initial-knowledge",
+      status: "passed",
+      detail: "The start-room minimap exposed only the current room, its discovered neighbor, and their confirmed connection.",
     });
 
     const focusRecovery = await verifyFocusLossClearsHeldInput(page);
@@ -946,6 +956,11 @@ async function main() {
       "ArrowUp",
       "dungeon-room-ready-8-recovery-safe",
     );
+    await waitForEvent(page, "minimap-current-room-8", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-rooms-8", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-connections-7", {
+      timeout: 5_000,
+    });
     fs.mkdirSync(path.dirname(recoveryRoomScreenshotPath), { recursive: true });
     await page.screenshot({ path: recoveryRoomScreenshotPath });
 
@@ -1010,6 +1025,11 @@ async function main() {
       "ArrowRight",
       "dungeon-room-ready-6-boss-antechamber-safe",
     );
+    await waitForEvent(page, "minimap-current-room-6", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-rooms-9", { timeout: 5_000 });
+    await waitForEvent(page, "minimap-visible-connections-8", {
+      timeout: 5_000,
+    });
     checks.push({
       name: "boss-antechamber-reached",
       status: "passed",
@@ -1088,6 +1108,18 @@ async function main() {
       page,
       "dungeon-room-ready-1-start-safe",
     );
+    const startMinimapCurrentBeforeCompletedRestart = await eventCount(
+      page,
+      "minimap-current-room-1",
+    );
+    const startMinimapRoomsBeforeCompletedRestart = await eventCount(
+      page,
+      "minimap-visible-rooms-2",
+    );
+    const startMinimapConnectionsBeforeCompletedRestart = await eventCount(
+      page,
+      "minimap-visible-connections-1",
+    );
     const zeroTokenEventsBeforeCompletedRestart = await eventCount(
       page,
       "combat-reward-tokens-0",
@@ -1109,6 +1141,18 @@ async function main() {
     });
     await waitForEvent(page, "player-health-current-5", {
       count: fullHealthEventsBeforeCompletedRestart + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "minimap-current-room-1", {
+      count: startMinimapCurrentBeforeCompletedRestart + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "minimap-visible-rooms-2", {
+      count: startMinimapRoomsBeforeCompletedRestart + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "minimap-visible-connections-1", {
+      count: startMinimapConnectionsBeforeCompletedRestart + 1,
       timeout: 5_000,
     });
     checks.push({
@@ -1155,6 +1199,18 @@ async function main() {
       page,
       "dungeon-room-ready-1-start-safe",
     );
+    const startMinimapCurrentBeforeFailureRestart = await eventCount(
+      page,
+      "minimap-current-room-1",
+    );
+    const startMinimapRoomsBeforeFailureRestart = await eventCount(
+      page,
+      "minimap-visible-rooms-2",
+    );
+    const startMinimapConnectionsBeforeFailureRestart = await eventCount(
+      page,
+      "minimap-visible-connections-1",
+    );
     const zeroTokenEventsBeforeFailureRestart = await eventCount(
       page,
       "combat-reward-tokens-0",
@@ -1174,6 +1230,18 @@ async function main() {
     });
     await waitForEvent(page, "combat-reward-tokens-0", {
       count: zeroTokenEventsBeforeFailureRestart + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "minimap-current-room-1", {
+      count: startMinimapCurrentBeforeFailureRestart + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "minimap-visible-rooms-2", {
+      count: startMinimapRoomsBeforeFailureRestart + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "minimap-visible-connections-1", {
+      count: startMinimapConnectionsBeforeFailureRestart + 1,
       timeout: 5_000,
     });
     checks.push({
@@ -1213,9 +1281,15 @@ async function main() {
       "dungeon-room-ready-5-combat-cleared",
       "room-ready-prototype-combat-gates",
       "dungeon-room-ready-8-recovery-safe",
+      "minimap-current-room-8",
+      "minimap-visible-rooms-8",
+      "minimap-visible-connections-7",
       `player-health-recovered-${expectedRestoredHealth}`,
       "recovery-consumed-room-8",
       "dungeon-room-ready-6-boss-antechamber-safe",
+      "minimap-current-room-6",
+      "minimap-visible-rooms-9",
+      "minimap-visible-connections-8",
       "dungeon-room-ready-7-boss-active",
       "boss-pattern-telegraph",
       "boss-pattern-execute",

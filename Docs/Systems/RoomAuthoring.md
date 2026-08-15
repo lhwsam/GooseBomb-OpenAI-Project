@@ -94,6 +94,7 @@
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
 - 갑옷 적 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 상태별 표현 구성이 권위 방 데이터와 다른 상태.
 - 열 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
+- 열 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.
 - Build Settings의 첫 enabled 씬 열 개가 시작→폭탄 보상→보스 전실→회복→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
 

@@ -247,7 +247,17 @@ async function main() {
     await canvas.click({ position: { x: 20, y: 20 } });
     await waitForEvent(page, "probe-ready", { timeout: 120_000 });
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", { timeout: 120_000 });
+    await waitForEvent(page, "minimap-current-room-1", { timeout: 120_000 });
+    await waitForEvent(page, "minimap-visible-rooms-2", { timeout: 120_000 });
+    await waitForEvent(page, "minimap-visible-connections-1", {
+      timeout: 120_000,
+    });
     checks.push({ name: "load-and-focus", status: "passed" });
+    checks.push({
+      name: "minimap-initial-knowledge",
+      status: "passed",
+      detail: "The gamepad path loaded the same limited start-room minimap snapshot.",
+    });
 
     await page.evaluate(() => globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__.connect());
     await page.waitForTimeout(250);

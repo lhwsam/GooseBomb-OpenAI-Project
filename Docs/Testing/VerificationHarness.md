@@ -95,6 +95,8 @@ PlayMode 표식:
 
 Recovery 회귀는 5번 전투방 클리어 시점의 손상됐지만 살아 있는 체력을 읽어 회복방 입장 직후에도 동일한지 확인한다. 중앙 pickup 진입 뒤 기대값 `min(최대 체력, 진입 체력 + 2)`와 실제 회복량 marker를 요구하고, pickup 소비 뒤 추가 회복이 없는지 확인한다. 현재 seed-0 WebGL 경로의 관찰값은 `1→3`이며 튜닝 변경 시 하네스는 고정 시작 체력이 아니라 계산된 기대값을 사용한다. 최대 체력 미소비와 재입장 단일 소비는 실제 scene PlayMode 테스트가 소유한다.
 
+제한 정보 미니맵 회귀는 `minimap-current-room-<id>`, `minimap-visible-rooms-<count>`, `minimap-visible-connections-<count>`를 실제 Core snapshot 재구성 뒤 기록한다. 기본 smoke는 시작 `1/2/1`, Recovery `8/8/7`, 보스 전실 `6/9/8`을 요구하고 완료·실패 뒤 두 번의 페이지 reload 없는 재시작마다 다시 `1/2/1`이 증가했는지 확인한다. 이 marker는 공개 개수와 현재 방을 증명하며 글자·연결선·토큰 HUD 비중첩은 Recovery·보스 예고·pause 캡처로 확인한다. 미방문 방 종류와 frontier 너머 연결 비공개는 EditMode snapshot 테스트가 소유한다.
+
 주 경로 보상 회귀는 세 일반 전투방의 확정 클리어 뒤 `combat-reward-tokens-1 → 2 → 3`을 순서대로 기다린다. 보스 격파는 값을 늘리지 않으며 완료·실패 뒤 각 `R` 재시작은 새 시작방의 추가 `combat-reward-tokens-0` marker로 새 Core run 상태를 증명한다.
 
 `Tools/ArmoredWebGLSmoke.mjs`는 `TestSandboxArmor`를 첫 enabled 씬으로 재정렬한 별도 development 빌드에서 갑옷 가설만 검증한다. canvas focus와 `room-ready-prototype-combat-armor` 뒤 실제 두 폭탄을 설치하고, 첫 폭발의 `armored-broken`과 그 전후 `armored-moved`, 두 번째 폭발의 `armored-died`, 일반 `enemy-died`, `room-cleared` 순서를 확인한다. 전용 screenshot, browser Console/page error 0과 함께 구조화된 JSON 결과를 남긴다.

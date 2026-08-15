@@ -1633,6 +1633,15 @@ namespace BombSwap.Editor.ContentValidation
             }
             binder.Configure(gameSession, doorPresenter, context.GridRoot);
 
+            PrototypeDungeonMinimapPresenter minimapPresenter =
+                systems.GetComponent<PrototypeDungeonMinimapPresenter>();
+            if (minimapPresenter == null)
+            {
+                minimapPresenter =
+                    systems.AddComponent<PrototypeDungeonMinimapPresenter>();
+            }
+            minimapPresenter.Configure(binder);
+
             BombSwapInputReader inputReader =
                 systems.GetComponent<BombSwapInputReader>();
             if (inputReader == null)
@@ -1686,6 +1695,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(context.GridRoot);
             EditorUtility.SetDirty(doorPresenter);
             EditorUtility.SetDirty(binder);
+            EditorUtility.SetDirty(minimapPresenter);
             EditorUtility.SetDirty(completionPresenter);
             EditorUtility.SetDirty(host);
         }

@@ -1090,6 +1090,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeDungeonRunHost>(scene);
                 PrototypeDungeonRoomBinder[] roomBinders =
                     FindComponents<PrototypeDungeonRoomBinder>(scene);
+                PrototypeDungeonMinimapPresenter[] minimapPresenters =
+                    FindComponents<PrototypeDungeonMinimapPresenter>(scene);
                 PrototypeDungeonDoorPresenter[] doorPresenters =
                     FindComponents<PrototypeDungeonDoorPresenter>(scene);
                 PrototypeRunCompletionPresenter[] completionPresenters =
@@ -1164,6 +1166,11 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeHealthHud; found {healthHuds.Length}.");
+                }
+                if (minimapPresenters.Length != 1)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain exactly one PrototypeDungeonMinimapPresenter; found {minimapPresenters.Length}.");
                 }
                 if (probes.Length != 1)
                 {
@@ -1406,6 +1413,13 @@ namespace BombSwap.Editor.ContentValidation
                     healthHuds[0].Session != sessions[0])
                 {
                     errors.Add("TestSandbox health HUD has an inconsistent session reference.");
+                }
+
+                if (minimapPresenters.Length == 1 && roomBinders.Length == 1 &&
+                    minimapPresenters[0].RoomBinder != roomBinders[0])
+                {
+                    errors.Add(
+                        "Dungeon minimap presenter has an inconsistent room binder reference.");
                 }
 
                 if (probes.Length == 1 && readers.Length == 1 && sessions.Length == 1 &&

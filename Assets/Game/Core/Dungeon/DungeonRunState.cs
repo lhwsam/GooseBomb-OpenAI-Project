@@ -172,6 +172,68 @@ namespace BombSwap.Core
             return CreateRoomIdSnapshot(_cleared);
         }
 
+        public DungeonMinimapSnapshot CreateMinimapSnapshot()
+        {
+            var visible = new bool[Graph.Rooms.Count];
+            for (int roomIndex = 0; roomIndex < Graph.Rooms.Count; roomIndex++)
+            {
+                if (!_visited[roomIndex])
+                {
+                    continue;
+                }
+
+                DungeonRoomNodeId visitedRoomId = Graph.Rooms[roomIndex].Id;
+                visible[roomIndex] = true;
+                IReadOnlyList<DungeonRoomNodeId> neighbors =
+                    Graph.GetNeighbors(visitedRoomId);
+                for (int neighborIndex = 0;
+                    neighborIndex < neighbors.Count;
+                    neighborIndex++)
+                {
+                    visible[neighbors[neighborIndex].Value - 1] = true;
+                }
+            }
+
+            var rooms = new List<DungeonMinimapRoomSnapshot>();
+            for (int roomIndex = 0; roomIndex < Graph.Rooms.Count; roomIndex++)
+            {
+                if (!visible[roomIndex])
+                {
+                    continue;
+                }
+
+                DungeonRoomNode room = Graph.Rooms[roomIndex];
+                DungeonMinimapRoomState state = room.Id == CurrentRoomId
+                    ? DungeonMinimapRoomState.Current
+                    : _visited[roomIndex]
+                        ? DungeonMinimapRoomState.Visited
+                        : DungeonMinimapRoomState.Discovered;
+                rooms.Add(new DungeonMinimapRoomSnapshot(
+                    room.Id,
+                    room.Position,
+                    state));
+            }
+
+            var connections = new List<DungeonRoomConnection>();
+            for (int connectionIndex = 0;
+                connectionIndex < Graph.Connections.Count;
+                connectionIndex++)
+            {
+                DungeonRoomConnection connection =
+                    Graph.Connections[connectionIndex];
+                if (_visited[connection.First.Value - 1] ||
+                    _visited[connection.Second.Value - 1])
+                {
+                    connections.Add(connection);
+                }
+            }
+
+            return new DungeonMinimapSnapshot(
+                CurrentRoomId,
+                rooms.ToArray(),
+                connections.ToArray());
+        }
+
         public DungeonRoomExitState GetCurrentExitState(RoomExitDirection direction)
         {
             if (!Graph.TryGetNeighbor(CurrentRoomId, direction, out DungeonRoomNodeId target))
