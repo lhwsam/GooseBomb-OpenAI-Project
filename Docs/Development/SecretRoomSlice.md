@@ -68,5 +68,5 @@ DungeonSecret central cache → run token state
 - Core 생성 버전 `prototype-secret-v3`와 seed 0 golden을 갱신했고, 512개 seed에서 normal tree 보존·후보 우선순위·Secret의 Combat 2~3연결을 검증했다.
 - 연결 Unity Test Runner에서 전체 EditMode `305/305`, 전체 PlayMode `127/127`이 통과했다. PlayMode는 실제 키 이동과 fuse 폭발로 runtime 출구벽을 파괴한 뒤 미니맵 공개, `RunHost` scene commit, 안전방 왕복, cache `+3`, 재입장 비지급을 포함한다.
 - `PrototypeContentValidator`는 여섯 special catalog entry, `DungeonSecret`, 네 방향 crack root, `SecretCrack.mat`, `SecretReward.mat`, 단일 cache presenter와 enabled scene 11개를 오류 0으로 확인했다.
-- Development WebGL 빌드와 Edge 자동 플레이는 금 간 벽 파괴→`secret-wall-revealed-room-2-direction-west`→10번 비밀방→`secret-reward-collected-3`→`room-reward-tokens-4`→원래 입구 복귀 뒤 기존 보스 완료·실패·재시작까지 통과했다. 키보드 `38/38`, 가상 Gamepad `14/14`, Console/page error 0이다. 증거는 `Artifacts/Verification/20260816-053705-web-connected/`에 있다.
+- commit `134dd06`의 post-commit Development WebGL 빌드와 Edge 자동 플레이는 금 간 벽 파괴→`secret-wall-revealed-room-2-direction-west`→10번 비밀방→`secret-reward-collected-3`→`room-reward-tokens-4`→원래 입구 복귀 뒤 기존 보스 완료·실패·재시작까지 통과했다. 키보드 `38/38`, 가상 Gamepad `14/14`, Console/page error 0이다. 증거는 `Artifacts/Verification/20260816-060528-web-postcommit/`에 있다.
 - 캡처 `webgl-dungeon-secret-wall.png`와 `webgl-dungeon-secret-room.png`에서 파괴 전 금 간 서쪽 벽, 중앙 cache, 비밀방의 아직 숨겨진 다른 출구를 확인했다. 가독성·탐색 보상·무작위 벽 검사 유발 여부는 자동 검증으로 판정하지 않는다.

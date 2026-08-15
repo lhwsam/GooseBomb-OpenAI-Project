@@ -159,6 +159,7 @@
 
 ## 진행 중
 
+- commit `134dd06` post-commit WebGL을 고정한 [비밀방·탐색·보스 전체 경로 플레이테스트](../Playtesting/SecretExplorationRouteProtocol.md)와 [세션 기록 템플릿](../Playtesting/SecretExplorationRouteSessionTemplate.md)을 준비했다. 시도 1의 무힌트 자발 발견과 시도 2의 통제 확인을 분리해 금 간 단서, 무작위 벽 검사, cache `+3`, 미니맵, Recovery와 보스 선행 설치를 같은 경로에서 기록한다.
 - [금이 간 벽 비밀방](SecretRoomSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 금 간 단서가 설명 없이 읽히는지, `+3` cache가 탐색 비용에 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지는 사람 검증이 남아 있다.
 - [GDD 기반 회복방](RecoveryRoomSlice.md)의 구현과 자동 검증을 완료했다. `+2` 회복량, 방 발견성, 보스 직전 우회 가치와 최대 체력 비소비가 실제 플레이에서 자연스러운지는 사람 검증이 남아 있다. 적 처치 확률 드롭은 계속 보류한다.
 - [제한 정보 미니맵](MinimalMinimapSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 실제 플레이에서 길 찾기 피로를 줄이는지, `?` frontier가 선택지를 충분히 알리면서 과도하게 스포일러하지 않는지는 사람 검증이 남아 있다.
@@ -169,7 +170,7 @@
 
 ## 바로 다음 권장 작업
 
-1. 금이 간 벽의 자발적 발견·무작위 벽 검사 여부와 cache `+3`, 제한 정보 미니맵의 길 찾기 피로·선택 가지 발견성, 회복방 `+2`·보스 선행 설치 이해를 같은 전체 경로 사람 플레이에서 관찰한다.
+1. [비밀방·탐색·보스 전체 경로 프로토콜](../Playtesting/SecretExplorationRouteProtocol.md)로 금이 간 벽의 자발적 발견·무작위 벽 검사 여부와 cache `+3`, 제한 정보 미니맵의 길 찾기 피로·선택 가지 발견성, 회복방 `+2`·보스 선행 설치 이해를 같은 전체 경로 사람 플레이에서 관찰한다.
 2. [직선·광역 폭탄 선택](../Playtesting/DirectionalBombChoiceProtocol.md)과 [갑옷 적 2회 피격](../Playtesting/ArmoredEnemyProtocol.md)을 계속 관찰한다.
 3. 관찰 결과에서 우선순위가 확인된 보스 이동·회복·미니맵 튜닝 또는 폭탄과 상호작용하는 방 기믹 하나를 다음 수직 슬라이스로 선택한다.
 
@@ -183,7 +184,7 @@
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. seed-0 4번 전투방에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합이 `(1,-3)↔(1,-4)↔(1,-5)` 동률 순환을 만들었다. 자동 smoke는 플레이어 위치를 바꿔 진행하지만 AI가 수정된 것은 아니며 실제 공정성·유도 재미와 최소 수정은 사람 플레이 뒤 결정한다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 현재 변경 트리의 11-scene Development WebGL 빌드는 138,129,886 bytes, 338.470초, 오류 0과 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
+- commit `134dd06`의 post-commit 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0과 TextMeshPro 대형 메서드 분할 안내 경고 3건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 incremental development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 Core 테스트의 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 빠른 상태 경계 fixture다. 실제 Unity asset은 체력 4·phase 임계 2·패턴 피해 1과 1.0/0.25/2.75초→0.75/0.25/2.75초를 사용한다. P01의 정지 보스 한계에 따라 예측 가능한 한 칸 순환과 목적지 ghost·선행 폭탄 적중은 구현했지만, 이동 빈도·예고 가독성과 실제 재미는 새 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
@@ -196,7 +197,7 @@
 
 ## 최근 검증
 
-- 금이 간 벽 비밀방 변경 트리에서 StaticOnly, content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127이 통과했다. `Artifacts/Verification/20260816-053705-web-connected/`의 11-scene Development WebGL 빌드는 138,129,886 bytes, 338.470초, 오류 0·기존 범주 경고 351건이다. Edge keyboard 38/38은 실제 출구 폭발 공개, 미니맵 `4/3`, 10번 안전방 cache `+3`, 왕복과 이후 Recovery·보스·완료·실패·재시작을 통과했고 가상 Gamepad 14/14와 두 실행의 Console/page error도 0이다. `webgl-dungeon-secret-wall.png`와 `webgl-dungeon-secret-room.png`에서 금 간 벽·중앙 cache·남은 다른 입구를 확인했다. 최신 StaticOnly는 `Artifacts/Verification/20260816-053242-static/`이다.
+- 금이 간 벽 비밀방 commit `134dd06`의 post-commit 검증에서 StaticOnly, content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127이 통과했다. 연결 테스트 증거는 `Artifacts/Verification/ConnectedTests/20260815-210329-141.json`, `Artifacts/Verification/ConnectedTests/20260815-210401-480.json`이고, `Artifacts/Verification/20260816-060528-web-postcommit/`의 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0·TextMeshPro 안내 경고 3건이다. Edge keyboard 38/38은 실제 출구 폭발 공개, 미니맵 `4/3`, 10번 안전방 cache `+3`, 왕복과 이후 Recovery·보스·완료·실패·재시작을 통과했고 가상 Gamepad 14/14와 두 실행의 Console/page error도 0이다. `webgl-dungeon-secret-wall.png`와 `webgl-dungeon-secret-room.png`에서 금 간 벽·중앙 cache·남은 다른 입구를 확인했다. 최신 StaticOnly는 `Artifacts/Verification/20260816-061437-static/`이다.
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
 - `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-042945-static/`.
