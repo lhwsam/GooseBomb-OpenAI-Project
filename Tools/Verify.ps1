@@ -205,7 +205,10 @@ function Test-StaticContracts {
         'Tools/WebGLStaticServer.mjs',
         'Tools/WebGLStaticServerTests.mjs',
         'Tools/WebGLTemplateTests.mjs',
-        'Tools/ServeWebGL.mjs'
+        'Tools/ServeWebGL.mjs',
+        'Tools/PlaytestLogAnalyzer.mjs',
+        'Tools/AnalyzePlaytestLog.mjs',
+        'Tools/PlaytestLogAnalyzerTests.mjs'
     )
     foreach ($relativeToolPath in $requiredToolPaths) {
         if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $relativeToolPath) -PathType Leaf)) {
@@ -443,7 +446,10 @@ function Invoke-BrowserSmoke {
     $gamepadScriptPath = Join-Path $ProjectRoot 'Tools/GamepadWebGLSmoke.mjs'
     $serverTestPath = Join-Path $ProjectRoot 'Tools/WebGLStaticServerTests.mjs'
     $templateTestPath = Join-Path $ProjectRoot 'Tools/WebGLTemplateTests.mjs'
+    $playtestAnalyzerPath = Join-Path $ProjectRoot 'Tools/AnalyzePlaytestLog.mjs'
+    $playtestAnalyzerTestPath = Join-Path $ProjectRoot 'Tools/PlaytestLogAnalyzerTests.mjs'
     $reportPath = Join-Path $ArtifactDirectory 'browser-smoke.json'
+    $playtestLogPath = Join-Path $ArtifactDirectory 'playtest-events.json'
     $gamepadReportPath = Join-Path $ArtifactDirectory 'gamepad-smoke.json'
     $gamepadScreenshotPath = Join-Path $ArtifactDirectory 'gamepad-paused.png'
     $browserLogPath = Join-Path $ArtifactDirectory 'browser-smoke.log'
@@ -457,9 +463,19 @@ function Invoke-BrowserSmoke {
         throw "WebGL static server tests failed with code $LASTEXITCODE. See $browserLogPath"
     }
 
+    & $node.Source $playtestAnalyzerTestPath *>> $browserLogPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Playtest log analyzer tests failed with code $LASTEXITCODE. See $browserLogPath"
+    }
+
     & $node.Source $scriptPath --buildPath $BuildPath --reportPath $reportPath *>> $browserLogPath
     if ($LASTEXITCODE -ne 0) {
         throw "Browser smoke failed with code $LASTEXITCODE. See $browserLogPath"
+    }
+
+    & $node.Source $playtestAnalyzerPath --input $playtestLogPath --outputDirectory $ArtifactDirectory *>> $browserLogPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Exported playtest log analysis failed with code $LASTEXITCODE. See $browserLogPath"
     }
 
     & $node.Source $gamepadScriptPath --buildPath $BuildPath --reportPath $gamepadReportPath --screenshotPath $gamepadScreenshotPath *>> $browserLogPath
@@ -467,7 +483,7 @@ function Invoke-BrowserSmoke {
         throw "Virtual gamepad browser smoke failed with code $LASTEXITCODE. See $browserLogPath"
     }
 
-    return "WebGL template/static server tests, keyboard browser smoke, and virtual gamepad browser smoke passed. Reports: $reportPath, $gamepadReportPath"
+    return "WebGL template/static server/analyzer tests, keyboard browser smoke, exported log analysis, and virtual gamepad browser smoke passed. Reports: $reportPath, $gamepadReportPath"
 }
 
 $projectRoot = Get-ProjectRoot
@@ -572,6 +588,9 @@ try {
                 $browserDetail = Invoke-BrowserSmoke -ProjectRoot $projectRoot -BuildPath $webBuildPath -ArtifactDirectory $artifactDirectory
                 Add-StepResult -Name 'Browser smoke' -Status 'Passed' -Detail $browserDetail -Artifacts @(
                     (Join-Path $artifactDirectory 'browser-smoke.json'),
+                    (Join-Path $artifactDirectory 'playtest-events.json'),
+                    (Join-Path $artifactDirectory 'playtest-log-summary.json'),
+                    (Join-Path $artifactDirectory 'playtest-log-summary.md'),
                     (Join-Path $artifactDirectory 'gamepad-smoke.json'),
                     (Join-Path $artifactDirectory 'gamepad-paused.png'),
                     (Join-Path $artifactDirectory 'browser-smoke.log')

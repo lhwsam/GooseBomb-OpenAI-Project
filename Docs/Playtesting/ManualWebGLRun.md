@@ -80,15 +80,26 @@ started-at:
 - 영상이나 식별 가능 정보와 마찬가지로 JSON 원본은 Git에 커밋하지 않는다.
 - 공유할 때는 원본 사건과 관찰자의 해석을 분리하고, GDD 가설 판정에는 세션 템플릿의 근거 칸을 사용한다.
 
+원본을 보존한 뒤 다음 명령으로 schema와 시간 순서를 검증하고 사람이 읽을 수 있는 요약을 만든다.
+
+```powershell
+node ./Tools/AnalyzePlaytestLog.mjs `
+  --input './Artifacts/Playtests/<session-id>/harness-events.json' `
+  --outputDirectory './Artifacts/Playtests/<session-id>/analysis'
+```
+
+성공 표식은 `BOMBSWAP_PLAYTEST_LOG_ANALYSIS|passed`다. 출력은 `playtest-log-summary.json`과 `playtest-log-summary.md`이며 같은 입력에서는 같은 내용이 생성된다. 분석 도구가 실패하면 원본 JSON을 수정하지 말고 다운로드 누락, 다른 schema 또는 사건 시간 역행 여부를 기록한다.
+
 ## 도구 자체 검증
 
 정적 서버의 MIME, gzip/Brotli 헤더, HEAD 응답, 누락 파일과 경로 이탈 차단은 다음 명령으로 빠르게 검사한다.
 
 ```powershell
 node ./Tools/WebGLStaticServerTests.mjs
+node ./Tools/PlaytestLogAnalyzerTests.mjs
 ```
 
-성공 표식은 `BOMBSWAP_WEBGL_STATIC_SERVER_TEST|passed`다. 실제 게임 입력과 전투 상태는 이 테스트가 아니라 `Tools/WebGLSmoke.mjs`, `Tools/DirectionalLineWebGLSmoke.mjs`, `Tools/ArmoredWebGLSmoke.mjs` 또는 사람 세션에서 별도로 확인한다.
+성공 표식은 `BOMBSWAP_WEBGL_STATIC_SERVER_TEST|passed`와 `BOMBSWAP_PLAYTEST_LOG_ANALYZER_TEST|passed`다. 실제 게임 입력과 전투 상태는 이 테스트가 아니라 `Tools/WebGLSmoke.mjs`, `Tools/DirectionalLineWebGLSmoke.mjs`, `Tools/ArmoredWebGLSmoke.mjs` 또는 사람 세션에서 별도로 확인한다.
 
 ## 문제 해결
 
