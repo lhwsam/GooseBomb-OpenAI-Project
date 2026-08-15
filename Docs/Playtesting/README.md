@@ -10,13 +10,14 @@
 
 ## 첫 읽기 경로
 
-1. 현재 전체 경로 빌드는 [직선·광역 폭탄 선택 플레이테스트](DirectionalBombChoiceProtocol.md)
+1. 현재 전체 경로 빌드는 [비밀방·탐색·보스 전체 경로 플레이테스트](SecretExplorationRouteProtocol.md)
 2. [로컬 WebGL 관찰 세션 실행](ManualWebGLRun.md)
-3. 현재 빌드용 [직선·광역 기록 템플릿](DirectionalBombChoiceSessionTemplate.md)
-4. 갑옷 상태 변화는 [갑옷 적 관찰 플레이테스트](ArmoredEnemyProtocol.md)와 [갑옷 기록 템플릿](ArmoredEnemySessionTemplate.md)
-5. 차저·기본 두 폭탄·파괴 블록 비교 기준선은 [두 적·폭탄 선택 비교 플레이테스트](TwoEnemyBombChoiceProtocol.md)와 [전용 기록 템플릿](TwoEnemyBombChoiceSessionTemplate.md)
-6. 기본 전투 기준선이나 과거 세션 해석은 [첫 기본 전투 플레이테스트](FirstCombatProtocol.md)와 [기본 세션 기록 템플릿](SessionTemplate.md)
-7. 해당 시점의 [현재 프로젝트 상태](../Development/CurrentState.md)
+3. 현재 빌드용 [비밀방·탐색 기록 템플릿](SecretExplorationRouteSessionTemplate.md)
+4. 폭탄 후보의 공간 역할은 [직선·광역 폭탄 선택 플레이테스트](DirectionalBombChoiceProtocol.md)와 [전용 기록 템플릿](DirectionalBombChoiceSessionTemplate.md)
+5. 갑옷 상태 변화는 [갑옷 적 관찰 플레이테스트](ArmoredEnemyProtocol.md)와 [갑옷 기록 템플릿](ArmoredEnemySessionTemplate.md)
+6. 차저·기본 두 폭탄·파괴 블록 비교 기준선은 [두 적·폭탄 선택 비교 플레이테스트](TwoEnemyBombChoiceProtocol.md)와 [전용 기록 템플릿](TwoEnemyBombChoiceSessionTemplate.md)
+7. 기본 전투 기준선이나 과거 세션 해석은 [첫 기본 전투 플레이테스트](FirstCombatProtocol.md)와 [기본 세션 기록 템플릿](SessionTemplate.md)
+8. 해당 시점의 [현재 프로젝트 상태](../Development/CurrentState.md)
 
 ## 증거와 결과 분리
 
