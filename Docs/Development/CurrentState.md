@@ -161,6 +161,7 @@
 
 ## 진행 중
 
+- [프로토타입 준비도 감사](PrototypeReadinessAudit.md)에서 GDD 36 필수 구현은 모두 충족됐고 현재 HEAD의 EditMode `305/305`, PlayMode `127/127`, Unity Console Error/Warning `0`을 다시 확인했다. 프로토타입 완료 조건 8개는 행동 증거가 부족하므로 다음 기능을 추측으로 추가하지 않고 고정 WebGL 자연 플레이를 기다린다.
 - commit `134dd06` post-commit WebGL을 고정한 [비밀방·탐색·보스 전체 경로 플레이테스트](../Playtesting/SecretExplorationRouteProtocol.md)와 [세션 기록 템플릿](../Playtesting/SecretExplorationRouteSessionTemplate.md)을 준비했다. 시도 1의 무힌트 자발 발견과 시도 2의 통제 확인을 분리해 금 간 단서, 무작위 벽 검사, cache `+3`, 미니맵, Recovery와 보스 선행 설치를 같은 경로에서 기록한다.
 - [금이 간 벽 비밀방](SecretRoomSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 금 간 단서가 설명 없이 읽히는지, `+3` cache가 탐색 비용에 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지는 사람 검증이 남아 있다.
 - [GDD 기반 회복방](RecoveryRoomSlice.md)의 구현과 자동 검증을 완료했다. `+2` 회복량, 방 발견성, 보스 직전 우회 가치와 최대 체력 비소비가 실제 플레이에서 자연스러운지는 사람 검증이 남아 있다. 적 처치 확률 드롭은 계속 보류한다.
