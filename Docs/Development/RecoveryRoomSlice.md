@@ -1,6 +1,6 @@
 # GDD 기반 회복방 수직 슬라이스
 
-- 상태: `Planned`
+- 상태: `In Progress` — 1단계 체력 persistence 완료, 회복 규칙·그래프·콘텐츠 대기
 - 결정 근거: [GDD v0.2](../GameDesign/GDD_v0.2.md) 4.1, 20.4, 21.2, 37장과 [PT-20260815-02](../Playtesting/Results/PT-20260815-02.md)
 - 소유 계약: [피해와 무적 시간](../Systems/DamageAndInvulnerability.md), [던전 생성](../Systems/DungeonGeneration.md), [방 저작](../Systems/RoomAuthoring.md)
 - 선행 작업: [활성 폭탄 슬롯 run persistence](ActiveBombSlotPersistenceSlice.md)
@@ -61,10 +61,10 @@ Recovery room item interaction
 
 ### 1. 체력 persistence
 
-- 초기 현재 체력을 받을 수 있도록 Core 플레이어 체력 생성 계약을 확장한다.
-- run 상태에 현재 체력을 저장하고 적용된 피해 뒤 즉시 동기화한다.
-- 다음 방, 이전 방 재방문과 보스방에서도 같은 체력을 복원한다.
-- 완료·실패 뒤 새 run만 최대 체력으로 초기화한다.
+- `Complete`: 초기 현재 체력을 받을 수 있도록 Core 플레이어 체력 생성 계약을 확장했다.
+- `Complete`: `DungeonPlayerHealthState`에 현재 체력을 저장하고 적용된 피해 뒤 즉시 동기화한다.
+- `Complete`: 다음 방과 이전 방 재방문에서 같은 체력을 session·HUD에 복원한다. 동일 binder 경로를 사용하는 보스방도 같은 계약을 따른다.
+- `Complete`: 완료·실패 뒤 새 run만 최대 체력으로 초기화한다.
 
 ### 2. 회복 규칙과 그래프
 

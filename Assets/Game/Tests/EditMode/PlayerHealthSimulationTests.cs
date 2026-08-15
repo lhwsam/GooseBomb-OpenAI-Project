@@ -47,6 +47,39 @@ namespace BombSwap.Tests.EditMode
             Assert.That(simulation.IsInvulnerable, Is.False);
         }
 
+        [TestCase(0, true)]
+        [TestCase(1, false)]
+        [TestCase(4, false)]
+        [TestCase(5, false)]
+        public void Constructor_RestoresValidatedInitialHealth(
+            int initialHealth,
+            bool expectedDead)
+        {
+            var simulation = new PlayerHealthSimulation(
+                PlayerActor,
+                new ManualGameClock(),
+                new PlayerHealthDefinition(5, Invulnerability),
+                initialHealth);
+
+            Assert.That(simulation.CurrentHealth, Is.EqualTo(initialHealth));
+            Assert.That(simulation.MaxHealth, Is.EqualTo(5));
+            Assert.That(simulation.IsDead, Is.EqualTo(expectedDead));
+            Assert.That(simulation.IsInvulnerable, Is.False);
+        }
+
+        [TestCase(-1)]
+        [TestCase(6)]
+        public void Constructor_RejectsInitialHealthOutsideDefinition(
+            int initialHealth)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new PlayerHealthSimulation(
+                    PlayerActor,
+                    new ManualGameClock(),
+                    new PlayerHealthDefinition(5, Invulnerability),
+                    initialHealth));
+        }
+
         [Test]
         public void ApplyExplosionDamage_ReducesHealthAndStartsInvulnerability()
         {

@@ -85,6 +85,7 @@ namespace BombSwap
         private PrototypeBombDefinitionAsset[] _runtimeBombDefinitions;
         private float _runtimeSwapCooldownSeconds;
         private int _runtimeActiveBombSlotIndex;
+        private int? _runtimeInitialPlayerHealth;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
@@ -373,6 +374,30 @@ namespace BombSwap
             bossEnabled = startingBossEnabled;
             _runtimeCombatEnabled = null;
             _runtimeBossEnabled = null;
+            _runtimeInitialPlayerHealth = null;
+        }
+
+        public void PrepareRuntimePlayerHealth(int currentHealth)
+        {
+            if (_health != null)
+            {
+                throw new InvalidOperationException(
+                    "Runtime player health must be prepared before session initialization.");
+            }
+            if (playerVitals == null)
+            {
+                throw new InvalidOperationException(
+                    "Prototype game session requires player vitals before preparing runtime health.");
+            }
+            if (currentHealth < 0 || currentHealth > playerVitals.MaxHealth)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(currentHealth),
+                    currentHealth,
+                    $"Runtime player health must be between 0 and {playerVitals.MaxHealth}.");
+            }
+
+            _runtimeInitialPlayerHealth = currentHealth;
         }
 
         public void PrepareRuntimeRoom(
@@ -651,6 +676,32 @@ namespace BombSwap
             }
 
             ActiveBombSlotChanged?.Invoke(_weapons.ActiveSlotIndex);
+            return true;
+        }
+
+        public bool TryPlaceBomb()
+        {
+            if (_weapons == null || _bombs == null || _movement == null || _health == null)
+            {
+                throw new InvalidOperationException(
+                    "Prototype bomb placement is not initialized.");
+            }
+            if (_health.IsDead || _isPaused)
+            {
+                return false;
+            }
+            if (!_weapons.TryPlaceActiveBomb(
+                _bombs,
+                _movement.CurrentPosition,
+                _movement.ActorId,
+                _movement.FacingDirection,
+                out BombSnapshot snapshot))
+            {
+                return false;
+            }
+
+            _movement.GrantBombPassThrough(snapshot);
+            BombPlaced?.Invoke(snapshot);
             return true;
         }
 
@@ -940,10 +991,18 @@ namespace BombSwap
                      TimeSpan.FromSeconds(_runtimeSwapCooldownSeconds),
                      _runtimeActiveBombSlotIndex)
                 : bombLoadout.CreateCoreLoadout(_clock);
-            _health = new PlayerHealthSimulation(
-                _movement.ActorId,
-                _clock,
-                playerVitals.CreateCoreDefinition());
+            PlayerHealthDefinition healthDefinition =
+                playerVitals.CreateCoreDefinition();
+            _health = _runtimeInitialPlayerHealth.HasValue
+                ? new PlayerHealthSimulation(
+                    _movement.ActorId,
+                    _clock,
+                    healthDefinition,
+                    _runtimeInitialPlayerHealth.Value)
+                : new PlayerHealthSimulation(
+                    _movement.ActorId,
+                    _clock,
+                    healthDefinition);
 
             if (HasChaser)
             {
@@ -1079,22 +1138,6 @@ namespace BombSwap
                 presenter = gameObject.AddComponent<PrototypePausePresenter>();
             }
             presenter.Configure(this);
-        }
-
-        private void TryPlaceBomb()
-        {
-            if (!_weapons.TryPlaceActiveBomb(
-                _bombs,
-                _movement.CurrentPosition,
-                _movement.ActorId,
-                _movement.FacingDirection,
-                out BombSnapshot snapshot))
-            {
-                return;
-            }
-
-            _movement.GrantBombPassThrough(snapshot);
-            BombPlaced?.Invoke(snapshot);
         }
 
         private static bool Contains(
