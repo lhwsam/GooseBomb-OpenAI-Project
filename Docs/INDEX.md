@@ -15,6 +15,7 @@
 | 시스템 계약 | [Systems](Systems/) | 책임, 상태, 데이터 흐름, 불변식, 테스트 포인트 |
 | 전체 기술 구조 | [Architecture](Architecture/) | 계층, 의존 방향, 런타임 흐름 |
 | 현재 진행 상태 | [CurrentState](Development/CurrentState.md) | 완료·진행·미구현, 알려진 문제, 바로 다음 작업 |
+| 프로토타입 준비도 | [PrototypeReadinessAudit](Development/PrototypeReadinessAudit.md) | GDD 필수 구현, 자동 증거, 사람 완료 판정의 분리 |
 | 구현 완료 기준 | [Definition of Done](Development/DefinitionOfDone.md) | 변경 종류별 필수 검증 |
 | 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
 | 플레이테스트 운영 | [Playtesting](Playtesting/) | 관찰 프로토콜, 익명 세션 기록, 유지·변경·제거 판정 |
@@ -60,6 +61,7 @@
 | 보스 | `Systems/BossBattle.md`, `Development/BossCoreSlice.md` |
 | 보스 이동·선행 설치 | `Development/BossMovementSlice.md`, `Systems/BossBattle.md`, `Systems/GridAndMovement.md` |
 | 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Systems/Telemetry.md` |
+| 다음 수직 슬라이스·마일스톤 판단 | `Development/PrototypeReadinessAudit.md`, `Development/PrototypeRoadmap.md`, `Development/DefinitionOfDone.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | 반응형 WebGL 화면·템플릿 | `Development/ResponsiveWebGLCanvasSlice.md`, `WebGL/BuildAndHosting.md`, `WebGL/BrowserTestMatrix.md` |
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
