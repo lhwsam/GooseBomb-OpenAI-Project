@@ -60,6 +60,7 @@
 | 보스 이동·선행 설치 | `Development/BossMovementSlice.md`, `Systems/BossBattle.md`, `Systems/GridAndMovement.md` |
 | 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/DirectionalBombChoiceProtocol.md`, `Systems/Telemetry.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
+| 반응형 WebGL 화면·템플릿 | `Development/ResponsiveWebGLCanvasSlice.md`, `WebGL/BuildAndHosting.md`, `WebGL/BrowserTestMatrix.md` |
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
 | 검증 실행 | `Testing/VerificationHarness.md`, `Testing/TestMatrix.md` |
 | 패키지·Unity 업그레이드 | `Development/PackageInventory.md`, `Migrations/` |

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+    <title>Bomb Swap | {{{ PRODUCT_NAME }}}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --footer-height: 36px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #070a10;
+        color: #dce7f3;
+        font-family: Arial, sans-serif;
+      }
+
+      #unity-container {
+        position: relative;
+        display: grid;
+        width: 100%;
+        height: 100%;
+        grid-template-rows: minmax(0, 1fr) var(--footer-height);
+      }
+
+      #unity-canvas-frame {
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #05070b;
+      }
+
+      #unity-canvas {
+        display: block;
+        flex: none;
+        background: {{{ BACKGROUND_COLOR }}};
+        outline: none;
+      }
+
+      #unity-canvas:focus-visible {
+        box-shadow: inset 0 0 0 2px #58d8e8;
+      }
+
+      #unity-loading-bar {
+        position: absolute;
+        left: 50%;
+        top: calc((100% - var(--footer-height)) / 2);
+        width: min(320px, calc(100% - 48px));
+        transform: translate(-50%, -50%);
+        text-align: center;
+      }
+
+      #unity-loading-title {
+        margin-bottom: 12px;
+        color: #f2f7fb;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      #unity-progress-track {
+        width: 100%;
+        height: 12px;
+        overflow: hidden;
+        border: 1px solid #5b6f84;
+        border-radius: 999px;
+        background: #17202b;
+      }
+
+      #unity-progress-bar {
+        width: 0;
+        height: 100%;
+        background: #58d8e8;
+        transition: width 80ms linear;
+      }
+
+      #unity-progress-label {
+        margin-top: 8px;
+        color: #9fb0c2;
+        font-size: 12px;
+      }
+
+      #unity-warning {
+        position: absolute;
+        z-index: 2;
+        top: 12px;
+        left: 50%;
+        display: none;
+        width: min(720px, calc(100% - 32px));
+        transform: translateX(-50%);
+      }
+
+      .unity-banner {
+        margin-bottom: 6px;
+        padding: 10px 12px;
+        border-radius: 4px;
+        background: #caa63a;
+        color: #111820;
+        font-size: 13px;
+      }
+
+      .unity-banner-error {
+        background: #d54d57;
+        color: white;
+      }
+
+      #unity-footer {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 10px;
+        border-top: 1px solid #253344;
+        background: #0d131c;
+        color: #91a3b7;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      #unity-footer-actions {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #unity-build-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #unity-fullscreen-button {
+        min-height: 26px;
+        padding: 3px 9px;
+        border: 1px solid #52677e;
+        border-radius: 3px;
+        background: #1a2633;
+        color: #dce7f3;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      #unity-fullscreen-button:hover,
+      #unity-fullscreen-button:focus-visible {
+        border-color: #58d8e8;
+        outline: none;
+      }
+
+      @media (max-width: 640px), (max-height: 480px) {
+        :root {
+          --footer-height: 30px;
+        }
+
+        #unity-footer {
+          font-size: 11px;
+        }
+
+        #unity-focus-hint {
+          display: none;
+        }
+
+        #unity-fullscreen-button {
+          min-height: 24px;
+          padding: 2px 7px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="unity-container">
+      <div id="unity-canvas-frame">
+        <canvas
+          id="unity-canvas"
+          width={{{ WIDTH }}}
+          height={{{ HEIGHT }}}
+          tabindex="0"
+          aria-label="Bomb Swap game canvas"></canvas>
+      </div>
+      <div id="unity-loading-bar" aria-live="polite">
+        <div id="unity-loading-title">BOMB SWAP</div>
+        <div id="unity-progress-track">
+          <div id="unity-progress-bar"></div>
+        </div>
+        <div id="unity-progress-label">LOADING 0%</div>
+      </div>
+      <div id="unity-warning"></div>
+      <footer id="unity-footer">
+        <span id="unity-focus-hint">CLICK GAME TO FOCUS · Z BOMB · X SWAP · ESC PAUSE · R RESTART</span>
+        <span id="unity-footer-actions">
+          <span id="unity-build-title">{{{ PRODUCT_NAME }}}</span>
+          <button id="unity-fullscreen-button" type="button">FULLSCREEN</button>
+        </span>
+      </footer>
+    </main>
+    <script>
+      const canvas = document.querySelector("#unity-canvas");
+      const canvasFrame = document.querySelector("#unity-canvas-frame");
+      const referenceWidth = {{{ WIDTH }}};
+      const referenceHeight = {{{ HEIGHT }}};
+
+      function fitCanvasToViewport() {
+        const availableWidth = Math.max(1, canvasFrame.clientWidth);
+        const availableHeight = Math.max(1, canvasFrame.clientHeight);
+        const scale = Math.min(
+          1,
+          availableWidth / referenceWidth,
+          availableHeight / referenceHeight
+        );
+        canvas.style.width = `${Math.max(1, Math.floor(referenceWidth * scale))}px`;
+        canvas.style.height = `${Math.max(1, Math.floor(referenceHeight * scale))}px`;
+      }
+
+      fitCanvasToViewport();
+      window.addEventListener("resize", fitCanvasToViewport);
+      if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(fitCanvasToViewport).observe(canvasFrame);
+      }
+      canvas.addEventListener("pointerdown", () => canvas.focus());
+
+      function unityShowBanner(message, type) {
+        const warningBanner = document.querySelector("#unity-warning");
+        const banner = document.createElement("div");
+        banner.className = type === "error"
+          ? "unity-banner unity-banner-error"
+          : "unity-banner";
+        banner.textContent = message;
+        warningBanner.appendChild(banner);
+        warningBanner.style.display = "block";
+        if (type !== "error") {
+          window.setTimeout(() => {
+            banner.remove();
+            warningBanner.style.display = warningBanner.children.length ? "block" : "none";
+          }, 5000);
+        }
+      }
+
+      const buildUrl = "Build";
+      const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      const config = {
+        arguments: [],
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        showBanner: unityShowBanner,
+      };
+
+#if BACKGROUND_FILENAME
+      canvas.style.background = "url('" + buildUrl + "/{{{ BACKGROUND_FILENAME.replace(/'/g, '%27') }}}') center / cover";
+#endif
+
+      const script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          const percent = Math.round(progress * 100);
+          document.querySelector("#unity-progress-bar").style.width = `${percent}%`;
+          document.querySelector("#unity-progress-label").textContent = `LOADING ${percent}%`;
+        }).then((unityInstance) => {
+          document.querySelector("#unity-loading-bar").style.display = "none";
+          document.querySelector("#unity-fullscreen-button").onclick = () => {
+            unityInstance.SetFullscreen(1);
+          };
+        }).catch((message) => {
+          unityShowBanner(message, "error");
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

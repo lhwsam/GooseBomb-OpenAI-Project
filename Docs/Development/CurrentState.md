@@ -21,6 +21,7 @@
 - Playwright 기반 WebGL 정적 서버·canvas/input/console/gameplay probe 스모크 구현.
 - 표준 가상 Gamepad를 브라우저 `navigator.getGamepads()`와 연결 사건에 주입해 스틱·D-pad·South/West/Start/Select의 WebGL→Input System→의미 명령·pause 차단/유지 스틱 재개·Core 설치·실패·재시작 경로를 검증하는 전용 smoke를 표준 Web tier에 연결.
 - 자동 스모크와 수동 관찰 세션이 공유하는 loopback WebGL 정적 서버, 수동 실행 CLI와 MIME·압축·경로 보안 회귀 테스트 구현.
+- 960×600 네이티브 화면을 확대하지 않으면서 좁은 browser viewport에 16:10으로 축소하고 overflow를 차단하는 Bomb Swap 전용 WebGL 템플릿을 구현했다. 빌드 하네스는 적용 전 템플릿 설정을 저장·복원하며 자동 smoke가 desktop·640px 폭의 실제 canvas 경계를 검증한다.
 - `GridPosition`, `GridState`, `IGameClock`, `ManualGameClock` 최소 Core 계약 구현.
 - 논리 좌표, 지형·점유 불변식, 수동 시계 계약을 검증하는 EditMode 테스트 구현.
 - 기본 십자 폭탄 정의, 설치, fuse, 폭발 셀, 벽 차단·파괴, 지연 연쇄를 소유하는 `BombSimulation` 구현.
@@ -151,6 +152,7 @@
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
 - WebGL platform quality는 Mobile 프로필을 사용한다.
 - WebGL threads support는 꺼져 있고 data caching은 켜져 있다.
+- WebGL build는 `Assets/WebGLTemplates/BombSwap`을 범위 적용하고 평상시 `PlayerSettings.WebGL.template` 값은 보존한다. 기준 canvas 960×600은 viewport가 작을 때만 축소되며 footer가 키보드 조작과 fullscreen 진입점을 제공한다.
 - `Tools/ServeWebGL.mjs`는 검증 빌드를 `127.0.0.1`에서 수동 관찰용으로 제공하고 자동 스모크와 동일한 `WebGLStaticServer.mjs`를 사용한다. 외부 배포 서버는 아니다.
 - Feel 등 vendor 에셋이 있으나 Core/first-party 구현과 아직 연결되지 않았다.
 
@@ -179,7 +181,7 @@
 - 추격자 2 cells/s·두 칸 방향 유지·국소 Manhattan 선택은 복잡한 미로 최단 경로를 보장하지 않는 `Proposed` 정책이다. seed-0 4번 전투방에서 플레이어 `(-3,-4)`와 추격자 x=1 열 조합이 `(1,-3)↔(1,-4)↔(1,-5)` 동률 순환을 만들었다. 자동 smoke는 플레이어 위치를 바꿔 진행하지만 AI가 수정된 것은 아니며 실제 공정성·유도 재미와 최소 수정은 사람 플레이 뒤 결정한다.
 - 돌진형의 예고·돌진·회복 수치와 세 번째 방 시작 직선 배치는 `Proposed`다. 자동 검증은 상태와 충돌의 정확성만 보장하며, 색만으로 예고를 읽는 가독성·두 적의 동시 압력·파괴 블록과의 선택은 사람 플레이테스트가 필요하다.
 - 갑옷 적의 1→3 cells/s 변화, 외형 축소와 색 변화는 `Proposed`다. 자동 검증은 두 서로 다른 폭발과 상태·속도·점유·클리어 순서만 보장하며, 첫 피격이 충분히 읽히고 두 번째 설치 계획을 바꾸는지는 사람 플레이테스트가 필요하다.
-- 던전 10개 씬 최신 Development WebGL 빌드는 137,986,563 bytes, 88.935초이며 BuildReport 오류 0, 전체 shader 재컴파일에 따른 기존 Sentis·vendor·TextMeshPro 범주의 경고 351건이다. 이 development 수치와 빌드 시간을 release 성능이나 cold build 예산으로 해석하지 않는다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
+- 던전 10개 씬 최신 Development WebGL 빌드는 137,972,718 bytes, 32.211초이며 BuildReport 오류 0, 기존 Sentis·vendor·TextMeshPro·셰이더 범주의 경고 348건이다. 반응형 hosting shell은 Edge와 인앱 브라우저에서 canvas/HUD 잘림 없이 확인했다. 이 development 수치와 빌드 시간을 release 성능이나 cold build 예산으로 해석하지 않는다. 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 Core 테스트의 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 빠른 상태 경계 fixture다. 실제 Unity asset은 체력 4·phase 임계 2·패턴 피해 1과 1.0/0.25/2.75초→0.75/0.25/2.75초를 사용한다. P01의 정지 보스 한계에 따라 예측 가능한 한 칸 순환과 목적지 ghost·선행 폭탄 적중은 구현했지만, 이동 빈도·예고 가독성과 실제 재미는 새 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
@@ -191,6 +193,8 @@
 - 게임패드 binding 구조와 합성 Input System 장치의 왼쪽 스틱·D-pad 네 방향, South/West/Start/Select 의미 명령 변환을 자동 검증했다. WebGL에서는 표준 가상 장치 연결부터 스틱·D-pad 해제, 이동 중 분리의 즉시 정지·위치 안정성과 동일 index 재연결 입력 복구, South의 Core 폭탄 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱·South 차단과 재개 뒤 유지 스틱 한 셀 적용, Select의 실패 런 재시작까지 자동 검증했다. 실제 목표 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이와 새 직교 축 우선 조작감은 수동 플레이가 남아 있다.
 
 ## 최근 검증
+
+- 반응형 WebGL template 변경 트리에서 정적 template/server 검사, 연결된 Unity EditMode 303/303·PlayMode 126/126, 콘텐츠 선행 검증과 Unity Console 오류 0이 통과했다. 10-scene Development WebGL 빌드는 137,972,718 bytes, 32.211초, 오류 0, 기존 패키지·셰이더 범주 경고 348건으로 성공했다. Edge keyboard smoke 35/35는 1280×720·1024×768·640×720에서 canvas 경계·문서 overflow·16:10·네이티브 상한과 전체 던전 회귀를, 가상 Gamepad smoke 14/14는 기존 장치 회귀를 Console/page error 0으로 확인했다. 인앱 브라우저에서도 전체 HUD와 footer가 잘리지 않았다. 증거 `Artifacts/Verification/20260816-044000-responsive-web-connected/`, 변경 전 실패 기준 `Artifacts/Verification/20260816-043000-responsive-layout-baseline/`.
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
 - `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-042945-static/`.

@@ -90,6 +90,70 @@ async function waitForEvent(page, name, options = {}) {
   }, { expectedName: name, expectedCount: count }, { timeout });
 }
 
+async function assertCanvasFitsViewport(page, label) {
+  const layout = await page.evaluate(() => {
+    const canvas = document.querySelector("#unity-canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      documentWidth: document.documentElement.scrollWidth,
+      documentHeight: document.documentElement.scrollHeight,
+      referenceWidth: Number(canvas.getAttribute("width")),
+      referenceHeight: Number(canvas.getAttribute("height")),
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+    };
+  });
+  if (!layout) {
+    throw new Error(`${label}: Unity canvas was not found.`);
+  }
+
+  const epsilon = 1.5;
+  if (layout.left < -epsilon ||
+      layout.top < -epsilon ||
+      layout.right > layout.viewportWidth + epsilon ||
+      layout.bottom > layout.viewportHeight + epsilon) {
+    throw new Error(
+      `${label}: canvas ${layout.width.toFixed(1)}x${layout.height.toFixed(1)} ` +
+      `at (${layout.left.toFixed(1)}, ${layout.top.toFixed(1)}) exceeds ` +
+      `${layout.viewportWidth}x${layout.viewportHeight}.`,
+    );
+  }
+  if (layout.documentWidth > layout.viewportWidth + epsilon ||
+      layout.documentHeight > layout.viewportHeight + epsilon) {
+    throw new Error(
+      `${label}: document overflowed viewport ` +
+      `${layout.documentWidth}x${layout.documentHeight} > ` +
+      `${layout.viewportWidth}x${layout.viewportHeight}.`,
+    );
+  }
+  if (layout.width > layout.referenceWidth + epsilon ||
+      layout.height > layout.referenceHeight + epsilon) {
+    throw new Error(
+      `${label}: canvas enlarged beyond native ` +
+      `${layout.referenceWidth}x${layout.referenceHeight}.`,
+    );
+  }
+
+  const expectedAspect = layout.referenceWidth / layout.referenceHeight;
+  const actualAspect = layout.width / layout.height;
+  if (Math.abs(actualAspect - expectedAspect) > 0.01) {
+    throw new Error(
+      `${label}: canvas aspect ${actualAspect.toFixed(3)} did not preserve ` +
+      `${expectedAspect.toFixed(3)}.`,
+    );
+  }
+
+  return `${layout.viewportWidth}x${layout.viewportHeight} viewport, ` +
+    `${layout.width.toFixed(0)}x${layout.height.toFixed(0)} canvas, no overflow`;
+}
+
 async function moveSteps(page, key, direction, count) {
   const eventName = `move-step-direction-${direction}`;
   const initialCount = await eventCount(page, eventName);
@@ -455,6 +519,24 @@ async function main() {
       return canvas && canvas.width > 0 && canvas.height > 0;
     }, undefined, { timeout: 120_000 });
     checks.push({ name: "load", status: "passed" });
+
+    const initialDesktopFit = await assertCanvasFitsViewport(
+      page,
+      "Initial desktop viewport",
+    );
+    await page.setViewportSize({ width: 640, height: 720 });
+    await page.waitForTimeout(250);
+    const initialNarrowFit = await assertCanvasFitsViewport(
+      page,
+      "Initial narrow viewport",
+    );
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.waitForTimeout(250);
+    checks.push({
+      name: "responsive-canvas-layout",
+      status: "passed",
+      detail: `${initialDesktopFit}; ${initialNarrowFit}`,
+    });
 
     const canvas = page.locator("canvas").first();
     await canvas.click({ position: { x: 20, y: 20 } });
@@ -1175,7 +1257,17 @@ async function main() {
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(250);
-    checks.push({ name: "resize", status: "passed" });
+    const desktopFit = await assertCanvasFitsViewport(page, "Desktop resize");
+    await page.setViewportSize({ width: 640, height: 720 });
+    await page.waitForTimeout(250);
+    const narrowFit = await assertCanvasFitsViewport(page, "Narrow resize");
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.waitForTimeout(250);
+    checks.push({
+      name: "resize",
+      status: "passed",
+      detail: `${desktopFit}; ${narrowFit}`,
+    });
 
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath });
