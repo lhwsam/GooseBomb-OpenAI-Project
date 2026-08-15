@@ -115,6 +115,8 @@ namespace BombSwap
 
         public event Action<PlayerDamageResult> PlayerDied;
 
+        public event Action<PlayerHealthRecoveryResult> PlayerRecovered;
+
         public event Action<EnemyMovementStep> ChaserMoved;
 
         public event Action<ChargerEnemyAdvanceResult> ChargerAdvanced;
@@ -703,6 +705,23 @@ namespace BombSwap
             _movement.GrantBombPassThrough(snapshot);
             BombPlaced?.Invoke(snapshot);
             return true;
+        }
+
+        public PlayerHealthRecoveryResult ApplyPlayerRecovery(int requestedHealth)
+        {
+            if (!IsReady || _health == null)
+            {
+                throw new InvalidOperationException(
+                    "Player recovery requires a ready game session.");
+            }
+
+            PlayerHealthRecoveryResult result =
+                _health.ApplyRecovery(requestedHealth);
+            if (result.WasApplied)
+            {
+                PlayerRecovered?.Invoke(result);
+            }
+            return result;
         }
 
         private void Awake()

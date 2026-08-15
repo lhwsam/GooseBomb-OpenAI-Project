@@ -169,6 +169,43 @@ namespace BombSwap.Core
                 now);
         }
 
+        public PlayerHealthRecoveryResult ApplyRecovery(int requestedHealth)
+        {
+            if (requestedHealth <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requestedHealth),
+                    requestedHealth,
+                    "Requested recovery must be positive.");
+            }
+
+            ObserveTime(clock.Now);
+            int previousHealth = CurrentHealth;
+            if (IsDead)
+            {
+                return new PlayerHealthRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    previousHealth,
+                    PlayerHealthRecoveryStatus.IgnoredDead);
+            }
+            if (previousHealth == MaxHealth)
+            {
+                return new PlayerHealthRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    previousHealth,
+                    PlayerHealthRecoveryStatus.IgnoredAtFullHealth);
+            }
+
+            CurrentHealth = Math.Min(MaxHealth, CurrentHealth + requestedHealth);
+            return new PlayerHealthRecoveryResult(
+                requestedHealth,
+                previousHealth,
+                CurrentHealth,
+                PlayerHealthRecoveryStatus.Applied);
+        }
+
         private PlayerDamageResult ApplyDamage(
             PlayerDamageSourceKind sourceKind,
             BombId explosionId,

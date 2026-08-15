@@ -26,6 +26,47 @@ namespace BombSwap.Core
         RunFinished = 3,
     }
 
+    public enum DungeonRecoveryUseStatus
+    {
+        Restored = 0,
+        NotInRecoveryRoom = 1,
+        AlreadyConsumed = 2,
+        AtFullHealth = 3,
+        PlayerDead = 4,
+        RunFinished = 5,
+    }
+
+    public readonly struct DungeonRecoveryUseResult
+    {
+        internal DungeonRecoveryUseResult(
+            DungeonRoomNodeId roomId,
+            int requestedHealth,
+            int previousHealth,
+            int currentHealth,
+            DungeonRecoveryUseStatus status)
+        {
+            RoomId = roomId;
+            RequestedHealth = requestedHealth;
+            PreviousHealth = previousHealth;
+            CurrentHealth = currentHealth;
+            Status = status;
+        }
+
+        public DungeonRoomNodeId RoomId { get; }
+
+        public int RequestedHealth { get; }
+
+        public int PreviousHealth { get; }
+
+        public int CurrentHealth { get; }
+
+        public int RestoredHealth => CurrentHealth - PreviousHealth;
+
+        public DungeonRecoveryUseStatus Status { get; }
+
+        public bool WasRestored => Status == DungeonRecoveryUseStatus.Restored;
+    }
+
     public readonly struct DungeonTravelResult
     {
         internal DungeonTravelResult(
@@ -63,6 +104,7 @@ namespace BombSwap.Core
 
         private readonly bool[] _visited;
         private readonly bool[] _cleared;
+        private readonly bool[] _consumedRecoveryRooms;
 
         private const int CombatRoomTokenReward = 1;
 
@@ -71,6 +113,7 @@ namespace BombSwap.Core
             Graph = graph ?? throw new ArgumentNullException(nameof(graph));
             _visited = new bool[graph.Rooms.Count];
             _cleared = new bool[graph.Rooms.Count];
+            _consumedRecoveryRooms = new bool[graph.Rooms.Count];
             CurrentRoomId = graph.StartRoomId;
             _visited[GetRoomIndex(CurrentRoomId)] = true;
         }
@@ -105,6 +148,18 @@ namespace BombSwap.Core
         {
             DungeonRoomNode room = Graph.GetRoom(roomId);
             return RequiresClear(room.RoomType) && !_cleared[roomId.Value - 1];
+        }
+
+        public bool IsRecoveryConsumed(DungeonRoomNodeId roomId)
+        {
+            DungeonRoomNode room = Graph.GetRoom(roomId);
+            if (room.RoomType != RoomType.Recovery)
+            {
+                throw new ArgumentException(
+                    $"Dungeon room {roomId} is not a recovery room.",
+                    nameof(roomId));
+            }
+            return _consumedRecoveryRooms[roomId.Value - 1];
         }
 
         public IReadOnlyList<DungeonRoomNodeId> GetVisitedRooms()
@@ -231,6 +286,79 @@ namespace BombSwap.Core
             return DungeonRoomClearStatus.Cleared;
         }
 
+        public DungeonRecoveryUseResult TryUseCurrentRecovery(
+            DungeonPlayerHealthState playerHealth,
+            int requestedHealth)
+        {
+            if (playerHealth == null)
+            {
+                throw new ArgumentNullException(nameof(playerHealth));
+            }
+            if (requestedHealth <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requestedHealth),
+                    requestedHealth,
+                    "Requested recovery must be positive.");
+            }
+
+            int previousHealth = playerHealth.CurrentHealth;
+            if (IsTerminal)
+            {
+                return CreateRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    DungeonRecoveryUseStatus.RunFinished);
+            }
+
+            DungeonRoomNode current = Graph.GetRoom(CurrentRoomId);
+            if (current.RoomType != RoomType.Recovery)
+            {
+                return CreateRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    DungeonRecoveryUseStatus.NotInRecoveryRoom);
+            }
+
+            int roomIndex = GetRoomIndex(CurrentRoomId);
+            if (_consumedRecoveryRooms[roomIndex])
+            {
+                return CreateRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    DungeonRecoveryUseStatus.AlreadyConsumed);
+            }
+            if (playerHealth.IsDead)
+            {
+                return CreateRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    DungeonRecoveryUseStatus.PlayerDead);
+            }
+            if (previousHealth == playerHealth.MaxHealth)
+            {
+                return CreateRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    DungeonRecoveryUseStatus.AtFullHealth);
+            }
+
+            PlayerHealthRecoveryResult recovery =
+                playerHealth.ApplyRecovery(requestedHealth);
+            if (!recovery.WasApplied || recovery.PreviousHealth != previousHealth)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon recovery produced an inconsistent player-health result.");
+            }
+            _consumedRecoveryRooms[roomIndex] = true;
+            return new DungeonRecoveryUseResult(
+                CurrentRoomId,
+                requestedHealth,
+                previousHealth,
+                recovery.CurrentHealth,
+                DungeonRecoveryUseStatus.Restored);
+        }
+
         public bool TryFail(PlayerDamageResult fatalDamage)
         {
             if (!fatalDamage.WasFatal)
@@ -259,6 +387,7 @@ namespace BombSwap.Core
                 case RoomType.Start:
                 case RoomType.BombReward:
                 case RoomType.BossAntechamber:
+                case RoomType.Recovery:
                     return false;
                 default:
                     throw new ArgumentOutOfRangeException(
@@ -279,6 +408,19 @@ namespace BombSwap.Core
                 }
             }
             return false;
+        }
+
+        private DungeonRecoveryUseResult CreateRecoveryResult(
+            int requestedHealth,
+            int currentHealth,
+            DungeonRecoveryUseStatus status)
+        {
+            return new DungeonRecoveryUseResult(
+                CurrentRoomId,
+                requestedHealth,
+                currentHealth,
+                currentHealth,
+                status);
         }
 
         private int GetRoomIndex(DungeonRoomNodeId roomId)

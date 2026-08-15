@@ -46,10 +46,10 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 BuildSignature(graph),
                 Is.EqualTo(
-                    "prototype-tree-v1|" +
+                    "prototype-tree-v2|" +
                     "1:1@0,0;2:0@-1,0;3:2@-1,1;4:0@-1,2;" +
-                    "5:0@0,2;6:3@1,2;7:4@1,1;8:0@-2,1;|" +
-                    "1-2;2-3;3-4;4-5;5-6;6-7;3-8;"));
+                    "5:0@0,2;6:3@1,2;7:4@1,1;8:5@0,3;9:0@-2,1;|" +
+                    "1-2;2-3;3-4;4-5;5-6;6-7;5-8;3-9;"));
         }
 
         [Test]
@@ -59,7 +59,7 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(graph.Seed, Is.EqualTo(1729));
             Assert.That(graph.CombatRoomCount, Is.InRange(4, 5));
-            Assert.That(graph.Rooms.Count, Is.EqualTo(graph.CombatRoomCount + 4));
+            Assert.That(graph.Rooms.Count, Is.EqualTo(graph.CombatRoomCount + 5));
             Assert.That(graph.Connections.Count, Is.EqualTo(graph.Rooms.Count - 1));
             Assert.That(graph.GetRoom(graph.StartRoomId).RoomType, Is.EqualTo(RoomType.Start));
             Assert.That(
@@ -69,6 +69,9 @@ namespace BombSwap.Tests.EditMode
                 graph.GetRoom(graph.BossAntechamberRoomId).RoomType,
                 Is.EqualTo(RoomType.BossAntechamber));
             Assert.That(graph.GetRoom(graph.BossRoomId).RoomType, Is.EqualTo(RoomType.Boss));
+            Assert.That(
+                graph.GetRoom(graph.RecoveryRoomId).RoomType,
+                Is.EqualTo(RoomType.Recovery));
 
             IReadOnlyList<DungeonRoomNodeId> bossPath =
                 graph.GetShortestPath(graph.StartRoomId, graph.BossRoomId);
@@ -82,6 +85,13 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 bossPath.Count(id => graph.GetRoom(id).RoomType == RoomType.Combat),
                 Is.EqualTo(3));
+            Assert.That(bossPath.Contains(graph.RecoveryRoomId), Is.False);
+
+            DungeonRoomNodeId lastBossPathCombat = bossPath[bossPath.Count - 3];
+            Assert.That(graph.GetRoom(lastBossPathCombat).RoomType, Is.EqualTo(RoomType.Combat));
+            Assert.That(
+                graph.GetNeighbors(graph.RecoveryRoomId),
+                Is.EqualTo(new[] { lastBossPathCombat }));
 
             var bossPathSet = new HashSet<DungeonRoomNodeId>(bossPath);
             DungeonRoomNode[] branchRooms = graph.Rooms
@@ -97,8 +107,12 @@ namespace BombSwap.Tests.EditMode
                 "The optional combat branch must end in a dead end.");
             Assert.That(
                 graph.Connections.Count(connection =>
-                    bossPathSet.Contains(connection.First) !=
-                    bossPathSet.Contains(connection.Second)),
+                    (bossPathSet.Contains(connection.First) &&
+                     graph.GetRoom(connection.Second).RoomType == RoomType.Combat &&
+                     !bossPathSet.Contains(connection.Second)) ||
+                    (bossPathSet.Contains(connection.Second) &&
+                     graph.GetRoom(connection.First).RoomType == RoomType.Combat &&
+                     !bossPathSet.Contains(connection.First))),
                 Is.EqualTo(1),
                 "Optional combat rooms must form one branch from the boss path.");
             foreach (DungeonRoomNode branchRoom in branchRooms)

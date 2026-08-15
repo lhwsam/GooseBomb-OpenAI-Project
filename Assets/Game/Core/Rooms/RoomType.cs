@@ -7,5 +7,6 @@ namespace BombSwap.Core
         BombReward = 2,
         BossAntechamber = 3,
         Boss = 4,
+        Recovery = 5,
     }
 }

@@ -6,6 +6,54 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class PlayerHealthSimulationTests
     {
+        [Test]
+        public void Recovery_AppliesUpToMaximumWithoutChangingInvulnerability()
+        {
+            var clock = new ManualGameClock();
+            var health = new PlayerHealthSimulation(
+                new ActorId(1),
+                clock,
+                new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)));
+            PlayerDamageResult damage =
+                health.ApplyContactDamage(new ActorId(2), 3);
+            TimeSpan invulnerableUntil = damage.InvulnerableUntil;
+
+            PlayerHealthRecoveryResult recovery = health.ApplyRecovery(4);
+
+            Assert.That(recovery.Status, Is.EqualTo(
+                PlayerHealthRecoveryStatus.Applied));
+            Assert.That(recovery.RequestedHealth, Is.EqualTo(4));
+            Assert.That(recovery.PreviousHealth, Is.EqualTo(2));
+            Assert.That(recovery.CurrentHealth, Is.EqualTo(5));
+            Assert.That(recovery.RestoredHealth, Is.EqualTo(3));
+            Assert.That(recovery.WasApplied, Is.True);
+            Assert.That(health.CurrentHealth, Is.EqualTo(5));
+            Assert.That(health.InvulnerableUntil, Is.EqualTo(invulnerableUntil));
+        }
+
+        [Test]
+        public void Recovery_IgnoresFullAndDeadHealthAndRejectsInvalidAmount()
+        {
+            var full = new PlayerHealthSimulation(
+                new ActorId(1),
+                new ManualGameClock(),
+                new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)));
+            PlayerHealthRecoveryResult atFull = full.ApplyRecovery(2);
+            Assert.That(atFull.Status, Is.EqualTo(
+                PlayerHealthRecoveryStatus.IgnoredAtFullHealth));
+            Assert.That(atFull.RestoredHealth, Is.Zero);
+
+            var dead = new PlayerHealthSimulation(
+                new ActorId(1),
+                new ManualGameClock(),
+                new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)));
+            dead.ApplyContactDamage(new ActorId(2), 5);
+            PlayerHealthRecoveryResult whileDead = dead.ApplyRecovery(2);
+            Assert.That(whileDead.Status, Is.EqualTo(
+                PlayerHealthRecoveryStatus.IgnoredDead));
+            Assert.That(whileDead.RestoredHealth, Is.Zero);
+            Assert.Throws<ArgumentOutOfRangeException>(() => full.ApplyRecovery(0));
+        }
         private static readonly ActorId PlayerActor = new ActorId(1);
         private static readonly ActorId EnemyActor = new ActorId(2);
         private static readonly TimeSpan Invulnerability = TimeSpan.FromMilliseconds(750);

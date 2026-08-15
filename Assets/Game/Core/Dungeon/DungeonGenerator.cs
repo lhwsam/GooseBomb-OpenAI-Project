@@ -5,7 +5,7 @@ namespace BombSwap.Core
 {
     public static class DungeonGenerator
     {
-        public const string GenerationVersion = "prototype-tree-v1";
+        public const string GenerationVersion = "prototype-tree-v2";
 
         private const int MaximumPlacementAttempts = 1000000;
 
@@ -54,7 +54,12 @@ namespace BombSwap.Core
                 RoomType.BossAntechamber,
                 lastBossPathCombatIndex);
             AddRoom(roomTypes, parents, RoomType.Boss, roomTypes.Count - 1);
-            int mainPathRoomCount = roomTypes.Count;
+            AddRoom(
+                roomTypes,
+                parents,
+                RoomType.Recovery,
+                lastBossPathCombatIndex);
+            int fixedRoomCount = roomTypes.Count;
 
             int branchAttachIndex = random.Next(2, lastBossPathCombatIndex + 1);
             int branchParent = branchAttachIndex;
@@ -64,7 +69,7 @@ namespace BombSwap.Core
                 branchParent = roomTypes.Count - 1;
             }
 
-            if (mainPathRoomCount + branchCombatCount != roomTypes.Count)
+            if (fixedRoomCount + branchCombatCount != roomTypes.Count)
             {
                 throw new InvalidOperationException("Dungeon topology room count is inconsistent.");
             }

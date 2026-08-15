@@ -43,5 +43,41 @@ namespace BombSwap.Core
 
             CurrentHealth = result.CurrentHealth;
         }
+
+        internal PlayerHealthRecoveryResult ApplyRecovery(int requestedHealth)
+        {
+            if (requestedHealth <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requestedHealth),
+                    requestedHealth,
+                    "Requested recovery must be positive.");
+            }
+            if (IsDead)
+            {
+                return new PlayerHealthRecoveryResult(
+                    requestedHealth,
+                    CurrentHealth,
+                    CurrentHealth,
+                    PlayerHealthRecoveryStatus.IgnoredDead);
+            }
+
+            int previousHealth = CurrentHealth;
+            if (previousHealth == MaxHealth)
+            {
+                return new PlayerHealthRecoveryResult(
+                    requestedHealth,
+                    previousHealth,
+                    previousHealth,
+                    PlayerHealthRecoveryStatus.IgnoredAtFullHealth);
+            }
+
+            CurrentHealth = Math.Min(MaxHealth, CurrentHealth + requestedHealth);
+            return new PlayerHealthRecoveryResult(
+                requestedHealth,
+                previousHealth,
+                CurrentHealth,
+                PlayerHealthRecoveryStatus.Applied);
+        }
     }
 }

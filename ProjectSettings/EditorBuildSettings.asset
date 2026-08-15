@@ -15,6 +15,9 @@ EditorBuildSettings:
     path: Assets/Game/Scenes/Dungeon/DungeonBossAnte.unity
     guid: 93d2d13dc612bf843842519e6763806f
   - enabled: 1
+    path: Assets/Game/Scenes/Dungeon/DungeonRecovery.unity
+    guid: 7156a43ab2b658743aae8712d714b79e
+  - enabled: 1
     path: Assets/Game/Scenes/Dungeon/DungeonBoss.unity
     guid: d4a3cc54431c17849aa8f968ada09e3b
   - enabled: 1

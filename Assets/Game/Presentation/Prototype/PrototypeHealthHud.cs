@@ -109,6 +109,7 @@ namespace BombSwap
             session.Ready += OnSessionReady;
             session.PlayerDamaged += OnPlayerDamaged;
             session.PlayerDied += OnPlayerDied;
+            session.PlayerRecovered += OnPlayerRecovered;
             session.BossDamaged += OnBossDamaged;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
             if (_roomBinder != null)
@@ -129,6 +130,7 @@ namespace BombSwap
             session.Ready -= OnSessionReady;
             session.PlayerDamaged -= OnPlayerDamaged;
             session.PlayerDied -= OnPlayerDied;
+            session.PlayerRecovered -= OnPlayerRecovered;
             session.BossDamaged -= OnBossDamaged;
             session.BossPatternTransitioned -= OnBossPatternTransitioned;
             if (_roomBinder != null)
@@ -150,6 +152,11 @@ namespace BombSwap
         }
 
         private void OnPlayerDied(PlayerDamageResult result)
+        {
+            RefreshPlayer(result.CurrentHealth, session.MaxHealth);
+        }
+
+        private void OnPlayerRecovered(PlayerHealthRecoveryResult result)
         {
             RefreshPlayer(result.CurrentHealth, session.MaxHealth);
         }

@@ -89,6 +89,7 @@ namespace BombSwap
             session.ActiveBombSlotChanged += OnActiveBombSlotChanged;
             session.PlayerDamaged += OnPlayerDamaged;
             session.PlayerDied += OnPlayerDied;
+            session.PlayerRecovered += OnPlayerRecovered;
             session.ChaserMoved += OnChaserMoved;
             session.ChargerAdvanced += OnChargerAdvanced;
             session.ArmoredMoved += OnArmoredMoved;
@@ -121,6 +122,7 @@ namespace BombSwap
                 session.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
                 session.PlayerDamaged -= OnPlayerDamaged;
                 session.PlayerDied -= OnPlayerDied;
+                session.PlayerRecovered -= OnPlayerRecovered;
                 session.ChaserMoved -= OnChaserMoved;
                 session.ChargerAdvanced -= OnChargerAdvanced;
                 session.ArmoredMoved -= OnArmoredMoved;
@@ -300,6 +302,11 @@ namespace BombSwap
         private void OnPlayerDied(PlayerDamageResult _)
         {
             WebGlHarnessReporter.Report("player-died");
+        }
+
+        private void OnPlayerRecovered(PlayerHealthRecoveryResult result)
+        {
+            ReportPlayerHealth(result.CurrentHealth);
         }
 
         private static void ReportPlayerHealth(int currentHealth)

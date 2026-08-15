@@ -11,8 +11,8 @@
 ## 권장 프로토타입 범위
 
 - 전투방 프리팹 5~7개.
-- 시작방, 일반 전투방, 첫 폭탄 보상, 보스 전실, 보스방.
-- 보물/회복/비밀방은 시간이 남을 때 또는 프로토타입 이후.
+- 시작방, 일반 전투방, 첫 폭탄 보상, 보스 전실, 선택형 회복방, 보스방.
+- 보물/비밀방은 시간이 남을 때 또는 프로토타입 이후.
 
 ## 구현된 프로토타입 전투방 스키마
 
@@ -54,6 +54,14 @@
 
 카탈로그의 entry는 null 방, 빈 씬 이름, 중복 room ID와 중복 씬 이름을 허용하지 않는다. 실제 씬 수명은 persistent run host·navigator·room binder가 소유하며, 카탈로그는 mutable 방문 상태를 갖지 않는 검증된 조회 경계다.
 
+## 회복방 저작 계약
+
+- `DungeonRecovery.unity`는 기존 안전방 shell과 문·HUD·run binder를 재사용하며 적 actor와 클리어 조건을 만들지 않는다.
+- `PrototypeRecoveryPickupPresenter`는 중앙 논리 셀 `(0,0)`을 감시한다. Collider나 Transform 접촉이 아니라 `PlayerMovementStep`의 확정 논리 셀만 획득을 일으킨다.
+- 회복량 `2`와 1회 사용은 GDD에 없는 `Proposed` 튜닝이다. 실제 소비 여부는 scene이 아니라 Core `DungeonRunState`의 Recovery 노드 상태가 소유한다.
+- 최대 체력에서는 `HEALTH FULL`로 남고 소비하지 않는다. 유효한 회복 뒤에는 `RECOVERY USED`, 미소비 상태에서는 `RECOVERY +2`를 표시해 색만으로 상태를 구분하지 않는다.
+- pickup renderer는 `RecoveryPickup.mat`의 URP Lit shared material을 사용한다. 런타임 material 인스턴스를 만들지 않으며 WebGL에서 shader fallback 색으로 보이지 않아야 한다.
+
 ## 저작 불변식
 
 - 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형과 갑옷 적도 플레이어와 즉시 인접하지 않는다.
@@ -85,7 +93,8 @@
 - 논리 파괴 벽과 `Environment/DestructibleObstacles`의 황갈색 4분할 표현 셀·재질·Collider·presenter 참조 불일치.
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
 - 갑옷 적 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 상태별 표현 구성이 권위 방 데이터와 다른 상태.
-- 아홉 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
-- Build Settings의 첫 enabled 씬 아홉 개가 시작→폭탄 보상→보스 전실→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
+- 열 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
+- Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.
+- Build Settings의 첫 enabled 씬 열 개가 시작→폭탄 보상→보스 전실→회복→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
 
 자동 검증이 방의 재미를 보증하지는 않는다. 시각 확인과 플레이테스트를 함께 수행한다.

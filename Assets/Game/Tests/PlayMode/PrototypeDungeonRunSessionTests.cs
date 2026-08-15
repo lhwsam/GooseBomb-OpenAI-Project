@@ -867,6 +867,159 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator RecoveryScene_SavesAtFullHealthRestoresOnceAndPersistsAcrossReentry()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                IReadOnlyList<DungeonRoomNodeId> path = run.Graph.GetShortestPath(
+                    run.Graph.StartRoomId,
+                    run.Graph.RecoveryRoomId);
+                for (int index = 1; index < path.Count; index++)
+                {
+                    if (run.RunState.IsCurrentRoomLocked)
+                    {
+                        Assert.That(
+                            run.TryClearCurrentRoom(),
+                            Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                    }
+                    Assert.That(run.TryTravelTo(path[index]).Moved, Is.True);
+                }
+
+                int tokensBeforeRecovery = run.CombatRewardTokenCount;
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonRecovery",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder fullBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeRecoveryPickupPresenter fullPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeRecoveryPickupPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud fullHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(fullBinder.RuntimeRoomType, Is.EqualTo(RoomType.Recovery));
+                Assert.That(fullBinder.RoomSession.EnemyActiveCount, Is.Zero);
+                Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
+                Assert.That(fullPresenter.IsInitialized, Is.True);
+                Assert.That(fullPresenter.IsVisualVisible, Is.True);
+                Assert.That(
+                    fullPresenter.TryCollectAt(new GridPosition(0, 0)),
+                    Is.False);
+                Assert.That(
+                    fullPresenter.LastStatus,
+                    Is.EqualTo(DungeonRecoveryUseStatus.AtFullHealth));
+                Assert.That(fullPresenter.IsVisualVisible, Is.True);
+                Assert.That(
+                    run.RunState.IsRecoveryConsumed(run.Graph.RecoveryRoomId),
+                    Is.False);
+                Assert.That(fullHud.DisplayedPlayerHealth, Is.EqualTo(5));
+
+                DungeonRoomNodeId recoveryParent =
+                    run.Graph.GetNeighbors(run.Graph.RecoveryRoomId).Single();
+                Assert.That(run.TryTravelTo(recoveryParent).Moved, Is.True);
+                var roomHealth = new PlayerHealthSimulation(
+                    new ActorId(1),
+                    new ManualGameClock(),
+                    new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)),
+                    run.PlayerHealthState.CurrentHealth);
+                PlayerDamageResult damage =
+                    roomHealth.ApplyContactDamage(new ActorId(2), 2);
+                run.PlayerHealthState.RecordAppliedDamage(damage);
+                Assert.That(run.TryTravelTo(run.Graph.RecoveryRoomId).Moved, Is.True);
+
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonRecovery",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeRecoveryPickupPresenter damagedPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeRecoveryPickupPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeDungeonRoomBinder damagedBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud damagedHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(3));
+                Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(3));
+                Assert.That(
+                    damagedPresenter.TryCollectAt(new GridPosition(0, 0)),
+                    Is.True);
+                Assert.That(
+                    damagedPresenter.LastStatus,
+                    Is.EqualTo(DungeonRecoveryUseStatus.Restored));
+                Assert.That(damagedPresenter.IsConsumed, Is.True);
+                Assert.That(damagedPresenter.IsVisualVisible, Is.False);
+                Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(5));
+                Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
+                Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(5));
+                Assert.That(damagedHud.PlayerHealthFillFraction, Is.EqualTo(1f));
+                Assert.That(run.CombatRewardTokenCount, Is.EqualTo(tokensBeforeRecovery));
+
+                Assert.That(run.TryTravelTo(recoveryParent).Moved, Is.True);
+                Assert.That(run.TryTravelTo(run.Graph.RecoveryRoomId).Moved, Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonRecovery",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeRecoveryPickupPresenter consumedPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeRecoveryPickupPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(consumedPresenter.IsConsumed, Is.True);
+                Assert.That(consumedPresenter.IsVisualVisible, Is.False);
+                Assert.That(consumedPresenter.InstructionText, Is.EqualTo("RECOVERY USED"));
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonRecoveryPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
         [Test]
         public void SpecialCatalog_RequiresEveryUniqueNonCombatTypeAndScene()
         {
@@ -885,6 +1038,9 @@ namespace BombSwap.Tests.PlayMode
                 catalog.GetSceneName(RoomType.BossAntechamber),
                 Is.EqualTo("DungeonBossAnte"));
             Assert.That(catalog.GetSceneName(RoomType.Boss), Is.EqualTo("DungeonBoss"));
+            Assert.That(
+                catalog.GetSceneName(RoomType.Recovery),
+                Is.EqualTo("DungeonRecovery"));
             Assert.Throws<ArgumentNullException>(() => catalog.Configure(null));
             Assert.Throws<ArgumentException>(() =>
                 catalog.Configure(Array.Empty<PrototypeDungeonSpecialRoomEntry>()));
@@ -897,6 +1053,9 @@ namespace BombSwap.Tests.PlayMode
                         RoomType.BossAntechamber,
                         "Ante"),
                     new PrototypeDungeonSpecialRoomEntry(RoomType.Boss, "Boss"),
+                    new PrototypeDungeonSpecialRoomEntry(
+                        RoomType.Recovery,
+                        "Recovery"),
                 }));
             Assert.Throws<ArgumentException>(() =>
                 catalog.Configure(new[]
@@ -907,6 +1066,9 @@ namespace BombSwap.Tests.PlayMode
                         RoomType.BossAntechamber,
                         "Ante"),
                     new PrototypeDungeonSpecialRoomEntry(RoomType.Boss, "Boss"),
+                    new PrototypeDungeonSpecialRoomEntry(
+                        RoomType.Recovery,
+                        "Recovery"),
                 }));
             Assert.Throws<ArgumentException>(() =>
                 catalog.Configure(new[]
@@ -917,6 +1079,9 @@ namespace BombSwap.Tests.PlayMode
                         RoomType.BossAntechamber,
                         "Ante"),
                     new PrototypeDungeonSpecialRoomEntry(RoomType.Boss, "Boss"),
+                    new PrototypeDungeonSpecialRoomEntry(
+                        RoomType.Recovery,
+                        "Recovery"),
                 }));
         }
 
@@ -949,6 +1114,46 @@ namespace BombSwap.Tests.PlayMode
 
             var withoutSpecialCatalog = new PrototypeDungeonRunSession(73, CreateCatalog());
             Assert.That(withoutSpecialCatalog.TryGetCurrentSceneName(out _), Is.False);
+        }
+
+        [Test]
+        public void Session_RecoveryPersistsHealthAndConsumptionForTheRun()
+        {
+            var session = new PrototypeDungeonRunSession(
+                0,
+                CreateCatalog(),
+                CreateSpecialCatalog(),
+                CreateBombRewardCatalog(),
+                new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)));
+            TraverseRunTo(session, session.Graph.RecoveryRoomId);
+
+            DungeonRecoveryUseResult atFull = session.TryUseRecovery(2);
+            Assert.That(atFull.Status, Is.EqualTo(
+                DungeonRecoveryUseStatus.AtFullHealth));
+            Assert.That(
+                session.RunState.IsRecoveryConsumed(session.Graph.RecoveryRoomId),
+                Is.False);
+
+            var roomHealth = new PlayerHealthSimulation(
+                new ActorId(1),
+                new ManualGameClock(),
+                new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)),
+                session.PlayerHealthState.CurrentHealth);
+            PlayerDamageResult damage =
+                roomHealth.ApplyContactDamage(new ActorId(2), 3);
+            session.PlayerHealthState.RecordAppliedDamage(damage);
+
+            DungeonRecoveryUseResult restored = session.TryUseRecovery(2);
+            Assert.That(restored.Status, Is.EqualTo(
+                DungeonRecoveryUseStatus.Restored));
+            Assert.That(restored.RestoredHealth, Is.EqualTo(2));
+            Assert.That(session.PlayerHealthState.CurrentHealth, Is.EqualTo(4));
+            Assert.That(
+                session.RunState.IsRecoveryConsumed(session.Graph.RecoveryRoomId),
+                Is.True);
+            Assert.That(
+                session.TryUseRecovery(2).Status,
+                Is.EqualTo(DungeonRecoveryUseStatus.AlreadyConsumed));
         }
 
         [Test]
@@ -1466,6 +1671,9 @@ namespace BombSwap.Tests.PlayMode
                     RoomType.BossAntechamber,
                     "DungeonBossAnte"),
                 new PrototypeDungeonSpecialRoomEntry(RoomType.Boss, "DungeonBoss"),
+                new PrototypeDungeonSpecialRoomEntry(
+                    RoomType.Recovery,
+                    "DungeonRecovery"),
             };
         }
 
@@ -1541,11 +1749,32 @@ namespace BombSwap.Tests.PlayMode
                     return "DungeonBossAnte";
                 case RoomType.Boss:
                     return "DungeonBoss";
+                case RoomType.Recovery:
+                    return "DungeonRecovery";
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(roomType),
                         roomType,
                         null);
+            }
+        }
+
+        private static void TraverseRunTo(
+            PrototypeDungeonRunSession session,
+            DungeonRoomNodeId targetRoomId)
+        {
+            IReadOnlyList<DungeonRoomNodeId> path = session.Graph.GetShortestPath(
+                session.CurrentRoomId,
+                targetRoomId);
+            for (int index = 1; index < path.Count; index++)
+            {
+                if (session.RunState.IsCurrentRoomLocked)
+                {
+                    Assert.That(
+                        session.TryClearCurrentRoom(),
+                        Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                }
+                Assert.That(session.TryTravelTo(path[index]).Moved, Is.True);
             }
         }
 
