@@ -149,6 +149,18 @@ namespace BombSwap
             return BombLoadoutState.TrySelectReward(candidateId);
         }
 
+        public DungeonRecoveryUseResult TryUseRecovery(int requestedHealth)
+        {
+            if (PlayerHealthState == null)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon run session has no persistent player-health state.");
+            }
+            return RunState.TryUseCurrentRecovery(
+                PlayerHealthState,
+                requestedHealth);
+        }
+
         public IReadOnlyList<DungeonRoomExitState> GetCurrentExitStates()
         {
             return RunState.GetCurrentExitStates();

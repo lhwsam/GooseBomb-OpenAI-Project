@@ -327,6 +327,99 @@ namespace BombSwap.Tests.EditMode
             Assert.That(run.GetVisitedRooms(), Is.EqualTo(new[] { graph.StartRoomId }));
         }
 
+        [Test]
+        public void RecoveryRoom_RestoresUpToMaximumOnceWithoutLockOrTokenReward()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(233);
+            var run = new DungeonRunState(graph);
+            var health = new DungeonPlayerHealthState(5);
+            ApplyRunDamage(health, 3);
+            TraversePath(
+                run,
+                graph.GetShortestPath(run.CurrentRoomId, graph.RecoveryRoomId));
+
+            int tokensBeforeRecovery = run.CombatRewardTokenCount;
+            DungeonRecoveryUseResult restored =
+                run.TryUseCurrentRecovery(health, 3);
+
+            Assert.That(run.CurrentRoomId, Is.EqualTo(graph.RecoveryRoomId));
+            Assert.That(run.IsCurrentRoomLocked, Is.False);
+            Assert.That(run.TryClearCurrentRoom(), Is.EqualTo(
+                DungeonRoomClearStatus.NotClearable));
+            Assert.That(restored.Status, Is.EqualTo(DungeonRecoveryUseStatus.Restored));
+            Assert.That(restored.RoomId, Is.EqualTo(graph.RecoveryRoomId));
+            Assert.That(restored.RequestedHealth, Is.EqualTo(3));
+            Assert.That(restored.PreviousHealth, Is.EqualTo(2));
+            Assert.That(restored.CurrentHealth, Is.EqualTo(5));
+            Assert.That(restored.RestoredHealth, Is.EqualTo(3));
+            Assert.That(restored.WasRestored, Is.True);
+            Assert.That(health.CurrentHealth, Is.EqualTo(5));
+            Assert.That(run.IsRecoveryConsumed(graph.RecoveryRoomId), Is.True);
+            Assert.That(run.CombatRewardTokenCount, Is.EqualTo(tokensBeforeRecovery));
+
+            DungeonRecoveryUseResult repeated =
+                run.TryUseCurrentRecovery(health, 2);
+            Assert.That(
+                repeated.Status,
+                Is.EqualTo(DungeonRecoveryUseStatus.AlreadyConsumed));
+            Assert.That(repeated.RestoredHealth, Is.Zero);
+            Assert.That(health.CurrentHealth, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void RecoveryRoom_AtFullHealthDoesNotConsumeAndCanBeUsedLater()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(377);
+            var run = new DungeonRunState(graph);
+            var health = new DungeonPlayerHealthState(5);
+            TraversePath(
+                run,
+                graph.GetShortestPath(run.CurrentRoomId, graph.RecoveryRoomId));
+
+            DungeonRecoveryUseResult full = run.TryUseCurrentRecovery(health, 2);
+            Assert.That(full.Status, Is.EqualTo(DungeonRecoveryUseStatus.AtFullHealth));
+            Assert.That(run.IsRecoveryConsumed(graph.RecoveryRoomId), Is.False);
+
+            ApplyRunDamage(health, 1);
+            DungeonRecoveryUseResult restored = run.TryUseCurrentRecovery(health, 2);
+            Assert.That(restored.Status, Is.EqualTo(DungeonRecoveryUseStatus.Restored));
+            Assert.That(restored.RestoredHealth, Is.EqualTo(1));
+            Assert.That(health.CurrentHealth, Is.EqualTo(5));
+            Assert.That(run.IsRecoveryConsumed(graph.RecoveryRoomId), Is.True);
+        }
+
+        [Test]
+        public void RecoveryRoom_RejectsWrongRoomDeadTerminalAndInvalidRequests()
+        {
+            DungeonGraph graph = DungeonGenerator.Generate(610);
+            var run = new DungeonRunState(graph);
+            var health = new DungeonPlayerHealthState(5);
+
+            Assert.That(
+                run.TryUseCurrentRecovery(health, 2).Status,
+                Is.EqualTo(DungeonRecoveryUseStatus.NotInRecoveryRoom));
+            Assert.Throws<ArgumentNullException>(() =>
+                run.TryUseCurrentRecovery(null, 2));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                run.TryUseCurrentRecovery(health, 0));
+            Assert.Throws<ArgumentException>(() =>
+                run.IsRecoveryConsumed(graph.StartRoomId));
+
+            TraversePath(
+                run,
+                graph.GetShortestPath(run.CurrentRoomId, graph.RecoveryRoomId));
+            PlayerDamageResult fatal = ApplyRunDamage(health, 5);
+            Assert.That(
+                run.TryUseCurrentRecovery(health, 2).Status,
+                Is.EqualTo(DungeonRecoveryUseStatus.PlayerDead));
+            Assert.That(run.IsRecoveryConsumed(graph.RecoveryRoomId), Is.False);
+            Assert.That(run.TryFail(fatal), Is.True);
+            Assert.That(
+                run.TryUseCurrentRecovery(health, 2).Status,
+                Is.EqualTo(DungeonRecoveryUseStatus.RunFinished));
+            Assert.That(health.CurrentHealth, Is.Zero);
+        }
+
         private static void TraversePath(
             DungeonRunState run,
             IReadOnlyList<DungeonRoomNodeId> path)
@@ -379,6 +472,21 @@ namespace BombSwap.Tests.EditMode
                 new ManualGameClock(),
                 new PlayerHealthDefinition(maxHealth, TimeSpan.FromSeconds(0.75)));
             return health.ApplyContactDamage(new ActorId(2), damage);
+        }
+
+        private static PlayerDamageResult ApplyRunDamage(
+            DungeonPlayerHealthState runHealth,
+            int damage)
+        {
+            var roomHealth = new PlayerHealthSimulation(
+                new ActorId(1),
+                new ManualGameClock(),
+                new PlayerHealthDefinition(5, TimeSpan.FromSeconds(0.75)),
+                runHealth.CurrentHealth);
+            PlayerDamageResult result =
+                roomHealth.ApplyContactDamage(new ActorId(2), damage);
+            runHealth.RecordAppliedDamage(result);
+            return result;
         }
 
         private static RoomExitDirection Opposite(RoomExitDirection direction)

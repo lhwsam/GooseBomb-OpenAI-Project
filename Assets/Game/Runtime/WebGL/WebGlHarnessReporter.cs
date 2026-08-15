@@ -58,6 +58,9 @@ namespace BombSwap
                 case RoomType.Boss:
                     typeName = "boss";
                     break;
+                case RoomType.Recovery:
+                    typeName = "recovery";
+                    break;
                 default:
                     typeName = "unknown";
                     break;

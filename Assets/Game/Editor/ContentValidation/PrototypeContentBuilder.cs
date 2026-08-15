@@ -59,6 +59,7 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeArmoredContentIfMissing();
             PrototypeBossDefinitionAsset bossDefinition =
                 CreatePrototypeBossContentIfMissing();
+            CreatePrototypeRecoveryMaterialIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog =
@@ -192,6 +193,20 @@ namespace BombSwap.Editor.ContentValidation
                 bombRewardCatalog,
                 false,
                 false);
+            bool recoverySceneCreated = EnsureDungeonSpecialRoom(
+                PrototypeContentValidator.DungeonRecoveryScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[0],
+                combatRoomCatalog,
+                specialRoomCatalog,
+                bombRewardCatalog,
+                false,
+                false);
             bool bossSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonBossScenePath,
                 bombLoadout,
@@ -212,8 +227,8 @@ namespace BombSwap.Editor.ContentValidation
             return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
                 armorSceneCreated || gatesSceneCreated || startSceneCreated ||
                 rewardSceneCreated ||
-                bossAnteSceneCreated || bossSceneCreated
-                ? "Created BombSwap prototype dungeon content and nine graph room scenes."
+                bossAnteSceneCreated || recoverySceneCreated || bossSceneCreated
+                ? "Created BombSwap prototype dungeon content and ten graph room scenes."
                 : "BombSwap prototype dungeon content exists; synchronized room scenes, graph bindings, references, and Build Settings.";
         }
 
@@ -1225,6 +1240,9 @@ namespace BombSwap.Editor.ContentValidation
                     RoomType.BossAntechamber,
                     "DungeonBossAnte"),
                 new PrototypeDungeonSpecialRoomEntry(RoomType.Boss, "DungeonBoss"),
+                new PrototypeDungeonSpecialRoomEntry(
+                    RoomType.Recovery,
+                    "DungeonRecovery"),
             });
             EditorUtility.SetDirty(catalog);
             return catalog;
@@ -1429,6 +1447,7 @@ namespace BombSwap.Editor.ContentValidation
                     combatEnabled,
                     false);
                 SynchronizeBombRewardPresenter(scene, false);
+                SynchronizeRecoveryPickupPresenter(scene, false);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -1517,6 +1536,12 @@ namespace BombSwap.Editor.ContentValidation
                     string.Equals(
                         scenePath,
                         PrototypeContentValidator.DungeonRewardScenePath,
+                        StringComparison.Ordinal));
+                SynchronizeRecoveryPickupPresenter(
+                    scene,
+                    string.Equals(
+                        scenePath,
+                        PrototypeContentValidator.DungeonRecoveryScenePath,
                         StringComparison.Ordinal));
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
@@ -1694,6 +1719,62 @@ namespace BombSwap.Editor.ContentValidation
                 : binder.gameObject.AddComponent<PrototypeBombRewardPresenter>();
             presenter.Configure(binder);
             EditorUtility.SetDirty(presenter);
+        }
+
+        private static void SynchronizeRecoveryPickupPresenter(
+            Scene scene,
+            bool shouldExist)
+        {
+            PrototypeRecoveryPickupPresenter[] presenters =
+                FindAllInScene<PrototypeRecoveryPickupPresenter>(scene);
+            if (!shouldExist)
+            {
+                for (int index = 0; index < presenters.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(presenters[index]);
+                }
+                return;
+            }
+            if (presenters.Length > 1)
+            {
+                for (int index = 1; index < presenters.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(presenters[index]);
+                }
+            }
+
+            PrototypeDungeonRoomBinder binder =
+                FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
+            Material pickupMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeContentValidator.RecoveryPickupMaterialPath);
+            if (pickupMaterial == null)
+            {
+                throw new InvalidOperationException(
+                    "Prototype recovery pickup material is missing.");
+            }
+            PrototypeRecoveryPickupPresenter presenter = presenters.Length > 0
+                ? presenters[0]
+                : binder.gameObject.AddComponent<PrototypeRecoveryPickupPresenter>();
+            presenter.Configure(
+                binder,
+                pickupMaterial,
+                PrototypeRecoveryPickupPresenter.DefaultRecoveryAmount,
+                Vector2Int.zero);
+            EditorUtility.SetDirty(presenter);
+        }
+
+        private static void CreatePrototypeRecoveryMaterialIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException(
+                    "Required URP Lit shader was not found.");
+            }
+            GetOrCreateMaterial(
+                PrototypeContentValidator.RecoveryPickupMaterialPath,
+                shader,
+                PrototypeRecoveryPickupPresenter.DefaultPickupColor);
         }
 
         private static Renderer[] SynchronizeDungeonBoundary(
@@ -2460,6 +2541,9 @@ namespace BombSwap.Editor.ContentValidation
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.DungeonBossAnteScenePath,
+                    true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.DungeonRecoveryScenePath,
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.DungeonBossScenePath,

@@ -11,6 +11,46 @@ namespace BombSwap.Editor.Verification
 {
     public static class ConnectedWebGLBuildHarness
     {
+        private static string _scheduledArtifactsDirectory;
+        private static string _scheduledBuildPath;
+        private static string _scheduledStatusPath;
+
+        public static string ScheduleDevelopment(
+            string artifactsDirectory,
+            string buildPath)
+        {
+            if (string.IsNullOrWhiteSpace(artifactsDirectory))
+            {
+                throw new ArgumentException(
+                    "Artifacts directory is required.",
+                    nameof(artifactsDirectory));
+            }
+            if (string.IsNullOrWhiteSpace(buildPath))
+            {
+                throw new ArgumentException(
+                    "WebGL build path is required.",
+                    nameof(buildPath));
+            }
+            if (!string.IsNullOrEmpty(_scheduledStatusPath))
+            {
+                throw new InvalidOperationException(
+                    "A connected WebGL build is already scheduled or running.");
+            }
+
+            string absoluteArtifacts = Path.GetFullPath(artifactsDirectory);
+            Directory.CreateDirectory(absoluteArtifacts);
+            _scheduledArtifactsDirectory = artifactsDirectory;
+            _scheduledBuildPath = buildPath;
+            _scheduledStatusPath = Path.Combine(
+                absoluteArtifacts,
+                "webgl-build-status.txt");
+            File.WriteAllText(_scheduledStatusPath, "Scheduled");
+            EditorApplication.update -= ExecuteScheduledBuild;
+            EditorApplication.update += ExecuteScheduledBuild;
+            EditorApplication.QueuePlayerLoopUpdate();
+            return _scheduledStatusPath;
+        }
+
         public static string BuildDevelopment(
             string artifactsDirectory,
             string buildPath)
@@ -98,6 +138,39 @@ namespace BombSwap.Editor.Verification
                     $"WebGL build succeeded without index.html at '{absoluteBuild}'.");
             }
             return reportPath;
+        }
+
+        private static void ExecuteScheduledBuild()
+        {
+            EditorApplication.update -= ExecuteScheduledBuild;
+            string artifactsDirectory = _scheduledArtifactsDirectory;
+            string buildPath = _scheduledBuildPath;
+            string statusPath = _scheduledStatusPath;
+            try
+            {
+                File.WriteAllText(statusPath, "Running");
+                string reportPath = BuildDevelopment(
+                    artifactsDirectory,
+                    buildPath);
+                File.WriteAllText(
+                    statusPath,
+                    "Passed" + Environment.NewLine + reportPath);
+                Debug.Log(
+                    "BOMBSWAP_CONNECTED_WEBGL_BUILD PASSED " + reportPath);
+            }
+            catch (Exception exception)
+            {
+                File.WriteAllText(
+                    statusPath,
+                    "Failed" + Environment.NewLine + exception);
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                _scheduledArtifactsDirectory = null;
+                _scheduledBuildPath = null;
+                _scheduledStatusPath = null;
+            }
         }
 
         [Serializable]

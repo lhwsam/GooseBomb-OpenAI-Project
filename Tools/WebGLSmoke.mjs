@@ -117,6 +117,19 @@ async function getLastPlayerCell(page) {
   });
 }
 
+async function getLastPlayerHealth(page) {
+  return page.evaluate(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      const match = /^player-health-current-(\d+)$/.exec(name ?? "");
+      if (match) return Number(match[1]);
+    }
+    return null;
+  });
+}
+
 async function verifyFocusLossClearsHeldInput(page) {
   const eastCommandsBefore = await eventCount(page, "move-direction-east");
   const eastMotionBefore = await eventCount(page, "move-motion-direction-east");
@@ -403,6 +416,10 @@ async function main() {
   const gatesRoomScreenshotPath = path.join(
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-gates-room.png`,
+  );
+  const recoveryRoomScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-recovery-room.png`,
   );
   const pauseScreenshotPath = path.join(
     path.dirname(screenshotPath),
@@ -910,6 +927,82 @@ async function main() {
       detail: "The persisted reward loadout cleared the gates combat room 5 after using its west-side detour.",
     });
 
+    const healthBeforeRecoveryDetour = await getLastPlayerHealth(page);
+    if (!Number.isInteger(healthBeforeRecoveryDetour) ||
+        healthBeforeRecoveryDetour < 1 ||
+        healthBeforeRecoveryDetour >= 5) {
+      throw new Error(
+        `The recovery-room probe requires damaged living health, observed ${healthBeforeRecoveryDetour}.`,
+      );
+    }
+    const expectedRecoveredHealth = Math.min(5, healthBeforeRecoveryDetour + 2);
+    const expectedRestoredHealth =
+      expectedRecoveredHealth - healthBeforeRecoveryDetour;
+    await moveToCell(page, -3, 0);
+    await moveToCell(page, -3, 4);
+    await moveToCell(page, 0, 4);
+    await triggerBoundaryTransition(
+      page,
+      "ArrowUp",
+      "dungeon-room-ready-8-recovery-safe",
+    );
+    fs.mkdirSync(path.dirname(recoveryRoomScreenshotPath), { recursive: true });
+    await page.screenshot({ path: recoveryRoomScreenshotPath });
+
+    const healthOnRecoveryEntry = await getLastPlayerHealth(page);
+    if (healthOnRecoveryEntry !== healthBeforeRecoveryDetour) {
+      throw new Error(
+        `Entering the recovery room changed health ${healthBeforeRecoveryDetour}→${healthOnRecoveryEntry}.`,
+      );
+    }
+    const recoveryConsumedBefore = await eventCount(
+      page,
+      "recovery-consumed-room-8",
+    );
+    const recoveredHealthBefore = await eventCount(
+      page,
+      `player-health-recovered-${expectedRestoredHealth}`,
+    );
+    await moveToCell(page, 1, -4);
+    await moveToCell(page, 1, 0);
+    await moveToCell(page, 0, 0);
+    await waitForEvent(
+      page,
+      `player-health-recovered-${expectedRestoredHealth}`,
+      {
+        count: recoveredHealthBefore + 1,
+        timeout: 5_000,
+      },
+    );
+    await waitForEvent(page, "recovery-consumed-room-8", {
+      count: recoveryConsumedBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(
+      page,
+      `player-health-current-${expectedRecoveredHealth}`,
+      { timeout: 5_000 },
+    );
+    checks.push({
+      name: "recovery-pickup-restores-and-consumes",
+      status: "passed",
+      detail: `The optional recovery leaf preserved entry HP, restored ${healthBeforeRecoveryDetour}→${expectedRecoveredHealth}, and consumed its pickup once.`,
+    });
+
+    await moveToCell(page, 1, 0);
+    await moveToCell(page, 1, -4);
+    await moveToCell(page, 0, -4);
+    const room5ClearedReadyBeforeBoss = await eventCount(
+      page,
+      "dungeon-room-ready-5-combat-cleared",
+    );
+    await triggerBoundaryTransition(
+      page,
+      "ArrowDown",
+      "dungeon-room-ready-5-combat-cleared",
+      room5ClearedReadyBeforeBoss + 1,
+    );
+
     await moveToCell(page, -3, 0);
     await moveToCell(page, 4, 0);
     await triggerBoundaryTransition(
@@ -1117,7 +1210,11 @@ async function main() {
       "dungeon-room-ready-2-combat-cleared",
       "dungeon-room-ready-4-combat-active",
       "dungeon-room-ready-5-combat-active",
+      "dungeon-room-ready-5-combat-cleared",
       "room-ready-prototype-combat-gates",
+      "dungeon-room-ready-8-recovery-safe",
+      `player-health-recovered-${expectedRestoredHealth}`,
+      "recovery-consumed-room-8",
       "dungeon-room-ready-6-boss-antechamber-safe",
       "dungeon-room-ready-7-boss-active",
       "boss-pattern-telegraph",
@@ -1174,6 +1271,7 @@ async function main() {
       harnessEvents,
       screenshotPath,
       gatesRoomScreenshotPath,
+      recoveryRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
       generatedAt: new Date().toISOString(),

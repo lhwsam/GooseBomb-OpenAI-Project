@@ -28,6 +28,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/Dungeon/DungeonReward.unity";
         public const string DungeonBossAnteScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonBossAnte.unity";
+        public const string DungeonRecoveryScenePath =
+            "Assets/Game/Scenes/Dungeon/DungeonRecovery.unity";
         public const string DungeonBossScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonBoss.unity";
         public const string PrototypeBombDefinitionPath =
@@ -84,6 +86,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/BossDangerCellPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
             "Assets/Game/Content/Materials/Prototype/DestructibleWall.mat";
+        public const string RecoveryPickupMaterialPath =
+            "Assets/Game/Content/Materials/Prototype/RecoveryPickup.mat";
         public const string PrototypeDungeonCombatRoomCatalogPath =
             "Assets/Game/Content/Rooms/PrototypeDungeonCombatRoomCatalog.asset";
         public const string PrototypeDungeonSpecialRoomCatalogPath =
@@ -103,6 +107,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeArmoredDefinition(errors);
             ValidatePrototypeBossDefinition(errors);
+            ValidatePrototypeRecoveryMaterial(errors);
             ValidatePrototypeCombatRoomDefinitions(errors);
             ValidatePrototypeDungeonCombatRoomCatalog(errors);
             ValidatePrototypeDungeonSpecialRoomCatalog(errors);
@@ -711,6 +716,7 @@ namespace BombSwap.Editor.ContentValidation
                 RoomType.BombReward,
                 RoomType.BossAntechamber,
                 RoomType.Boss,
+                RoomType.Recovery,
             };
             string[] expectedSceneNames =
             {
@@ -718,11 +724,12 @@ namespace BombSwap.Editor.ContentValidation
                 "DungeonReward",
                 "DungeonBossAnte",
                 "DungeonBoss",
+                "DungeonRecovery",
             };
             if (catalog.Entries.Count != expectedTypes.Length)
             {
                 errors.Add(
-                    "Prototype dungeon special-room catalog must contain four entries.");
+                    "Prototype dungeon special-room catalog must contain five entries.");
                 return;
             }
 
@@ -750,6 +757,36 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     $"Invalid prototype dungeon special-room catalog: {exception.Message}");
+            }
+        }
+
+        private static void ValidatePrototypeRecoveryMaterial(
+            ICollection<string> errors)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(
+                RecoveryPickupMaterialPath);
+            if (material == null)
+            {
+                errors.Add(
+                    $"Missing prototype recovery pickup material: " +
+                    RecoveryPickupMaterialPath);
+                return;
+            }
+            if (material.shader == null ||
+                !string.Equals(
+                    material.shader.name,
+                    "Universal Render Pipeline/Lit",
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Prototype recovery pickup material must use the URP Lit shader.");
+            }
+            if (!Approximately(
+                    material.color,
+                    PrototypeRecoveryPickupPresenter.DefaultPickupColor))
+            {
+                errors.Add(
+                    "Prototype recovery pickup material has the wrong base color.");
             }
         }
 
@@ -970,6 +1007,12 @@ namespace BombSwap.Editor.ContentValidation
                 false,
                 errors);
             ValidateTestSandboxScene(
+                DungeonRecoveryScenePath,
+                PrototypeCombatRoomDefinitionPath,
+                false,
+                false,
+                errors);
+            ValidateTestSandboxScene(
                 DungeonBossScenePath,
                 PrototypeCombatRoomDefinitionPath,
                 true,
@@ -1053,6 +1096,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeRunCompletionPresenter>(scene);
                 PrototypeBombRewardPresenter[] bombRewardPresenters =
                     FindComponents<PrototypeBombRewardPresenter>(scene);
+                PrototypeRecoveryPickupPresenter[] recoveryPresenters =
+                    FindComponents<PrototypeRecoveryPickupPresenter>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
 
@@ -1160,6 +1205,17 @@ namespace BombSwap.Editor.ContentValidation
                         $"Dungeon room must contain {expectedBombRewardPresenterCount} " +
                         "PrototypeBombRewardPresenter component(s); found " +
                         $"{bombRewardPresenters.Length}.");
+                }
+                int expectedRecoveryPresenterCount = string.Equals(
+                    scenePath,
+                    DungeonRecoveryScenePath,
+                    StringComparison.Ordinal) ? 1 : 0;
+                if (recoveryPresenters.Length != expectedRecoveryPresenterCount)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain {expectedRecoveryPresenterCount} " +
+                        "PrototypeRecoveryPickupPresenter component(s); found " +
+                        $"{recoveryPresenters.Length}.");
                 }
                 if (!cameras.Any(camera => camera.enabled && camera.CompareTag("MainCamera")))
                 {
@@ -1411,6 +1467,24 @@ namespace BombSwap.Editor.ContentValidation
                         "Bomb reward presenter has an inconsistent dungeon room binder reference.");
                 }
 
+                if (recoveryPresenters.Length == 1 && roomBinders.Length == 1)
+                {
+                    PrototypeRecoveryPickupPresenter presenter =
+                        recoveryPresenters[0];
+                    Material expectedPickupMaterial =
+                        AssetDatabase.LoadAssetAtPath<Material>(
+                            RecoveryPickupMaterialPath);
+                    if (presenter.RoomBinder != roomBinders[0] ||
+                        presenter.RecoveryAmount !=
+                            PrototypeRecoveryPickupPresenter.DefaultRecoveryAmount ||
+                        presenter.PickupCell != Vector2Int.zero ||
+                        presenter.PickupMaterial != expectedPickupMaterial)
+                    {
+                        errors.Add(
+                            "Recovery pickup presenter has inconsistent binder, material, amount, or cell configuration.");
+                    }
+                }
+
                 if (completionPresenters.Length == 1 && roomBinders.Length == 1 &&
                     readers.Length == 1 &&
                     (completionPresenters[0].RoomBinder != roomBinders[0] ||
@@ -1523,6 +1597,15 @@ namespace BombSwap.Editor.ContentValidation
         private static bool IsFinitePositive(float value)
         {
             return value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool Approximately(Color first, Color second)
+        {
+            const float tolerance = 0.001f;
+            return Mathf.Abs(first.r - second.r) <= tolerance &&
+                Mathf.Abs(first.g - second.g) <= tolerance &&
+                Mathf.Abs(first.b - second.b) <= tolerance &&
+                Mathf.Abs(first.a - second.a) <= tolerance;
         }
 
         private static void ValidateRoomSceneBinding(
@@ -1721,6 +1804,7 @@ namespace BombSwap.Editor.ContentValidation
                 DungeonStartScenePath,
                 DungeonRewardScenePath,
                 DungeonBossAnteScenePath,
+                DungeonRecoveryScenePath,
                 DungeonBossScenePath,
                 TestSandboxScenePath,
                 TestSandboxLanesScenePath,

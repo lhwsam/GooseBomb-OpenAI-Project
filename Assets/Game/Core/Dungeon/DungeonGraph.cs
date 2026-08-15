@@ -12,6 +12,7 @@ namespace BombSwap.Core
         private DungeonRoomNodeId _bombRewardRoomId;
         private DungeonRoomNodeId _bossAntechamberRoomId;
         private DungeonRoomNodeId _bossRoomId;
+        private DungeonRoomNodeId _recoveryRoomId;
 
         internal DungeonGraph(
             int seed,
@@ -63,6 +64,8 @@ namespace BombSwap.Core
         public DungeonRoomNodeId BossAntechamberRoomId => _bossAntechamberRoomId;
 
         public DungeonRoomNodeId BossRoomId => _bossRoomId;
+
+        public DungeonRoomNodeId RecoveryRoomId => _recoveryRoomId;
 
         public int CombatRoomCount { get; private set; }
 
@@ -336,6 +339,12 @@ namespace BombSwap.Core
                     case RoomType.Boss:
                         AssignUnique(ref _bossRoomId, room.Id, RoomType.Boss);
                         break;
+                    case RoomType.Recovery:
+                        AssignUnique(
+                            ref _recoveryRoomId,
+                            room.Id,
+                            RoomType.Recovery);
+                        break;
                     case RoomType.Combat:
                         CombatRoomCount++;
                         break;
@@ -346,6 +355,7 @@ namespace BombSwap.Core
             RequireAssigned(BombRewardRoomId, RoomType.BombReward);
             RequireAssigned(BossAntechamberRoomId, RoomType.BossAntechamber);
             RequireAssigned(BossRoomId, RoomType.Boss);
+            RequireAssigned(RecoveryRoomId, RoomType.Recovery);
             if (CombatRoomCount < Definition.MinimumCombatRooms ||
                 CombatRoomCount > Definition.MaximumCombatRooms)
             {
@@ -405,6 +415,16 @@ namespace BombSwap.Core
                     "Boss path must contain the reward, configured combat count, and antechamber.");
             }
 
+            DungeonRoomNodeId lastBossPathCombatRoomId =
+                bossPath[bossPath.Count - 3];
+            if (GetRoom(lastBossPathCombatRoomId).RoomType != RoomType.Combat ||
+                _neighbors[RecoveryRoomId.Value - 1].Count != 1 ||
+                _neighbors[RecoveryRoomId.Value - 1][0] != lastBossPathCombatRoomId)
+            {
+                throw new ArgumentException(
+                    "Recovery room must be a leaf attached to the final boss-path combat room.");
+            }
+
             var bossPathSet = new HashSet<DungeonRoomNodeId>();
             for (int index = 0; index < bossPath.Count; index++)
             {
@@ -444,9 +464,16 @@ namespace BombSwap.Core
 
             for (int index = 0; index < _connections.Length; index++)
             {
-                bool firstOnBossPath = bossPathSet.Contains(_connections[index].First);
-                bool secondOnBossPath = bossPathSet.Contains(_connections[index].Second);
-                if (firstOnBossPath != secondOnBossPath)
+                DungeonRoomNode firstRoom = GetRoom(_connections[index].First);
+                DungeonRoomNode secondRoom = GetRoom(_connections[index].Second);
+                bool firstOnBossPath = bossPathSet.Contains(firstRoom.Id);
+                bool secondOnBossPath = bossPathSet.Contains(secondRoom.Id);
+                bool firstOptionalCombat =
+                    firstRoom.RoomType == RoomType.Combat && !firstOnBossPath;
+                bool secondOptionalCombat =
+                    secondRoom.RoomType == RoomType.Combat && !secondOnBossPath;
+                if ((firstOnBossPath && secondOptionalCombat) ||
+                    (secondOnBossPath && firstOptionalCombat))
                 {
                     branchAttachmentCount++;
                 }

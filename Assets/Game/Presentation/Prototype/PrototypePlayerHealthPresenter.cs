@@ -87,6 +87,7 @@ namespace BombSwap
             InitializeRenderer();
             session.PlayerDamaged += OnPlayerDamaged;
             session.PlayerDied += OnPlayerDied;
+            session.PlayerRecovered += OnPlayerRecovered;
             session.Ready += OnSessionReady;
             if (session.IsInitialized)
             {
@@ -100,6 +101,7 @@ namespace BombSwap
             {
                 session.PlayerDamaged -= OnPlayerDamaged;
                 session.PlayerDied -= OnPlayerDied;
+                session.PlayerRecovered -= OnPlayerRecovered;
                 session.Ready -= OnSessionReady;
             }
             if (_initialized && targetRenderer != null)
@@ -142,6 +144,13 @@ namespace BombSwap
             DisplayedHealth = result.CurrentHealth;
             IsDisplayingDeath = true;
             ApplyColor(deadColor);
+        }
+
+        private void OnPlayerRecovered(PlayerHealthRecoveryResult result)
+        {
+            DisplayedHealth = result.CurrentHealth;
+            IsDisplayingDeath = false;
+            ApplyColor(_normalColor);
         }
 
         private void SyncFromSession()

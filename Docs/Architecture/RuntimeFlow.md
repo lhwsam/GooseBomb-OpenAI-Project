@@ -85,7 +85,7 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 
 ## 랜덤과 재현
 
-- `DungeonGenerator`는 명시적 `int` run seed와 `DungeonGenerationDefinition`만 받아 `prototype-tree-v1` 논리 그래프를 만든다. 동일 버전·정의·seed의 방 타입, ID, 좌표와 연결은 동일하다.
+- `DungeonGenerator`는 명시적 `int` run seed와 `DungeonGenerationDefinition`만 받아 `prototype-tree-v2` 논리 그래프를 만든다. 동일 버전·정의·seed의 방 타입, ID, 좌표와 연결은 동일하다.
 - 고정 정수 seed 혼합·LCG·곱셈 범위 변환과 유한 후보 배치를 사용하며, 전역 랜덤·시간·호출 순서를 읽지 않는다.
 - 생성 결과는 read-only `DungeonGraph`가 소유한다. 현재 TestSandbox 씬 전환은 아직 이 그래프를 소비하지 않으므로 한 층 런타임 재현까지 완료된 것은 아니다.
 - Core `DungeonRunState`가 시작방부터 현재·직전 방, 방문과 클리어 상태를 소유한다. 일반 전투방·보스방은 클리어 전 연결 이동을 막고, 안전방과 이미 클리어한 전투방은 양방향 통과를 허용한다.
@@ -94,10 +94,10 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - 방 정의의 cardinal 출구는 잠재 후보이며 배정의 활성 출구 부분집합만 실제 문으로 열어야 한다. Unity 어댑터는 선택된 `RoomRotation`을 Y축 회전에 적용하고 미사용 출구를 닫힌 경계로 표현한다.
 - `CombatRoomRotationUtility`는 선택된 회전을 너비·깊이, 플레이어와 모든 적 spawn, 고정·파괴 벽, 안전 셀·퇴로·유도 경로와 출구 셀·방향 전체에 원자적으로 적용한다. Runtime binder는 이 회전 정의와 scene `GridRoot`를 session `Awake` 전에 함께 준비해야 한다.
 - `PrototypeDungeonRunSession`은 전역 상태 없이 명시 seed와 검증된 `PrototypeDungeonCombatRoomCatalogAsset`에서 그래프·전투방 배정·탐색 상태를 조합한다. 전투 노드는 Unity room asset·씬 이름으로 조회하고 이동·클리어는 Core 상태에 그대로 위임한다.
-- `PrototypeDungeonSpecialRoomCatalogAsset`은 시작방·폭탄 보상방·보스 전실·보스방의 고유 씬 이름을 소유한다. special catalog가 주입된 run session은 모든 그래프 노드를 실제 씬 이름으로 해석하고, combat catalog가 전투방 asset·scene 선택을 계속 소유한다.
+- `PrototypeDungeonSpecialRoomCatalogAsset`은 시작방·폭탄 보상방·보스 전실·회복방·보스방의 고유 씬 이름을 소유한다. special catalog가 주입된 run session은 모든 그래프 노드를 실제 씬 이름으로 해석하고, combat catalog가 전투방 asset·scene 선택을 계속 소유한다.
 - `DungeonRunState`는 현재 방의 북·동·남·서 연결을 `Inactive`·`Locked`·`Open`과 대상 방 ID의 read-only snapshot으로 계산한다. Unity 문 표현은 방 입장·클리어 시 이 상태를 읽고, 열린 문 전환은 같은 방향의 Core 이동 성공을 먼저 확정해야 한다.
 - `PrototypeDungeonRunNavigator`는 열린 문, 대상 콘텐츠와 씬 로드 가능성을 먼저 확인한 뒤 pending 전환을 만든다. 실제로 기대한 씬 이름이 완료될 때만 Core 이동을 한 번 commit하며, 로드 불가·중복·씬 불일치에서는 현재 방을 바꾸지 않는다.
-- `PrototypeDungeonRunHost`는 전용 root GameObject와 run session·navigator만 `DontDestroyOnLoad`로 유지하고 중복 bootstrap 중 primary 한 개만 허용한다. run session은 `DungeonRunState`와 함께 첫 폭탄·보상 후보·선택된 두 번째 폭탄의 Core 상태를 보존한다. 각 던전 씬의 room-local binder는 host의 pending 전환, Core 클리어 상태와 run loadout을 session `Awake` 전에 읽어 회전·입장 spawn·방문별 전투 활성 여부·방 로컬 무기 simulation을 준비하고, 문 trigger는 열린 방향만 navigator에 전달한다. 따라서 클리어 방 재입장의 적 미생성·열린 문과 보상 뒤 loadout persistence는 별도 Unity 전역 상태가 아니라 run session에서 파생된다.
+- `PrototypeDungeonRunHost`는 전용 root GameObject와 run session·navigator만 `DontDestroyOnLoad`로 유지하고 중복 bootstrap 중 primary 한 개만 허용한다. run session은 `DungeonRunState`와 함께 첫 폭탄·보상 후보·선택된 두 번째 폭탄, 현재 체력과 Recovery 소비 상태를 Core에 보존한다. 각 던전 씬의 room-local binder는 host의 pending 전환, Core 클리어 상태와 run loadout·체력을 session `Awake` 전에 읽어 회전·입장 spawn·방문별 전투 활성 여부·방 로컬 simulation을 준비하고, 문 trigger는 열린 방향만 navigator에 전달한다. 회복방 중앙 셀에서는 run 회복을 먼저 확정한 같은 결과로 방 체력과 HUD를 갱신한다. 따라서 클리어 방 재입장의 적 미생성·열린 문, 보상 뒤 loadout persistence와 회복방 단일 소비는 별도 Unity 전역 상태가 아니라 run session에서 파생된다.
 - Core에서 `UnityEngine.Random`을 사용하지 않는다.
 - seed, 생성 버전, 게임 정의 버전, 필요 최소한의 명령 로그로 실패 상황을 재현할 수 있어야 한다.
 - 시각적 파티클 랜덤은 규칙 결과에 영향을 주지 않는 한 재현 대상이 아니다.

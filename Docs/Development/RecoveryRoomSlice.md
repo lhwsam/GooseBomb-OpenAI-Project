@@ -1,6 +1,6 @@
 # GDD 기반 회복방 수직 슬라이스
 
-- 상태: `In Progress` — 1단계 체력 persistence 완료, 회복 규칙·그래프·콘텐츠 대기
+- 상태: `Implemented` — 자동 검증 완료, 회복량·발견성·우회 가치는 사람 플레이테스트 대기
 - 결정 근거: [GDD v0.2](../GameDesign/GDD_v0.2.md) 4.1, 20.4, 21.2, 37장과 [PT-20260815-02](../Playtesting/Results/PT-20260815-02.md)
 - 소유 계약: [피해와 무적 시간](../Systems/DamageAndInvulnerability.md), [던전 생성](../Systems/DungeonGeneration.md), [방 저작](../Systems/RoomAuthoring.md)
 - 선행 작업: [활성 폭탄 슬롯 run persistence](ActiveBombSlotPersistenceSlice.md)
@@ -22,9 +22,9 @@
 
 GDD는 회복량, 사용 횟수, 이미 최대 체력일 때의 동작을 정하지 않는다. 이 값은 확정 계약으로 위장하지 않고 저작 데이터의 `Proposed` 튜닝 값으로 둔다.
 
-- 초기 검증 후보: 한 번만 획득 가능한 회복 아이템, 현재 체력을 최대 체력 이하에서 2 회복.
-- 최대 체력이면 소비하지 않아 나중에 다시 방문할 수 있게 하는 안을 우선 후보로 둔다.
-- 최종 수치는 구현 전에 사용자 확인을 받고, 이후 플레이테스트에서 우회 비용과 보스 준비 가치로 조정한다.
+- 현재 구현: 한 번만 획득 가능한 회복 아이템, 현재 체력을 최대 체력 이하에서 `+2` 회복.
+- 최대 체력이면 소비하지 않아 피해를 받은 뒤 다시 방문할 수 있다.
+- `+2`와 1회 사용은 `Proposed`다. 이후 플레이테스트에서 우회 비용과 보스 준비 가치로 조정한다.
 
 ## 상태 소유와 데이터 흐름
 
@@ -68,15 +68,15 @@ Recovery room item interaction
 
 ### 2. 회복 규칙과 그래프
 
-- Core에 상한을 지키는 회복 결과와 일회성 회복방 소비 상태를 추가한다.
-- `RoomType.Recovery`와 선택형 leaf 배치를 추가하고 그래프 불변식을 갱신한다.
-- 최대 체력·이미 사용·terminal 상태의 실패는 체력과 소비 상태를 바꾸지 않는다.
+- `Complete`: Core에 상한을 지키는 회복 결과와 회복방 노드별 일회성 소비 상태를 추가했다.
+- `Complete`: 기존 직렬화 값을 유지한 `RoomType.Recovery = 5`와 선택형 leaf 배치를 추가하고 generation version을 `prototype-tree-v2`로 올렸다.
+- `Complete`: 최대 체력·이미 사용·다른 방·사망·terminal 상태의 거부는 체력과 소비 상태를 바꾸지 않는다.
 
 ### 3. Unity 콘텐츠와 표현
 
-- Unity Editor 또는 검증된 Editor 도구로 회복방 scene, room metadata와 회복 아이템 상호작용을 저작한다.
-- 회복 가능, 최대 체력, 사용 완료 상태를 색만이 아닌 형태 또는 문구로 구분한다.
-- 획득 결과는 기존 체력 HUD에 즉시 반영하고, room 재진입 시 소비 상태를 복원한다.
+- `Complete`: Unity Editor builder로 `DungeonRecovery` scene, special catalog entry, 중앙 논리 셀 `(0,0)`의 회복 pickup과 URP shared material을 저작했다.
+- `Complete`: 회복 가능·최대 체력·사용 완료 상태를 pickup 형태와 `RECOVERY +2`·`HEALTH FULL`·`RECOVERY USED` 문구로 구분한다.
+- `Complete`: 논리 셀 진입만 획득을 일으키며 기존 체력 HUD를 즉시 갱신하고, room 재진입에서는 Core 소비 상태를 복원한다.
 
 ## 비목표
 
@@ -106,9 +106,20 @@ Recovery room item interaction
 
 ### WebGL와 사람 검증
 
-- seed-0 전체 경로에서 피해→방 전환 체력 유지→회복방 우회→회복→보스 진입을 검증한다.
-- 브라우저 키보드와 게임패드 상호작용, HUD 갱신, Console/page error 0을 확인한다.
+- `Complete`: seed-0 전체 경로에서 피해→방 전환 체력 유지→8번 회복방 우회→HP `1→3` 회복→5번 전투방 복귀→보스 진입을 검증했다.
+- `Complete`: 키보드 전체 경로와 가상 표준 게임패드 회귀가 통과했고 두 실행 모두 Console/page error가 0이다.
 - 사람 플레이에서 회복방 위치를 발견할 수 있는지, 우회 비용이 과하지 않은지, 회복 뒤 바로 보스로 갈지 탐색을 계속할지 기록한다.
+
+## 검증 근거
+
+- StaticOnly: `Artifacts/Verification/20260816-020042-static/summary.json`.
+- 연결된 Unity EditMode 297/297: `Artifacts/Verification/ConnectedTests/20260815-173821-473.json`.
+- 연결된 Unity PlayMode 123/123: `Artifacts/Verification/ConnectedTests/20260815-173843-980.json`.
+- Content Validator: 회복 scene·catalog·presenter·material·Build Settings 포함 오류 0.
+- 10씬 Development WebGL: `Artifacts/Verification/20260816-023939-connected-web/webgl-build-report.json`, 137,804,630 bytes, 113.821초, 오류 0.
+- 키보드 전체 경로와 회복 `1→3`: `Artifacts/Verification/20260816-023939-connected-web/browser-smoke.json`.
+- 가상 표준 게임패드 13개 회귀: `Artifacts/Verification/20260816-023939-connected-web/gamepad-smoke.json`.
+- 최종 회복방 시각 증거: `Artifacts/Verification/20260816-023939-connected-web/webgl-dungeon-recovery-room.png`.
 
 ## 문서·마이그레이션·롤백
 

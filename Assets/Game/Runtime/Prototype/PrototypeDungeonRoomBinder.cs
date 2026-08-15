@@ -45,6 +45,10 @@ namespace BombSwap
         public int CombatRewardTokenCount =>
             _runHost != null ? _runHost.RunSession.CombatRewardTokenCount : 0;
 
+        public bool IsCurrentRecoveryConsumed =>
+            _runHost != null && _runtimeRoomType == RoomType.Recovery &&
+            _runHost.RunSession.RunState.IsRecoveryConsumed(_runtimeRoomId);
+
         public DungeonBombRewardSelectionStatus TrySelectBombReward(
             BombDefinitionId candidateId)
         {
@@ -70,6 +74,52 @@ namespace BombSwap
             }
             WebGlHarnessReporter.Report("bomb-reward-selected-" + candidateId.Value);
             return status;
+        }
+
+        public DungeonRecoveryUseResult TryUseRecovery(int requestedHealth)
+        {
+            if (_runHost == null || roomSession == null || !roomSession.IsReady)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon room is not ready to use recovery.");
+            }
+
+            DungeonPlayerHealthState runHealth =
+                _runHost.RunSession.PlayerHealthState;
+            if (runHealth == null ||
+                roomSession.CurrentHealth != runHealth.CurrentHealth ||
+                roomSession.MaxHealth != runHealth.MaxHealth)
+            {
+                throw new InvalidOperationException(
+                    "Room and run player health must match before recovery.");
+            }
+
+            DungeonRecoveryUseResult result =
+                _runHost.RunSession.TryUseRecovery(requestedHealth);
+            if (!result.WasRestored)
+            {
+                if (result.Status == DungeonRecoveryUseStatus.AtFullHealth)
+                {
+                    WebGlHarnessReporter.Report("recovery-saved-at-full-health");
+                }
+                return result;
+            }
+
+            PlayerHealthRecoveryResult roomResult =
+                roomSession.ApplyPlayerRecovery(requestedHealth);
+            if (!roomResult.WasApplied ||
+                roomResult.PreviousHealth != result.PreviousHealth ||
+                roomResult.CurrentHealth != result.CurrentHealth)
+            {
+                throw new InvalidOperationException(
+                    "Room and run player health desynchronized during recovery.");
+            }
+
+            WebGlHarnessReporter.Report(
+                "player-health-recovered-" + result.RestoredHealth);
+            WebGlHarnessReporter.Report(
+                "recovery-consumed-room-" + result.RoomId.Value);
+            return result;
         }
 
         public void Configure(
