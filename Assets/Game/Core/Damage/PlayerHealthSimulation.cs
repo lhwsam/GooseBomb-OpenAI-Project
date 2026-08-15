@@ -13,6 +13,19 @@ namespace BombSwap.Core
             ActorId actorId,
             IGameClock clock,
             PlayerHealthDefinition definition)
+            : this(
+                actorId,
+                clock,
+                definition,
+                definition != null ? definition.MaxHealth : 0)
+        {
+        }
+
+        public PlayerHealthSimulation(
+            ActorId actorId,
+            IGameClock clock,
+            PlayerHealthDefinition definition,
+            int initialHealth)
         {
             if (!actorId.IsValid)
             {
@@ -21,6 +34,13 @@ namespace BombSwap.Core
 
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             Definition = definition ?? throw new ArgumentNullException(nameof(definition));
+            if (initialHealth < 0 || initialHealth > definition.MaxHealth)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialHealth),
+                    initialHealth,
+                    $"Initial player health must be between 0 and {definition.MaxHealth}.");
+            }
             if (clock.Now < TimeSpan.Zero)
             {
                 throw new ArgumentOutOfRangeException(
@@ -30,7 +50,7 @@ namespace BombSwap.Core
             }
 
             ActorId = actorId;
-            CurrentHealth = definition.MaxHealth;
+            CurrentHealth = initialHealth;
             lastObservedTime = clock.Now;
         }
 

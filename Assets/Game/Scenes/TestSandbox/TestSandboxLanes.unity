@@ -916,6 +916,7 @@ MonoBehaviour:
   combatRoomCatalog: {fileID: 11400000, guid: ac431ff7f4f10d841b7b05c0eaaddb82, type: 2}
   specialRoomCatalog: {fileID: 11400000, guid: 90e9fff55ff425042a085ba0e8607383, type: 2}
   bombRewardCatalog: {fileID: 11400000, guid: 1c24178f548c89f4a9b01763a5a6d7de, type: 2}
+  playerVitals: {fileID: 11400000, guid: f596c4b9706477042b040e90f2f7ce5d, type: 2}
   requireInitialSceneMatch: 1
 --- !u!4 &153389142
 Transform:

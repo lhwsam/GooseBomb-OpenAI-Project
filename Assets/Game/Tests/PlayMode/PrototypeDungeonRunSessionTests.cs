@@ -426,6 +426,115 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator PlayerHealth_PersistsAcrossForwardTravelAndRoomReentry()
+        {
+            Scene loadedDungeonScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                PrototypeDungeonRoomBinder startBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession startSession = startBinder.RoomSession;
+
+                Assert.That(run.PlayerHealthState, Is.Not.Null);
+                Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
+                Assert.That(startSession.CurrentHealth, Is.EqualTo(5));
+                Assert.That(startSession.TryPlaceBomb(), Is.True);
+
+                float damageDeadline = Time.realtimeSinceStartup + 5f;
+                while (startSession.CurrentHealth == 5 &&
+                       Time.realtimeSinceStartup < damageDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(startSession.CurrentHealth, Is.EqualTo(4));
+                Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(4));
+
+                DungeonRoomNodeId startRoom = run.Graph.StartRoomId;
+                DungeonRoomNodeId firstCombat = run.Graph.GetNeighbors(startRoom)[0];
+                Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
+                Assert.That(
+                    run.TryGetSceneName(firstCombat, out string combatSceneName),
+                    Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    combatSceneName,
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder combatBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud combatHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(combatBinder.RoomSession.CurrentHealth, Is.EqualTo(4));
+                Assert.That(combatHud.DisplayedPlayerHealth, Is.EqualTo(4));
+                Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(4));
+
+                Assert.That(
+                    run.TryClearCurrentRoom(),
+                    Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                Assert.That(run.TryTravelTo(startRoom).Moved, Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder reentryBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud reentryHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(reentryBinder.RoomSession.CurrentHealth, Is.EqualTo(4));
+                Assert.That(reentryHud.DisplayedPlayerHealth, Is.EqualTo(4));
+                Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(4));
+
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "DungeonHealthPersistencePlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator GatesCombatScene_LoadsAuthoredLogicalAndVisualGatePair()
         {
             Scene loadedDungeonScene = default;
@@ -1005,18 +1114,31 @@ namespace BombSwap.Tests.PlayMode
             PrototypeDungeonSpecialRoomCatalogAsset specialCatalog =
                 CreateSpecialCatalog();
             PrototypeBombRewardCatalogAsset rewardCatalog = CreateBombRewardCatalog();
+            PrototypePlayerVitalsAsset playerVitals = CreatePlayerVitals();
             GameObject firstRoot = CreateGameObject("FirstDungeonRunHost");
             firstRoot.SetActive(false);
             PrototypeDungeonRunHost first =
                 firstRoot.AddComponent<PrototypeDungeonRunHost>();
-            first.Configure(5, combatCatalog, specialCatalog, rewardCatalog, false);
+            first.Configure(
+                5,
+                combatCatalog,
+                specialCatalog,
+                rewardCatalog,
+                playerVitals,
+                false);
             firstRoot.SetActive(true);
 
             GameObject duplicateRoot = CreateGameObject("DuplicateDungeonRunHost");
             duplicateRoot.SetActive(false);
             PrototypeDungeonRunHost duplicate =
                 duplicateRoot.AddComponent<PrototypeDungeonRunHost>();
-            duplicate.Configure(5, combatCatalog, specialCatalog, rewardCatalog, false);
+            duplicate.Configure(
+                5,
+                combatCatalog,
+                specialCatalog,
+                rewardCatalog,
+                playerVitals,
+                false);
             duplicateRoot.SetActive(true);
 
             yield return null;
@@ -1047,6 +1169,7 @@ namespace BombSwap.Tests.PlayMode
                     CreateCatalog(),
                     CreateSpecialCatalog(),
                     CreateBombRewardCatalog(),
+                    CreatePlayerVitals(),
                     false);
                 hostRoot.SetActive(true);
                 yield return null;
@@ -1089,6 +1212,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(host.RunSession.IsComplete, Is.False);
                 Assert.That(host.RunSession.IsFinished, Is.False);
                 Assert.That(host.RunSession.CombatRewardTokenCount, Is.Zero);
+                Assert.That(host.RunSession.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
             }
             finally
             {
@@ -1130,6 +1254,7 @@ namespace BombSwap.Tests.PlayMode
                     CreateCatalog(),
                     CreateSpecialCatalog(),
                     CreateBombRewardCatalog(),
+                    CreatePlayerVitals(),
                     false);
                 hostRoot.SetActive(true);
                 yield return null;
@@ -1152,6 +1277,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(host.RunSession.Seed, Is.EqualTo(29));
                 Assert.That(host.RunSession.Outcome, Is.EqualTo(DungeonRunOutcome.InProgress));
                 Assert.That(host.RunSession.CombatRewardTokenCount, Is.Zero);
+                Assert.That(host.RunSession.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
             }
             finally
             {
@@ -1430,6 +1556,14 @@ namespace BombSwap.Tests.PlayMode
                 new ManualGameClock(),
                 new PlayerHealthDefinition(1, TimeSpan.FromSeconds(0.75)));
             return health.ApplyContactDamage(new ActorId(2), 1);
+        }
+
+        private PrototypePlayerVitalsAsset CreatePlayerVitals()
+        {
+            var vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();
+            vitals.Configure(5, 0.75f);
+            _createdAssets.Add(vitals);
+            return vitals;
         }
 
         private static RoomExitDirection Opposite(RoomExitDirection direction)

@@ -120,30 +120,35 @@ namespace BombSwap.Editor.ContentValidation
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                playerVitals,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxLanesScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                playerVitals,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxPillarsScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                playerVitals,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxArmorScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                playerVitals,
                 true);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxGatesScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                playerVitals,
                 true);
             bool startSceneCreated = EnsureDungeonSpecialRoom(
                 PrototypeContentValidator.DungeonStartScenePath,
@@ -1403,6 +1408,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
             PrototypeBombRewardCatalogAsset bombRewardCatalog,
+            PrototypePlayerVitalsAsset playerVitals,
             bool combatEnabled)
         {
             Scene scene = SceneManager.GetSceneByPath(scenePath);
@@ -1419,6 +1425,7 @@ namespace BombSwap.Editor.ContentValidation
                     combatRoomCatalog,
                     specialRoomCatalog,
                     bombRewardCatalog,
+                    playerVitals,
                     combatEnabled,
                     false);
                 SynchronizeBombRewardPresenter(scene, false);
@@ -1502,6 +1509,7 @@ namespace BombSwap.Editor.ContentValidation
                     combatRoomCatalog,
                     specialRoomCatalog,
                     bombRewardCatalog,
+                    playerVitals,
                     combatEnabled,
                     bossEnabled);
                 SynchronizeBombRewardPresenter(
@@ -1561,6 +1569,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
             PrototypeBombRewardCatalogAsset bombRewardCatalog,
+            PrototypePlayerVitalsAsset playerVitals,
             bool combatEnabled,
             bool bossEnabled)
         {
@@ -1646,6 +1655,7 @@ namespace BombSwap.Editor.ContentValidation
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
+                playerVitals,
                 true);
 
             EditorUtility.SetDirty(context.GridRoot);

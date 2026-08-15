@@ -14,7 +14,7 @@
 - 어느 방에서든 플레이어 체력이 0이 되면 런이 실패하고 `RUN FAILED`와 사망 원인을 표시한다. 현재 원인 문구는 `BOMB EXPLOSION`, `CHASER CONTACT`, `CHARGER CHARGE`, `ARMORED ENEMY CONTACT`, 일반 `ENEMY CONTACT`, `BOSS ATTACK`이다.
 - 결과가 확정되면 현재 방 simulation을 멈춘다.
 - 키보드 `R` 또는 게임패드 Select를 한 번 누르면 같은 브라우저 페이지에서 새 런을 시작한다.
-- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·전투 보상 토큰·보상 선택·두 번째 폭탄·플레이어 체력은 모두 초기 상태다.
+- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·전투 보상 토큰·보상 선택·두 번째 폭탄은 초기 상태이고, 새 `DungeonPlayerHealthState`는 검증된 최대 체력으로 시작한다.
 - 완료 또는 실패 전의 `RestartRun` 명령은 게임 상태를 바꾸지 않는다.
 
 ## 책임과 상태 전이
@@ -26,7 +26,7 @@
 5. `PrototypeRunCompletionPresenter`는 구독 순서에 의존하지 않도록 다음 `LateUpdate`에서 Core run 결과를 읽는다. 완료는 보스방의 로컬 클리어도 함께 확인하고, 실패는 어느 방에서든 표시한다. 실패 원인은 Transform이나 Collider가 아니라 `FailureDamage.SourceKind`와 프로토타입 적 `ActorId(2~4)`만으로 표시 문구를 선택한다.
 6. presenter는 결과 UI를 한 번 만들고 방 로컬 `PrototypeGameSession`을 비활성화한다. InputReader와 persistent run host는 계속 살아 있다.
 7. `RestartRun`을 받으면 presenter가 중복 요청을 잠그고 `PrototypeDungeonRunHost.RestartFinishedRun()`을 호출한다.
-8. host는 pending 전환이 없고 기존 run이 terminal인지 확인한 뒤 같은 seed와 검증된 세 catalog로 새 run session·navigator를 만든다.
+8. host는 pending 전환이 없고 기존 run이 terminal인지 확인한 뒤 같은 seed, 검증된 세 catalog와 player-vitals 데이터로 새 run session·navigator를 만든다.
 9. 시작 씬의 로드 가능성을 먼저 확인하고 navigator를 교체한 뒤 `DungeonStart`를 단일 로드한다. 로드 호출이 실패하면 이전 navigator를 복구한다.
 10. 새 씬의 중복 bootstrap은 기존 primary host를 발견하고 제거되며, 새 room binder는 토큰 0의 새 run state와 시작 폭탄 한 종류를 주입한다.
 
@@ -40,6 +40,7 @@
 - 결과 UI와 재시작 요청은 한 번만 발생한다.
 - pending 씬 전환 중이거나 진행 중인 run은 재시작할 수 없다.
 - 재시작은 기존 `DungeonRunState` 또는 `DungeonBombLoadoutState`를 재사용하거나 부분 초기화하지 않으며 전투 보상 토큰은 새 상태의 0에서 시작한다.
+- 재시작은 기존 `DungeonPlayerHealthState`도 재사용하지 않으며 새 상태는 최대 체력이다.
 - 페이지 reload, 전역 mutable singleton, 별도 스레드나 동기 대기를 사용하지 않는다.
 - 결과 UI는 규칙을 판정하지 않고 Core 결과 snapshot을 표현하며 입력을 host 명령으로 전달한다.
 

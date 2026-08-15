@@ -36,6 +36,7 @@
 - `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·보스 타입의 서로 다른 씬 이름을 제공하며, 실제 catalog asset과 네 특수방 씬을 통해 run session이 모든 노드를 씬으로 해석한다.
 - `PrototypeDungeonRunNavigator`는 씬 이름과 로드 가능성을 검증한 pending 전환을 소유하고, 기대한 씬 완료 뒤에만 `DungeonRunState.TryTravel`을 호출한다. `PrototypeDungeonRunHost`는 이 상태만 방 씬 밖에 유지한다.
 - `DungeonBombLoadoutState`는 한 종류로 시작하는 run loadout, 첫 보상 후보·선택과 현재 활성 슬롯을 소유한다. Unity host와 room binder는 이 상태를 방 로컬 `PrototypeGameSession`에 주입하고 성공한 교체 사건을 다시 Core 상태에 반영해 scene 전환 뒤에도 장착 정의와 활성 슬롯을 유지한다.
+- `DungeonPlayerHealthState`는 run의 최대·현재 체력을 소유한다. persistent host가 검증된 player-vitals 데이터로 새 상태를 만들고 room binder가 새 방 session을 현재 체력으로 초기화하며, 적용된 피해를 즉시 되돌려 기록한다. 이동과 scene load는 체력을 바꾸지 않고 새 run만 최대 체력으로 시작한다.
 - Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 우상단 `ROOM TOKENS` snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
 - `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
 
@@ -63,8 +64,9 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 11. Unity navigator가 대상 콘텐츠·씬을 검증하고 실제 로드 완료 뒤 Core 이동을 단일 commit한다.
 12. Unity room binder와 door presenter가 배정 결과와 문 상태에 맞춰 회전된 room geometry와 활성·비활성 문을 표현한다.
 13. 첫 `BombReward` 진입에서 논리 셀 후보 선택을 run loadout에 기록하고, 성공한 슬롯 교체와 함께 이후 방 session에 다시 주입한다.
-14. 일반 전투방 최초 클리어에서 Core run 토큰을 1 지급하고 HUD에 확정 값을 전달한다.
-15. 보스방 클리어를 run 완료로 판정하고 플레이어가 요청하면 토큰 0의 새 run state로 시작 씬을 다시 로드한다.
+14. 방 session은 run 현재 체력으로 시작하고 적용된 피해 결과를 같은 run 상태에 즉시 기록한다.
+15. 일반 전투방 최초 클리어에서 Core run 토큰을 1 지급하고 HUD에 확정 값을 전달한다.
+16. 보스방 클리어를 run 완료로 판정하고 플레이어가 요청하면 토큰 0·최대 체력의 새 run state로 시작 씬을 다시 로드한다.
 
 ## 불변식
 
@@ -87,6 +89,7 @@ Start → Combat → BombReward → Combat → Combat → BossAntechamber → Bo
 - 모든 전투 노드는 정확히 한 번 배정되고 모든 활성 출구는 회전된 저작 잠재 출구에 존재한다.
 - 호환 가능한 room asset이 없으면 다른 방향 문에 임의 연결하거나 무한 재시도하지 않는다.
 - 보스방 도착만으로 완료되지 않으며 보스방 클리어 뒤에만 새 run을 만들 수 있다.
+- 방 이동과 재입장은 플레이어 현재 체력을 회복하거나 감소시키지 않는다. 새 run 생성만 검증된 최대 체력을 다시 적용한다.
 
 ## 자동 테스트
 

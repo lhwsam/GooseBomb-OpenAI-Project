@@ -157,6 +157,7 @@ namespace BombSwap
             {
                 WebGlHarnessReporter.Report("boss-pattern-telegraph");
             }
+            ReportPlayerHealth(session.CurrentHealth);
             WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
             _readyReported = true;
         }
@@ -258,6 +259,7 @@ namespace BombSwap
 
         private void OnPlayerDamaged(PlayerDamageResult result)
         {
+            ReportPlayerHealth(result.CurrentHealth);
             if (!_playerDamagedReported)
             {
                 WebGlHarnessReporter.Report("player-damaged");
@@ -298,6 +300,11 @@ namespace BombSwap
         private void OnPlayerDied(PlayerDamageResult _)
         {
             WebGlHarnessReporter.Report("player-died");
+        }
+
+        private static void ReportPlayerHealth(int currentHealth)
+        {
+            WebGlHarnessReporter.Report("player-health-current-" + currentHealth);
         }
 
         private void OnChaserMoved(EnemyMovementStep step)

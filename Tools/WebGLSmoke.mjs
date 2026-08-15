@@ -180,8 +180,8 @@ async function verifyFocusLossClearsHeldInput(page) {
   }
 }
 
-async function waitForChaserAdjacent(page, timeout = 15_000) {
-  await page.waitForFunction(() => {
+async function waitForChaserAtDistance(page, expectedDistance, timeout = 15_000) {
+  await page.waitForFunction((distance) => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
     if (!Array.isArray(events)) return false;
     let roomStart = 0;
@@ -206,8 +206,8 @@ async function waitForChaserAdjacent(page, timeout = 15_000) {
       }
     }
     return player && chaser &&
-      Math.abs(player.x - chaser.x) + Math.abs(player.z - chaser.z) === 1;
-  }, null, { timeout });
+      Math.abs(player.x - chaser.x) + Math.abs(player.z - chaser.z) === distance;
+  }, expectedDistance, { timeout });
 
   return page.evaluate(() => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -234,6 +234,10 @@ async function waitForChaserAdjacent(page, timeout = 15_000) {
     }
     return { player, chaser };
   });
+}
+
+async function waitForChaserAdjacent(page, timeout = 15_000) {
+  return waitForChaserAtDistance(page, 1, timeout);
 }
 
 async function moveToCell(page, targetX, targetZ, order = "xz") {
@@ -451,6 +455,9 @@ async function main() {
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
       timeout: 120_000,
     });
+    await waitForEvent(page, "player-health-current-5", {
+      timeout: 120_000,
+    });
     checks.push({
       name: "dungeon-start-ready",
       status: "passed",
@@ -512,6 +519,34 @@ async function main() {
       detail: "The PAUSED state blocked movement and bomb placement, then resumed from Escape without advancing the player cell.",
     });
 
+    const startHealthFourBefore = await eventCount(
+      page,
+      "player-health-current-4",
+    );
+    const startBombPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    const startExplosionsBefore = await eventCount(page, "bomb-exploded");
+    await page.keyboard.press("KeyZ");
+    await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+      count: startBombPlacementsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "bomb-exploded", {
+      count: startExplosionsBefore + 1,
+      timeout: 15_000,
+    });
+    await waitForEvent(page, "player-health-current-4", {
+      count: startHealthFourBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "run-health-damage-baseline",
+      status: "passed",
+      detail: "One self explosion reduced the first run from 5 health to 4 before leaving the Start room.",
+    });
+
     await moveSteps(page, "ArrowUp", "north", 1);
     await moveSteps(page, "ArrowLeft", "west", 2);
     await moveSteps(page, "ArrowUp", "north", 1);
@@ -532,10 +567,98 @@ async function main() {
       timeout: 60_000,
     });
     await waitForEvent(page, "probe-ready", { count: 2, timeout: 60_000 });
+    await waitForEvent(page, "player-health-current-4", {
+      count: startHealthFourBefore + 2,
+      timeout: 60_000,
+    });
     checks.push({
       name: "graph-scene-transition",
       status: "passed",
       detail: "The seed-0 Start exit loaded and committed the assigned pillars combat scene.",
+    });
+    checks.push({
+      name: "run-health-room-persistence",
+      status: "passed",
+      detail: "The next room initialized at 4 health instead of healing on scene transition.",
+    });
+
+    const healthProbeRestartRequestsBefore = await eventCount(
+      page,
+      "run-restart-requested",
+    );
+    const healthProbeRestartsBefore = await eventCount(
+      page,
+      "dungeon-run-restarted",
+    );
+    const healthProbeStartReadyBefore = await eventCount(
+      page,
+      "dungeon-room-ready-1-start-safe",
+    );
+    const healthProbeFullHealthBefore = await eventCount(
+      page,
+      "player-health-current-5",
+    );
+    await waitForEvent(page, "player-died", { timeout: 15_000 });
+    await waitForEvent(page, "run-failed", { timeout: 5_000 });
+    await page.keyboard.press("KeyR");
+    await waitForEvent(page, "run-restart-requested", {
+      count: healthProbeRestartRequestsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "dungeon-run-restarted", {
+      count: healthProbeRestartsBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
+      count: healthProbeStartReadyBefore + 1,
+      timeout: 20_000,
+    });
+    await waitForEvent(page, "player-health-current-5", {
+      count: healthProbeFullHealthBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "health-probe-new-run-reset",
+      status: "passed",
+      detail: "After the persisted-health probe run failed, R created a fresh run at full health without reloading the page.",
+    });
+
+    await moveSteps(page, "ArrowUp", "north", 1);
+    await moveSteps(page, "ArrowLeft", "west", 2);
+    await moveSteps(page, "ArrowUp", "north", 1);
+    await moveSteps(page, "ArrowLeft", "west", 3);
+    await moveSteps(page, "ArrowDown", "south", 2);
+
+    const fullRunCombatReadyBefore = await eventCount(
+      page,
+      "dungeon-room-ready-2-combat-active",
+    );
+    const fullRunRoomReadyBefore = await eventCount(
+      page,
+      "room-ready-prototype-combat-pillars",
+    );
+    const fullRunProbeReadyBefore = await eventCount(page, "probe-ready");
+    const fullRunHealthReadyBefore = await eventCount(
+      page,
+      "player-health-current-5",
+    );
+    await triggerBoundaryTransition(
+      page,
+      "ArrowLeft",
+      "dungeon-room-ready-2-combat-active",
+      fullRunCombatReadyBefore + 1,
+    );
+    await waitForEvent(page, "room-ready-prototype-combat-pillars", {
+      count: fullRunRoomReadyBefore + 1,
+      timeout: 60_000,
+    });
+    await waitForEvent(page, "probe-ready", {
+      count: fullRunProbeReadyBefore + 1,
+      timeout: 60_000,
+    });
+    await waitForEvent(page, "player-health-current-5", {
+      count: fullRunHealthReadyBefore + 1,
+      timeout: 60_000,
     });
 
     await verifyHeldDiagonalLatestAxis(page);
@@ -552,19 +675,36 @@ async function main() {
       detail: "Six alternating west/north press-release taps each produced motion for one frame and then stopped.",
     });
 
+    let combatPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    let combatExplosionsBefore = await eventCount(page, "bomb-exploded");
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+      count: combatPlacementsBefore + 1,
       timeout: 5_000,
     });
-    await waitForEvent(page, "bomb-exploded", { timeout: 15_000 });
+    await waitForEvent(page, "bomb-exploded", {
+      count: combatExplosionsBefore + 1,
+      timeout: 15_000,
+    });
     await moveToCell(page, 3, 3);
+    combatPlacementsBefore = await eventCount(
+      page,
+      "place-bomb-definition-prototype-cross",
+    );
+    combatExplosionsBefore = await eventCount(page, "bomb-exploded");
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-cross", {
-      count: 2,
+      count: combatPlacementsBefore + 1,
       timeout: 5_000,
     });
     await moveToCell(page, 3, 0);
-    await waitForEvent(page, "bomb-exploded", { count: 2, timeout: 15_000 });
+    await waitForEvent(page, "bomb-exploded", {
+      count: combatExplosionsBefore + 1,
+      timeout: 15_000,
+    });
     await waitForEvent(page, "room-cleared", { timeout: 5_000 });
     await waitForEvent(page, "combat-reward-tokens-1", { timeout: 5_000 });
     checks.push({
@@ -672,9 +812,9 @@ async function main() {
       timeout: 15_000,
     });
     if (await eventCount(page, "room-cleared") === room4ClearsBefore) {
-      await moveToCell(page, -3, -5);
-      const adjacent = await waitForChaserAdjacent(page);
-      await page.waitForTimeout(850);
+      await moveToCell(page, 0, -5, "zx");
+      await waitForChaserAdjacent(page);
+      await page.waitForTimeout(100);
       const room4AreaPlacementsBefore = await eventCount(
         page,
         "place-bomb-definition-prototype-area",
@@ -685,12 +825,7 @@ async function main() {
         timeout: 5_000,
       });
       const secondRoom4ExplosionBefore = await eventCount(page, "bomb-exploded");
-      await page.waitForTimeout(1_200);
-      if (adjacent.player.z === adjacent.chaser.z) {
-        await moveToCell(page, -3, -2);
-      } else {
-        await moveToCell(page, -1, -4);
-      }
+      await moveToCell(page, -2, -5);
       await waitForEvent(page, "bomb-exploded", {
         count: secondRoom4ExplosionBefore + 1,
         timeout: 5_000,
@@ -731,7 +866,7 @@ async function main() {
       "place-bomb-definition-prototype-area",
     );
     await moveToCell(page, -3, 2);
-    const room5Adjacent = await waitForChaserAdjacent(page);
+    await waitForChaserAtDistance(page, 2);
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
       count: room5AreaPlacementsBefore + 1,
@@ -739,18 +874,15 @@ async function main() {
     });
     const room5ExplosionsBefore = await eventCount(page, "bomb-exploded");
     const room5ClearsBefore = await eventCount(page, "room-cleared");
-    await page.waitForTimeout(1_200);
-    if (room5Adjacent.player.z === room5Adjacent.chaser.z) {
-      await moveToCell(page, -3, 0);
-    } else {
-      await moveToCell(page, -5, 2);
-    }
+    await moveToCell(page, -5, 2);
     await waitForEvent(page, "bomb-exploded", {
       count: room5ExplosionsBefore + 1,
       timeout: 15_000,
     });
     if (await eventCount(page, "room-cleared") === room5ClearsBefore) {
-      await page.waitForTimeout(850);
+      await moveToCell(page, -3, 1);
+      await waitForChaserAtDistance(page, 2);
+      await page.waitForTimeout(200);
       const secondRoom5AreaPlacementBefore = await eventCount(
         page,
         "place-bomb-definition-prototype-area",
@@ -761,8 +893,7 @@ async function main() {
         timeout: 5_000,
       });
       const secondRoom5ExplosionBefore = await eventCount(page, "bomb-exploded");
-      await page.waitForTimeout(1_200);
-      await moveToCell(page, -5, 0);
+      await moveToCell(page, -3, -1);
       await waitForEvent(page, "bomb-exploded", {
         count: secondRoom5ExplosionBefore + 1,
         timeout: 5_000,
@@ -779,6 +910,7 @@ async function main() {
       detail: "The persisted reward loadout cleared the gates combat room 5 after using its west-side detour.",
     });
 
+    await moveToCell(page, -3, 0);
     await moveToCell(page, 4, 0);
     await triggerBoundaryTransition(
       page,
@@ -811,10 +943,10 @@ async function main() {
     const bossDamageBefore = await eventCount(page, "boss-damaged");
     const bossClearBefore = await eventCount(page, "room-cleared");
     const bossBombTargets = [
-      { x: 1, z: 1 },
-      { x: 1, z: 0 },
-      { x: 1, z: 0 },
-      { x: 1, z: 1 },
+      { x: 1, z: 1, escapeX: 3, escapeZ: 1 },
+      { x: 1, z: 0, escapeX: 1, escapeZ: 2 },
+      { x: 1, z: 0, escapeX: 1, escapeZ: 2 },
+      { x: 1, z: 1, escapeX: 3, escapeZ: 1 },
     ];
     for (let index = 0; index < bossBombTargets.length; index++) {
       const target = bossBombTargets[index];
@@ -832,6 +964,7 @@ async function main() {
         count: placementsBefore + 1,
         timeout: 5_000,
       });
+      await moveToCell(page, target.escapeX, target.escapeZ);
       await waitForEvent(page, "boss-damaged", {
         count: bossDamageBefore + index + 1,
         timeout: 8_000,
@@ -866,6 +999,10 @@ async function main() {
       page,
       "combat-reward-tokens-0",
     );
+    const fullHealthEventsBeforeCompletedRestart = await eventCount(
+      page,
+      "player-health-current-5",
+    );
     await page.keyboard.press("KeyR");
     await waitForEvent(page, "run-restart-requested", { timeout: 5_000 });
     await waitForEvent(page, "dungeon-run-restarted", { timeout: 5_000 });
@@ -877,10 +1014,14 @@ async function main() {
       count: zeroTokenEventsBeforeCompletedRestart + 1,
       timeout: 5_000,
     });
+    await waitForEvent(page, "player-health-current-5", {
+      count: fullHealthEventsBeforeCompletedRestart + 1,
+      timeout: 5_000,
+    });
     checks.push({
       name: "completed-run-restart",
       status: "passed",
-      detail: "R restarted the completed seed-0 run in a fresh start room without reloading the browser page.",
+      detail: "R restarted the completed seed-0 run at full health in a fresh start room without reloading the browser page.",
     });
 
     for (let hit = 0; hit < 5; hit++) {

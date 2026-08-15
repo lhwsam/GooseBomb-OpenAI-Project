@@ -120,6 +120,7 @@ namespace BombSwap
 
             _runHost.RoomCommitted += OnRoomCommitted;
             roomSession.RoomCleared += OnRoomCleared;
+            roomSession.PlayerDamaged += OnPlayerDamaged;
             roomSession.PlayerDied += OnPlayerDied;
             roomSession.PlayerMoved += OnPlayerMoved;
             roomSession.ActiveBombSlotChanged += OnActiveBombSlotChanged;
@@ -155,6 +156,7 @@ namespace BombSwap
             if (roomSession != null)
             {
                 roomSession.RoomCleared -= OnRoomCleared;
+                roomSession.PlayerDamaged -= OnPlayerDamaged;
                 roomSession.PlayerDied -= OnPlayerDied;
                 roomSession.PlayerMoved -= OnPlayerMoved;
                 roomSession.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
@@ -239,6 +241,20 @@ namespace BombSwap
             DungeonBombLoadoutState runLoadout = run.BombLoadoutState ??
                 throw new InvalidOperationException(
                     "Dungeon run requires a persistent bomb loadout state.");
+            DungeonPlayerHealthState runHealth = run.PlayerHealthState ??
+                throw new InvalidOperationException(
+                    "Dungeon run requires a persistent player health state.");
+            PrototypePlayerVitalsAsset runVitals = _runHost.PlayerVitals;
+            PrototypePlayerVitalsAsset roomVitals = roomSession.PlayerVitals;
+            if (runHealth.MaxHealth != roomVitals.MaxHealth ||
+                runVitals.MaxHealth != roomVitals.MaxHealth ||
+                !Mathf.Approximately(
+                    runVitals.InvulnerabilitySeconds,
+                    roomVitals.InvulnerabilitySeconds))
+            {
+                throw new InvalidOperationException(
+                    "Dungeon room and run host must use matching player vitals values.");
+            }
             PrototypeBombDefinitionAsset secondSlot = runLoadout.SecondSlot.HasValue
                 ? rewardCatalog.GetDefinition(runLoadout.SecondSlot.Value)
                 : null;
@@ -248,6 +264,7 @@ namespace BombSwap
                 rewardCatalog.GetAvailableDefinitions(),
                 rewardCatalog.SwapCooldownSeconds,
                 runLoadout.ActiveSlotIndex);
+            roomSession.PrepareRuntimePlayerHealth(runHealth.CurrentHealth);
             roomSession.PrepareRuntimeRoom(
                 _runtimeRoomDefinition,
                 playerStart,
@@ -304,6 +321,15 @@ namespace BombSwap
         {
             _runHost.TryFailCurrentRun(result);
             RefreshDoors();
+        }
+
+        private void OnPlayerDamaged(PlayerDamageResult result)
+        {
+            DungeonPlayerHealthState runHealth =
+                _runHost.RunSession.PlayerHealthState ??
+                throw new InvalidOperationException(
+                    "Dungeon run requires a persistent player health state.");
+            runHealth.RecordAppliedDamage(result);
         }
 
         private void OnPlayerMoved(PlayerMovementStep step)

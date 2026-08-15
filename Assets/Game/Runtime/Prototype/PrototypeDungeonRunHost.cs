@@ -22,6 +22,9 @@ namespace BombSwap
         private PrototypeBombRewardCatalogAsset bombRewardCatalog;
 
         [SerializeField]
+        private PrototypePlayerVitalsAsset playerVitals;
+
+        [SerializeField]
         private bool requireInitialSceneMatch = true;
 
         private PrototypeDungeonRunNavigator _navigator;
@@ -43,6 +46,8 @@ namespace BombSwap
         public PrototypeBombRewardCatalogAsset BombRewardCatalog =>
             bombRewardCatalog;
 
+        public PrototypePlayerVitalsAsset PlayerVitals => playerVitals;
+
         public bool RequireInitialSceneMatch => requireInitialSceneMatch;
 
         public PrototypeDungeonRunSession RunSession =>
@@ -61,6 +66,7 @@ namespace BombSwap
             PrototypeDungeonCombatRoomCatalogAsset authoredCombatRoomCatalog,
             PrototypeDungeonSpecialRoomCatalogAsset authoredSpecialRoomCatalog,
             PrototypeBombRewardCatalogAsset authoredBombRewardCatalog,
+            PrototypePlayerVitalsAsset authoredPlayerVitals,
             bool authoredRequireInitialSceneMatch = true)
         {
             if (Application.isPlaying && isActiveAndEnabled)
@@ -74,6 +80,8 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredSpecialRoomCatalog));
             bombRewardCatalog = authoredBombRewardCatalog ??
                 throw new ArgumentNullException(nameof(authoredBombRewardCatalog));
+            playerVitals = authoredPlayerVitals ??
+                throw new ArgumentNullException(nameof(authoredPlayerVitals));
             seed = authoredSeed;
             requireInitialSceneMatch = authoredRequireInitialSceneMatch;
         }
@@ -179,10 +187,10 @@ namespace BombSwap
             }
 
             if (combatRoomCatalog == null || specialRoomCatalog == null ||
-                bombRewardCatalog == null)
+                bombRewardCatalog == null || playerVitals == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeDungeonRunHost requires combat, special-room, and bomb-reward catalogs.");
+                    "PrototypeDungeonRunHost requires combat, special-room, bomb-reward, and player-vitals assets.");
             }
 
             PrototypeDungeonRunSession runSession = CreateRunSession();
@@ -248,7 +256,8 @@ namespace BombSwap
                 seed,
                 combatRoomCatalog,
                 specialRoomCatalog,
-                bombRewardCatalog);
+                bombRewardCatalog,
+                playerVitals.CreateCoreDefinition());
         }
     }
 }

@@ -71,6 +71,23 @@ namespace BombSwap
             BombLoadoutState = _bombRewardCatalog?.CreateRunLoadoutState();
         }
 
+        public PrototypeDungeonRunSession(
+            int seed,
+            PrototypeDungeonCombatRoomCatalogAsset catalog,
+            PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog,
+            PrototypeBombRewardCatalogAsset bombRewardCatalog,
+            PlayerHealthDefinition playerHealthDefinition)
+            : this(seed, catalog, specialRoomCatalog, bombRewardCatalog)
+        {
+            if (playerHealthDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(playerHealthDefinition));
+            }
+
+            PlayerHealthState = new DungeonPlayerHealthState(
+                playerHealthDefinition.MaxHealth);
+        }
+
         public int Seed { get; }
 
         public DungeonGraph Graph { get; }
@@ -80,6 +97,8 @@ namespace BombSwap
         public DungeonRunState RunState { get; }
 
         public DungeonBombLoadoutState BombLoadoutState { get; }
+
+        public DungeonPlayerHealthState PlayerHealthState { get; }
 
         public DungeonRoomNodeId CurrentRoomId => RunState.CurrentRoomId;
 

@@ -1374,14 +1374,18 @@ namespace BombSwap.Editor.ContentValidation
                         AssetDatabase.LoadAssetAtPath<
                             PrototypeBombRewardCatalogAsset>(
                             PrototypeBombRewardCatalogPath);
+                    PrototypePlayerVitalsAsset expectedPlayerVitals =
+                        AssetDatabase.LoadAssetAtPath<PrototypePlayerVitalsAsset>(
+                            PrototypePlayerVitalsPath);
                     if (host.transform.parent != null || host.Seed != 0 ||
                         host.CombatRoomCatalog != expectedCombatCatalog ||
                         host.SpecialRoomCatalog != expectedSpecialCatalog ||
                         host.BombRewardCatalog != expectedRewardCatalog ||
+                        host.PlayerVitals != expectedPlayerVitals ||
                         !host.RequireInitialSceneMatch)
                     {
                         errors.Add(
-                            "Dungeon run host must be a seed-0 root using the validated room and bomb-reward catalogs with initial-scene matching.");
+                            "Dungeon run host must be a seed-0 root using the validated room, bomb-reward, and player-vitals assets with initial-scene matching.");
                     }
                 }
 
