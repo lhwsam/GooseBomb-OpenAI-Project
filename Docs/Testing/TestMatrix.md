@@ -37,4 +37,4 @@
 - 특수방 catalog의 필수 타입·고유 씬, 로드 전 Core 미변경, 중복·로드 불가·씬 불일치 거부, 기대 씬 뒤 단일 commit, persistent host primary 단일성.
 - pause 진입 시 이동 의도 해제, 입력·설치·교체 차단, 논리 시계·fuse·쿨타임·적·보스 정지, UI 표시, 재개 시 유지 방향 재샘플링과 WebGL 실제 상태 marker.
 - WebGL focus 상실 뒤 입력 stuck 없음.
-- 게임패드 binding 구조, 합성 Input System 스틱·D-pad·버튼→의미 명령, WebGL 표준 가상 장치 연결→스틱·D-pad 해제·South 설치와 실패·West 교체 명령·Start pause 차단/유지 스틱 재개·Select 재시작. 물리 장치별 연결과 조작감은 수동 확인.
+- 게임패드 binding 구조, 합성 Input System 스틱·D-pad·버튼→의미 명령, WebGL 표준 가상 장치 연결→스틱·D-pad 해제·이동 중 분리 정지·동일 index 재연결 복구·South 설치와 실패·West 교체 명령·Start pause 차단/유지 스틱 재개·Select 재시작. 물리 장치별 연결과 조작감은 수동 확인.

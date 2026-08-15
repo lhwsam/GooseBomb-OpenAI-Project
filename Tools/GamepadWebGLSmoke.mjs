@@ -77,12 +77,22 @@ async function installVirtualGamepad(page) {
     const touch = () => {
       gamepad.timestamp = performance.now();
     };
+    let hasConnected = false;
     const api = {
       connect() {
         if (gamepad.connected) return;
         gamepad.connected = true;
+        hasConnected = true;
         touch();
         const event = new Event("gamepadconnected");
+        Object.defineProperty(event, "gamepad", { value: gamepad });
+        globalThis.dispatchEvent(event);
+      },
+      disconnect() {
+        if (!gamepad.connected) return;
+        gamepad.connected = false;
+        touch();
+        const event = new Event("gamepaddisconnected");
         Object.defineProperty(event, "gamepad", { value: gamepad });
         globalThis.dispatchEvent(event);
       },
@@ -128,7 +138,7 @@ async function installVirtualGamepad(page) {
 
     Object.defineProperty(navigator, "getGamepads", {
       configurable: true,
-      value: () => gamepad.connected ? [gamepad] : [],
+      value: () => gamepad.connected ? [gamepad] : hasConnected ? [null] : [],
     });
     globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__ = api;
   });
@@ -283,6 +293,70 @@ async function main() {
       name: "dpad-move-release",
       status: "passed",
       detail: "Standard button 12 emitted Move(North), then release emitted Move(None).",
+    });
+
+    const disconnectEastBefore = await eventCount(page, "move-direction-east");
+    await setAxis(page, 0, 1);
+    await waitForEvent(page, "move-direction-east", {
+      count: disconnectEastBefore + 1,
+      timeout: 5_000,
+    });
+    const disconnectNoneBefore = await eventCount(page, "move-direction-none");
+    await page.evaluate(() => globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__.disconnect());
+    await waitForEvent(page, "move-direction-none", {
+      count: disconnectNoneBefore + 1,
+      timeout: 5_000,
+    });
+    await page.waitForTimeout(100);
+    const disconnectedCell = await getLastPlayerCell(page);
+    if (!disconnectedCell) {
+      throw new Error("The gameplay probe did not report a player cell after gamepad disconnect.");
+    }
+    const disconnectedEastSteps = await eventCount(page, "move-step-direction-east");
+    await page.waitForTimeout(300);
+    const disconnectedCellAfterWait = await getLastPlayerCell(page);
+    const disconnectedEastStepsAfterWait = await eventCount(page, "move-step-direction-east");
+    const disconnectedPads = await page.evaluate(() => navigator.getGamepads());
+    if (JSON.stringify(disconnectedCellAfterWait) !== JSON.stringify(disconnectedCell) ||
+        disconnectedEastStepsAfterWait !== disconnectedEastSteps ||
+        disconnectedPads.length !== 1 ||
+        disconnectedPads[0] !== null) {
+      throw new Error(
+        `Held input survived gamepad disconnect: cell ${JSON.stringify(disconnectedCell)} -> ` +
+        `${JSON.stringify(disconnectedCellAfterWait)}, east steps ${disconnectedEastSteps} -> ` +
+        `${disconnectedEastStepsAfterWait}, pads ${JSON.stringify(disconnectedPads)}.`,
+      );
+    }
+    checks.push({
+      name: "gamepad-disconnect-clears-held-input",
+      status: "passed",
+      detail: "Disconnecting a held east stick emitted Move(None) and left the authoritative cell and east-step count unchanged for 300ms.",
+    });
+
+    await setAxis(page, 0, 0);
+    await page.evaluate(() => globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__.connect());
+    await page.waitForTimeout(250);
+    const reconnectWestBefore = await eventCount(page, "move-direction-west");
+    const reconnectWestStepsBefore = await eventCount(page, "move-step-direction-west");
+    await setAxis(page, 0, -1);
+    await waitForEvent(page, "move-direction-west", {
+      count: reconnectWestBefore + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "move-step-direction-west", {
+      count: reconnectWestStepsBefore + 1,
+      timeout: 5_000,
+    });
+    const reconnectNoneBefore = await eventCount(page, "move-direction-none");
+    await setAxis(page, 0, 0);
+    await waitForEvent(page, "move-direction-none", {
+      count: reconnectNoneBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "gamepad-reconnect-restores-input",
+      status: "passed",
+      detail: "Reconnecting the same standard gamepad restored West movement and neutral release without reloading the page.",
     });
 
     const swapsBefore = await eventCount(page, "swap-bomb");

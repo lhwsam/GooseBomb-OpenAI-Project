@@ -18,7 +18,7 @@
 
 - cold/warm load와 진행 표시.
 - canvas click/focus 전후 키보드 입력.
-- WASD/방향키, 게임패드 사용 시 매핑. Input System 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select→의미 명령은 PlayMode에서 검증한다. 별도 WebGL smoke는 `navigator.getGamepads()`의 표준 가상 장치 연결부터 스틱·D-pad 해제, South 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱·South 차단과 재개 뒤 유지 스틱 재적용, Select의 실패 런 재시작까지 검증한다. 실제 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·브라우저/OS별 Gamepad API 차이는 수동 항목으로 남긴다. 기본 자동 smoke는 seed-0 Start 안전방에서 첫 전투방으로 이동한 뒤 겹친 직교 방향키의 최신 축 우선과 빠른 즉시 press-release 방향 교대가 각 탭마다 한 frame의 실제 motion을 만들고 이후 추가 이동 없이 멈추는지 확인한다. 이어 시작 슬롯의 `Z` 십자 폭탄을 두 번 설치해 첫 전투방을 실제 클리어한다.
+- WASD/방향키, 게임패드 사용 시 매핑. Input System 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select→의미 명령은 PlayMode에서 검증한다. 별도 WebGL smoke는 `navigator.getGamepads()`의 표준 가상 장치 연결부터 스틱·D-pad 해제, 유지 스틱 중 분리의 즉시 정지·300ms 위치 안정성과 동일 index 재연결 입력 복구, South 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱·South 차단과 재개 뒤 유지 스틱 재적용, Select의 실패 런 재시작까지 검증한다. 실제 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·브라우저/OS별 Gamepad API 차이는 수동 항목으로 남긴다. 기본 자동 smoke는 seed-0 Start 안전방에서 첫 전투방으로 이동한 뒤 겹친 직교 방향키의 최신 축 우선과 빠른 즉시 press-release 방향 교대가 각 탭마다 한 frame의 실제 motion을 만들고 이후 추가 이동 없이 멈추는지 확인한다. 이어 시작 슬롯의 `Z` 십자 폭탄을 두 번 설치해 첫 전투방을 실제 클리어한다.
 - focus 상실/복귀 후 stuck input 없음. 기본 자동 smoke는 오른쪽 키를 누른 채 브라우저 `blur` lifecycle 사건을 발생시키고 `Move(None)` 뒤 셀·motion이 정지하는지 확인한다. 이어 `focus` 복귀 전 key-up이 누락된 상태에서도 이동이 되살아나지 않고 다음 `Esc` 입력이 정상 처리돼야 한다.
 - 페이지 스크롤/브라우저 단축키와 충돌 없음.
 - 모든 방에서 플레이어 현재/최대 체력과 bar가 좌상단에 읽히고, 현재 런의 `ROOM TOKENS`가 우상단에 보이며, 보스방에서만 보스 현재/최대 체력과 phase가 상단 중앙에 나타나 무기 HUD·전투 공간·pause/완료/실패 overlay와 충돌하지 않는지 캡처로 확인한다.
