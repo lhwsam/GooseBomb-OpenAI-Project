@@ -45,10 +45,11 @@ WebGLTemplateTests + WebGLSmoke
 - 변경 전 검증된 보스 이동 WebGL 빌드를 새 레이아웃 검사로 실행하면 640×720에서 960×600 canvas가 x=-160부터 배치되어 실패했다. 증거는 `Artifacts/Verification/20260816-043000-responsive-layout-baseline/browser-smoke.json`이다.
 - HTML/template scope 정적 계약과 공통 정적 서버 회귀가 통과했다.
 - 연결된 Unity 6000.5.3f1에서 전체 EditMode `303/303`, PlayMode `126/126`, Unity Console 오류 `0`을 확인했다.
-- 10-scene Development WebGL 빌드는 `137,972,718 bytes`, `32.211초`, 오류 `0`, 기존 패키지·셰이더 범주의 경고 `348`건으로 성공했다. 증거는 `Artifacts/Verification/20260816-044000-responsive-web-connected/`이다.
+- 10-scene Development WebGL 최초 빌드는 `137,972,718 bytes`, `32.211초`, 오류 `0`, 기존 패키지·셰이더 범주의 경고 `348`건으로 성공했다. 증거는 `Artifacts/Verification/20260816-044000-responsive-web-connected/`이다.
 - Edge keyboard smoke `35/35`는 1280×720에서 960×600, 640×720에서 640×400 canvas와 overflow `0`을 확인하고 전체 던전·보스·완료·실패·재시작 회귀 및 Console/page error `0`을 통과했다.
 - 같은 빌드의 가상 Gamepad smoke `14/14`와 Console/page error `0`이 통과했다.
 - 인앱 브라우저 974×986 viewport에서 960×600 canvas가 중앙에 완전히 들어오고 좌우 HUD·미니맵·무기 HUD·하단 안내·fullscreen 버튼이 모두 보이는 것을 캡처로 확인했다.
+- commit `7ba40e6`의 증분 post-commit WebGL 빌드는 같은 `137,972,718 bytes`, `10.581초`, warning/error `0`으로 성공했다. 빌드 전후 `ProjectSettings.asset` SHA-256 `90662C7E3115FC7E1324C38291805288D1BDD94CE9888B56A1F39CEC10D6C1A8`과 `APPLICATION:Default`가 같아 scope의 디스크 복원을 확인했다. 같은 산출물에서 keyboard `35/35`, Gamepad `14/14`, Console/page error `0`이 다시 통과했다. 최종 플레이테스트 증거는 `Artifacts/Verification/20260816-044700-responsive-postcommit-web/`이다.
 
 ## 비목표와 남은 위험
 
