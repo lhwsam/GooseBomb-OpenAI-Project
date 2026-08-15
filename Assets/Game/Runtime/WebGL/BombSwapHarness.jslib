@@ -8,5 +8,12 @@ mergeInto(LibraryManager.library, {
     }
 
     events.push({ name: eventName, timestamp: Date.now() });
+    if (!globalThis.__BOMBSWAP_HARNESS_EXPORT_READY__) {
+      globalThis.__BOMBSWAP_HARNESS_EXPORT_READY__ = true;
+      var notifyEventsAvailable = globalThis.BombSwapHarnessNotifyEventsAvailable;
+      if (typeof notifyEventsAvailable === "function") {
+        notifyEventsAvailable();
+      }
+    }
   },
 });

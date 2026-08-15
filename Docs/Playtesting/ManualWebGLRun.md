@@ -65,8 +65,20 @@ started-at:
 3. 현재 전체 경로 빌드는 첫 run 시작방에서 [방향 응답성 사전 확인](DirectionalBombChoiceProtocol.md#이동-응답성-사전-확인)을 한 번 수행한다. 키 해제 정지, 빠른 `상→우` 반복과 벽 모서리 전환을 기록하되 기대 결과나 이동 수치를 먼저 설명하지 않는다.
 4. 고정 build에 대응하는 프로토콜의 대상 방과 시도 수를 따른다. 현재 전체 경로 빌드는 첫 run에서 보상 후보를 자유 선택하고 다음 run에서 반대 후보를 비교한다.
 5. 보상 선택, 방별 설치 셀·바라보기·퇴로, 폭탄 교체 이유와 피해 원인 설명을 기록한다.
-6. 세션이 끝나면 Console 오류를 `browser-console.txt`로 보존하고 서버를 종료한다.
-7. 자동 probe 사건과 관찰 사실·발언·해석을 분리한다.
+6. 세션이 끝나면 footer의 `SAVE TEST LOG`를 눌러 내려받은 JSON을 `Artifacts/Playtests/<session-id>/harness-events.json`으로 보존한다.
+7. Console 오류를 `browser-console.txt`로 보존하고 서버를 종료한다.
+8. 자동 probe 사건과 관찰 사실·발언·해석을 분리한다.
+
+## 개발 빌드 로그 저장
+
+`SAVE TEST LOG`는 Development WebGL의 첫 harness 사건이 도착한 뒤에만 나타난다. 버튼을 누르면 브라우저 메모리의 사건을 로컬 JSON 파일로 내려받으며 외부 업로드나 네트워크 전송은 하지 않는다.
+
+파일의 `schemaVersion`은 `bombswap/playtest-log@1`이다. `generatedAt`, product 이름·버전, `eventCount`, 시간순 `events`를 포함한다. 사건은 자동화와 사후 동선 확인을 돕지만 참가자의 의도·발언·가독성·조작감은 증명하지 않으므로 관찰 기록을 대신하지 않는다. 다음을 함께 확인한다.
+
+- `eventCount`가 0보다 큰지 확인한다.
+- 고정 commit과 `build-reference.txt`가 같은 세션 폴더에 있는지 확인한다.
+- 영상이나 식별 가능 정보와 마찬가지로 JSON 원본은 Git에 커밋하지 않는다.
+- 공유할 때는 원본 사건과 관찰자의 해석을 분리하고, GDD 가설 판정에는 세션 템플릿의 근거 칸을 사용한다.
 
 ## 도구 자체 검증
 

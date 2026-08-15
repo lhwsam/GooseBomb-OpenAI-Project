@@ -33,6 +33,7 @@
 - 11×9 격자, 경계 벽, 내부 장애물, 플레이어 placeholder, 탑다운 카메라를 가진 `TestSandbox` 씬 구현.
 - Input Actions·TestSandbox·Build Settings를 재생성/검증하는 Editor builder와 validator 구현.
 - 개발 WebGL에서 입력 사건을 브라우저 smoke에 전달하는 제한된 harness probe 구현.
+- Development WebGL의 첫 harness 사건 뒤에만 나타나는 로컬 `SAVE TEST LOG`를 구현했다. `bombswap/playtest-log@1` JSON은 product identity와 시간순 사건만 내려받고 외부 전송하지 않으며, browser smoke가 다운로드 파일과 메모리 snapshot의 완전 일치를 검사한다.
 - 주입 시계의 frame 경과 시간, Core 연속 `GridSubcellPosition`, 셀 경계의 원자적 actor 점유 전이, 벽·폭탄 차단을 소유하는 `PlayerMovementSimulation` 구현.
 - TestSandbox 유지 입력을 기본 5 cells/s 연속 논리 이동과 같은 frame의 placeholder Transform 직접 표시에 연결. 변하지 않은 대각선 입력은 마지막 전환 축을 유지해 frame별 재샘플링에서도 방향이 교번하지 않는다.
 - `PrototypeGameSession`이 하나의 논리 격자·수동 시계를 이동과 폭탄 simulation에 공유하도록 런타임 상태 소유를 통합.
@@ -153,12 +154,13 @@
 - URP 17.5.0과 Input System 1.19.0이 설치되어 있다.
 - WebGL platform quality는 Mobile 프로필을 사용한다.
 - WebGL threads support는 꺼져 있고 data caching은 켜져 있다.
-- WebGL build는 `Assets/WebGLTemplates/BombSwap`을 범위 적용하고 평상시 `PlayerSettings.WebGL.template` 값은 보존한다. 기준 canvas 960×600은 viewport가 작을 때만 축소되며 footer가 키보드 조작과 fullscreen 진입점을 제공한다.
+- WebGL build는 `Assets/WebGLTemplates/BombSwap`을 범위 적용하고 평상시 `PlayerSettings.WebGL.template` 값은 보존한다. 기준 canvas 960×600은 viewport가 작을 때만 축소되며 footer가 키보드 조작, fullscreen과 Development 전용 로컬 플레이테스트 로그 저장 진입점을 제공한다.
 - `Tools/ServeWebGL.mjs`는 검증 빌드를 `127.0.0.1`에서 수동 관찰용으로 제공하고 자동 스모크와 동일한 `WebGLStaticServer.mjs`를 사용한다. 외부 배포 서버는 아니다.
 - Feel 등 vendor 에셋이 있으나 Core/first-party 구현과 아직 연결되지 않았다.
 
 ## 진행 중
 
+- WebGL 플레이테스트 로그 저장의 template·interop·자동 다운로드 계약을 구현했다. 연결된 Unity에서 post-commit Development WebGL을 다시 빌드해 실제 버튼 표시·JSON 다운로드·전체 browser 회귀를 확인하는 작업이 남아 있다.
 - commit `134dd06` post-commit WebGL을 고정한 [비밀방·탐색·보스 전체 경로 플레이테스트](../Playtesting/SecretExplorationRouteProtocol.md)와 [세션 기록 템플릿](../Playtesting/SecretExplorationRouteSessionTemplate.md)을 준비했다. 시도 1의 무힌트 자발 발견과 시도 2의 통제 확인을 분리해 금 간 단서, 무작위 벽 검사, cache `+3`, 미니맵, Recovery와 보스 선행 설치를 같은 경로에서 기록한다.
 - [금이 간 벽 비밀방](SecretRoomSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 금 간 단서가 설명 없이 읽히는지, `+3` cache가 탐색 비용에 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지는 사람 검증이 남아 있다.
 - [GDD 기반 회복방](RecoveryRoomSlice.md)의 구현과 자동 검증을 완료했다. `+2` 회복량, 방 발견성, 보스 직전 우회 가치와 최대 체력 비소비가 실제 플레이에서 자연스러운지는 사람 검증이 남아 있다. 적 처치 확률 드롭은 계속 보류한다.

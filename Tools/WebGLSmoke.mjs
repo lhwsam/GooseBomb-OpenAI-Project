@@ -154,6 +154,54 @@ async function assertCanvasFitsViewport(page, label) {
     `${layout.width.toFixed(0)}x${layout.height.toFixed(0)} canvas, no overflow`;
 }
 
+async function verifyPlaytestLogExport(page, outputPath, expectedEvents) {
+  if (!Array.isArray(expectedEvents) || expectedEvents.length === 0) {
+    throw new Error("Playtest log export requires a non-empty harness event snapshot.");
+  }
+
+  const exportButton = page.locator("#unity-playtest-log-button");
+  await exportButton.waitFor({ state: "visible", timeout: 5_000 });
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 10_000 }),
+    exportButton.click(),
+  ]);
+  await download.saveAs(outputPath);
+  const downloadFailure = await download.failure();
+  if (downloadFailure) {
+    throw new Error(`Playtest log download failed: ${downloadFailure}`);
+  }
+
+  const payload = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+  if (payload.schemaVersion !== "bombswap/playtest-log@1") {
+    throw new Error(
+      `Unexpected playtest log schema: ${String(payload.schemaVersion)}`,
+    );
+  }
+  if (!Number.isFinite(Date.parse(payload.generatedAt))) {
+    throw new Error("Playtest log generatedAt is not a valid ISO timestamp.");
+  }
+  if (typeof payload.build?.productName !== "string" ||
+      typeof payload.build?.productVersion !== "string") {
+    throw new Error("Playtest log is missing its product build identity.");
+  }
+  if (payload.eventCount !== expectedEvents.length ||
+      !Array.isArray(payload.events) ||
+      JSON.stringify(payload.events) !== JSON.stringify(expectedEvents)) {
+    throw new Error(
+      `Downloaded playtest events did not match the live snapshot ` +
+      `(${payload.eventCount ?? "missing"}/${expectedEvents.length}).`,
+    );
+  }
+
+  return {
+    schemaVersion: payload.schemaVersion,
+    eventCount: payload.eventCount,
+    suggestedFilename: download.suggestedFilename(),
+    outputPath,
+  };
+}
+
 async function moveSteps(page, key, direction, count) {
   const eventName = `move-step-direction-${direction}`;
   const initialCount = await eventCount(page, eventName);
@@ -501,6 +549,9 @@ async function main() {
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-run-failed.png`,
   );
+  const playtestLogPath = path.resolve(
+    args.playtestLogPath ?? path.join(path.dirname(reportPath), "playtest-events.json"),
+  );
   const { chromium } = await loadPlaywright();
   const { server, url } = await startStaticServer(buildPath);
   const consoleErrors = [];
@@ -515,7 +566,10 @@ async function main() {
       headless: true,
       ...(executablePath ? { executablePath } : {}),
     });
-    page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+      acceptDownloads: true,
+    });
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
@@ -1608,6 +1662,16 @@ async function main() {
         ? { required: requiredEvents, observed: [...observedNames] }
         : { missing: missingEvents, observed: [...observedNames] },
     });
+    const playtestLog = await verifyPlaytestLogExport(
+      page,
+      playtestLogPath,
+      harnessEvents,
+    );
+    checks.push({
+      name: "playtest-log-export",
+      status: "passed",
+      detail: playtestLog,
+    });
     checks.push({
       name: "browser-console",
       status: consoleErrors.length === 0 && pageErrors.length === 0
@@ -1632,6 +1696,7 @@ async function main() {
       secretRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
+      playtestLogPath,
       generatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });
@@ -1666,6 +1731,7 @@ async function main() {
       secretRoomScreenshotPath,
       pauseScreenshotPath,
       runFailureScreenshotPath,
+      playtestLogPath,
       generatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });

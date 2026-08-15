@@ -144,6 +144,7 @@
         text-overflow: ellipsis;
       }
 
+      #unity-playtest-log-button,
       #unity-fullscreen-button {
         min-height: 26px;
         padding: 3px 9px;
@@ -155,6 +156,8 @@
         font: inherit;
       }
 
+      #unity-playtest-log-button:hover,
+      #unity-playtest-log-button:focus-visible,
       #unity-fullscreen-button:hover,
       #unity-fullscreen-button:focus-visible {
         border-color: #58d8e8;
@@ -174,6 +177,7 @@
           display: none;
         }
 
+        #unity-playtest-log-button,
         #unity-fullscreen-button {
           min-height: 24px;
           padding: 2px 7px;
@@ -203,6 +207,11 @@
         <span id="unity-focus-hint">CLICK GAME TO FOCUS · Z BOMB · X SWAP · ESC PAUSE · R RESTART</span>
         <span id="unity-footer-actions">
           <span id="unity-build-title">{{{ PRODUCT_NAME }}}</span>
+          <button
+            id="unity-playtest-log-button"
+            type="button"
+            title="Save local development playtest events as JSON"
+            hidden>SAVE TEST LOG</button>
           <button id="unity-fullscreen-button" type="button">FULLSCREEN</button>
         </span>
       </footer>
@@ -210,8 +219,56 @@
     <script>
       const canvas = document.querySelector("#unity-canvas");
       const canvasFrame = document.querySelector("#unity-canvas-frame");
+      const playtestLogButton = document.querySelector("#unity-playtest-log-button");
       const referenceWidth = {{{ WIDTH }}};
       const referenceHeight = {{{ HEIGHT }}};
+
+      function getHarnessEvents() {
+        const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+        return Array.isArray(events) ? events : [];
+      }
+
+      function createPlaytestLogFilename(generatedAt) {
+        const timestamp = generatedAt
+          .toISOString()
+          .replace(/[:.]/g, "-");
+        return `bombswap-playtest-${timestamp}.json`;
+      }
+
+      function exportPlaytestLog() {
+        const events = getHarnessEvents();
+        const generatedAt = new Date();
+        const payload = {
+          schemaVersion: "bombswap/playtest-log@1",
+          generatedAt: generatedAt.toISOString(),
+          build: {
+            productName: config.productName,
+            productVersion: config.productVersion,
+          },
+          eventCount: events.length,
+          events: events.slice(),
+        };
+        const blob = new Blob(
+          [`${JSON.stringify(payload, null, 2)}\n`],
+          { type: "application/json" }
+        );
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = createPlaytestLogFilename(generatedAt);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+
+      globalThis.BombSwapHarnessNotifyEventsAvailable = function () {
+        playtestLogButton.hidden = false;
+      };
+      playtestLogButton.addEventListener("click", exportPlaytestLog);
+      if (getHarnessEvents().length > 0) {
+        globalThis.BombSwapHarnessNotifyEventsAvailable();
+      }
 
       function fitCanvasToViewport() {
         const availableWidth = Math.max(1, canvasFrame.clientWidth);
