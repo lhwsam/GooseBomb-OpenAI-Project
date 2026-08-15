@@ -705,6 +705,10 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     rewardSession.GetBombSlot(1).DefinitionId,
                     Is.EqualTo(selected));
+                Assert.That(run.BombLoadoutState.ActiveSlotIndex, Is.Zero);
+                Assert.That(rewardSession.TrySwapActiveBomb(), Is.True);
+                Assert.That(rewardSession.ActiveBombSlotIndex, Is.EqualTo(1));
+                Assert.That(run.BombLoadoutState.ActiveSlotIndex, Is.EqualTo(1));
 
                 Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
                 Assert.That(
@@ -722,6 +726,10 @@ namespace BombSwap.Tests.PlayMode
                         .RoomSession;
                 Assert.That(nextSession.HasSecondBombSlot, Is.True);
                 Assert.That(nextSession.GetBombSlot(1).DefinitionId, Is.EqualTo(selected));
+                Assert.That(nextSession.ActiveBombSlotIndex, Is.EqualTo(1));
+                Assert.That(
+                    nextSession.GetBombDefinitionForSlot(nextSession.ActiveBombSlotIndex).DefinitionId,
+                    Is.EqualTo(selected.Value));
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
             finally

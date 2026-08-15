@@ -17,7 +17,8 @@ namespace BombSwap.Core
             IGameClock clock,
             BombWeaponDefinition firstSlot,
             BombWeaponDefinition secondSlot,
-            TimeSpan swapCooldown)
+            TimeSpan swapCooldown,
+            int initialActiveSlotIndex = 0)
         {
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             if (firstSlot == null)
@@ -37,9 +38,23 @@ namespace BombSwap.Core
                     swapCooldown,
                     "Bomb swap cooldown must be greater than zero.");
             }
+            if (initialActiveSlotIndex < 0 || initialActiveSlotIndex >= SlotCount)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialActiveSlotIndex),
+                    initialActiveSlotIndex,
+                    $"Active bomb slot index must be between 0 and {SlotCount - 1}.");
+            }
+            if (initialActiveSlotIndex == 1 && secondSlot == null)
+            {
+                throw new ArgumentException(
+                    "The second bomb slot must be equipped before it can be active.",
+                    nameof(initialActiveSlotIndex));
+            }
 
             slots = new[] { firstSlot, secondSlot };
             this.swapCooldown = swapCooldown;
+            activeSlotIndex = initialActiveSlotIndex;
         }
 
         public int ActiveSlotIndex => activeSlotIndex;

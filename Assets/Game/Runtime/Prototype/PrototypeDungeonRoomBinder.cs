@@ -122,6 +122,7 @@ namespace BombSwap
             roomSession.RoomCleared += OnRoomCleared;
             roomSession.PlayerDied += OnPlayerDied;
             roomSession.PlayerMoved += OnPlayerMoved;
+            roomSession.ActiveBombSlotChanged += OnActiveBombSlotChanged;
         }
 
         private void Start()
@@ -156,6 +157,7 @@ namespace BombSwap
                 roomSession.RoomCleared -= OnRoomCleared;
                 roomSession.PlayerDied -= OnPlayerDied;
                 roomSession.PlayerMoved -= OnPlayerMoved;
+                roomSession.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
             }
         }
 
@@ -244,7 +246,8 @@ namespace BombSwap
                 rewardCatalog.FirstSlot,
                 secondSlot,
                 rewardCatalog.GetAvailableDefinitions(),
-                rewardCatalog.SwapCooldownSeconds);
+                rewardCatalog.SwapCooldownSeconds,
+                runLoadout.ActiveSlotIndex);
             roomSession.PrepareRuntimeRoom(
                 _runtimeRoomDefinition,
                 playerStart,
@@ -263,6 +266,18 @@ namespace BombSwap
         {
             _transitionRequested = false;
             RefreshDoors();
+        }
+
+        private void OnActiveBombSlotChanged(int slotIndex)
+        {
+            DungeonBombLoadoutState runLoadout = _runHost.RunSession.BombLoadoutState ??
+                throw new InvalidOperationException(
+                    "Dungeon run requires a persistent bomb loadout state.");
+            if (!runLoadout.TrySetActiveSlot(slotIndex))
+            {
+                throw new InvalidOperationException(
+                    $"Room session activated unavailable bomb slot {slotIndex}.");
+            }
         }
 
         private void OnRoomCleared()

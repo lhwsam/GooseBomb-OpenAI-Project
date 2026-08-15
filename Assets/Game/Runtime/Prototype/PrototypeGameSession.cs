@@ -84,6 +84,7 @@ namespace BombSwap
         private PrototypeBombDefinitionAsset _runtimeSecondBombDefinition;
         private PrototypeBombDefinitionAsset[] _runtimeBombDefinitions;
         private float _runtimeSwapCooldownSeconds;
+        private int _runtimeActiveBombSlotIndex;
         private readonly List<PlayerDamageResult> _appliedDamageResults =
             new List<PlayerDamageResult>();
         private readonly List<EnemyDamageResult> _appliedEnemyDamageResults =
@@ -470,7 +471,8 @@ namespace BombSwap
             PrototypeBombDefinitionAsset firstSlot,
             PrototypeBombDefinitionAsset secondSlot,
             PrototypeBombDefinitionAsset[] availableDefinitions,
-            float swapCooldownSeconds)
+            float swapCooldownSeconds,
+            int activeSlotIndex)
         {
             if (_weapons != null)
             {
@@ -526,11 +528,25 @@ namespace BombSwap
                     "Runtime bomb slots must use different definition IDs.",
                     nameof(secondSlot));
             }
+            if (activeSlotIndex < 0 || activeSlotIndex >= BombWeaponLoadout.SlotCount)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(activeSlotIndex),
+                    activeSlotIndex,
+                    $"Runtime active bomb slot must be between 0 and {BombWeaponLoadout.SlotCount - 1}.");
+            }
+            if (activeSlotIndex == 1 && secondSlot == null)
+            {
+                throw new ArgumentException(
+                    "The runtime second bomb slot must be equipped before it can be active.",
+                    nameof(activeSlotIndex));
+            }
 
             _runtimeFirstBombDefinition = firstSlot;
             _runtimeSecondBombDefinition = secondSlot;
             _runtimeBombDefinitions = copy;
             _runtimeSwapCooldownSeconds = swapCooldownSeconds;
+            _runtimeActiveBombSlotIndex = activeSlotIndex;
         }
 
         public GridCellState GetCell(GridPosition position)
@@ -620,6 +636,21 @@ namespace BombSwap
 
             _runtimeSecondBombDefinition = canonical;
             BombSlotEquipped?.Invoke(1);
+            return true;
+        }
+
+        public bool TrySwapActiveBomb()
+        {
+            if (_weapons == null)
+            {
+                throw new InvalidOperationException("Prototype bomb loadout is not initialized.");
+            }
+            if (!_weapons.TrySwap())
+            {
+                return false;
+            }
+
+            ActiveBombSlotChanged?.Invoke(_weapons.ActiveSlotIndex);
             return true;
         }
 
@@ -903,10 +934,11 @@ namespace BombSwap
                 ? new BombWeaponLoadout(
                     _clock,
                     _runtimeFirstBombDefinition.CreateCoreWeaponDefinition(),
-                    _runtimeSecondBombDefinition != null
-                        ? _runtimeSecondBombDefinition.CreateCoreWeaponDefinition()
-                        : null,
-                    TimeSpan.FromSeconds(_runtimeSwapCooldownSeconds))
+                     _runtimeSecondBombDefinition != null
+                         ? _runtimeSecondBombDefinition.CreateCoreWeaponDefinition()
+                         : null,
+                     TimeSpan.FromSeconds(_runtimeSwapCooldownSeconds),
+                     _runtimeActiveBombSlotIndex)
                 : bombLoadout.CreateCoreLoadout(_clock);
             _health = new PlayerHealthSimulation(
                 _movement.ActorId,
@@ -1012,10 +1044,7 @@ namespace BombSwap
                     TryPlaceBomb();
                     break;
                 case PlayerCommandKind.SwapBomb:
-                    if (_weapons.TrySwap())
-                    {
-                        ActiveBombSlotChanged?.Invoke(_weapons.ActiveSlotIndex);
-                    }
+                    TrySwapActiveBomb();
                     break;
                 case PlayerCommandKind.RestartRun:
                     break;

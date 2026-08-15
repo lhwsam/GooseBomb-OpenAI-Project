@@ -71,6 +71,8 @@ namespace BombSwap.Core
 
         public BombDefinitionId? SecondSlot => secondSlot;
 
+        public int ActiveSlotIndex { get; private set; }
+
         public bool HasSelectedReward => secondSlot.HasValue;
 
         public IReadOnlyList<BombDefinitionId> RewardCandidates =>
@@ -94,6 +96,21 @@ namespace BombSwap.Core
                 return DungeonBombRewardSelectionStatus.Selected;
             }
             return DungeonBombRewardSelectionStatus.NotCandidate;
+        }
+
+        public bool TrySetActiveSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= BombWeaponLoadout.SlotCount)
+            {
+                return false;
+            }
+            if (slotIndex == 1 && !secondSlot.HasValue)
+            {
+                return false;
+            }
+
+            ActiveSlotIndex = slotIndex;
+            return true;
         }
     }
 }

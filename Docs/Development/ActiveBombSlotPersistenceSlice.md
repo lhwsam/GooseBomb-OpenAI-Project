@@ -1,6 +1,6 @@
 # 활성 폭탄 슬롯 run persistence 수직 슬라이스
 
-- 상태: `Ready`
+- 상태: `Complete`
 - 결함 근거: [PT-20260815-02](../Playtesting/Results/PT-20260815-02.md)
 - 소유 계약: [폭탄 슬롯, 교체, 쿨타임](../Systems/WeaponSlotsAndCooldown.md), [던전 생성](../Systems/DungeonGeneration.md)
 

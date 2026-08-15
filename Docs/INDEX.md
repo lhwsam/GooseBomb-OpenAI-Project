@@ -51,7 +51,7 @@
 | 일반 전투방 클리어 보상 | `Development/CombatClearRewardSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RunCompletion.md` |
 | seed-0 전체 던전 WebGL 탐색 | `Development/DungeonFullPathSmokeSlice.md`, `Systems/DungeonGeneration.md`, `Testing/VerificationHarness.md` |
 | 완료·사망 결과와 즉시 재시작 | `Systems/RunCompletion.md`, `Systems/DungeonGeneration.md`, `Systems/DamageAndInvulnerability.md`, `Systems/InputAndCommands.md` |
-| 플레이어 피해 | `Systems/DamageAndInvulnerability.md` |
+| 플레이어 피해·런 체력·회복방 | `Systems/DamageAndInvulnerability.md`, `Development/RecoveryRoomSlice.md`, `Systems/DungeonGeneration.md` |
 | 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md` |
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
