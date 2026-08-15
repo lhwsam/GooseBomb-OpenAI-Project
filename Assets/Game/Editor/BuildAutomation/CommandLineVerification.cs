@@ -87,7 +87,11 @@ namespace BombSwap.Editor.Verification
                     target = BuildTarget.WebGL,
                     options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
                 };
-                var report = BuildPipeline.BuildPlayer(options);
+                BuildReport report;
+                using (ResponsiveWebGLTemplateScope.Activate())
+                {
+                    report = BuildPipeline.BuildPlayer(options);
+                }
                 var summary = report.summary;
                 var result = new WebGlBuildReport(
                     summary.result.ToString(),

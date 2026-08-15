@@ -204,6 +204,7 @@ function Test-StaticContracts {
         'Tools/GamepadWebGLSmoke.mjs',
         'Tools/WebGLStaticServer.mjs',
         'Tools/WebGLStaticServerTests.mjs',
+        'Tools/WebGLTemplateTests.mjs',
         'Tools/ServeWebGL.mjs'
     )
     foreach ($relativeToolPath in $requiredToolPaths) {
@@ -441,11 +442,17 @@ function Invoke-BrowserSmoke {
     $scriptPath = Join-Path $ProjectRoot 'Tools/WebGLSmoke.mjs'
     $gamepadScriptPath = Join-Path $ProjectRoot 'Tools/GamepadWebGLSmoke.mjs'
     $serverTestPath = Join-Path $ProjectRoot 'Tools/WebGLStaticServerTests.mjs'
+    $templateTestPath = Join-Path $ProjectRoot 'Tools/WebGLTemplateTests.mjs'
     $reportPath = Join-Path $ArtifactDirectory 'browser-smoke.json'
     $gamepadReportPath = Join-Path $ArtifactDirectory 'gamepad-smoke.json'
     $gamepadScreenshotPath = Join-Path $ArtifactDirectory 'gamepad-paused.png'
     $browserLogPath = Join-Path $ArtifactDirectory 'browser-smoke.log'
-    & $node.Source $serverTestPath *> $browserLogPath
+    & $node.Source $templateTestPath *> $browserLogPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "WebGL template tests failed with code $LASTEXITCODE. See $browserLogPath"
+    }
+
+    & $node.Source $serverTestPath *>> $browserLogPath
     if ($LASTEXITCODE -ne 0) {
         throw "WebGL static server tests failed with code $LASTEXITCODE. See $browserLogPath"
     }
@@ -460,7 +467,7 @@ function Invoke-BrowserSmoke {
         throw "Virtual gamepad browser smoke failed with code $LASTEXITCODE. See $browserLogPath"
     }
 
-    return "WebGL static server tests, keyboard browser smoke, and virtual gamepad browser smoke passed. Reports: $reportPath, $gamepadReportPath"
+    return "WebGL template/static server tests, keyboard browser smoke, and virtual gamepad browser smoke passed. Reports: $reportPath, $gamepadReportPath"
 }
 
 $projectRoot = Get-ProjectRoot

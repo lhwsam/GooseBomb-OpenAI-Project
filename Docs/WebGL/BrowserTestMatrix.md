@@ -30,7 +30,7 @@
 - 방향성 직선 폭탄 전용 smoke는 첫 전투를 클리어하고 BombReward 오른쪽 `prototype-line`을 선택한 뒤 슬롯 2에서 동쪽으로 설치한다. 설치 직후 북쪽 이동 명령을 보내도 `line-bomb-placed-east`와 `line-bomb-exploded-east`가 유지되고, 캡처에서 비대칭 설치체의 방향과 HUD 장착 상태가 읽혀야 한다.
 - 보스 격파 뒤 `FLOOR CLEARED` 결과 UI가 표시되고 전투가 멈춘다. 완료 화면을 캡처한 뒤 `R`을 눌러 페이지 reload 없이 새 seed-0 시작방이 준비되고 보상·방 클리어·전투 토큰 상태가 0으로 초기화됐는지 확인한다. 이어 안전방에서 자기 폭발 5회로 실제 사망시켜 `RUN FAILED`와 `CAUSE: BOMB EXPLOSION`을 캡처하고, 다시 `R`을 눌러 세 번째 시작방 준비와 토큰 0까지 확인한다.
 - 사용자 입력 뒤 오디오 재생.
-- 전체 화면/창 크기 변경 시 화면과 UI.
+- 전체 화면/창 크기 변경 시 화면과 UI. 자동 smoke는 로드 직후 1280×720→640×720, 전체 경로 뒤 1024×768→640×720을 검사한다. canvas는 각각 viewport 안에 완전히 들어오고 문서 overflow가 없으며 960×600 네이티브 상한과 16:10 비율을 유지해야 한다. 실제 fullscreen 진입과 640px 미만 텍스트 가독성은 수동 항목이다.
 - 브라우저 Console error와 WebGL context loss.
 - 캐시된 이전 버전에서 새 버전 갱신.
 
