@@ -151,7 +151,9 @@ namespace BombSwap
                     graphDirection);
                 _localStatuses[localIndex] = state.Status;
                 RoomExitDirection localDirection = LocalDirectionOrder[localIndex];
-                ApplyColor(GetRenderer(localDirection), state.Status);
+                Renderer door = GetRenderer(localDirection);
+                ApplyColor(door, state.Status);
+                door.enabled = state.Status != DungeonRoomExitStatus.SecretWall;
                 GetSecretCracks(localDirection).SetActive(
                     state.Status == DungeonRoomExitStatus.SecretWall);
             }
@@ -169,6 +171,13 @@ namespace BombSwap
             ValidateDirection(localDirection);
             ValidateConfiguration();
             return GetSecretCracks(localDirection).activeSelf;
+        }
+
+        public bool IsDoorPanelVisible(RoomExitDirection localDirection)
+        {
+            ValidateDirection(localDirection);
+            ValidateConfiguration();
+            return GetRenderer(localDirection).enabled;
         }
 
         private void ApplyColor(Renderer target, DungeonRoomExitStatus status)

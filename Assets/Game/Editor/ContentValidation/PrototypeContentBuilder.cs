@@ -1952,6 +1952,13 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeContentValidator.SecretCrackMaterialPath,
                 shader,
                 new Color(0.08f, 0.045f, 0.025f, 1f));
+            Material destructibleWallMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeContentValidator.DestructibleWallMaterialPath);
+            if (destructibleWallMaterial == null)
+            {
+                throw new InvalidOperationException(
+                    "Prototype destructible-wall material is missing.");
+            }
 
             EnsureBoundaryPrimitive(
                 boundary, "NorthWallWest",
@@ -2005,30 +2012,46 @@ namespace BombSwap.Editor.ContentValidation
             GameObject northCracks = EnsureSecretCrackRoot(
                 boundary,
                 "NorthSecretCracks",
-                north.transform.localPosition,
+                GetExitCellLocalPosition(
+                    room,
+                    RoomExitDirection.North,
+                    cellSize),
                 true,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             GameObject eastCracks = EnsureSecretCrackRoot(
                 boundary,
                 "EastSecretCracks",
-                east.transform.localPosition,
+                GetExitCellLocalPosition(
+                    room,
+                    RoomExitDirection.East,
+                    cellSize),
                 false,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             GameObject southCracks = EnsureSecretCrackRoot(
                 boundary,
                 "SouthSecretCracks",
-                south.transform.localPosition,
+                GetExitCellLocalPosition(
+                    room,
+                    RoomExitDirection.South,
+                    cellSize),
                 true,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             GameObject westCracks = EnsureSecretCrackRoot(
                 boundary,
                 "WestSecretCracks",
-                west.transform.localPosition,
+                GetExitCellLocalPosition(
+                    room,
+                    RoomExitDirection.West,
+                    cellSize),
                 false,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             return new DungeonBoundaryPresentation(
                 new[] { north, east, south, west },
@@ -2038,22 +2061,27 @@ namespace BombSwap.Editor.ContentValidation
         private static GameObject EnsureSecretCrackRoot(
             Transform boundary,
             string rootName,
-            Vector3 doorLocalPosition,
+            Vector3 secretWallLocalPosition,
             bool northSouthDoor,
             float cellSize,
-            Material material)
+            Material wallMaterial,
+            Material crackMaterial)
         {
             Transform root = boundary.Find(rootName);
             if (root == null)
             {
                 root = CreateChild(rootName, boundary);
             }
-            root.localPosition = doorLocalPosition;
+            root.localPosition = secretWallLocalPosition;
             root.localRotation = Quaternion.identity;
             root.localScale = Vector3.one;
 
+            const string surfaceName = "SecretWallSurface";
             string[] barNames = { "CrackA", "CrackB", "CrackC" };
-            var expected = new HashSet<string>(barNames, StringComparer.Ordinal);
+            var expected = new HashSet<string>(barNames, StringComparer.Ordinal)
+            {
+                surfaceName,
+            };
             for (int index = root.childCount - 1; index >= 0; index--)
             {
                 if (!expected.Contains(root.GetChild(index).name))
@@ -2061,6 +2089,17 @@ namespace BombSwap.Editor.ContentValidation
                     UnityEngine.Object.DestroyImmediate(root.GetChild(index).gameObject);
                 }
             }
+
+            Vector3 surfaceScale = northSouthDoor
+                ? new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize)
+                : new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize);
+            EnsureBoundaryPrimitive(
+                root,
+                surfaceName,
+                new Vector3(0f, 0.45f, 0f),
+                surfaceScale,
+                wallMaterial,
+                false);
 
             float[] offsets = { -0.2f, 0f, 0.2f };
             float[] angles = northSouthDoor
@@ -2079,13 +2118,34 @@ namespace BombSwap.Editor.ContentValidation
                     barNames[index],
                     position,
                     scale,
-                    material,
+                    crackMaterial,
                     false);
                 bar.transform.localRotation = Quaternion.Euler(0f, angles[index], 0f);
             }
 
             root.gameObject.SetActive(false);
             return root.gameObject;
+        }
+
+        private static Vector3 GetExitCellLocalPosition(
+            CombatRoomDefinition room,
+            RoomExitDirection direction,
+            float cellSize)
+        {
+            for (int index = 0; index < room.Exits.Count; index++)
+            {
+                RoomExit roomExit = room.Exits[index];
+                if (roomExit.Direction == direction)
+                {
+                    return new Vector3(
+                        roomExit.Cell.X * cellSize,
+                        0f,
+                        roomExit.Cell.Z * cellSize);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Prototype room '{room.Id}' has no {direction} exit cell.");
         }
 
         private static Renderer EnsureBoundaryPrimitive(

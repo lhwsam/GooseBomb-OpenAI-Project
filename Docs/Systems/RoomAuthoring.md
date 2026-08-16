@@ -66,8 +66,9 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 
 ## 비밀방과 금 간 출구 저작 계약
 
-- 11개 던전·TestSandbox scene의 네 boundary 방향에는 기본 비활성 crack root가 하나씩 있으며, 각 root는 Collider 없는 막대 3개와 `SecretCrack.mat` URP Lit shared material로 명확한 균열을 표현한다.
-- `DungeonRoomExitStatus.SecretWall`일 때만 해당 crack root가 활성화된다. 문 색·GameObject 활성 여부는 표현이고 연결 공개 상태는 Core run state가 소유한다.
+- 11개 던전·TestSandbox scene의 네 boundary 방향에는 기본 비활성 secret wall root가 하나씩 있다. root의 XZ 위치는 바깥 장식 문 위치가 아니라 room asset이 권위로 정한 논리 출구 셀과 정확히 일치한다.
+- 각 root는 Collider 없는 `SecretWallSurface` 하나와 균열 막대 3개를 소유한다. surface는 `DestructibleWall.mat`, 막대는 `SecretCrack.mat` URP Lit shared material을 사용해 폭발 가능한 벽을 표현한다.
+- `DungeonRoomExitStatus.SecretWall`일 때만 해당 root가 활성화되고 바깥 장식 문 renderer는 숨긴다. 폭발로 공개되면 root를 숨기고 기존 문 renderer를 `Open` 상태로 복원한다. 문·root의 활성 여부는 표현이고 연결 공개 상태는 Core run state가 소유한다.
 - 미공개 Secret 출구의 실제 boundary 셀은 room asset을 수정하지 않고 `PrototypeDungeonRoomBinder`가 방 session 초기화 전에 runtime `DestructibleWall`로 전달한다. 폭발로 파괴된 뒤에는 같은 run의 해당 연결만 공개된다.
 - `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 Collider 접촉이 아니라 확정 `PlayerMovementStep`으로만 수집한다.
 - cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.
@@ -87,7 +88,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 폭발을 끊는 벽/기둥과 향후 파괴 가능 벽은 시각적으로 구분되어야 한다.
 - 둘 이상의 폭탄 역할이 도입되면 서로 다른 위치 선택을 만들 공간이 있어야 한다.
 - 보상 후보 visual은 Collider나 Transform 접촉을 규칙으로 사용하지 않는다. 플레이어의 확정된 논리 셀 전이만 선택을 일으킨다.
-- crack visual과 cache primitive에는 Collider가 없으며 runtime Secret 출구의 충돌·파괴는 논리 격자만 판정한다.
+- secret wall surface·crack visual·cache primitive에는 Collider가 없으며 runtime Secret 출구의 충돌·파괴는 논리 격자만 판정한다. 보이는 secret wall과 runtime `DestructibleWall`은 같은 출구 셀을 가리켜야 한다.
 
 ## Editor 검증기
 
@@ -107,7 +108,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.
-- Secret special catalog entry·`DungeonSecret` scene·단일 cache presenter·`+3`·중앙 셀·URP material 또는 11개 scene의 네 방향 3-bar crack root가 계약과 다른 상태.
+- Secret special catalog entry·`DungeonSecret` scene·단일 cache presenter·`+3`·중앙 셀·URP material 또는 11개 scene의 네 방향 secret wall root가 계약과 다른 상태. 각 root는 저작 출구 셀에 있고 Collider 없이 파괴벽 surface 1개·crack bar 3개를 정확히 가져야 한다.
 - Build Settings의 첫 enabled 씬 11개가 시작→폭탄 보상→보스 전실→회복→비밀방→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
 
 자동 검증이 방의 재미를 보증하지는 않는다. 시각 확인과 플레이테스트를 함께 수행한다.

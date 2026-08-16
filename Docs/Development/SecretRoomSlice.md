@@ -10,6 +10,7 @@
 
 - 미공개 비밀방과 연결은 미니맵에 나타나지 않는다.
 - 금이 간 벽은 논리 `DestructibleWall`이므로 폭발 효과를 해당 셀에 적용한 뒤 전파를 끝낸다.
+- 플레이어가 한 칸 앞에서 보이지 않는 벽에 막히지 않도록 금이 간 벽 surface의 XZ 셀은 논리 `DestructibleWall` 출구 셀과 같아야 한다. 미공개 상태에서는 바깥 장식 문을 숨기고, 공개 뒤에는 금 간 surface를 숨긴 뒤 열린 문을 다시 표시한다.
 - 한 입구를 파괴하면 그 연결만 공개·통행 가능해진다. 다른 인접 입구는 각각 별도로 파괴해야 한다.
 - 공개된 비밀방은 미니맵 frontier로 나타나며, 입장 뒤 방문방으로 표시된다.
 - 비밀방은 적·클리어 잠금이 없는 안전방이다.
@@ -53,7 +54,7 @@ DungeonSecret central cache → run token state
 
 - EditMode: seed 재현, 후보 우선순위·없음, normal tree 보존, 2~3 Secret 연결, 개별 reveal·travel 차단/허용, minimap 숨김/공개, cache `+3` 단일 소비·terminal 거부·새 run 초기화.
 - PlayMode: 실제 전투방에서 금이 간 출구가 논리 파괴벽으로 시작하고 폭발 뒤 해당 문·미니맵을 갱신한다. `DungeonSecret`은 적 없이 입장·왕복 가능하고 cache가 HUD를 `+3` 갱신하며 재입장에서 재지급하지 않는다.
-- Content: special catalog에 `Secret`, 11번째 enabled scene, 네 방향 crack visual, 중앙 cache material/reference와 단일 presenter를 validator가 확인한다.
+- Content: special catalog에 `Secret`, 11번째 enabled scene, 네 방향 secret wall root의 논리 출구 셀·Collider 부재·surface 1개·crack bar 3개, 중앙 cache material/reference와 단일 presenter를 validator가 확인한다.
 - WebGL: seed 0에서 비밀벽이 미니맵에 숨겨지고, 폭발로 공개·입장·cache 획득·다른 입구 개방 또는 원래 입구 왕복 뒤 기존 전체 경로와 Console/page error 0을 확인한다.
 - 사람 검증: 금이 간 벽이 설명 없이 폭파 가능한 단서로 읽히는지, cache가 탐색 비용에 비해 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지 관찰한다.
 
@@ -67,6 +68,8 @@ DungeonSecret central cache → run token state
 
 - Core 생성 버전 `prototype-secret-v3`와 seed 0 golden을 갱신했고, 512개 seed에서 normal tree 보존·후보 우선순위·Secret의 Combat 2~3연결을 검증했다.
 - 연결 Unity Test Runner에서 전체 EditMode `305/305`, 전체 PlayMode `127/127`이 통과했다. PlayMode는 실제 키 이동과 fuse 폭발로 runtime 출구벽을 파괴한 뒤 미니맵 공개, `RunHost` scene commit, 안전방 왕복, cache `+3`, 재입장 비지급을 포함한다.
-- `PrototypeContentValidator`는 여섯 special catalog entry, `DungeonSecret`, 네 방향 crack root, `SecretCrack.mat`, `SecretReward.mat`, 단일 cache presenter와 enabled scene 11개를 오류 0으로 확인했다.
+- `PrototypeContentValidator`는 여섯 special catalog entry, `DungeonSecret`, 논리 출구 셀의 네 방향 secret wall root, Collider 없는 surface 1개·crack bar 3개, `DestructibleWall.mat`, `SecretCrack.mat`, `SecretReward.mat`, 단일 cache presenter와 enabled scene 11개를 오류 0으로 확인했다.
+- 비밀벽 정렬 회귀는 표시 중인 secret wall의 world-to-grid 셀이 runtime 파괴벽 셀과 같고, `SecretWall` 동안 바깥 문 renderer가 숨겨졌다가 공개 뒤 다시 보이는지를 실제 room binder PlayMode에서 검증했다.
+- 비밀벽 정렬 수정 트리에서 연결 Unity EditMode `305/305`·PlayMode `127/127`, 콘텐츠 validator 오류 0이 통과했다. `Artifacts/Verification/20260817-051928-secret-wall-alignment-web/`의 11씬 Development WebGL 빌드는 138,134,028 bytes·125.601초·오류 0으로 성공했고, 기존 패키지·셰이더 범주의 경고 351건을 기록했다. Edge 키보드 `39/39`, 가상 Gamepad `14/14`, 1,176개 플레이테스트 사건 분석과 두 실행의 Console/page error 0이 통과했다. 새 `webgl-dungeon-secret-wall.png`에서 서쪽 금 간 surface가 바깥 장식 문이 아닌 실제 차단 출구 셀에 보이고 중복 문 panel이 숨겨졌음을 확인했다.
 - commit `134dd06`의 post-commit Development WebGL 빌드와 Edge 자동 플레이는 금 간 벽 파괴→`secret-wall-revealed-room-2-direction-west`→10번 비밀방→`secret-reward-collected-3`→`room-reward-tokens-4`→원래 입구 복귀 뒤 기존 보스 완료·실패·재시작까지 통과했다. 키보드 `38/38`, 가상 Gamepad `14/14`, Console/page error 0이다. 증거는 `Artifacts/Verification/20260816-060528-web-postcommit/`에 있다.
 - 캡처 `webgl-dungeon-secret-wall.png`와 `webgl-dungeon-secret-room.png`에서 파괴 전 금 간 서쪽 벽, 중앙 cache, 비밀방의 아직 숨겨진 다른 출구를 확인했다. 가독성·탐색 보상·무작위 벽 검사 유발 여부는 자동 검증으로 판정하지 않는다.

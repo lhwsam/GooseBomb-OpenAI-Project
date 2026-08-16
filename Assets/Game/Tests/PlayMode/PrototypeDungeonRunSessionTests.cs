@@ -1067,6 +1067,19 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     CountVisibleSecretCracks(entranceBinder.DoorPresenter),
                     Is.EqualTo(1));
+                GameObject visibleSecretWall = new[]
+                    {
+                        entranceBinder.DoorPresenter.NorthSecretCracks,
+                        entranceBinder.DoorPresenter.EastSecretCracks,
+                        entranceBinder.DoorPresenter.SouthSecretCracks,
+                        entranceBinder.DoorPresenter.WestSecretCracks,
+                    }
+                    .Single(root => root.activeSelf);
+                Assert.That(
+                    entranceSession.GridSpace.WorldToGrid(
+                        visibleSecretWall.transform.position),
+                    Is.EqualTo(secretWall),
+                    "The visible secret wall must occupy its authoritative runtime grid cell.");
 
                 GridPosition bombCell = FindWalkableNeighbor(entranceSession, secretWall);
                 keyboard = InputSystem.AddDevice<Keyboard>();
@@ -2307,6 +2320,10 @@ namespace BombSwap.Tests.PlayMode
                     presenter.GetDisplayedStatus(localDirections[index]),
                     Is.EqualTo(graphState.Status),
                     $"Authored {localDirections[index]} maps to graph {graphDirection}.");
+                Assert.That(
+                    presenter.IsDoorPanelVisible(localDirections[index]),
+                    Is.EqualTo(graphState.Status != DungeonRoomExitStatus.SecretWall),
+                    $"Authored {localDirections[index]} door visibility must match {graphState.Status}.");
                 if (graphState.IsConnected)
                 {
                     connectedCount++;
