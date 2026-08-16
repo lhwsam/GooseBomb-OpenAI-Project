@@ -1065,31 +1065,13 @@ async function main() {
 
     const room4ExplosionsBefore = await eventCount(page, "bomb-exploded");
     const room4ClearsBefore = await eventCount(page, "room-cleared");
-    await moveToCell(page, -3, -4);
+    await moveToCell(page, 0, -4);
+    await waitForChaserAdjacent(page);
+    await moveToCell(page, 3, -4);
     await waitForEvent(page, "bomb-exploded", {
       count: room4ExplosionsBefore + 1,
       timeout: 15_000,
     });
-    if (await eventCount(page, "room-cleared") === room4ClearsBefore) {
-      await moveToCell(page, 0, -5, "zx");
-      await waitForChaserAdjacent(page);
-      await page.waitForTimeout(100);
-      const room4AreaPlacementsBefore = await eventCount(
-        page,
-        "place-bomb-definition-prototype-area",
-      );
-      await page.keyboard.press("KeyZ");
-      await waitForEvent(page, "place-bomb-definition-prototype-area", {
-        count: room4AreaPlacementsBefore + 1,
-        timeout: 5_000,
-      });
-      const secondRoom4ExplosionBefore = await eventCount(page, "bomb-exploded");
-      await moveToCell(page, -2, -5);
-      await waitForEvent(page, "bomb-exploded", {
-        count: secondRoom4ExplosionBefore + 1,
-        timeout: 5_000,
-      });
-    }
     await waitForEvent(page, "room-cleared", {
       count: room4ClearsBefore + 1,
       timeout: 5_000,
@@ -1098,7 +1080,7 @@ async function main() {
     checks.push({
       name: "second-main-path-combat-clear",
       status: "passed",
-      detail: "The selected area bomb cleared the rotated loop combat room 4.",
+      detail: "The BFS chaser entered the selected area bomb footprint before the player escaped east, clearing rotated loop room 4.",
     });
 
     await moveToCell(page, -3, -4);

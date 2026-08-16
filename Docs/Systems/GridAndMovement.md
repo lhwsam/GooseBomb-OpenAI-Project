@@ -27,7 +27,7 @@
 
 `BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 매 frame 진행하고 `PrototypePlayerController`가 Core 연속 위치를 placeholder Transform으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
-같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence와 두 칸 방향 유지로 플레이어를 추격한다. 마지막 방의 선택적 `ChargerEnemySimulation`도 같은 격자를 점유하고 예고 뒤 잠근 방향으로 한 셀씩 돌진한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, 각 presenter는 확정된 step만 3D placeholder에 보간한다.
+같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence, 재계획 시점의 BFS 거리장과 최대 두 칸 방향 유지로 플레이어를 추격한다. 마지막 방의 선택적 `ChargerEnemySimulation`도 같은 격자를 점유하고 예고 뒤 잠근 방향으로 한 셀씩 돌진한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, 각 presenter는 확정된 step만 3D placeholder에 보간한다.
 
 플레이어와 살아 있는 추격자의 접촉은 `GridPosition.IsCardinallyAdjacentTo`가 판정하는 Manhattan 거리 1이다. 돌진형은 다음 이동 셀이 플레이어 셀일 때 겹치지 않고 충돌을 보고한다. 두 판정 모두 Transform·Collider 거리를 규칙 입력으로 사용하지 않는다.
 
@@ -83,7 +83,7 @@
 - 플레이어 충돌 반경과 벽 모서리 코너 스냅 허용 폭.
 - actor끼리의 밀기/겹침 허용 정책.
 - 범용 여러 적의 ID 발급과 동일 목적 셀 경합 정책. 현재 두 적 프로토타입은 추격자 `ActorId(2)` 뒤 돌진형 `ActorId(3)` 고정 순서를 사용한다.
-- 국소 Manhattan 추격이 실제 수제 방에서 막힐 때 사용할 경로 탐색 범위.
+- 다수의 경로 탐색 적이나 11×9보다 큰 방을 도입할 때 BFS 거리장 공유·탐색 상한이 필요한지 여부.
 
 첫 기본 폭탄 수직 슬라이스에서 조작성과 폭발 회피 가독성을 비교해 확정한다.
 

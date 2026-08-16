@@ -1,11 +1,24 @@
 using System;
+using System.Collections.Generic;
 
 namespace BombSwap.Core
 {
     public sealed class ChaserEnemySimulation
     {
+        private static readonly CardinalDirection[] DirectionPriority =
+        {
+            CardinalDirection.North,
+            CardinalDirection.East,
+            CardinalDirection.South,
+            CardinalDirection.West,
+        };
+
         private readonly GridState grid;
         private readonly IGameClock clock;
+        private readonly Dictionary<GridPosition, int> plannedDistances =
+            new Dictionary<GridPosition, int>();
+        private readonly Queue<GridPosition> searchFrontier =
+            new Queue<GridPosition>();
         private TimeSpan nextStepAt;
         private TimeSpan lastObservedTime;
         private int remainingCommittedSteps;
@@ -98,7 +111,9 @@ namespace BombSwap.Core
             }
 
             CardinalDirection direction;
-            if (remainingCommittedSteps > 0 && IsAvailable(CurrentDirection))
+            if (remainingCommittedSteps > 0 &&
+                IsAvailable(CurrentDirection) &&
+                ContinuesPlannedShortestRoute(CurrentDirection))
             {
                 direction = CurrentDirection;
             }
@@ -133,58 +148,94 @@ namespace BombSwap.Core
             GridPosition targetPosition,
             out CardinalDirection selected)
         {
+            BuildDistanceField(targetPosition);
             selected = CardinalDirection.None;
-            long bestDistance = long.MaxValue;
+            int bestDistance = int.MaxValue;
 
             if (CurrentDirection != CardinalDirection.None)
             {
                 ConsiderDirection(
                     CurrentDirection,
-                    targetPosition,
                     ref selected,
                     ref bestDistance);
             }
 
-            ConsiderDirection(
-                CardinalDirection.North,
-                targetPosition,
-                ref selected,
-                ref bestDistance);
-            ConsiderDirection(
-                CardinalDirection.East,
-                targetPosition,
-                ref selected,
-                ref bestDistance);
-            ConsiderDirection(
-                CardinalDirection.South,
-                targetPosition,
-                ref selected,
-                ref bestDistance);
-            ConsiderDirection(
-                CardinalDirection.West,
-                targetPosition,
-                ref selected,
-                ref bestDistance);
+            foreach (CardinalDirection direction in DirectionPriority)
+            {
+                ConsiderDirection(direction, ref selected, ref bestDistance);
+            }
             return selected != CardinalDirection.None;
         }
 
         private void ConsiderDirection(
             CardinalDirection candidate,
-            GridPosition targetPosition,
             ref CardinalDirection selected,
-            ref long bestDistance)
+            ref int bestDistance)
         {
             if (candidate == selected || !IsAvailable(candidate))
             {
                 return;
             }
 
-            long distance = ManhattanDistance(GetTarget(CurrentPosition, candidate), targetPosition);
+            GridPosition candidatePosition = GetTarget(CurrentPosition, candidate);
+            if (!plannedDistances.TryGetValue(candidatePosition, out int distance))
+            {
+                return;
+            }
             if (distance < bestDistance)
             {
                 selected = candidate;
                 bestDistance = distance;
             }
+        }
+
+        private void BuildDistanceField(GridPosition targetPosition)
+        {
+            plannedDistances.Clear();
+            searchFrontier.Clear();
+            plannedDistances.Add(targetPosition, 0);
+            searchFrontier.Enqueue(targetPosition);
+
+            while (searchFrontier.Count > 0)
+            {
+                GridPosition current = searchFrontier.Dequeue();
+                int nextDistance = plannedDistances[current] + 1;
+                foreach (CardinalDirection direction in DirectionPriority)
+                {
+                    GridPosition next = GetTarget(current, direction);
+                    if (plannedDistances.ContainsKey(next) ||
+                        !IsPathTraversable(next, targetPosition))
+                    {
+                        continue;
+                    }
+
+                    plannedDistances.Add(next, nextDistance);
+                    searchFrontier.Enqueue(next);
+                }
+            }
+        }
+
+        private bool IsPathTraversable(
+            GridPosition position,
+            GridPosition targetPosition)
+        {
+            GridCellState cell = grid.GetCell(position);
+            if (!cell.IsWalkableTerrain)
+            {
+                return false;
+            }
+
+            return position == CurrentPosition ||
+                position == targetPosition ||
+                cell.Occupancy == GridOccupancy.None;
+        }
+
+        private bool ContinuesPlannedShortestRoute(CardinalDirection direction)
+        {
+            GridPosition next = GetTarget(CurrentPosition, direction);
+            return plannedDistances.TryGetValue(CurrentPosition, out int currentDistance) &&
+                plannedDistances.TryGetValue(next, out int nextDistance) &&
+                nextDistance + 1 == currentDistance;
         }
 
         private bool IsAvailable(CardinalDirection direction)
