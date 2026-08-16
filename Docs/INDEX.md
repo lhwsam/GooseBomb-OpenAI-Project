@@ -16,6 +16,7 @@
 | 전체 기술 구조 | [Architecture](Architecture/) | 계층, 의존 방향, 런타임 흐름 |
 | 현재 진행 상태 | [CurrentState](Development/CurrentState.md) | 완료·진행·미구현, 알려진 문제, 바로 다음 작업 |
 | 프로토타입 준비도 | [PrototypeReadinessAudit](Development/PrototypeReadinessAudit.md) | GDD 필수 구현, 자동 증거, 사람 완료 판정의 분리 |
+| 플레이 피드백 기반 전투 개선 | [CombatEnemyLevelBossImprovementProposal](GameDesign/CombatEnemyLevelBossImprovementProposal.md) | 적 AI·방·보스 개선 가설과 독립 수직 슬라이스 순서 |
 | 구현 완료 기준 | [Definition of Done](Development/DefinitionOfDone.md) | 변경 종류별 필수 검증 |
 | 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
 | 플레이테스트 운영 | [Playtesting](Playtesting/) | 관찰 프로토콜, 익명 세션 기록, 유지·변경·제거 판정 |
@@ -55,7 +56,7 @@
 | 플레이어 피해·런 체력·회복방 | `Systems/DamageAndInvulnerability.md`, `Development/RecoveryRoomSlice.md`, `Systems/DungeonGeneration.md` |
 | 최소 미니맵·탐색 정보 | `Development/MinimalMinimapSlice.md`, `Systems/DungeonGeneration.md`, ADR-0007 |
 | 금이 간 벽 비밀방 | `Development/SecretRoomSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |
-| 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md` |
+| 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md`, `GameDesign/CombatEnemyLevelBossImprovementProposal.md` |
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
 | 보스 | `Systems/BossBattle.md`, `Development/BossCoreSlice.md` |
