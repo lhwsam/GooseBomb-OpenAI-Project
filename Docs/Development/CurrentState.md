@@ -1,6 +1,6 @@
 # 현재 프로젝트 상태
 
-- 기준일: 2026-08-16
+- 기준일: 2026-08-17
 - 단계: 수제 전투방 최소 5개와 실제 일시정지·한 슬롯 시작→첫 폭탄 보상→클리어 방 왕복→run 체력 유지→주 경로 전투 3개 클리어·토큰 보상→금이 간 벽 비밀방→선택형 회복방→제한 정보 미니맵→보스 전실→목적지 예고·선행 설치 보스 이동→2페이즈 보스 격파→완료·사망 원인 결과→즉시 재시작 WebGL 수직 슬라이스 완료
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
@@ -99,7 +99,7 @@
 - `PrototypeDungeonRunNavigator`가 열린 문·대상 콘텐츠·로드 가능성을 검증한 pending 전환을 만들고 기대한 씬 로드 뒤에만 Core 이동을 단일 commit하도록 구현.
 - `PrototypeDungeonRunHost`가 run session·navigator만 전용 root에서 지속하고 중복 bootstrap 중 primary 한 개만 남기도록 구현.
 - `PrototypeDungeonRoomBinder`가 pending 입장 방향과 전투방 배정 회전을 session `Awake` 전에 적용하고, 논리 출구 셀의 바깥 방향 입력을 graph travel 요청으로 연결하도록 구현.
-- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태와 금 간 root를 material property block·활성 상태로 표시하도록 구현.
+- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태를 표시한다. `SecretWall`에서는 바깥 장식 문 renderer를 숨기고 논리 출구 셀의 Collider 없는 파괴벽 surface·금 간 root를 표시하며, 공개 뒤에는 금 간 표현을 숨기고 열린 문을 복원한다.
 - 다섯 전투방을 graph binder로 연결하고, 중앙 문 틈을 가진 8개 분할 외벽·collider 없는 네 문 패널을 Editor builder로 저작.
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.
@@ -200,7 +200,7 @@
 
 ## 최근 검증
 
-- 금이 간 벽 비밀방 commit `134dd06`의 post-commit 검증에서 StaticOnly, content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127이 통과했다. 연결 테스트 증거는 `Artifacts/Verification/ConnectedTests/20260815-210329-141.json`, `Artifacts/Verification/ConnectedTests/20260815-210401-480.json`이고, `Artifacts/Verification/20260816-060528-web-postcommit/`의 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0·TextMeshPro 안내 경고 3건이다. Edge keyboard 38/38은 실제 출구 폭발 공개, 미니맵 `4/3`, 10번 안전방 cache `+3`, 왕복과 이후 Recovery·보스·완료·실패·재시작을 통과했고 가상 Gamepad 14/14와 두 실행의 Console/page error도 0이다. `webgl-dungeon-secret-wall.png`와 `webgl-dungeon-secret-room.png`에서 금 간 벽·중앙 cache·남은 다른 입구를 확인했다. 최신 StaticOnly는 `Artifacts/Verification/20260816-061437-static/`이다.
+- 비밀벽 정렬 수정 트리에서 content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127과 StaticOnly가 통과했다. `Artifacts/Verification/20260817-051928-secret-wall-alignment-web/`의 11씬 Development WebGL 빌드는 138,134,028 bytes·125.601초·오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge keyboard 39/39와 가상 Gamepad 14/14가 실제 출구 폭발 공개·비밀방 왕복·이후 전체 경로와 Console/page error 0을 확인했고, 1,176개 사건 로그 분석도 통과했다. 캡처에서 서쪽 금 간 surface가 runtime 파괴벽과 같은 출구 셀에 보이고 `SecretWall` 동안 중복 바깥 문이 숨겨진 것을 확인했다. 연결 테스트 증거는 `Artifacts/Verification/ConnectedTests/20260816-201547-253.json`, `Artifacts/Verification/ConnectedTests/20260816-201606-134.json`, 정적 증거는 `Artifacts/Verification/20260817-052622-static/`이다.
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
 - `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-042945-static/`.

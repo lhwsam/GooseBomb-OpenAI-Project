@@ -1687,6 +1687,16 @@ namespace BombSwap.Editor.ContentValidation
 
             Material expectedCrackMaterial =
                 AssetDatabase.LoadAssetAtPath<Material>(SecretCrackMaterialPath);
+            Material expectedWallMaterial =
+                AssetDatabase.LoadAssetAtPath<Material>(DestructibleWallMaterialPath);
+            CombatRoomDefinition room = context.RoomDefinition.CreateCoreDefinition();
+            RoomExitDirection[] localDirections =
+            {
+                RoomExitDirection.North,
+                RoomExitDirection.East,
+                RoomExitDirection.South,
+                RoomExitDirection.West,
+            };
             if (new HashSet<GameObject>(secretCrackRoots).Count !=
                 secretCrackRoots.Length)
             {
@@ -1696,23 +1706,44 @@ namespace BombSwap.Editor.ContentValidation
             for (int index = 0; index < secretCrackRoots.Length; index++)
             {
                 GameObject root = secretCrackRoots[index];
-                Renderer[] bars = root != null
+                Renderer[] renderers = root != null
                     ? root.GetComponentsInChildren<Renderer>(true)
                     : Array.Empty<Renderer>();
+                Transform surface = root != null
+                    ? root.transform.Find("SecretWallSurface")
+                    : null;
+                Renderer surfaceRenderer = surface != null
+                    ? surface.GetComponent<Renderer>()
+                    : null;
+                GridPosition expectedCell = room.Exits
+                    .Single(exit => exit.Direction == localDirections[index])
+                    .Cell;
+                GridPosition actualCell = root != null
+                    ? context.GridSpace.WorldToGrid(root.transform.position)
+                    : default;
+                Renderer[] crackBars = renderers
+                    .Where(renderer => renderer != surfaceRenderer)
+                    .ToArray();
                 if (root == null || root.transform.parent != boundary ||
                     !string.Equals(
                         root.name,
                         expectedCrackNames[index],
                         StringComparison.Ordinal) ||
-                    root.activeSelf || root.transform.childCount != 3 ||
-                    bars.Length != 3 ||
-                    bars.Any(bar =>
+                    root.activeSelf || root.transform.childCount != 4 ||
+                    renderers.Length != 4 ||
+                    actualCell != expectedCell ||
+                    surfaceRenderer == null ||
+                    surfaceRenderer.sharedMaterial != expectedWallMaterial ||
+                    surfaceRenderer.GetComponent<Collider>() != null ||
+                    crackBars.Length != 3 ||
+                    crackBars.Any(bar =>
                         bar.sharedMaterial != expectedCrackMaterial ||
                         bar.GetComponent<Collider>() != null))
                 {
                     errors.Add(
                         $"Dungeon {expectedCrackNames[index]} must be an inactive " +
-                        "three-bar collider-free visual using the secret-crack material.");
+                        $"collider-free wall visual at exit cell {expectedCell}, using " +
+                        "one destructible-wall surface and three secret-crack bars.");
                 }
             }
 
