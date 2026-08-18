@@ -47,7 +47,7 @@ namespace BombSwap
         private float visualElapsed;
         private float visualDuration;
         private float deathEndsAt;
-        private float pulseElapsed;
+        private float pulsePhase;
         private bool isInterpolating;
         private bool isShowingDeath;
 
@@ -167,8 +167,7 @@ namespace BombSwap
                 (CurrentState == SelfDestructEnemyState.WarningChase ||
                     CurrentState == SelfDestructEnemyState.Telegraph))
             {
-                pulseElapsed += Time.deltaTime;
-                ApplyPulse();
+                ApplyPulse(Time.deltaTime);
             }
 
             if (isShowingDeath && instance != null && Time.unscaledTime >= deathEndsAt)
@@ -236,6 +235,9 @@ namespace BombSwap
                 visualStart = instance.transform.position;
                 visualTarget = ToPresentationPosition(result.Movement.To);
                 visualElapsed = 0f;
+                visualDuration = Mathf.Max(
+                    (float)result.MovementDuration.TotalSeconds,
+                    Mathf.Epsilon);
                 isInterpolating = true;
             }
             if (result.HasStateTransition)
@@ -359,7 +361,7 @@ namespace BombSwap
 
         private void ApplyStateVisual(SelfDestructEnemyState state)
         {
-            pulseElapsed = 0f;
+            pulsePhase = 0f;
             instance.transform.localScale = baseScale;
             switch (state)
             {
@@ -380,16 +382,24 @@ namespace BombSwap
             }
         }
 
-        private void ApplyPulse()
+        private void ApplyPulse(float elapsedSeconds)
         {
-            float frequency = CurrentState == SelfDestructEnemyState.WarningChase
-                ? warningPulseHz
-                : telegraphPulseHz;
-            float scaleMultiplier = CurrentState == SelfDestructEnemyState.WarningChase
-                ? warningScaleMultiplier
-                : telegraphScaleMultiplier;
+            float warningProgress = CurrentState == SelfDestructEnemyState.WarningChase
+                ? Mathf.Clamp01(session.CurrentSelfDestructWarningProgress)
+                : 1f;
+            float frequency = Mathf.Lerp(
+                warningPulseHz,
+                telegraphPulseHz,
+                warningProgress);
+            float scaleMultiplier = Mathf.Lerp(
+                warningScaleMultiplier,
+                telegraphScaleMultiplier,
+                warningProgress);
+            pulsePhase = Mathf.Repeat(
+                pulsePhase + (elapsedSeconds * frequency),
+                1f);
             float wave = 0.5f +
-                (Mathf.Sin(pulseElapsed * frequency * Mathf.PI * 2f) * 0.5f);
+                (Mathf.Sin(pulsePhase * Mathf.PI * 2f) * 0.5f);
             ApplyColor(Color.Lerp(normalColor, telegraphColor, wave));
             instance.transform.localScale = baseScale *
                 Mathf.Lerp(1f, scaleMultiplier, wave);

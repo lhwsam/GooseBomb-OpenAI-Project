@@ -24,6 +24,7 @@ namespace BombSwap.Core
             new Queue<GridPosition>();
         private TimeSpan lastObservedTime;
         private TimeSpan nextChaseStepAt;
+        private TimeSpan warningStartedAt;
         private BombId armedBombId;
         private IReadOnlyList<GridPosition> telegraphCells = NoTelegraphCells;
 
@@ -105,6 +106,10 @@ namespace BombSwap.Core
 
         public bool IsDetonated => State == SelfDestructEnemyState.Detonated;
 
+        public double WarningProgress => State == SelfDestructEnemyState.WarningChase
+            ? CalculateWarningProgress(clock.Now)
+            : 0d;
+
         public SelfDestructEnemyAdvanceResult Advance()
         {
             TimeSpan now = clock.Now;
@@ -115,12 +120,11 @@ namespace BombSwap.Core
             }
 
             lastObservedTime = now;
-            if (!IsChasing || now < nextChaseStepAt)
+            if (!IsChasing)
             {
                 return NoActivity();
             }
 
-            nextChaseStepAt = AddWithSaturation(now, Definition.ChaseStepInterval);
             if (!grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition))
             {
                 return NoActivity();
@@ -128,29 +132,57 @@ namespace BombSwap.Core
 
             TargetPosition = targetPosition;
             long distance = ManhattanDistance(CurrentPosition, targetPosition);
+            SelfDestructEnemyState previousState = State;
+            if (State == SelfDestructEnemyState.WarningChase)
+            {
+                if (distance > Definition.WarningDistance)
+                {
+                    State = SelfDestructEnemyState.Chase;
+                    warningStartedAt = default;
+                }
+                else if (CalculateWarningProgress(now) >= 1d)
+                {
+                    TargetPosition = CurrentPosition;
+                    return BeginTelegraph(default);
+                }
+            }
+
+            if (now < nextChaseStepAt)
+            {
+                return CreateResult(previousState, default, TimeSpan.Zero, false, false);
+            }
+
             if (distance <= Definition.PrimeDistance)
             {
                 TargetPosition = CurrentPosition;
                 return BeginTelegraph(default);
             }
 
-            SelfDestructEnemyState previousState = State;
             EnemyMovementStep movement = default;
             bool hasMovement = TryMoveToward(targetPosition, out movement);
             distance = ManhattanDistance(CurrentPosition, targetPosition);
-            State = distance <= Definition.WarningDistance
-                ? SelfDestructEnemyState.WarningChase
-                : SelfDestructEnemyState.Chase;
+            if (distance <= Definition.WarningDistance)
+            {
+                if (State != SelfDestructEnemyState.WarningChase)
+                {
+                    State = SelfDestructEnemyState.WarningChase;
+                    warningStartedAt = now;
+                }
+            }
+            else
+            {
+                State = SelfDestructEnemyState.Chase;
+                warningStartedAt = default;
+            }
 
-            return new SelfDestructEnemyAdvanceResult(
-                ActorId,
+            TimeSpan movementDuration = GetCurrentStepInterval(now);
+            nextChaseStepAt = AddWithSaturation(now, movementDuration);
+            return CreateResult(
                 previousState,
-                State,
-                TargetPosition,
                 movement,
+                movementDuration,
                 hasMovement,
-                false,
-                default);
+                false);
         }
 
         public bool TryTriggerFromExplosion(
@@ -216,6 +248,7 @@ namespace BombSwap.Core
                 State,
                 TargetPosition,
                 default,
+                TimeSpan.Zero,
                 false,
                 false,
                 TriggeringExplosionId);
@@ -230,6 +263,7 @@ namespace BombSwap.Core
         {
             SelfDestructEnemyState previous = State;
             State = SelfDestructEnemyState.Telegraph;
+            warningStartedAt = default;
             TriggeringExplosionId = triggeringExplosionId;
             return new SelfDestructEnemyAdvanceResult(
                 ActorId,
@@ -237,6 +271,7 @@ namespace BombSwap.Core
                 State,
                 TargetPosition,
                 default,
+                TimeSpan.Zero,
                 false,
                 true,
                 triggeringExplosionId);
@@ -335,15 +370,60 @@ namespace BombSwap.Core
 
         private SelfDestructEnemyAdvanceResult NoActivity()
         {
+            return CreateResult(
+                State,
+                default,
+                TimeSpan.Zero,
+                false,
+                false);
+        }
+
+        private SelfDestructEnemyAdvanceResult CreateResult(
+            SelfDestructEnemyState previousState,
+            EnemyMovementStep movement,
+            TimeSpan movementDuration,
+            bool hasMovement,
+            bool shouldArm)
+        {
             return new SelfDestructEnemyAdvanceResult(
                 ActorId,
-                State,
+                previousState,
                 State,
                 TargetPosition,
-                default,
-                false,
-                false,
+                movement,
+                movementDuration,
+                hasMovement,
+                shouldArm,
                 TriggeringExplosionId);
+        }
+
+        private TimeSpan GetCurrentStepInterval(TimeSpan now)
+        {
+            if (State != SelfDestructEnemyState.WarningChase)
+            {
+                return Definition.ChaseStepInterval;
+            }
+
+            double progress = CalculateWarningProgress(now);
+            long chaseTicks = Definition.ChaseStepInterval.Ticks;
+            long minimumTicks = Definition.WarningMinimumStepInterval.Ticks;
+            long intervalTicks = chaseTicks - (long)Math.Round(
+                (chaseTicks - minimumTicks) * progress,
+                MidpointRounding.AwayFromZero);
+            return TimeSpan.FromTicks(Math.Max(minimumTicks, intervalTicks));
+        }
+
+        private double CalculateWarningProgress(TimeSpan now)
+        {
+            if (now <= warningStartedAt)
+            {
+                return 0d;
+            }
+
+            double progress =
+                (now - warningStartedAt).Ticks /
+                (double)Definition.WarningEscalationDuration.Ticks;
+            return Math.Max(0d, Math.Min(1d, progress));
         }
 
         private static GridPosition GetTarget(

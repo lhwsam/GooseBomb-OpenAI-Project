@@ -1783,6 +1783,66 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(GridTerrain.Floor));
         }
 
+        [UnityTest]
+        public IEnumerator SelfDestructEnemy_ContinuousWarningArmsBeforeBaseCadence()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                chaserSpawnPosition: new Vector2Int(2, -2),
+                retreatAnchors: new[]
+                {
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(1, 0),
+                },
+                selfDestructSpawnPosition: new Vector2Int(2, 2),
+                selfDestructAnchors: new[] { new Vector2Int(2, 1) },
+                includeSelfDestructPresenter: true,
+                selfDestructChaseCellsPerSecond: 1f,
+                selfDestructWarningMaxCellsPerSecond: 2f,
+                selfDestructWarningEscalationSeconds: 0.15f,
+                selfDestructFuseSeconds: 1f);
+            int armedCount = 0;
+            _session.SelfDestructArmed += _ => armedCount++;
+
+            yield return null;
+            Assert.That(
+                _session.CurrentSelfDestructGridPosition,
+                Is.EqualTo(new GridPosition(2, 1)));
+            Assert.That(
+                _session.CurrentSelfDestructState,
+                Is.EqualTo(SelfDestructEnemyState.WarningChase));
+            float initialProgress = _session.CurrentSelfDestructWarningProgress;
+
+            yield return new WaitForSecondsRealtime(0.06f);
+            Assert.That(
+                _session.CurrentSelfDestructWarningProgress,
+                Is.GreaterThan(initialProgress));
+
+            int frameGuard = 0;
+            while (_session.CurrentSelfDestructState !=
+                       SelfDestructEnemyState.Telegraph &&
+                   frameGuard++ < 60)
+            {
+                yield return null;
+            }
+
+            Assert.That(
+                _session.CurrentSelfDestructState,
+                Is.EqualTo(SelfDestructEnemyState.Telegraph));
+            Assert.That(
+                _session.CurrentSelfDestructGridPosition,
+                Is.EqualTo(new GridPosition(2, 1)));
+            Assert.That(armedCount, Is.EqualTo(1));
+            Assert.That(_selfDestructPresenter.ActiveTelegraphCellCount, Is.GreaterThan(0));
+            Assert.That(
+                Vector3.Distance(
+                    _selfDestructPresenter.Instance.transform.position,
+                    _session.GridSpace.GridToWorld(new GridPosition(2, 1)) +
+                        (Vector3.up * _session.SelfDestructDefinition.VisualHeight)),
+                Is.LessThan(0.001f));
+        }
+
         private void CreateRuntime(
             Vector2Int blocker,
             bool includeBlocker,
@@ -1846,10 +1906,12 @@ namespace BombSwap.Tests.PlayMode
             Vector2Int[] selfDestructAnchors = null,
             bool includeSelfDestructPresenter = false,
             float selfDestructChaseCellsPerSecond = 2f,
+            float selfDestructWarningMaxCellsPerSecond = 5f,
+            float selfDestructWarningEscalationSeconds = 1.5f,
             int selfDestructWarningDistance = 3,
             int selfDestructPrimeDistance = 1,
             float selfDestructFuseSeconds = 0.08f,
-            int selfDestructExplosionRange = 1)
+            int selfDestructExplosionRange = 2)
         {
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
@@ -2073,6 +2135,8 @@ namespace BombSwap.Tests.PlayMode
                 _selfDestructDefinition.Configure(
                     "test-self-destruct",
                     selfDestructChaseCellsPerSecond,
+                    selfDestructWarningMaxCellsPerSecond,
+                    selfDestructWarningEscalationSeconds,
                     selfDestructWarningDistance,
                     selfDestructPrimeDistance,
                     _selfDestructBombDefinition,

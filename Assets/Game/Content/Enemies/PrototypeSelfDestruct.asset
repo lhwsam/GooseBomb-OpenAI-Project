@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeSelfDestructDefinitionAsset
   definitionId: prototype-self-destruct
   chaseCellsPerSecond: 2
+  warningMaxCellsPerSecond: 5
+  warningEscalationSeconds: 1.5
   warningDistance: 3
   primeDistance: 1
   detonationBombDefinition: {fileID: 11400000, guid: 93b309c0b23b46849834446b8b7f7fa8, type: 2}

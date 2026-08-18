@@ -8,6 +8,7 @@ namespace BombSwap.Core
             SelfDestructEnemyState state,
             GridPosition targetPosition,
             EnemyMovementStep movement,
+            System.TimeSpan movementDuration,
             bool hasMovement,
             bool shouldArm,
             BombId triggeringExplosionId)
@@ -17,6 +18,7 @@ namespace BombSwap.Core
             State = state;
             TargetPosition = targetPosition;
             Movement = movement;
+            MovementDuration = movementDuration;
             HasMovement = hasMovement;
             ShouldArm = shouldArm;
             TriggeringExplosionId = triggeringExplosionId;
@@ -31,6 +33,8 @@ namespace BombSwap.Core
         public GridPosition TargetPosition { get; }
 
         public EnemyMovementStep Movement { get; }
+
+        public System.TimeSpan MovementDuration { get; }
 
         public bool HasMovement { get; }
 

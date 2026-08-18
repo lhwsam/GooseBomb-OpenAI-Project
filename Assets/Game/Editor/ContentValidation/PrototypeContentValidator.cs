@@ -22,6 +22,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity";
         public const string ArmoredPanicPlaytestScenePath =
             "Assets/Game/Scenes/TestSandbox/ArmoredPanicPlaytest.unity";
+        public const string SelfDestructGatesPlaytestScenePath =
+            "Assets/Game/Scenes/TestSandbox/SelfDestructGatesPlaytest.unity";
         public const string TestSandboxGatesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity";
         public const string DungeonStartScenePath =
@@ -136,6 +138,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
             ValidateStandaloneArmoredPlaytestScene(errors);
+            ValidateStandaloneSelfDestructPlaytestScene(errors);
             ValidateBuildSettings(errors);
         }
 
@@ -553,6 +556,10 @@ namespace BombSwap.Editor.ContentValidation
                 BombDefinition blast = blastDefinition.CreateCoreDefinition();
                 if (definition.ChaseCellsPerSecond != 2f ||
                     core.ChaseStepInterval != TimeSpan.FromSeconds(0.5) ||
+                    definition.WarningMaxCellsPerSecond != 5f ||
+                    core.WarningMinimumStepInterval != TimeSpan.FromSeconds(0.2) ||
+                    definition.WarningEscalationSeconds != 1.5f ||
+                    core.WarningEscalationDuration != TimeSpan.FromSeconds(1.5) ||
                     definition.WarningDistance != 3 ||
                     core.WarningDistance != 3 ||
                     definition.PrimeDistance != 1 ||
@@ -560,12 +567,13 @@ namespace BombSwap.Editor.ContentValidation
                     blast.Id != new BombDefinitionId("prototype-self-destruct-blast") ||
                     blast.ExplosionShape != BombExplosionShape.Cross ||
                     blast.FuseDuration != TimeSpan.FromSeconds(0.75) ||
-                    blast.Range != 1)
+                    blast.Range != 2)
                 {
                     errors.Add(
                         "Prototype self-destruct enemy must chase at 2 cells/second, " +
-                        "warn within 3 cells, prime within 1 cell, and " +
-                        "use a 0.75-second range-1 cross blast.");
+                        "escalate to 5 cells/second over 1.5 seconds within 3 cells, " +
+                        "prime within 1 cell, and " +
+                        "use a 0.75-second range-2 cross blast.");
                 }
             }
             catch (Exception exception)
@@ -773,6 +781,10 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         ValidateArmorPanicLayout(room, errors);
                     }
+                    if (index == 4)
+                    {
+                        ValidateGatesSelfDestructLayout(room, 2, errors);
+                    }
                     RoomExitDirection[] exitDirections = room.Exits
                         .Select(roomExit => roomExit.Direction)
                         .OrderBy(direction => direction)
@@ -889,6 +901,129 @@ namespace BombSwap.Editor.ContentValidation
                     "Prototype Armor room must preserve the T-junction guard pocket, " +
                     "three-cell east/west panic branches, safe approach, and outer lure loop.");
             }
+        }
+
+        private static void ValidateGatesSelfDestructLayout(
+            CombatRoomDefinition room,
+            int selfDestructBlastRange,
+            ICollection<string> errors)
+        {
+            var expectedFixedWalls = new HashSet<GridPosition>
+            {
+                new GridPosition(-2, -1),
+                new GridPosition(-1, -1),
+                new GridPosition(1, -1),
+                new GridPosition(2, -1),
+                new GridPosition(-2, 1),
+                new GridPosition(-1, 1),
+                new GridPosition(1, 1),
+                new GridPosition(2, 1),
+            };
+            var expectedDestructibleWalls = new HashSet<GridPosition>
+            {
+                new GridPosition(0, -1),
+                new GridPosition(0, 1),
+            };
+
+            if (room.PlayerSpawn != new GridPosition(0, -3) ||
+                room.ChaserSpawn != new GridPosition(0, 3) ||
+                room.SelfDestructSpawn != new GridPosition(3, 0) ||
+                !expectedFixedWalls.SetEquals(room.IndestructibleWalls) ||
+                !expectedDestructibleWalls.SetEquals(room.DestructibleWalls))
+            {
+                errors.Add(
+                    "Prototype Gates room must preserve its player/enemy spawns, " +
+                    "eight fixed barrier cells, and two central destructible gates.");
+                return;
+            }
+
+            GridPosition[] anchors =
+            {
+                new GridPosition(0, -2),
+                new GridPosition(0, 2),
+            };
+            GridPosition[] expectedDestroyedGates =
+            {
+                new GridPosition(0, -1),
+                new GridPosition(0, 1),
+            };
+
+            for (int index = 0; index < anchors.Length; index++)
+            {
+                IReadOnlyCollection<GridPosition> destroyedWalls =
+                    ResolveGatesBlastDestroyedWalls(
+                        room,
+                        anchors[index],
+                        selfDestructBlastRange);
+                if (destroyedWalls.Count != 1 ||
+                    !destroyedWalls.Contains(expectedDestroyedGates[index]))
+                {
+                    errors.Add(
+                        $"Prototype Gates anchor {anchors[index]} with cross range " +
+                        $"{selfDestructBlastRange} must destroy only gate " +
+                        $"{expectedDestroyedGates[index]}; the first destructible wall " +
+                        "must stop further propagation.");
+                }
+            }
+        }
+
+        private static IReadOnlyCollection<GridPosition> ResolveGatesBlastDestroyedWalls(
+            CombatRoomDefinition room,
+            GridPosition origin,
+            int blastRange)
+        {
+            var grid = new GridState();
+            int halfWidth = room.Width / 2;
+            int halfDepth = room.Depth / 2;
+            for (int x = -halfWidth; x <= halfWidth; x++)
+            {
+                for (int z = -halfDepth; z <= halfDepth; z++)
+                {
+                    grid.TrySetTerrain(new GridPosition(x, z), GridTerrain.Floor);
+                }
+            }
+            for (int index = 0; index < room.IndestructibleWalls.Count; index++)
+            {
+                grid.TrySetTerrain(
+                    room.IndestructibleWalls[index],
+                    GridTerrain.IndestructibleWall);
+            }
+            for (int index = 0; index < room.DestructibleWalls.Count; index++)
+            {
+                grid.TrySetTerrain(
+                    room.DestructibleWalls[index],
+                    GridTerrain.DestructibleWall);
+            }
+
+            var clock = new ManualGameClock();
+            var bombSimulation = new BombSimulation(
+                grid,
+                clock,
+                TimeSpan.FromMilliseconds(100));
+            var definition = new BombDefinition(
+                new BombDefinitionId("validator-self-destruct-blast"),
+                BombExplosionShape.Cross,
+                TimeSpan.FromMilliseconds(1),
+                blastRange);
+            if (!bombSimulation.TryPlaceBomb(
+                    definition,
+                    origin,
+                    new ActorId(1),
+                    out BombId _))
+            {
+                throw new InvalidOperationException(
+                    $"Could not place validator blast at Gates anchor {origin}.");
+            }
+
+            clock.Advance(definition.FuseDuration);
+            IReadOnlyList<BombExplosion> explosions = bombSimulation.ProcessDueBombs();
+            if (explosions.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Expected one validator blast at Gates anchor {origin}.");
+            }
+
+            return new HashSet<GridPosition>(explosions[0].DestroyedWalls);
         }
 
         private static void ValidatePrototypeDungeonCombatRoomCatalog(
@@ -1327,21 +1462,47 @@ namespace BombSwap.Editor.ContentValidation
         private static void ValidateStandaloneArmoredPlaytestScene(
             ICollection<string> errors)
         {
+            ValidateStandaloneCombatPlaytestScene(
+                ArmoredPanicPlaytestScenePath,
+                PrototypeCombatArmorDefinitionPath,
+                typeof(PrototypeArmoredPresenter),
+                "Armor",
+                errors);
+        }
+
+        private static void ValidateStandaloneSelfDestructPlaytestScene(
+            ICollection<string> errors)
+        {
+            ValidateStandaloneCombatPlaytestScene(
+                SelfDestructGatesPlaytestScenePath,
+                PrototypeCombatGatesDefinitionPath,
+                typeof(PrototypeSelfDestructPresenter),
+                "Self-Destruct Gates",
+                errors);
+        }
+
+        private static void ValidateStandaloneCombatPlaytestScene(
+            string scenePath,
+            string expectedRoomPath,
+            Type requiredPresenterType,
+            string label,
+            ICollection<string> errors)
+        {
             var sceneErrors = new List<string>();
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(
-                    ArmoredPanicPlaytestScenePath) == null)
+                    scenePath) == null)
             {
                 errors.Add(
-                    $"{ArmoredPanicPlaytestScenePath}: Missing standalone armored panic playtest scene.");
+                    $"{scenePath}: Missing standalone {label} playtest scene.");
                 return;
             }
 
-            Scene scene = SceneManager.GetSceneByPath(ArmoredPanicPlaytestScenePath);
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
             bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
             if (openedForValidation)
             {
                 scene = EditorSceneManager.OpenScene(
-                    ArmoredPanicPlaytestScenePath,
+                    scenePath,
                     OpenSceneMode.Additive);
             }
 
@@ -1349,8 +1510,8 @@ namespace BombSwap.Editor.ContentValidation
             {
                 TestSandboxContext[] contexts = FindComponents<TestSandboxContext>(scene);
                 PrototypeGameSession[] sessions = FindComponents<PrototypeGameSession>(scene);
-                PrototypeArmoredPresenter[] armoredPresenters =
-                    FindComponents<PrototypeArmoredPresenter>(scene);
+                int requiredPresenterCount = scene.GetRootGameObjects().Sum(root =>
+                    root.GetComponentsInChildren(requiredPresenterType, true).Length);
                 PrototypeRoomAdvanceController[] advanceControllers =
                     FindComponents<PrototypeRoomAdvanceController>(scene);
                 int dungeonAdapterCount =
@@ -1361,16 +1522,16 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeRunCompletionPresenter>(scene).Length;
 
                 if (contexts.Length != 1 || sessions.Length != 1 ||
-                    armoredPresenters.Length != 1 || advanceControllers.Length != 1)
+                    requiredPresenterCount != 1 || advanceControllers.Length != 1)
                 {
                     sceneErrors.Add(
-                        "Standalone Armor playtest requires exactly one context, session, " +
-                        "armored presenter, and no-op room advance controller.");
+                        $"Standalone {label} playtest requires exactly one context, session, " +
+                        "required enemy presenter, and no-op room advance controller.");
                 }
                 if (dungeonAdapterCount != 0)
                 {
                     sceneErrors.Add(
-                        "Standalone Armor playtest must not contain dungeon host, binder, " +
+                        $"Standalone {label} playtest must not contain dungeon host, binder, " +
                         "minimap, door presenter, or run-completion adapters.");
                 }
                 if (sessions.Length == 1 &&
@@ -1378,7 +1539,7 @@ namespace BombSwap.Editor.ContentValidation
                      sessions[0].IsBossEnabledByDefault))
                 {
                     sceneErrors.Add(
-                        "Standalone Armor playtest must enable its non-boss combat encounter.");
+                        $"Standalone {label} playtest must enable its non-boss combat encounter.");
                 }
                 if (advanceControllers.Length == 1 &&
                     (!string.IsNullOrEmpty(advanceControllers[0].NextSceneName) ||
@@ -1386,20 +1547,21 @@ namespace BombSwap.Editor.ContentValidation
                      advanceControllers[0].Session != sessions[0]))
                 {
                     sceneErrors.Add(
-                        "Standalone Armor playtest room advance must reference its session " +
+                        $"Standalone {label} playtest room advance must reference its session " +
                         "and keep the next scene empty.");
                 }
                 if (contexts.Length == 1)
                 {
                     ValidateRoomSceneBinding(
                         contexts[0],
-                        PrototypeCombatArmorDefinitionPath,
+                        expectedRoomPath,
                         sceneErrors);
                 }
                 if (!FindComponents<Camera>(scene).Any(camera =>
                         camera.enabled && camera.CompareTag("MainCamera")))
                 {
-                    sceneErrors.Add("Standalone Armor playtest requires an enabled MainCamera.");
+                    sceneErrors.Add(
+                        $"Standalone {label} playtest requires an enabled MainCamera.");
                 }
             }
             finally
@@ -1412,17 +1574,17 @@ namespace BombSwap.Editor.ContentValidation
 
             foreach (string error in sceneErrors)
             {
-                errors.Add($"{ArmoredPanicPlaytestScenePath}: {error}");
+                errors.Add($"{scenePath}: {error}");
             }
 
             if (EditorBuildSettings.scenes.Any(sceneSetting =>
                     sceneSetting.enabled && string.Equals(
                         sceneSetting.path,
-                        ArmoredPanicPlaytestScenePath,
+                        scenePath,
                         StringComparison.Ordinal)))
             {
                 errors.Add(
-                    "Standalone Armor playtest scene must stay outside the standard enabled Build Settings scenes.");
+                    $"Standalone {label} playtest scene must stay outside the standard enabled Build Settings scenes.");
             }
         }
 

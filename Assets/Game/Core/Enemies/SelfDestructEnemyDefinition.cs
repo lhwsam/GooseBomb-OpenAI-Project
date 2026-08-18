@@ -7,6 +7,8 @@ namespace BombSwap.Core
         public SelfDestructEnemyDefinition(
             EnemyDefinitionId id,
             TimeSpan chaseStepInterval,
+            TimeSpan warningMinimumStepInterval,
+            TimeSpan warningEscalationDuration,
             int warningDistance,
             int primeDistance,
             BombDefinition detonationBombDefinition)
@@ -21,6 +23,21 @@ namespace BombSwap.Core
                     nameof(chaseStepInterval),
                     chaseStepInterval,
                     "Chase step interval must be greater than zero.");
+            }
+            if (warningMinimumStepInterval <= TimeSpan.Zero ||
+                warningMinimumStepInterval > chaseStepInterval)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(warningMinimumStepInterval),
+                    warningMinimumStepInterval,
+                    "Warning minimum step interval must be positive and no greater than the chase interval.");
+            }
+            if (warningEscalationDuration <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(warningEscalationDuration),
+                    warningEscalationDuration,
+                    "Warning escalation duration must be greater than zero.");
             }
             if (warningDistance <= 0)
             {
@@ -50,6 +67,8 @@ namespace BombSwap.Core
 
             Id = id;
             ChaseStepInterval = chaseStepInterval;
+            WarningMinimumStepInterval = warningMinimumStepInterval;
+            WarningEscalationDuration = warningEscalationDuration;
             WarningDistance = warningDistance;
             PrimeDistance = primeDistance;
             DetonationBombDefinition = detonationBombDefinition;
@@ -58,6 +77,10 @@ namespace BombSwap.Core
         public EnemyDefinitionId Id { get; }
 
         public TimeSpan ChaseStepInterval { get; }
+
+        public TimeSpan WarningMinimumStepInterval { get; }
+
+        public TimeSpan WarningEscalationDuration { get; }
 
         public int WarningDistance { get; }
 
