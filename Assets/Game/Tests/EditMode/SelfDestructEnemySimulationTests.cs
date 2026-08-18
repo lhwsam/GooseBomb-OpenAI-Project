@@ -9,6 +9,10 @@ namespace BombSwap.Tests.EditMode
         private static readonly ActorId PlayerActor = new ActorId(1);
         private static readonly ActorId SelfDestructActor = new ActorId(6);
         private static readonly TimeSpan StepInterval = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan WarningMinimumStepInterval =
+            TimeSpan.FromMilliseconds(200);
+        private static readonly TimeSpan WarningEscalationDuration =
+            TimeSpan.FromMilliseconds(1500);
 
         [Test]
         public void Definition_StoresChaseWarningPrimeAndCrossDetonation()
@@ -18,6 +22,8 @@ namespace BombSwap.Tests.EditMode
             var definition = new SelfDestructEnemyDefinition(
                 new EnemyDefinitionId("prototype-self-destruct"),
                 StepInterval,
+                WarningMinimumStepInterval,
+                WarningEscalationDuration,
                 3,
                 1,
                 bomb);
@@ -26,9 +32,16 @@ namespace BombSwap.Tests.EditMode
                 definition.Id,
                 Is.EqualTo(new EnemyDefinitionId("prototype-self-destruct")));
             Assert.That(definition.ChaseStepInterval, Is.EqualTo(StepInterval));
+            Assert.That(
+                definition.WarningMinimumStepInterval,
+                Is.EqualTo(WarningMinimumStepInterval));
+            Assert.That(
+                definition.WarningEscalationDuration,
+                Is.EqualTo(WarningEscalationDuration));
             Assert.That(definition.WarningDistance, Is.EqualTo(3));
             Assert.That(definition.PrimeDistance, Is.EqualTo(1));
             Assert.That(definition.DetonationBombDefinition, Is.SameAs(bomb));
+            Assert.That(definition.DetonationBombDefinition.Range, Is.EqualTo(2));
         }
 
         [Test]
@@ -38,6 +51,8 @@ namespace BombSwap.Tests.EditMode
                 new SelfDestructEnemyDefinition(
                     new EnemyDefinitionId("test-self-destruct"),
                     TimeSpan.Zero,
+                    WarningMinimumStepInterval,
+                    WarningEscalationDuration,
                     3,
                     1,
                     CreateBombDefinition()));
@@ -45,6 +60,8 @@ namespace BombSwap.Tests.EditMode
                 new SelfDestructEnemyDefinition(
                     new EnemyDefinitionId("test-self-destruct"),
                     StepInterval,
+                    WarningMinimumStepInterval,
+                    WarningEscalationDuration,
                     0,
                     1,
                     CreateBombDefinition()));
@@ -52,6 +69,8 @@ namespace BombSwap.Tests.EditMode
                 new SelfDestructEnemyDefinition(
                     new EnemyDefinitionId("test-self-destruct"),
                     StepInterval,
+                    WarningMinimumStepInterval,
+                    WarningEscalationDuration,
                     3,
                     0,
                     CreateBombDefinition()));
@@ -59,6 +78,8 @@ namespace BombSwap.Tests.EditMode
                 new SelfDestructEnemyDefinition(
                     new EnemyDefinitionId("test-self-destruct"),
                     StepInterval,
+                    WarningMinimumStepInterval,
+                    WarningEscalationDuration,
                     3,
                     3,
                     CreateBombDefinition()));
@@ -66,6 +87,8 @@ namespace BombSwap.Tests.EditMode
                 new SelfDestructEnemyDefinition(
                     new EnemyDefinitionId("test-self-destruct"),
                     StepInterval,
+                    WarningMinimumStepInterval,
+                    WarningEscalationDuration,
                     3,
                     1,
                     new BombDefinition(
@@ -73,6 +96,33 @@ namespace BombSwap.Tests.EditMode
                         BombExplosionShape.SquareArea,
                         TimeSpan.FromSeconds(1),
                         1)));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new SelfDestructEnemyDefinition(
+                    new EnemyDefinitionId("test-self-destruct"),
+                    StepInterval,
+                    TimeSpan.Zero,
+                    WarningEscalationDuration,
+                    3,
+                    1,
+                    CreateBombDefinition()));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new SelfDestructEnemyDefinition(
+                    new EnemyDefinitionId("test-self-destruct"),
+                    StepInterval,
+                    StepInterval + TimeSpan.FromTicks(1),
+                    WarningEscalationDuration,
+                    3,
+                    1,
+                    CreateBombDefinition()));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new SelfDestructEnemyDefinition(
+                    new EnemyDefinitionId("test-self-destruct"),
+                    StepInterval,
+                    WarningMinimumStepInterval,
+                    TimeSpan.Zero,
+                    3,
+                    1,
+                    CreateBombDefinition()));
         }
 
         [Test]
@@ -108,6 +158,98 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.HasStateTransition, Is.True);
             Assert.That(result.State, Is.EqualTo(SelfDestructEnemyState.WarningChase));
             Assert.That(result.ShouldArm, Is.False);
+            Assert.That(result.MovementDuration, Is.EqualTo(StepInterval));
+            Assert.That(enemy.WarningProgress, Is.Zero);
+        }
+
+        [Test]
+        public void WarningChase_ContinuousExposureAcceleratesMovementCadence()
+        {
+            var clock = new ManualGameClock();
+            SelfDestructEnemySimulation enemy = CreateSimulation(
+                clock,
+                GridPositionAtOrigin(),
+                new GridPosition(0, 4));
+            Assert.That(enemy.Advance().State, Is.EqualTo(SelfDestructEnemyState.WarningChase));
+
+            clock.Advance(StepInterval);
+            SelfDestructEnemyAdvanceResult accelerated = enemy.Advance();
+
+            Assert.That(accelerated.HasMovement, Is.True);
+            Assert.That(accelerated.MovementDuration, Is.LessThan(StepInterval));
+            Assert.That(
+                accelerated.MovementDuration,
+                Is.GreaterThan(WarningMinimumStepInterval));
+            Assert.That(enemy.WarningProgress, Is.EqualTo(1d / 3d).Within(0.000001d));
+        }
+
+        [Test]
+        public void WarningChase_ContinuousExposurePrimesAtDeadlineWithoutAdjacency()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateFloorGrid();
+            var enemyPosition = new GridPosition(0, 3);
+            foreach (GridPosition wall in new[]
+            {
+                enemyPosition.Offset(0, 1),
+                enemyPosition.Offset(1, 0),
+                enemyPosition.Offset(0, -1),
+                enemyPosition.Offset(-1, 0),
+            })
+            {
+                Assert.That(grid.TrySetTerrain(wall, GridTerrain.IndestructibleWall), Is.True);
+            }
+            Assert.That(grid.TryAddActor(PlayerActor, GridPositionAtOrigin()), Is.True);
+            var enemy = new SelfDestructEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(),
+                SelfDestructActor,
+                PlayerActor,
+                enemyPosition);
+            Assert.That(enemy.Advance().State, Is.EqualTo(SelfDestructEnemyState.WarningChase));
+
+            clock.Advance(WarningEscalationDuration);
+            SelfDestructEnemyAdvanceResult result = enemy.Advance();
+
+            Assert.That(result.HasMovement, Is.False);
+            Assert.That(result.ShouldArm, Is.True);
+            Assert.That(result.State, Is.EqualTo(SelfDestructEnemyState.Telegraph));
+            Assert.That(enemy.CurrentPosition, Is.EqualTo(enemyPosition));
+        }
+
+        [Test]
+        public void WarningChase_EscapeResetsEscalationBeforeReentry()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateFloorGrid();
+            Assert.That(grid.TryAddActor(PlayerActor, GridPositionAtOrigin()), Is.True);
+            var enemy = new SelfDestructEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(),
+                SelfDestructActor,
+                PlayerActor,
+                new GridPosition(0, 4));
+            Assert.That(enemy.Advance().State, Is.EqualTo(SelfDestructEnemyState.WarningChase));
+            Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, -4)), Is.True);
+
+            clock.Advance(StepInterval);
+            Assert.That(enemy.Advance().State, Is.EqualTo(SelfDestructEnemyState.Chase));
+            Assert.That(enemy.WarningProgress, Is.Zero);
+            Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, -1)), Is.True);
+
+            clock.Advance(StepInterval);
+            Assert.That(enemy.Advance().State, Is.EqualTo(SelfDestructEnemyState.WarningChase));
+            Assert.That(enemy.WarningProgress, Is.Zero);
+            clock.Advance(StepInterval);
+            SelfDestructEnemyAdvanceResult result = enemy.Advance();
+
+            Assert.That(result.ShouldArm, Is.False);
+            Assert.That(result.State, Is.EqualTo(SelfDestructEnemyState.WarningChase));
+            Assert.That(enemy.WarningProgress, Is.EqualTo(1d / 3d).Within(0.000001d));
         }
 
         [Test]
@@ -164,6 +306,7 @@ namespace BombSwap.Tests.EditMode
             enemy.ConfirmArmed(CreateBombId(10));
             Assert.That(enemy.TelegraphCells, Does.Contain(new GridPosition(0, 1)));
             Assert.That(enemy.TelegraphCells, Does.Contain(GridPositionAtOrigin()));
+            Assert.That(enemy.TelegraphCells, Does.Contain(new GridPosition(0, -1)));
         }
 
         [Test]
@@ -332,6 +475,8 @@ namespace BombSwap.Tests.EditMode
             return new SelfDestructEnemyDefinition(
                 new EnemyDefinitionId("test-self-destruct"),
                 StepInterval,
+                WarningMinimumStepInterval,
+                WarningEscalationDuration,
                 3,
                 1,
                 CreateBombDefinition());
@@ -343,7 +488,7 @@ namespace BombSwap.Tests.EditMode
                 new BombDefinitionId("test-self-destruct-blast"),
                 BombExplosionShape.Cross,
                 TimeSpan.FromMilliseconds(750),
-                1);
+                2);
         }
 
         private static BombId CreateBombId(int sequence)

@@ -1190,6 +1190,10 @@ async function main() {
     await waitForEvent(page, "self-destruct-warning-chase", {
       timeout: 10_000,
     });
+    await waitForSelfDestructAtCell(page, 2, -2, 10_000);
+    await moveToCell(page, -1, -3);
+    await page.waitForTimeout(200);
+    await moveToCell(page, -1, -2);
     await waitForSelfDestructAtCell(page, 0, -2, 10_000);
     await waitForEvent(page, "self-destruct-armed", { timeout: 5_000 });
     await waitForEvent(page, "self-destruct-telegraph", { timeout: 5_000 });
@@ -1206,8 +1210,7 @@ async function main() {
       timeout: 5_000,
     });
 
-    await moveToCell(page, 3, 2);
-    await waitForChaserAtDistance(page, 2);
+    await waitForChaserAtDistance(page, 1);
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
       count: room5AreaPlacementsBefore + 1,
@@ -1215,31 +1218,11 @@ async function main() {
     });
     const room5ExplosionsBefore = await eventCount(page, "bomb-exploded");
     const room5ClearsBefore = await eventCount(page, "room-cleared");
-    await moveToCell(page, 5, 2);
+    await moveToCell(page, -3, -4);
     await waitForEvent(page, "bomb-exploded", {
       count: room5ExplosionsBefore + 1,
       timeout: 15_000,
     });
-    if (await eventCount(page, "room-cleared") === room5ClearsBefore) {
-      await moveToCell(page, 3, 1);
-      await waitForChaserAtDistance(page, 2);
-      await page.waitForTimeout(200);
-      const secondRoom5AreaPlacementBefore = await eventCount(
-        page,
-        "place-bomb-definition-prototype-area",
-      );
-      await page.keyboard.press("KeyZ");
-      await waitForEvent(page, "place-bomb-definition-prototype-area", {
-        count: secondRoom5AreaPlacementBefore + 1,
-        timeout: 5_000,
-      });
-      const secondRoom5ExplosionBefore = await eventCount(page, "bomb-exploded");
-      await moveToCell(page, 3, -1);
-      await waitForEvent(page, "bomb-exploded", {
-        count: secondRoom5ExplosionBefore + 1,
-        timeout: 5_000,
-      });
-    }
     await waitForEvent(page, "room-cleared", {
       count: room5ClearsBefore + 1,
       timeout: 5_000,

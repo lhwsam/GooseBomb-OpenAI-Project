@@ -62,7 +62,7 @@
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
 | 보스 | `Systems/BossBattle.md`, `Development/BossCoreSlice.md` |
 | 보스 이동·선행 설치 | `Development/BossMovementSlice.md`, `Systems/BossBattle.md`, `Systems/GridAndMovement.md` |
-| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Playtesting/ArmoredEnemyProtocol.md`, `Systems/Telemetry.md` |
+| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Playtesting/ArmoredEnemyProtocol.md`, `Playtesting/SelfDestructGatesProtocol.md`, `Systems/Telemetry.md` |
 | 다음 수직 슬라이스·마일스톤 판단 | `Development/PrototypeReadinessAudit.md`, `Development/PrototypeRoadmap.md`, `Development/DefinitionOfDone.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | 반응형 WebGL 화면·템플릿 | `Development/ResponsiveWebGLCanvasSlice.md`, `WebGL/BuildAndHosting.md`, `WebGL/BrowserTestMatrix.md` |

@@ -150,6 +150,14 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinitions[3]);
+            bool selfDestructPlaytestSceneCreated = EnsureSelfDestructGatesPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[4]);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxScenePath,
                 combatRoomCatalog,
@@ -274,12 +282,13 @@ namespace BombSwap.Editor.ContentValidation
 
             return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
                 armorSceneCreated || gatesSceneCreated || armoredPlaytestSceneCreated ||
+                selfDestructPlaytestSceneCreated ||
                 startSceneCreated ||
                 rewardSceneCreated ||
                 bossAnteSceneCreated || recoverySceneCreated || secretSceneCreated ||
                 bossSceneCreated
-                ? "Created BombSwap prototype dungeon content, eleven graph room scenes, and the standalone Armor playtest scene."
-                : "BombSwap prototype content exists; synchronized dungeon rooms, standalone Armor playtest, graph bindings, references, and Build Settings.";
+                ? "Created BombSwap prototype dungeon content, eleven graph room scenes, and standalone enemy playtest scenes."
+                : "BombSwap prototype content exists; synchronized dungeon rooms, standalone enemy playtests, graph bindings, references, and Build Settings.";
         }
 
         public static string CreateOrUpdateArmoredPanicPlaytestScene()
@@ -311,6 +320,37 @@ namespace BombSwap.Editor.ContentValidation
             return created
                 ? $"Created standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'."
                 : $"Synchronized standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'.";
+        }
+
+        public static string CreateOrUpdateSelfDestructGatesPlaytestScene()
+        {
+            PrototypeBombLoadoutAsset bombLoadout = LoadRequiredAsset<
+                PrototypeBombLoadoutAsset>(PrototypeContentValidator.PrototypeBombLoadoutPath);
+            PrototypePlayerVitalsAsset playerVitals = LoadRequiredAsset<
+                PrototypePlayerVitalsAsset>(PrototypeContentValidator.PrototypePlayerVitalsPath);
+            PrototypeChaserDefinitionAsset chaserDefinition = LoadRequiredAsset<
+                PrototypeChaserDefinitionAsset>(PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            PrototypeChargerDefinitionAsset chargerDefinition = LoadRequiredAsset<
+                PrototypeChargerDefinitionAsset>(PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            PrototypeArmoredDefinitionAsset armoredDefinition = LoadRequiredAsset<
+                PrototypeArmoredDefinitionAsset>(PrototypeContentValidator.PrototypeArmoredDefinitionPath);
+            PrototypeBossDefinitionAsset bossDefinition = LoadRequiredAsset<
+                PrototypeBossDefinitionAsset>(PrototypeContentValidator.PrototypeBossDefinitionPath);
+            PrototypeCombatRoomDefinitionAsset roomDefinition = LoadRequiredAsset<
+                PrototypeCombatRoomDefinitionAsset>(PrototypeContentValidator.PrototypeCombatGatesDefinitionPath);
+
+            bool created = EnsureSelfDestructGatesPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition);
+            AssetDatabase.SaveAssets();
+            return created
+                ? $"Created standalone Self-Destruct Gates playtest scene at '{PrototypeContentValidator.SelfDestructGatesPlaytestScenePath}'."
+                : $"Synchronized standalone Self-Destruct Gates playtest scene at '{PrototypeContentValidator.SelfDestructGatesPlaytestScenePath}'.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -1044,7 +1084,7 @@ namespace BombSwap.Editor.ContentValidation
             blastDefinition.Configure(
                 "prototype-self-destruct-blast",
                 0.75f,
-                1,
+                2,
                 bombPrefab,
                 explosionPrefab,
                 0.25f,
@@ -1067,6 +1107,8 @@ namespace BombSwap.Editor.ContentValidation
             definition.Configure(
                 "prototype-self-destruct",
                 2f,
+                5f,
+                1.5f,
                 3,
                 1,
                 blastDefinition,
@@ -1659,6 +1701,30 @@ namespace BombSwap.Editor.ContentValidation
                 string.Empty);
             StripDungeonAdaptersFromStandalonePlaytest(
                 PrototypeContentValidator.ArmoredPanicPlaytestScenePath);
+            return created;
+        }
+
+        private static bool EnsureSelfDestructGatesPlaytestScene(
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
+        {
+            bool created = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.SelfDestructGatesPlaytestScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition,
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.SelfDestructGatesPlaytestScenePath);
             return created;
         }
 

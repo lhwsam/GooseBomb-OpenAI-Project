@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
   definitionId: prototype-self-destruct-blast
   fuseSeconds: 0.75
-  range: 1
+  range: 2
   explosionShape: 0
   placementCooldownSeconds: 1
   bombPrefab: {fileID: 4025302524595529602, guid: 253e26d9658a6184393ba37d8fd6353f, type: 3}

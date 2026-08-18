@@ -295,6 +295,9 @@ namespace BombSwap
                 ? _selfDestruct.State
                 : SelfDestructEnemyState.Chase;
 
+        public float CurrentSelfDestructWarningProgress =>
+            _selfDestruct != null ? (float)_selfDestruct.WarningProgress : 0f;
+
         public bool IsSelfDestructAlive =>
             _hasSelfDestruct && _selfDestructHealth != null && !_selfDestructHealth.IsDead;
 

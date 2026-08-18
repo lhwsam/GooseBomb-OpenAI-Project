@@ -41,7 +41,7 @@
 | 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | 세로 고정 벽 6개, 파괴 벽 `(-1,-1)·(1,-1)`: spawn 광역은 둘을 대각선 동시 파괴, 십자는 미도달 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
 | 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(0, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: 돌진형이 남쪽 정렬 셀을 획득한 뒤 서쪽 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
 | 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 남쪽 통로 벽 `x=±2,z=-2..-1`, 상단 막 `x=-1..1,z=2`, 좌우 종단 `(-4,0)·(4,0)`의 T 교차점, 파괴 벽 없음: 반경 수비→첫 피격 반대편 3칸 예고·질주→두 번째 선행 설치 | `TestSandboxArmor.unity` / `TestSandboxGates` |
-| 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)`, 자폭병 `(3,0)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`, 자폭 유도 anchor `(0,-2)→(0,2)`: 플레이어가 추적형 자폭병을 어느 쪽으로 끄느냐에 따라 범위 1 자폭이 아래/위 문 한쪽만 먼저 열고 `x=±3` 우회는 유지 | `TestSandboxGates.unity` / 없음 |
+| 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)`, 자폭병 `(3,0)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`, 자폭 유도 anchor `(0,-2)→(0,2)`: 플레이어가 추적형 자폭병을 어느 쪽으로 끄느냐에 따라 범위 2 자폭이 아래/위 문 한쪽만 먼저 연다. 첫 파괴 문이 해당 ray를 끝내며 `x=±3` 우회는 유지 | `TestSandboxGates.unity` / 없음 |
 
 다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
 
@@ -85,6 +85,15 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - Editor 메뉴 `Bomb Swap > Playtest > Play Armored Panic Room`이 동기화, 단일 씬 열기, Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
 - 콘텐츠 validator는 Armor room 참조·spawn·장애물 표현, 필수 session/presenter, 빈 다음 씬, 던전 전용 adapter 부재, MainCamera 존재와 Build Settings 제외를 함께 검사한다.
 
+## 자폭병·Gates 독립 플레이테스트 씬
+
+- `SelfDestructGatesPlaytest.unity`는 `prototype-combat-gates`와 일반 TestSandbox shell에서 생성하는 Editor 전용 미러다. 자폭병 규칙, Gates 셀이나 튜닝 수치를 중복 소유하지 않는다.
+- builder는 권위 `PrototypeCombatGates.asset`의 플레이어·추격자·자폭병 spawn, 고정 장벽 8셀, 중앙 파괴문 2셀과 적 정의를 동기화한 뒤 던전 `RunHost`, room binder, 미니맵, 외곽 문 presenter와 완료 presenter를 제거한다.
+- 중앙 파괴문과 `PrototypeDestructibleWallPresenter`, 자폭병의 경고·Telegraph presenter, HUD와 빈 다음 씬의 `PrototypeRoomAdvanceController`는 유지한다. 따라서 방 클리어 뒤에도 다른 씬으로 전환하지 않는다.
+- 표준 Build Settings enabled scene에는 넣지 않는다. 실제 던전 전환이나 WebGL 검증을 대신하지 않고 경고 점멸, 점화 전 이탈, 위·아래 anchor 유도와 한쪽 문 파괴를 빠르게 반복하는 용도다.
+- Editor 메뉴 `Bomb Swap > Playtest > Play Self-Destruct Gates Room`이 동기화, 단일 씬 열기와 Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
+- 콘텐츠 validator는 Gates 권위 room 참조·spawn·장애물·필수 session/자폭 presenter, 빈 다음 씬, 던전 adapter 부재, MainCamera와 Build Settings 제외를 검사한다.
+
 ## 저작 불변식
 
 - 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형·갑옷 적·자폭병도 플레이어와 즉시 인접하지 않는다.
@@ -119,8 +128,8 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
 - 갑옷 적 정의·collider 없는 적/panic 예고 prefab, 방별 선택적 spawn, session·presenter 참조 또는 수비·panic·추격 표현 구성이 권위 방 데이터와 다른 상태.
 - Armor 방의 T 교차점 고정 벽 9셀이 정확한 좌표와 다르거나 panic 좌우 종단·안전 셀·퇴로·외곽 유도 loop의 연결성이 깨진 상태.
-- 자폭병 정의·범위 1 적 폭탄·collider 없는 적/Telegraph prefab, 방별 spawn·anchor, session·presenter 참조가 권위 방 데이터와 다른 상태.
-- Gates 방의 자폭병 `(3,0)`, 유도 anchor `(0,-2)·(0,2)`, 중앙 파괴문 `(0,-1)·(0,1)`과 고정 장벽 8셀이 정확한 계약과 다르거나 각 anchor 폭발이 정확히 한쪽 문에만 닿지 않는 상태.
+- 자폭병 정의·범위 2 적 폭탄·collider 없는 적/Telegraph prefab, 방별 spawn·anchor, session·presenter 참조가 권위 방 데이터와 다른 상태.
+- Gates 방의 자폭병 `(3,0)`, 유도 anchor `(0,-2)·(0,2)`, 중앙 파괴문 `(0,-1)·(0,1)`과 고정 장벽 8셀이 정확한 계약과 다르거나, 실제 Core 범위 2 폭발 해석에서 각 anchor가 정확히 가까운 문 하나만 파괴하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.

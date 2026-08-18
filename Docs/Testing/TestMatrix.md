@@ -28,6 +28,8 @@
 - 갑옷 적의 반경 1 수비, 서로 다른 폭발 2회, 첫 폭발 중심 기반 최대 3칸 cardinal panic 경로 선택·고정, 예고 0.6초·6 cells/s 질주·0.5초 회복·3 cells/s 추격, 같은 `BombId` 중복 차단과 어느 panic 단계에서든 두 번째 사망 뒤 점유 단일 제거.
 - panic 경로의 네 방향·대각선·거리/투영/안정 순서 동률, 초기 벽·폭탄·actor 차단, 예고 뒤 경로 비확장, 실행 중 새 장애물의 조기 회복과 collider 없는 예고 셀 풀링·회수.
 - Editor 전용 `ArmoredPanicPlaytest`가 Armor 권위 방 asset·spawn·장애물과 일치하고, chaser+armored 런타임만 준비하며, 던전 adapter·다음 씬·표준 Build Settings 없이 직접 Play해 Console 오류가 없는지 확인한다.
+- Editor 전용 `SelfDestructGatesPlaytest`가 Gates 권위 방 asset·추격자/자폭병 spawn·고정/파괴 벽과 일치하고, 던전 adapter·다음 씬·표준 Build Settings 없이 직접 Play해 경고·점화·한쪽 문 파괴와 Console 오류 0을 확인한다.
+- 자폭병의 일반 0.5초 cadence, 연속 경고 중 0.2초까지의 결정론적 가속, 1.5초 자동 점화, 범위 이탈·재진입 누적 초기화, 이동 결과 duration과 presenter 보간·3→8Hz pulse 정합을 검증한다. 범위 2 Telegraph와 파괴 가능 벽 첫 셀에서의 ray 종료도 함께 확인한다.
 - 방 경계·연결성, 서로 다른 첫 이동의 퇴로 2개, 닫힌 유도 경로와 씬 표현 일치.
 - 중앙 게이트 방의 고정 장벽 8셀·파괴 문 2셀·좌우 우회 연결, 추격자 단일 구성, 논리/시각 파괴 벽 수 일치와 실제 WebGL 진입·클리어·HUD 비중첩.
 - 동일 버전·정의·seed 던전 재현과 golden snapshot, 4~5 전투방·첫 보상·보스 전실/보스 경로·선택 전투 가지·보스 근처 단일 Recovery leaf, normal 연결 트리와 Secret의 Combat 2~3연결·후보 우선순위·암시적 좌표 연결 방지.

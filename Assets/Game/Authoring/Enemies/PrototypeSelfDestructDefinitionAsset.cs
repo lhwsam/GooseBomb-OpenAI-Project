@@ -18,6 +18,12 @@ namespace BombSwap
         private float chaseCellsPerSecond = 2f;
 
         [SerializeField]
+        private float warningMaxCellsPerSecond = 5f;
+
+        [SerializeField]
+        private float warningEscalationSeconds = 1.5f;
+
+        [SerializeField]
         private int warningDistance = 3;
 
         [SerializeField]
@@ -42,6 +48,10 @@ namespace BombSwap
 
         public float ChaseCellsPerSecond => chaseCellsPerSecond;
 
+        public float WarningMaxCellsPerSecond => warningMaxCellsPerSecond;
+
+        public float WarningEscalationSeconds => warningEscalationSeconds;
+
         public int WarningDistance => warningDistance;
 
         public int PrimeDistance => primeDistance;
@@ -60,6 +70,8 @@ namespace BombSwap
         public void Configure(
             string authoredDefinitionId,
             float authoredChaseCellsPerSecond,
+            float authoredWarningMaxCellsPerSecond,
+            float authoredWarningEscalationSeconds,
             int authoredWarningDistance,
             int authoredPrimeDistance,
             PrototypeBombDefinitionAsset authoredDetonationBombDefinition,
@@ -71,6 +83,8 @@ namespace BombSwap
             SelfDestructEnemyDefinition definition = CreateCoreDefinition(
                 authoredDefinitionId,
                 authoredChaseCellsPerSecond,
+                authoredWarningMaxCellsPerSecond,
+                authoredWarningEscalationSeconds,
                 authoredWarningDistance,
                 authoredPrimeDistance,
                 authoredDetonationBombDefinition);
@@ -89,6 +103,8 @@ namespace BombSwap
 
             definitionId = definition.Id.Value;
             chaseCellsPerSecond = authoredChaseCellsPerSecond;
+            warningMaxCellsPerSecond = authoredWarningMaxCellsPerSecond;
+            warningEscalationSeconds = authoredWarningEscalationSeconds;
             warningDistance = authoredWarningDistance;
             primeDistance = authoredPrimeDistance;
             detonationBombDefinition = authoredDetonationBombDefinition;
@@ -103,6 +119,8 @@ namespace BombSwap
             return CreateCoreDefinition(
                 definitionId,
                 chaseCellsPerSecond,
+                warningMaxCellsPerSecond,
+                warningEscalationSeconds,
                 warningDistance,
                 primeDistance,
                 detonationBombDefinition);
@@ -154,11 +172,19 @@ namespace BombSwap
         private static SelfDestructEnemyDefinition CreateCoreDefinition(
             string id,
             float speed,
+            float authoredWarningMaxSpeed,
+            float authoredWarningEscalationSeconds,
             int authoredWarningDistance,
             int authoredPrimeDistance,
             PrototypeBombDefinitionAsset bombDefinition)
         {
             ValidateFinitePositive(speed, nameof(speed));
+            ValidateFinitePositive(
+                authoredWarningMaxSpeed,
+                nameof(authoredWarningMaxSpeed));
+            ValidateFinitePositive(
+                authoredWarningEscalationSeconds,
+                nameof(authoredWarningEscalationSeconds));
             if (bombDefinition == null)
             {
                 throw new ArgumentNullException(nameof(bombDefinition));
@@ -167,6 +193,8 @@ namespace BombSwap
             return new SelfDestructEnemyDefinition(
                 new EnemyDefinitionId(id),
                 TimeSpan.FromSeconds(1f / speed),
+                TimeSpan.FromSeconds(1f / authoredWarningMaxSpeed),
+                TimeSpan.FromSeconds(authoredWarningEscalationSeconds),
                 authoredWarningDistance,
                 authoredPrimeDistance,
                 bombDefinition.CreateCoreDefinition());
