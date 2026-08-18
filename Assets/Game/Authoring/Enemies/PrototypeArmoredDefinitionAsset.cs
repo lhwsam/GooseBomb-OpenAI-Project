@@ -25,7 +25,25 @@ namespace BombSwap
         private int directionCommitmentSteps = 2;
 
         [SerializeField]
+        private int guardRadius = 1;
+
+        [SerializeField]
+        private float panicTelegraphSeconds = 0.6f;
+
+        [SerializeField]
+        private float panicCellsPerSecond = 6f;
+
+        [SerializeField]
+        private int panicRunDistance = 3;
+
+        [SerializeField]
+        private float panicRecoverSeconds = 0.5f;
+
+        [SerializeField]
         private GameObject armoredPrefab;
+
+        [SerializeField]
+        private GameObject panicTelegraphCellPrefab;
 
         [SerializeField]
         private float visualHeight = 0.5f;
@@ -45,7 +63,19 @@ namespace BombSwap
 
         public int DirectionCommitmentSteps => directionCommitmentSteps;
 
+        public int GuardRadius => guardRadius;
+
+        public float PanicTelegraphSeconds => panicTelegraphSeconds;
+
+        public float PanicCellsPerSecond => panicCellsPerSecond;
+
+        public int PanicRunDistance => panicRunDistance;
+
+        public float PanicRecoverSeconds => panicRecoverSeconds;
+
         public GameObject ArmoredPrefab => armoredPrefab;
+
+        public GameObject PanicTelegraphCellPrefab => panicTelegraphCellPrefab;
 
         public float VisualHeight => visualHeight;
 
@@ -57,7 +87,13 @@ namespace BombSwap
             float authoredArmoredCellsPerSecond,
             float authoredBrokenCellsPerSecond,
             int authoredDirectionCommitmentSteps,
+            int authoredGuardRadius,
+            float authoredPanicTelegraphSeconds,
+            float authoredPanicCellsPerSecond,
+            int authoredPanicRunDistance,
+            float authoredPanicRecoverSeconds,
             GameObject authoredArmoredPrefab,
+            GameObject authoredPanicTelegraphCellPrefab,
             float authoredVisualHeight,
             float authoredDeathVisualSeconds)
         {
@@ -66,10 +102,19 @@ namespace BombSwap
                 authoredContactDamage,
                 authoredArmoredCellsPerSecond,
                 authoredBrokenCellsPerSecond,
-                authoredDirectionCommitmentSteps);
+                authoredDirectionCommitmentSteps,
+                authoredGuardRadius,
+                authoredPanicTelegraphSeconds,
+                authoredPanicCellsPerSecond,
+                authoredPanicRunDistance,
+                authoredPanicRecoverSeconds);
             if (authoredArmoredPrefab == null)
             {
                 throw new ArgumentNullException(nameof(authoredArmoredPrefab));
+            }
+            if (authoredPanicTelegraphCellPrefab == null)
+            {
+                throw new ArgumentNullException(nameof(authoredPanicTelegraphCellPrefab));
             }
             ValidateFiniteNonNegative(authoredVisualHeight, nameof(authoredVisualHeight));
             ValidateFinitePositive(authoredDeathVisualSeconds, nameof(authoredDeathVisualSeconds));
@@ -79,7 +124,13 @@ namespace BombSwap
             armoredCellsPerSecond = authoredArmoredCellsPerSecond;
             brokenCellsPerSecond = authoredBrokenCellsPerSecond;
             directionCommitmentSteps = authoredDirectionCommitmentSteps;
+            guardRadius = authoredGuardRadius;
+            panicTelegraphSeconds = authoredPanicTelegraphSeconds;
+            panicCellsPerSecond = authoredPanicCellsPerSecond;
+            panicRunDistance = authoredPanicRunDistance;
+            panicRecoverSeconds = authoredPanicRecoverSeconds;
             armoredPrefab = authoredArmoredPrefab;
+            panicTelegraphCellPrefab = authoredPanicTelegraphCellPrefab;
             visualHeight = authoredVisualHeight;
             deathVisualSeconds = authoredDeathVisualSeconds;
         }
@@ -91,7 +142,12 @@ namespace BombSwap
                 contactDamage,
                 armoredCellsPerSecond,
                 brokenCellsPerSecond,
-                directionCommitmentSteps);
+                directionCommitmentSteps,
+                guardRadius,
+                panicTelegraphSeconds,
+                panicCellsPerSecond,
+                panicRunDistance,
+                panicRecoverSeconds);
         }
 
         public void ValidatePresentationReferences()
@@ -109,6 +165,20 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "Armored enemy prefab must not own logical colliders.");
             }
+            if (panicTelegraphCellPrefab == null)
+            {
+                throw new InvalidOperationException("Armored panic telegraph-cell prefab is required.");
+            }
+            if (panicTelegraphCellPrefab.GetComponentInChildren<Renderer>(true) == null)
+            {
+                throw new InvalidOperationException(
+                    "Armored panic telegraph-cell prefab requires a renderer.");
+            }
+            if (panicTelegraphCellPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                throw new InvalidOperationException(
+                    "Armored panic telegraph-cell prefab must not own logical colliders.");
+            }
             ValidateFiniteNonNegative(visualHeight, nameof(visualHeight));
             ValidateFinitePositive(deathVisualSeconds, nameof(deathVisualSeconds));
         }
@@ -118,16 +188,33 @@ namespace BombSwap
             int damage,
             float armoredSpeed,
             float brokenSpeed,
-            int commitment)
+            int commitment,
+            int authoredGuardRadius,
+            float authoredPanicTelegraphSeconds,
+            float authoredPanicSpeed,
+            int authoredPanicRunDistance,
+            float authoredPanicRecoverSeconds)
         {
             ValidateFinitePositive(armoredSpeed, nameof(armoredSpeed));
             ValidateFinitePositive(brokenSpeed, nameof(brokenSpeed));
+            ValidateFinitePositive(
+                authoredPanicTelegraphSeconds,
+                nameof(authoredPanicTelegraphSeconds));
+            ValidateFinitePositive(authoredPanicSpeed, nameof(authoredPanicSpeed));
+            ValidateFinitePositive(
+                authoredPanicRecoverSeconds,
+                nameof(authoredPanicRecoverSeconds));
             return new ArmoredEnemyDefinition(
                 new EnemyDefinitionId(id),
                 damage,
                 TimeSpan.FromSeconds(1f / armoredSpeed),
                 TimeSpan.FromSeconds(1f / brokenSpeed),
-                commitment);
+                commitment,
+                authoredGuardRadius,
+                TimeSpan.FromSeconds(authoredPanicTelegraphSeconds),
+                TimeSpan.FromSeconds(1f / authoredPanicSpeed),
+                authoredPanicRunDistance,
+                TimeSpan.FromSeconds(authoredPanicRecoverSeconds));
         }
 
         private static void ValidateFinitePositive(float value, string parameterName)

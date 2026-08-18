@@ -14,7 +14,7 @@
 |---|---|---|
 | 추격자 | 지속 압박과 기본 유도 학습 | Acquire, Chase, Repath, Hit, Dead |
 | 돌진형 | 예고 후 직선 경로를 강제 | Track, Telegraph, Charge, Recover, Dead |
-| 갑옷 적 | 첫 적중 뒤 행동/외형 변화 | Armored, Broken, Hit, Dead |
+| 갑옷 적 | 교차점 수비, 첫 적중 뒤 예고된 반대편 질주 | 내구 `Armored → Broken → Dead`, 행동 `Guard → PanicTelegraph → PanicRun → PanicRecover → Chase → Dead` |
 
 AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신과 격자/경로 규칙을 우선한다.
 
@@ -47,13 +47,15 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 
 ## 구현된 갑옷 적
 
-- `ArmoredEnemyDefinition`은 안정적인 `EnemyDefinitionId`, 갑옷/파괴 상태별 이동 간격, 접촉 피해와 방향 유지 성공 step 수를 소유한다. TestSandbox의 `prototype-armored` 값은 접촉 피해 1, 갑옷 상태 1 cell/s, 파괴 상태 3 cells/s, 방향 유지 2칸이며 플레이테스트 전까지 `Proposed`다.
-- `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 `GridState`를 점유하고 `Armored → Broken → Dead` 상태를 소유한다. 첫 서로 다른 폭발은 폭탄 위력과 무관하게 갑옷 한 단계만 파괴하고, 두 번째 서로 다른 폭발이 사망시킨다. 같은 `BombId`의 중복 셀과 사망 뒤 피해는 무시한다.
-- 첫 피격은 기존 방향 유지와 다음 이동 대기를 버린다. 다음 frame부터 3 cells/s cadence로 기본 추격자와 같은 국소 Manhattan 선택과 `North → East → South → West` 동률 규칙을 다시 평가한다.
-- 플레이어와 cardinal 인접하면 같은 셀에 들어가지 않고 접촉 피해 1 후보를 만든다. 벽·폭탄·다른 actor는 두 상태 모두 같은 논리 장애물로 취급한다.
-- `PrototypeGameSession`은 추격자→돌진형→갑옷 적 순서로 이동, 폭발 피해, 접촉 후보를 처리한다. 첫 피격은 `ArmoredStateChanged(Broken)` 뒤 일반 `EnemyDamaged`, 두 번째 피격은 `ArmoredStateChanged(Dead)` 뒤 `EnemyDied`를 발행하고 마지막 생존 적이면 `RoomCleared`를 한 번 발행한다.
-- `PrototypeArmoredPresenter`는 공유 재질을 복제하지 않고 `MaterialPropertyBlock`과 scale로 갑옷 상태, 파괴 상태, 사망을 구분하고 상태별 논리 cadence에 맞춰 확정 이동을 보간한다.
-- 네 번째 `prototype-combat-armor` 방만 플레이어 `(0,-2)`, 갑옷 적 `(0,1)`의 열린 중앙 실험선으로 시작한다. 파괴 가능 벽과 돌진형을 제외해 2회 피격 가설을 다른 가설과 섞지 않는다.
+- `ArmoredEnemyDefinition`은 안정적인 `EnemyDefinitionId`, 접촉 피해, 장갑/추격 이동 간격, 방향 유지 step과 함께 수비 반경, panic 예고 시간·step 간격·최대 거리·회복 시간을 소유한다. `prototype-armored` 값은 접촉 피해 1, 장갑 수비 1 cell/s, 반경 1, 예고 0.6초, panic 6 cells/s·최대 3칸, 회복 0.5초, 추격 3 cells/s·방향 유지 2칸이다. 수치는 사람 플레이 전까지 `Proposed`다.
+- `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 `GridState`를 점유하며 내구 `Armored → Broken → Dead`와 행동 상태를 분리한다. 첫 서로 다른 폭발은 폭탄 위력과 무관하게 갑옷 한 단계만 파괴하고, 두 번째 서로 다른 폭발은 Telegraph·Run·Recover·Chase 어느 단계에서도 사망시킨다. 같은 `BombId`의 중복 셀과 사망 뒤 피해는 무시한다.
+- `Guard`는 저작 spawn을 원점으로 한 Manhattan 반경 1 안에서만 플레이어와 가까워지는 한 칸을 기존 느린 cadence로 선택한다. 반경 밖 추격과 플레이어에게서 멀어지는 왕복은 하지 않는다.
+- 첫 유효 폭발의 실제 `BombExplosion.Origin`을 받아 현재 셀의 네 cardinal 직선 가지를 최대 3칸 조사한다. 가장 긴 유효 가지를 먼저 고르고, 길이가 같으면 폭발 반대 방향 투영→도착점의 폭발 중심 Manhattan 거리→`North → East → South → West` 순으로 고정한다. 유효 셀이 없으면 달리기를 생략하고 회복한다.
+- `PanicTelegraph`에서 고정 경로 전체를 0.6초 예고한다. 이후 `PanicRun`은 6 cells/s cadence로 그 경로만 한 칸씩 소비하며, 새 벽·폭탄·actor가 다음 셀을 막으면 재조준하지 않고 즉시 `PanicRecover`가 된다. 경로 완료 또는 조기 차단 뒤 0.5초 회복하고 `Chase`에서 기존 3 cells/s 국소 추격을 시작한다.
+- 플레이어와 cardinal 인접하면 같은 셀에 들어가지 않고 접촉 피해 1 후보를 만든다. 벽·폭탄·다른 actor는 수비·panic·추격 모두 권위 논리 장애물이며, panic 계획은 선택 뒤 기존 장애물이 사라져도 늘어나지 않는다.
+- `PrototypeGameSession`은 추격자→돌진형→갑옷 적 순서로 이동·폭발 피해·접촉 후보를 처리하고 `ArmoredAdvanced`로 행동 전이와 확정 이동만 표현 계층에 전달한다. 첫 피격은 `ArmoredStateChanged(Broken)` 뒤 일반 `EnemyDamaged`, 두 번째 피격은 `ArmoredStateChanged(Dead)` 뒤 `EnemyDied`를 발행하고 마지막 생존 적이면 `RoomCleared`를 한 번 발행한다.
+- `PrototypeArmoredPresenter`는 공유 재질을 복제하지 않고 `MaterialPropertyBlock`과 scale로 내구 상태를 구분한다. collider 없는 얇은 셀 placeholder를 최대 3개 풀링해 고정 panic 경로를 표시하고 Run 시작 또는 사망 때 회수하며, 수비·panic·추격 각각의 논리 cadence로 확정 이동을 보간한다.
+- 네 번째 `prototype-combat-armor` 방은 플레이어 `(0,-2)`, 갑옷 적 `(0,1)`을 유지하면서 상단 막과 남쪽 진입로, 좌우 3칸 가지를 가진 T 교차점으로 바뀌었다. 파괴 가능 벽과 돌진형은 제외해 첫 폭발 방향→예고된 두 번째 설치 위치 질문을 분리한다.
 
 ## 불변식
 
@@ -65,7 +67,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 
 ## 경로 탐색
 
-프로토타입에서는 격자 기반의 단순하고 결정적인 BFS를 사용한다. 추격자는 플레이어 셀에서 역방향 거리장을 만들고, 돌진형은 현재 셀에서 가장 가까운 유효 정렬 후보를 찾는다. 둘 다 매 frame이 아니라 각자의 명시 cadence와 재계획 경계에서만 탐색하며, 목표/자기 셀 외의 actor·폭탄 점유와 비바닥을 차단한다. 경로가 없으면 임의 배회하지 않고 다음 cadence까지 기다린다. 탐색용 `Dictionary`·`HashSet`·`Queue`는 각 simulation이 재사용하며 플레이어 미래 위치나 폭발 위험을 계산하지 않는다. AI Navigation 패키지는 Core 경로 판정의 원본이 아니다.
+프로토타입에서는 격자 기반의 단순하고 결정적인 규칙을 사용한다. 추격자는 플레이어 셀에서 역방향 BFS 거리장을 만들고, 돌진형은 현재 셀에서 가장 가까운 유효 정렬 후보를 BFS로 찾는다. 갑옷 적의 수비·추격은 제한된 국소 Manhattan 선택을 사용하고 panic은 폭발 시점에 최대 3칸 cardinal 직선 가지를 한 번 잠근다. 모두 매 frame이 아니라 각자의 명시 cadence와 전이 경계에서만 판단하며 목표/자기 셀 외의 actor·폭탄 점유와 비바닥을 차단한다. 경로가 없으면 임의 배회하지 않는다. 탐색 저장소와 panic 배열은 simulation이 재사용하며 플레이어 미래 위치나 폭발 위험을 계산하지 않는다. AI Navigation 패키지는 Core 경로 판정의 원본이 아니다.
 
 ## 자동 테스트
 
@@ -81,9 +83,10 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 돌진형의 네 방향 차선 획득, 결정론적 동률, 획득 cadence, 장애물 우회·경로 없음, 정렬·가시선, 방향·최대 거리 잠금, 예고·돌진·회복 경계, 플레이어 충돌과 벽·폭탄·actor 조기 차단.
 - PlayMode의 획득/돌진별 보간 속도와 전체 고정 차선 예고 placeholder 생성·회수.
 - PlayMode의 두 적 공유 점유, 돌진 충돌 단일 피해, 두 적 동시 폭발 사망의 `EnemyDied` 순서와 단일 방 클리어, 적별 presenter 생존 상태.
-- 갑옷 적의 첫/두 번째 서로 다른 폭발, 같은 `BombId` 중복, 사망 뒤 무시, 1→3 cells/s cadence 경계와 첫 피격 재판단.
-- 갑옷 적의 벽·폭탄·actor 차단, cardinal 인접 접촉, 시계 역행과 잘못된 정의·spawn 거부.
-- PlayMode의 첫 피격 표현·상태 사건·빠른 이동, 두 번째 사망·점유 제거·단일 방 클리어와 적별 presenter 생존 상태.
+- 갑옷 적의 첫/두 번째 서로 다른 폭발, 같은 `BombId` 중복, 사망 뒤 무시와 panic 단계 중 치명 피해.
+- 갑옷 적의 수비 반경·거리 감소, 네 방향·대각선·동률 panic 선택, 최대 거리 고정, Telegraph·Run·Recover·Chase의 정확한 시간 경계와 시계 역행.
+- 갑옷 적 panic의 벽·폭탄·actor 초기 차단, 실행 중 새 장애물의 조기 회복, 기존 장애물 제거 뒤 경로 비확장, 유효 가지 없음과 cardinal 인접 접촉.
+- PlayMode의 첫 피격 내구 표현·전체 경로 예고·상태별 이동 보간·예고 회수, 두 번째 사망·점유 제거·단일 방 클리어와 적별 presenter 생존 상태.
 - Development WebGL의 `chaser-cell-x-<x>-z-<z>` marker로 실제 확정 셀 이동과 플레이어 cardinal 인접 상태를 관측한다. 이 marker는 자동 경로 동기화와 순환 진단용이며 행동의 재미를 통과 판정하지 않는다.
 
-다음 적 단계에서는 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책을 추가한다.
+다음 제안 수직 슬라이스는 자폭병과 `Gates`의 비대칭 환경 상호작용이다. 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책은 여러 동일 적을 실제로 추가할 때까지 보류한다.

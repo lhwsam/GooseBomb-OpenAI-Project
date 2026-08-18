@@ -123,6 +123,8 @@ namespace BombSwap
 
         public event Action<EnemyMovementStep> ArmoredMoved;
 
+        public event Action<ArmoredEnemyAdvanceResult> ArmoredAdvanced;
+
         public event Action<ArmoredEnemyDamageResult> ArmoredStateChanged;
 
         public event Action<EnemyMovementStep> BossMoved;
@@ -246,7 +248,31 @@ namespace BombSwap
         public ArmoredEnemyState CurrentArmoredState =>
             _armored != null ? _armored.State : ArmoredEnemyState.Armored;
 
+        public ArmoredEnemyBehaviorState CurrentArmoredBehaviorState =>
+            _armored != null
+                ? _armored.BehaviorState
+                : ArmoredEnemyBehaviorState.Guard;
+
+        public CardinalDirection CurrentArmoredPanicDirection =>
+            _armored != null ? _armored.PanicDirection : CardinalDirection.None;
+
+        public int CurrentArmoredPanicPathCellCount =>
+            _armored != null ? _armored.PanicPathCellCount : 0;
+
+        public GridPosition CurrentArmoredPanicDestination =>
+            _armored != null ? _armored.PanicDestination : default;
+
         public bool IsArmoredAlive => _hasArmored && _armored != null && !_armored.IsDead;
+
+        public GridPosition GetCurrentArmoredPanicPathCell(int index)
+        {
+            if (_armored == null)
+            {
+                throw new InvalidOperationException("This session has no armored enemy.");
+            }
+
+            return _armored.GetPanicPathCell(index);
+        }
 
         public ActorId BossActorId => _boss != null ? _boss.ActorId : default;
 
@@ -828,10 +854,17 @@ namespace BombSwap
                     ChargerAdvanced?.Invoke(chargerAdvance);
                 }
             }
-            if (_hasArmored && !_armored.IsDead &&
-                _armored.TryAdvance(out EnemyMovementStep armoredStep))
+            if (_hasArmored && !_armored.IsDead)
             {
-                ArmoredMoved?.Invoke(armoredStep);
+                ArmoredEnemyAdvanceResult armoredAdvance = _armored.Advance();
+                if (armoredAdvance.HasActivity)
+                {
+                    ArmoredAdvanced?.Invoke(armoredAdvance);
+                }
+                if (armoredAdvance.HasMovement)
+                {
+                    ArmoredMoved?.Invoke(armoredAdvance.Movement);
+                }
             }
 
             BossPatternTransition? bossTransition = null;
@@ -1226,7 +1259,9 @@ namespace BombSwap
                 return;
             }
 
-            ArmoredEnemyDamageResult result = _armored.ApplyExplosion(explosion.BombId);
+            ArmoredEnemyDamageResult result = _armored.ApplyExplosion(
+                explosion.BombId,
+                explosion.Origin);
             if (!result.Damage.WasApplied)
             {
                 return;

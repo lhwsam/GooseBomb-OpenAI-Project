@@ -32,14 +32,14 @@
 
 ## 현재 수제 전투방 세트
 
-다섯 방 모두 11×9, 셀 크기 1의 `Combat` 방이며 추격자를 사용한다. 세 번째 방은 선택적 돌진형, 네 번째 방은 선택적 갑옷 적을 함께 사용한다. 다섯 번째 방은 새 적을 추가하지 않고 파괴 가능한 중앙 문과 좌우 우회로의 공간 선택을 검증한다.
+다섯 방 모두 11×9, 셀 크기 1의 `Combat` 방이며 추격자를 사용한다. 세 번째 방은 선택적 돌진형, 네 번째 방은 선택적 갑옷 적을 함께 사용한다. 네 번째 방은 장갑병의 반경 수비와 좌우 panic run을 읽기 위한 T 교차점이고, 다섯 번째 방은 새 적을 추가하지 않고 파괴 가능한 중앙 문과 좌우 우회로의 공간 선택을 검증한다.
 
 | 순서 | ID / 자산 | spawn | 공간 의도 | 씬 / 다음 씬 |
 |---:|---|---|---|---|
 | 1 | `prototype-combat-loop` / `PrototypeCombatLoop.asset` | 플레이어 `(0, 0)`, 추격자 `(1, -1)` | 중앙 십자 고정 벽 4개, 파괴 벽 없음, 기존 전투 기준선 | `TestSandbox.unity` / `TestSandboxLanes` |
 | 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | 세로 고정 벽 6개, 파괴 벽 `(-1,-1)·(1,-1)`: spawn 광역은 둘을 대각선 동시 파괴, 십자는 미도달 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
 | 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(0, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: 돌진형이 남쪽 정렬 셀을 획득한 뒤 서쪽 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
-| 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 좌우 기둥 `(-2,-1)·(2,-1)·(-2,1)·(2,1)`, 열린 중앙 실험선, 파괴 벽 없음: 갑옷 2회 피격과 상태별 속도 비교 | `TestSandboxArmor.unity` / `TestSandboxGates` |
+| 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 남쪽 통로 벽 `x=±2,z=-2..-1`, 상단 막 `x=-1..1,z=2`, 좌우 종단 `(-4,0)·(4,0)`의 T 교차점, 파괴 벽 없음: 반경 수비→첫 피격 반대편 3칸 예고·질주→두 번째 선행 설치 | `TestSandboxArmor.unity` / `TestSandboxGates` |
 | 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`: 문을 열면 중앙 지름길과 적 진입로가 함께 열리고, 유지하면 `x=±3` 우회가 남음 | `TestSandboxGates.unity` / 없음 |
 
 다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
@@ -106,7 +106,8 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 논리 고정 벽과 `Environment/InteriorObstacles` 표현 셀의 누락·중복·추가.
 - 논리 파괴 벽과 `Environment/DestructibleObstacles`의 황갈색 4분할 표현 셀·재질·Collider·presenter 참조 불일치.
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
-- 갑옷 적 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 상태별 표현 구성이 권위 방 데이터와 다른 상태.
+- 갑옷 적 정의·collider 없는 적/panic 예고 prefab, 방별 선택적 spawn, session·presenter 참조 또는 수비·panic·추격 표현 구성이 권위 방 데이터와 다른 상태.
+- Armor 방의 T 교차점 고정 벽 9셀이 정확한 좌표와 다르거나 panic 좌우 종단·안전 셀·퇴로·외곽 유도 loop의 연결성이 깨진 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.

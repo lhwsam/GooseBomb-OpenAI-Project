@@ -32,6 +32,10 @@ namespace BombSwap
         private bool _chargerRecoverReported;
         private bool _armoredMovedReported;
         private bool _armoredBrokenReported;
+        private bool _armoredPanicTelegraphReported;
+        private bool _armoredPanicRunReported;
+        private bool _armoredPanicRecoverReported;
+        private bool _armoredChaseReported;
         private bool _armoredDiedReported;
         private bool _enemyDiedReported;
         private bool _bossPhaseTwoReported;
@@ -95,6 +99,7 @@ namespace BombSwap
             session.PlayerRecovered += OnPlayerRecovered;
             session.ChaserMoved += OnChaserMoved;
             session.ChargerAdvanced += OnChargerAdvanced;
+            session.ArmoredAdvanced += OnArmoredAdvanced;
             session.ArmoredMoved += OnArmoredMoved;
             session.ArmoredStateChanged += OnArmoredStateChanged;
             session.EnemyDied += OnEnemyDied;
@@ -129,6 +134,7 @@ namespace BombSwap
                 session.PlayerRecovered -= OnPlayerRecovered;
                 session.ChaserMoved -= OnChaserMoved;
                 session.ChargerAdvanced -= OnChargerAdvanced;
+                session.ArmoredAdvanced -= OnArmoredAdvanced;
                 session.ArmoredMoved -= OnArmoredMoved;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
                 session.EnemyDied -= OnEnemyDied;
@@ -411,12 +417,45 @@ namespace BombSwap
             _armoredMovedReported = true;
         }
 
+        private void OnArmoredAdvanced(ArmoredEnemyAdvanceResult result)
+        {
+            if (!_armoredPanicRunReported &&
+                result.HasMovement &&
+                result.PreviousState == ArmoredEnemyBehaviorState.PanicRun)
+            {
+                WebGlHarnessReporter.Report("armored-panic-run-moved");
+                _armoredPanicRunReported = true;
+            }
+            if (!_armoredPanicRecoverReported &&
+                result.State == ArmoredEnemyBehaviorState.PanicRecover)
+            {
+                WebGlHarnessReporter.Report("armored-panic-recover");
+                _armoredPanicRecoverReported = true;
+            }
+            if (!_armoredChaseReported &&
+                result.State == ArmoredEnemyBehaviorState.Chase)
+            {
+                WebGlHarnessReporter.Report("armored-chase");
+                _armoredChaseReported = true;
+            }
+        }
+
         private void OnArmoredStateChanged(ArmoredEnemyDamageResult result)
         {
             if (!_armoredBrokenReported && result.ArmorWasBroken)
             {
                 WebGlHarnessReporter.Report("armored-broken");
                 _armoredBrokenReported = true;
+            }
+            if (!_armoredPanicTelegraphReported &&
+                result.ArmorWasBroken &&
+                result.CurrentBehaviorState == ArmoredEnemyBehaviorState.PanicTelegraph)
+            {
+                WebGlHarnessReporter.Report(
+                    "armored-panic-telegraph-" +
+                    ToMarkerDirection(session.CurrentArmoredPanicDirection) +
+                    "-distance-" + session.CurrentArmoredPanicPathCellCount);
+                _armoredPanicTelegraphReported = true;
             }
             if (!_armoredDiedReported && result.WasFatal)
             {
