@@ -9,6 +9,7 @@ namespace BombSwap.Tests.EditMode
         private static readonly ActorId PlayerActor = new ActorId(1);
         private static readonly ActorId ChaserActor = new ActorId(2);
         private static readonly ActorId ChargerActor = new ActorId(3);
+        private static readonly TimeSpan LaneAcquireStepInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan TelegraphDuration = TimeSpan.FromMilliseconds(750);
         private static readonly TimeSpan ChargeStepInterval = TimeSpan.FromMilliseconds(125);
         private static readonly TimeSpan RecoverDuration = TimeSpan.FromMilliseconds(750);
@@ -22,6 +23,7 @@ namespace BombSwap.Tests.EditMode
                 id,
                 1,
                 1,
+                LaneAcquireStepInterval,
                 TelegraphDuration,
                 ChargeStepInterval,
                 RecoverDuration);
@@ -29,6 +31,9 @@ namespace BombSwap.Tests.EditMode
             Assert.That(definition.Id, Is.EqualTo(id));
             Assert.That(definition.MaxHealth, Is.EqualTo(1));
             Assert.That(definition.ContactDamage, Is.EqualTo(1));
+            Assert.That(
+                definition.LaneAcquireStepInterval,
+                Is.EqualTo(LaneAcquireStepInterval));
             Assert.That(definition.TelegraphDuration, Is.EqualTo(TelegraphDuration));
             Assert.That(definition.ChargeStepInterval, Is.EqualTo(ChargeStepInterval));
             Assert.That(definition.RecoverDuration, Is.EqualTo(RecoverDuration));
@@ -41,11 +46,13 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new ChargerEnemyDefinition(
                     CreateDefinitionId(), value, 1,
-                    TelegraphDuration, ChargeStepInterval, RecoverDuration));
+                    LaneAcquireStepInterval, TelegraphDuration,
+                    ChargeStepInterval, RecoverDuration));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new ChargerEnemyDefinition(
                     CreateDefinitionId(), 1, value,
-                    TelegraphDuration, ChargeStepInterval, RecoverDuration));
+                    LaneAcquireStepInterval, TelegraphDuration,
+                    ChargeStepInterval, RecoverDuration));
         }
 
         [Test]
@@ -54,15 +61,105 @@ namespace BombSwap.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new ChargerEnemyDefinition(
                     CreateDefinitionId(), 1, 1,
+                    TimeSpan.Zero, TelegraphDuration,
+                    ChargeStepInterval, RecoverDuration));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new ChargerEnemyDefinition(
+                    CreateDefinitionId(), 1, 1,
+                    LaneAcquireStepInterval,
                     TimeSpan.Zero, ChargeStepInterval, RecoverDuration));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new ChargerEnemyDefinition(
                     CreateDefinitionId(), 1, 1,
+                    LaneAcquireStepInterval,
                     TelegraphDuration, TimeSpan.Zero, RecoverDuration));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new ChargerEnemyDefinition(
                     CreateDefinitionId(), 1, 1,
+                    LaneAcquireStepInterval,
                     TelegraphDuration, ChargeStepInterval, TimeSpan.Zero));
+        }
+
+        [Test]
+        public void UnalignedTarget_AcquiresNearestLaneAtCadenceWithStableTieBreak()
+        {
+            var clock = new ManualGameClock();
+            ChargerEnemySimulation charger = CreateSimulation(
+                clock,
+                new GridPosition(2, 2),
+                GridPositionAtOrigin());
+
+            ChargerEnemyAdvanceResult first = charger.Advance();
+
+            Assert.That(first.HasMovement, Is.True);
+            Assert.That(first.State, Is.EqualTo(ChargerEnemyState.Track));
+            Assert.That(first.Movement.To, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(first.Movement.Direction, Is.EqualTo(CardinalDirection.North));
+            Assert.That(charger.Advance().HasActivity, Is.False);
+
+            clock.Advance(LaneAcquireStepInterval - TimeSpan.FromTicks(1));
+            Assert.That(charger.Advance().HasActivity, Is.False);
+            clock.Advance(TimeSpan.FromTicks(1));
+            ChargerEnemyAdvanceResult second = charger.Advance();
+
+            Assert.That(second.HasMovement, Is.True);
+            Assert.That(second.Movement.To, Is.EqualTo(new GridPosition(0, 2)));
+
+            clock.Advance(LaneAcquireStepInterval);
+            ChargerEnemyAdvanceResult telegraph = charger.Advance();
+            Assert.That(telegraph.HasStateTransition, Is.True);
+            Assert.That(telegraph.State, Is.EqualTo(ChargerEnemyState.Telegraph));
+            Assert.That(telegraph.Direction, Is.EqualTo(CardinalDirection.East));
+        }
+
+        [Test]
+        public void LaneAcquisition_ReplansAroundBlockedFirstChoice()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateFloorGrid();
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(2, 2)), Is.True);
+            Assert.That(
+                grid.TrySetTerrain(new GridPosition(0, 1), GridTerrain.IndestructibleWall),
+                Is.True);
+            ChargerEnemySimulation charger = CreateSimulation(
+                grid,
+                clock,
+                GridPositionAtOrigin());
+
+            ChargerEnemyAdvanceResult result = charger.Advance();
+
+            Assert.That(result.HasMovement, Is.True);
+            Assert.That(result.Movement.To, Is.EqualTo(new GridPosition(1, 0)));
+            Assert.That(result.Movement.Direction, Is.EqualTo(CardinalDirection.East));
+        }
+
+        [Test]
+        public void LaneAcquisition_WithNoReachableAlignmentCellWaitsUntilNextCadence()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateFloorGrid();
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(2, 2)), Is.True);
+            Assert.That(
+                grid.TrySetTerrain(new GridPosition(0, 1), GridTerrain.IndestructibleWall),
+                Is.True);
+            Assert.That(
+                grid.TrySetTerrain(new GridPosition(1, 0), GridTerrain.IndestructibleWall),
+                Is.True);
+            Assert.That(
+                grid.TrySetTerrain(new GridPosition(0, -1), GridTerrain.IndestructibleWall),
+                Is.True);
+            Assert.That(
+                grid.TrySetTerrain(new GridPosition(-1, 0), GridTerrain.IndestructibleWall),
+                Is.True);
+            ChargerEnemySimulation charger = CreateSimulation(
+                grid,
+                clock,
+                GridPositionAtOrigin());
+
+            Assert.That(charger.Advance().HasActivity, Is.False);
+            Assert.That(charger.State, Is.EqualTo(ChargerEnemyState.Track));
+            clock.Advance(LaneAcquireStepInterval - TimeSpan.FromTicks(1));
+            Assert.That(charger.Advance().HasActivity, Is.False);
         }
 
         [TestCase(0, 3, CardinalDirection.North)]
@@ -93,14 +190,15 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void UnalignedOrOccludedTarget_DoesNotTelegraph()
+        public void UnalignedOrOccludedTarget_RemainsInTrack()
         {
             var clock = new ManualGameClock();
             GridState unalignedGrid = CreateFloorGrid();
             Assert.That(unalignedGrid.TryAddActor(PlayerActor, new GridPosition(2, 3)), Is.True);
             var unaligned = CreateSimulation(unalignedGrid, clock, GridPositionAtOrigin());
 
-            Assert.That(unaligned.Advance().HasActivity, Is.False);
+            unaligned.Advance();
+            Assert.That(unaligned.State, Is.EqualTo(ChargerEnemyState.Track));
 
             GridState wallGrid = CreateFloorGrid();
             Assert.That(wallGrid.TryAddActor(PlayerActor, new GridPosition(0, 3)), Is.True);
@@ -109,14 +207,48 @@ namespace BombSwap.Tests.EditMode
                 Is.True);
             var wallBlocked = CreateSimulation(wallGrid, new ManualGameClock(), GridPositionAtOrigin());
 
-            Assert.That(wallBlocked.Advance().HasActivity, Is.False);
+            wallBlocked.Advance();
+            Assert.That(wallBlocked.State, Is.EqualTo(ChargerEnemyState.Track));
 
             GridState bombGrid = CreateFloorGrid();
             Assert.That(bombGrid.TryAddActor(PlayerActor, new GridPosition(0, 3)), Is.True);
             Assert.That(bombGrid.TryAddBomb(new GridPosition(0, 1)), Is.True);
             var bombBlocked = CreateSimulation(bombGrid, new ManualGameClock(), GridPositionAtOrigin());
 
-            Assert.That(bombBlocked.Advance().HasActivity, Is.False);
+            bombBlocked.Advance();
+            Assert.That(bombBlocked.State, Is.EqualTo(ChargerEnemyState.Track));
+        }
+
+        [Test]
+        public void Telegraph_LocksMaximumChargeDistanceAgainstRemovedObstacle()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateFloorGrid();
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 2)), Is.True);
+            Assert.That(
+                grid.TrySetTerrain(new GridPosition(0, 3), GridTerrain.IndestructibleWall),
+                Is.True);
+            ChargerEnemySimulation charger = CreateSimulation(grid, clock, GridPositionAtOrigin());
+
+            ChargerEnemyAdvanceResult telegraph = charger.Advance();
+            Assert.That(telegraph.LockedChargeDistance, Is.EqualTo(2));
+            Assert.That(charger.LockedChargeDistance, Is.EqualTo(2));
+            Assert.That(grid.TryMoveActor(PlayerActor, new GridPosition(1, 2)), Is.True);
+            Assert.That(grid.TrySetTerrain(new GridPosition(0, 3), GridTerrain.Floor), Is.True);
+
+            clock.Advance(TelegraphDuration);
+            charger.Advance();
+            Assert.That(charger.Advance().HasMovement, Is.True);
+            clock.Advance(ChargeStepInterval);
+            Assert.That(charger.Advance().HasMovement, Is.True);
+            clock.Advance(ChargeStepInterval);
+
+            ChargerEnemyAdvanceResult stopped = charger.Advance();
+
+            Assert.That(stopped.HasStateTransition, Is.True);
+            Assert.That(stopped.State, Is.EqualTo(ChargerEnemyState.Recover));
+            Assert.That(stopped.ImpactedTarget, Is.False);
+            Assert.That(charger.CurrentPosition, Is.EqualTo(new GridPosition(0, 2)));
         }
 
         [Test]
@@ -369,6 +501,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinitionId(),
                 1,
                 1,
+                LaneAcquireStepInterval,
                 TelegraphDuration,
                 ChargeStepInterval,
                 RecoverDuration);

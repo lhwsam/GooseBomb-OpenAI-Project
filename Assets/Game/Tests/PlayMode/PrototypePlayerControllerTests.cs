@@ -18,6 +18,7 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _explosionPrefab;
         private GameObject _chaserPrefab;
         private GameObject _chargerPrefab;
+        private GameObject _chargerTelegraphCellPrefab;
         private GameObject _armoredPrefab;
         private GameObject _bossPrefab;
         private GameObject _bossDangerCellPrefab;
@@ -33,10 +34,12 @@ namespace BombSwap.Tests.PlayMode
         private Material _playerMaterial;
         private Material _chaserMaterial;
         private Material _chargerMaterial;
+        private Material _chargerTelegraphCellMaterial;
         private Material _armoredMaterial;
         private Material _bossMaterial;
         private Material _bossDangerCellMaterial;
         private PrototypeGameSession _session;
+        private BombSwapInputReader _reader;
         private PrototypePlayerController _controller;
         private PrototypeBombPresenter _presenter;
         private PrototypeDestructibleWallPresenter _destructibleWallPresenter;
@@ -73,6 +76,10 @@ namespace BombSwap.Tests.PlayMode
             if (_chargerPrefab != null)
             {
                 Object.DestroyImmediate(_chargerPrefab);
+            }
+            if (_chargerTelegraphCellPrefab != null)
+            {
+                Object.DestroyImmediate(_chargerTelegraphCellPrefab);
             }
             if (_armoredPrefab != null)
             {
@@ -133,6 +140,10 @@ namespace BombSwap.Tests.PlayMode
             if (_chargerMaterial != null)
             {
                 Object.DestroyImmediate(_chargerMaterial);
+            }
+            if (_chargerTelegraphCellMaterial != null)
+            {
+                Object.DestroyImmediate(_chargerTelegraphCellMaterial);
             }
             if (_armoredMaterial != null)
             {
@@ -968,6 +979,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_chargerPresenter.StateChangeCount, Is.EqualTo(1));
             Assert.That(_chargerPresenter.CurrentState, Is.EqualTo(ChargerEnemyState.Telegraph));
             Assert.That(_chargerPresenter.IsEnemyVisible, Is.True);
+            Assert.That(_chargerPresenter.ActiveTelegraphCellCount, Is.EqualTo(4));
 
             yield return new WaitForSecondsRealtime(0.09f);
 
@@ -975,6 +987,39 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.CurrentChargerGridPosition, Is.EqualTo(new GridPosition(0, 1)));
             Assert.That(_chargerPresenter.MoveCount, Is.EqualTo(1));
             Assert.That(_chargerPresenter.CurrentState, Is.EqualTo(ChargerEnemyState.Charge));
+            Assert.That(_chargerPresenter.ActiveTelegraphCellCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator Charger_AcquiresLaneBeforeTelegraphAndUsesTrackInterpolation()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeChargerPresenter: true,
+                chaserSpawnPosition: new Vector2Int(-2, -2),
+                chargerSpawnPosition: new Vector2Int(2, 2),
+                chargerLaneAcquireCellsPerSecond: 20f,
+                chargerTelegraphSeconds: 0.5f,
+                chargerCellsPerSecond: 8f);
+
+            yield return new WaitForSecondsRealtime(0.18f);
+
+            Assert.That(_session.CurrentChargerState, Is.EqualTo(ChargerEnemyState.Telegraph));
+            Assert.That(
+                _session.CurrentChargerGridPosition,
+                Is.EqualTo(new GridPosition(2, 0)));
+            Assert.That(_chargerPresenter.MoveCount, Is.EqualTo(2));
+            Assert.That(_chargerPresenter.ActiveTelegraphCellCount, Is.EqualTo(4));
+            Assert.That(
+                _chargerPresenter.Instance.transform.position.x,
+                Is.EqualTo(2f).Within(0.02f));
+            Assert.That(
+                _chargerPresenter.Instance.transform.position.y,
+                Is.EqualTo(0.45f).Within(0.02f));
+            Assert.That(
+                _chargerPresenter.Instance.transform.position.z,
+                Is.EqualTo(0f).Within(0.02f));
         }
 
         [UnityTest]
@@ -1576,6 +1621,7 @@ namespace BombSwap.Tests.PlayMode
             bool includeDestructibleWallPresenter = false,
             Vector2Int? chargerSpawnPosition = null,
             bool includeChargerPresenter = false,
+            float chargerLaneAcquireCellsPerSecond = 20f,
             float chargerTelegraphSeconds = 0.05f,
             float chargerCellsPerSecond = 8f,
             float chargerRecoverSeconds = 0.05f,
@@ -1693,16 +1739,28 @@ namespace BombSwap.Tests.PlayMode
                 _chargerMaterial.color = new Color(0.95f, 0.28f, 0.08f, 1f);
                 _chargerPrefab.GetComponent<Renderer>().sharedMaterial = _chargerMaterial;
                 _chargerPrefab.SetActive(false);
+                _chargerTelegraphCellPrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _chargerTelegraphCellPrefab.name = "ChargerTelegraphCellVisualPrefab";
+                Collider telegraphCollider =
+                    _chargerTelegraphCellPrefab.GetComponent<Collider>();
+                Object.DestroyImmediate(telegraphCollider);
+                _chargerTelegraphCellMaterial = new Material(playerShader);
+                _chargerTelegraphCellMaterial.color = new Color(1f, 0.72f, 0.05f, 1f);
+                _chargerTelegraphCellPrefab.GetComponent<Renderer>().sharedMaterial =
+                    _chargerTelegraphCellMaterial;
+                _chargerTelegraphCellPrefab.SetActive(false);
                 _chargerDefinition =
                     ScriptableObject.CreateInstance<PrototypeChargerDefinitionAsset>();
                 _chargerDefinition.Configure(
                     "test-charger",
                     1,
                     1,
+                    chargerLaneAcquireCellsPerSecond,
                     chargerTelegraphSeconds,
                     chargerCellsPerSecond,
                     chargerRecoverSeconds,
                     _chargerPrefab,
+                    _chargerTelegraphCellPrefab,
                     0.45f,
                     0.12f);
             }
@@ -1838,11 +1896,11 @@ namespace BombSwap.Tests.PlayMode
                 chargerSpawnPosition,
                 armoredSpawnPosition);
 
-            BombSwapInputReader reader = _root.AddComponent<BombSwapInputReader>();
-            reader.Configure(_inputActions);
+            _reader = _root.AddComponent<BombSwapInputReader>();
+            _reader.Configure(_inputActions);
             TestSandboxContext context = _root.AddComponent<TestSandboxContext>();
             context.Configure(
-                reader,
+                _reader,
                 gridRoot,
                 spawn,
                 _player,
@@ -1854,7 +1912,7 @@ namespace BombSwap.Tests.PlayMode
             _session = _root.AddComponent<PrototypeGameSession>();
             _session.Configure(
                 context,
-                reader,
+                _reader,
                 _loadout,
                 _vitals,
                 _chaserDefinition,
@@ -1947,7 +2005,7 @@ namespace BombSwap.Tests.PlayMode
             if (includeProbe)
             {
                 _probe = _root.AddComponent<PrototypeInputHarnessProbe>();
-                _probe.Configure(reader, _session);
+                _probe.Configure(_reader, _session);
             }
             if (includeRoomAdvanceController)
             {
@@ -1958,7 +2016,7 @@ namespace BombSwap.Tests.PlayMode
                     roomTransitionDelaySeconds);
             }
             _root.SetActive(true);
-            reader.SetInputFocus(true);
+            _reader.SetInputFocus(true);
         }
 
         private void PressAndRelease(Key key)
@@ -1969,6 +2027,7 @@ namespace BombSwap.Tests.PlayMode
 
         private void QueueKeyboardState(params Key[] pressedKeys)
         {
+            _reader.SetInputFocus(true);
             InputSystem.QueueStateEvent(_keyboard, new KeyboardState(pressedKeys));
             InputSystem.Update();
         }

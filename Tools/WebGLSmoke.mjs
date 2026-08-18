@@ -769,6 +769,28 @@ async function main() {
       page,
       "player-health-current-5",
     );
+    const chargerTrackMovesBefore = await eventCount(
+      page,
+      "charger-track-moved",
+    );
+    const chargerRecoversBefore = await eventCount(
+      page,
+      "charger-recover",
+    );
+    await waitForEvent(page, "charger-recover", {
+      count: chargerRecoversBefore + 1,
+      timeout: 5_000,
+    });
+    await moveToCell(page, 4, 2);
+    await waitForEvent(page, "charger-track-moved", {
+      count: chargerTrackMovesBefore + 1,
+      timeout: 5_000,
+    });
+    checks.push({
+      name: "charger-lane-acquisition",
+      status: "passed",
+      detail: "After recovery, an unaligned target caused a visible Track movement before the next locked charge sequence.",
+    });
     await waitForEvent(page, "player-died", { timeout: 15_000 });
     await waitForEvent(page, "run-failed", { timeout: 5_000 });
     await page.keyboard.press("KeyR");
@@ -851,16 +873,17 @@ async function main() {
       "place-bomb-definition-prototype-cross",
     );
     let combatExplosionsBefore = await eventCount(page, "bomb-exploded");
+    const combatRoomClearsBefore = await eventCount(page, "room-cleared");
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-cross", {
       count: combatPlacementsBefore + 1,
       timeout: 5_000,
     });
+    await moveToCell(page, 3, 2);
     await waitForEvent(page, "bomb-exploded", {
       count: combatExplosionsBefore + 1,
       timeout: 15_000,
     });
-    await moveToCell(page, 3, 3);
     combatPlacementsBefore = await eventCount(
       page,
       "place-bomb-definition-prototype-cross",
@@ -872,11 +895,34 @@ async function main() {
       timeout: 5_000,
     });
     await moveToCell(page, 3, 0);
+    await moveToCell(page, 3, -1);
+    await moveToCell(page, 0, -1);
+    await moveToCell(page, 0, 0);
     await waitForEvent(page, "bomb-exploded", {
       count: combatExplosionsBefore + 1,
       timeout: 15_000,
     });
-    await waitForEvent(page, "room-cleared", { timeout: 5_000 });
+    if (await eventCount(page, "room-cleared") < combatRoomClearsBefore + 1) {
+      combatPlacementsBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-cross",
+      );
+      combatExplosionsBefore = await eventCount(page, "bomb-exploded");
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+        count: combatPlacementsBefore + 1,
+        timeout: 5_000,
+      });
+      await moveToCell(page, 0, -3);
+      await waitForEvent(page, "bomb-exploded", {
+        count: combatExplosionsBefore + 1,
+        timeout: 15_000,
+      });
+    }
+    await waitForEvent(page, "room-cleared", {
+      count: combatRoomClearsBefore + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(page, "combat-reward-tokens-1", { timeout: 5_000 });
     checks.push({
       name: "bomb-input",
@@ -884,9 +930,7 @@ async function main() {
       detail: "Cleared the first combat room with the single starting cross-bomb slot.",
     });
 
-    await moveToCell(page, 3, -3);
-    await moveToCell(page, -3, -3);
-    await moveToCell(page, -3, 0);
+    await moveToCell(page, -3, 0, "zx");
     fs.mkdirSync(path.dirname(secretWallScreenshotPath), { recursive: true });
     await page.screenshot({ path: secretWallScreenshotPath });
     const secretRevealBefore = await eventCount(
@@ -902,7 +946,7 @@ async function main() {
       count: secretBombPlacementsBefore + 1,
       timeout: 5_000,
     });
-    await moveToCell(page, -3, -3);
+    await moveToCell(page, 0, -1);
     await waitForEvent(page, "secret-wall-revealed-room-2-direction-west", {
       count: secretRevealBefore + 1,
       timeout: 15_000,
@@ -972,10 +1016,8 @@ async function main() {
     });
 
     await moveToCell(page, -3, 0);
-    await moveToCell(page, -3, -3);
-    await moveToCell(page, 3, -3);
-    await moveToCell(page, 3, 5);
-    await moveToCell(page, 0, 5);
+    await moveToCell(page, 0, 0);
+    await moveToCell(page, 0, 4);
     const rewardReadyBefore = await eventCount(
       page,
       "dungeon-room-ready-3-bomb-reward-safe",
@@ -1563,6 +1605,11 @@ async function main() {
       "dungeon-room-committed",
       "dungeon-room-ready-2-combat-active",
       "room-ready-prototype-combat-pillars",
+      "charger-track-moved",
+      "charger-telegraph",
+      "charger-charge",
+      "charger-charge-moved",
+      "charger-recover",
       "move-motion-direction-west",
       "move-motion-direction-north",
       "place-bomb-definition-prototype-cross",

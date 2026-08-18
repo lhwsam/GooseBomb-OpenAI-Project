@@ -3,6 +3,8 @@
 - 상태: `Accepted` 구현 완료, 수치·가독성은 플레이테스트 전 `Proposed`
 - 기준일: 2026-08-14
 
+이 문서는 최초 제자리 `Track` 수직 슬라이스의 완료 근거다. 2026-08-17 차선 획득과 Pillars 후속 계약은 [ChargerLaneAcquisitionSlice](ChargerLaneAcquisitionSlice.md)가 소유한다.
+
 ## 목표
 
 - GDD 테스트 2의 `추격자와 돌진형 적` 구성을 실제 3D WebGL 전투방에서 함께 관찰할 수 있게 한다.

@@ -80,6 +80,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
         public const string ChargerPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChargerPlaceholder.prefab";
+        public const string ChargerTelegraphCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ChargerTelegraphCellPlaceholder.prefab";
         public const string ArmoredPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPlaceholder.prefab";
         public const string BossPrefabPath =
@@ -416,10 +418,28 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     $"Prototype charger definition must reference '{ChargerPrefabPath}', found '{prefabPath}'.");
             }
+            string telegraphPrefabPath = AssetDatabase.GetAssetPath(
+                definition.TelegraphCellPrefab);
+            if (!string.Equals(
+                    telegraphPrefabPath,
+                    ChargerTelegraphCellPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Prototype charger definition must reference " +
+                    $"'{ChargerTelegraphCellPrefabPath}', found '{telegraphPrefabPath}'.");
+            }
             if (definition.ChargerPrefab != null &&
                 definition.ChargerPrefab.GetComponentInChildren<Collider>(true) != null)
             {
                 errors.Add("Prototype charger prefab must not contain a Collider; logical grid owns collision.");
+            }
+            if (definition.TelegraphCellPrefab != null &&
+                definition.TelegraphCellPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                errors.Add(
+                    "Prototype charger telegraph-cell prefab must not contain a Collider; " +
+                    "logical grid owns collision.");
             }
         }
 
@@ -564,7 +584,7 @@ namespace BombSwap.Editor.ContentValidation
             {
                 null,
                 null,
-                new GridPosition(-3, 2),
+                new GridPosition(0, 1),
                 null,
                 null,
             };
@@ -614,6 +634,10 @@ namespace BombSwap.Editor.ContentValidation
                             $"Prototype combat room '{path}' has unexpected armored spawn " +
                             $"'{room.ArmoredSpawn}'; expected '{expectedArmoredSpawns[index]}'.");
                     }
+                    if (index == 2)
+                    {
+                        ValidatePillarsLaneLayout(room, errors);
+                    }
                     RoomExitDirection[] exitDirections = room.Exits
                         .Select(roomExit => roomExit.Direction)
                         .OrderBy(direction => direction)
@@ -635,6 +659,52 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add($"Invalid prototype combat room definition '{path}': {exception.Message}");
                 }
+            }
+        }
+
+        private static void ValidatePillarsLaneLayout(
+            CombatRoomDefinition room,
+            ICollection<string> errors)
+        {
+            var expectedFixedWalls = new HashSet<GridPosition>
+            {
+                new GridPosition(-4, -2),
+                new GridPosition(-2, 1),
+                new GridPosition(2, 1),
+                new GridPosition(-3, -3),
+                new GridPosition(-3, 3),
+                new GridPosition(3, -3),
+                new GridPosition(3, 3),
+            };
+            var expectedSafeCells = new HashSet<GridPosition>
+            {
+                new GridPosition(-3, -2),
+                new GridPosition(-3, -1),
+                new GridPosition(-2, -2),
+            };
+            var expectedRetreatAnchors = new HashSet<GridPosition>
+            {
+                new GridPosition(-3, -1),
+                new GridPosition(-2, -2),
+            };
+
+            bool hasExpectedLoop = room.LureLoop.Count == 8 &&
+                room.LureLoop.All(position =>
+                    position.X >= -1 && position.X <= 1 &&
+                    position.Z >= -1 && position.Z <= 1 &&
+                    (Math.Abs(position.X) == 1 || Math.Abs(position.Z) == 1));
+            if (room.PlayerSpawn != new GridPosition(-3, -2) ||
+                room.ChaserSpawn != new GridPosition(3, 2) ||
+                !expectedFixedWalls.SetEquals(room.IndestructibleWalls) ||
+                room.DestructibleWalls.Count != 1 ||
+                room.DestructibleWalls[0] != new GridPosition(2, -2) ||
+                !expectedSafeCells.SetEquals(room.SafePlayerCells) ||
+                !expectedRetreatAnchors.SetEquals(room.RetreatAnchors) ||
+                !hasExpectedLoop)
+            {
+                errors.Add(
+                    "Prototype Pillars room must preserve the authored short charge lanes, " +
+                    "side escape cells, collision stops, and central 3x3 lure loop.");
             }
         }
 

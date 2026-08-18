@@ -27,7 +27,7 @@
 
 `BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 매 frame 진행하고 `PrototypePlayerController`가 Core 연속 위치를 placeholder Transform으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
-같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence, 재계획 시점의 BFS 거리장과 최대 두 칸 방향 유지로 플레이어를 추격한다. 마지막 방의 선택적 `ChargerEnemySimulation`도 같은 격자를 점유하고 예고 뒤 잠근 방향으로 한 셀씩 돌진한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, 각 presenter는 확정된 step만 3D placeholder에 보간한다.
+같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence, 재계획 시점의 BFS 거리장과 최대 두 칸 방향 유지로 플레이어를 추격한다. 선택적 `ChargerEnemySimulation`은 1초 cadence의 BFS로 가장 가까운 유효 행/열 정렬 셀을 획득하고, 예고 시작 순간 방향과 최대 돌진 거리를 잠근 뒤 한 셀씩 돌진한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, 각 presenter는 확정된 step만 상태별 속도로 3D placeholder에 보간한다.
 
 플레이어와 살아 있는 추격자의 접촉은 `GridPosition.IsCardinallyAdjacentTo`가 판정하는 Manhattan 거리 1이다. 돌진형은 다음 이동 셀이 플레이어 셀일 때 겹치지 않고 충돌을 보고한다. 두 판정 모두 Transform·Collider 거리를 규칙 입력으로 사용하지 않는다.
 
@@ -113,7 +113,7 @@
 - 실제 `Z` 설치 뒤 소유자가 셀을 빠져나오고 반대 입력으로 폭탄 셀에 재진입하지 못함.
 - 추격자가 플레이어와 공유하는 논리 격자에서 이동하고 presenter가 확정된 적 step을 보간함.
 - 폭발 사망 뒤 추격자 actor 점유가 제거되고 placeholder가 짧은 사망 표시 뒤 비활성화됨.
-- 마지막 방 돌진형의 예고·한 셀 이동·충돌 정지와 벽·폭탄·actor 차단, 폭발 사망 뒤 점유 제거와 적별 presenter 비활성화.
+- Pillars 돌진형의 차선 획득 이동, 전체 고정 차선 예고, 획득/돌진별 보간, 충돌 정지와 벽·폭탄·actor 차단, 폭발 사망 뒤 점유 제거와 적별 presenter 비활성화.
 - cardinal 인접만 접촉 피해 후보가 되고 대각선·극단 좌표 계산이 overflow 없이 거부됨.
 
 다음 항목은 방 콘텐츠 구현 이후 추가한다.

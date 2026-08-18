@@ -27,6 +27,9 @@ namespace BombSwap
         private bool _chargerTelegraphReported;
         private bool _chargerChargeReported;
         private bool _chargerMovedReported;
+        private bool _chargerTrackMovedReported;
+        private bool _chargerChargeMovedReported;
+        private bool _chargerRecoverReported;
         private bool _armoredMovedReported;
         private bool _armoredBrokenReported;
         private bool _armoredDiedReported;
@@ -338,6 +341,11 @@ namespace BombSwap
                 result.State == ChargerEnemyState.Telegraph)
             {
                 WebGlHarnessReporter.Report("charger-telegraph");
+                WebGlHarnessReporter.Report(
+                    "charger-telegraph-" +
+                    ToMarkerDirection(result.Direction) +
+                    "-distance-" +
+                    result.LockedChargeDistance);
                 _chargerTelegraphReported = true;
             }
             if (!_chargerChargeReported && result.HasStateTransition &&
@@ -350,6 +358,45 @@ namespace BombSwap
             {
                 WebGlHarnessReporter.Report("charger-moved");
                 _chargerMovedReported = true;
+            }
+            if (!_chargerTrackMovedReported && result.HasMovement &&
+                result.State == ChargerEnemyState.Track)
+            {
+                WebGlHarnessReporter.Report("charger-track-moved");
+                _chargerTrackMovedReported = true;
+            }
+            if (!_chargerChargeMovedReported && result.HasMovement &&
+                result.State == ChargerEnemyState.Charge)
+            {
+                WebGlHarnessReporter.Report("charger-charge-moved");
+                _chargerChargeMovedReported = true;
+            }
+            if (!_chargerRecoverReported && result.HasStateTransition &&
+                result.State == ChargerEnemyState.Recover)
+            {
+                WebGlHarnessReporter.Report("charger-recover");
+                WebGlHarnessReporter.Report(
+                    result.ImpactedTarget
+                        ? "charger-recover-target"
+                        : "charger-recover-obstacle-or-limit");
+                _chargerRecoverReported = true;
+            }
+        }
+
+        private static string ToMarkerDirection(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return "north";
+                case CardinalDirection.East:
+                    return "east";
+                case CardinalDirection.South:
+                    return "south";
+                case CardinalDirection.West:
+                    return "west";
+                default:
+                    return "none";
             }
         }
 
