@@ -1759,14 +1759,6 @@ namespace BombSwap.Editor.ContentValidation
                 AssetDatabase.LoadAssetAtPath<Material>(SecretCrackMaterialPath);
             Material expectedWallMaterial =
                 AssetDatabase.LoadAssetAtPath<Material>(DestructibleWallMaterialPath);
-            CombatRoomDefinition room = context.RoomDefinition.CreateCoreDefinition();
-            RoomExitDirection[] localDirections =
-            {
-                RoomExitDirection.North,
-                RoomExitDirection.East,
-                RoomExitDirection.South,
-                RoomExitDirection.West,
-            };
             if (new HashSet<GameObject>(secretCrackRoots).Count !=
                 secretCrackRoots.Length)
             {
@@ -1785,12 +1777,6 @@ namespace BombSwap.Editor.ContentValidation
                 Renderer surfaceRenderer = surface != null
                     ? surface.GetComponent<Renderer>()
                     : null;
-                GridPosition expectedCell = room.Exits
-                    .Single(exit => exit.Direction == localDirections[index])
-                    .Cell;
-                GridPosition actualCell = root != null
-                    ? context.GridSpace.WorldToGrid(root.transform.position)
-                    : default;
                 Renderer[] crackBars = renderers
                     .Where(renderer => renderer != surfaceRenderer)
                     .ToArray();
@@ -1801,7 +1787,9 @@ namespace BombSwap.Editor.ContentValidation
                         StringComparison.Ordinal) ||
                     root.activeSelf || root.transform.childCount != 4 ||
                     renderers.Length != 4 ||
-                    actualCell != expectedCell ||
+                    Vector3.SqrMagnitude(
+                        root.transform.position - doors[index].transform.position) >
+                        0.000001f ||
                     surfaceRenderer == null ||
                     surfaceRenderer.sharedMaterial != expectedWallMaterial ||
                     surfaceRenderer.GetComponent<Collider>() != null ||
@@ -1812,7 +1800,8 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"Dungeon {expectedCrackNames[index]} must be an inactive " +
-                        $"collider-free wall visual at exit cell {expectedCell}, using " +
+                        $"collider-free secret-door visual at the matching " +
+                        $"{expectedNames[index]} position, using " +
                         "one destructible-wall surface and three secret-crack bars.");
                 }
             }

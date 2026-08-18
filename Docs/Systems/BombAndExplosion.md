@@ -74,6 +74,17 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 시계가 여러 사건 시각을 한 번에 지나가도 각 폭발은 원래 예약된 논리 시각으로 처리되어 프레임 호출 빈도에 따라 결과가 달라지지 않는다.
 - 설치 직후 snapshot과 폭발 결과는 폭탄/정의 ID, 설치자 ID, 설치 방향, 원점, 논리 시각, fuse/chain 원인, 영향 셀, 파괴 벽을 읽기 전용으로 제공한다.
 
+## 폭발 영향 오브젝트 분류
+
+`BombExplosion`은 모든 반응 대상을 직접 소유하는 범용 목록이 아니라 두 종류의 확정 결과를 제공한다.
+
+- `AffectedCells`는 폭발 footprint다. 플레이어·적·활성 폭탄과 전파를 바꾸지 않는 방 기믹이 이 셀 집합을 소비한다. `Affects(position)`은 이 read-only 결과의 포함 여부를 조회하는 편의 API다.
+- `DestroyedWalls`는 `GridTerrain.DestructibleWall`만을 위한 지형 변경 결과다. 해당 셀을 `Floor`로 바꾸고 ray를 끝내는 전파 계약과 결합되어 있으므로 문·스위치 같은 다른 반응물을 여기에 넣지 않는다.
+- 전파를 막거나 범위 계산을 바꾸는 새 환경 오브젝트는 Unity Collider callback이 아니라 Core grid/resolver 규칙으로 추가한다.
+- 전파를 바꾸지 않는 방 기믹은 저작된 논리 셀 또는 경계를 `AffectedCells`에 매핑하고, 확정된 결과만 전용 Core 상태와 presenter에 전달한다.
+
+현재 비밀문은 마지막 경우다. 문 앞 출구 셀은 `Floor`이며 binder가 `출구 셀 → Secret 연결 방향`을 방 단위로 보관한다. 그 셀이 `AffectedCells`에 포함되면 `DungeonRunState`에 공개를 요청한다. 비밀문은 지형이 아니므로 `DestroyedWalls`에 나타나지 않고 일반 파괴벽의 차단·파괴 규칙도 바꾸지 않는다.
+
 ## 구현된 Unity 수직 슬라이스
 
 - `PrototypeGameSession`은 이동·폭탄·두 슬롯이 공유하는 하나의 논리 격자·시계를 소유하고 `PlaceBomb` 명령을 활성 슬롯, 현재 플레이어 셀과 Core의 마지막 바라보기 방향에 적용한다.
@@ -82,7 +93,8 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 확정된 폭발 셀에 현재 플레이어 논리 셀이 포함되면 체력 시스템에 해당 `BombId`의 피해를 한 번 전달하고, 무적 계약을 통과한 결과만 `PlayerDamaged`로 발행한다.
 - 확정된 폭발 셀에 살아 있는 기본 추격자 또는 선택적 돌진형의 논리 셀이 포함되면 각 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 두 적은 모두 내구도 1이며 같은 결과에서 사망하면 각 논리 점유가 제거된다.
 - `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 직선 폭탄의 비대칭 설치체를 확정된 방향으로 회전한다. 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
-- `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. 예외는 binder가 현재 run의 미공개 Secret 출구에 겹쳐 놓은 runtime boundary wall이며, 이 셀은 정적 내부 블록 없이도 논리 파괴 결과를 허용하고 문 crack presenter가 표현을 제거한다. 같은 시각의 여러 폭발이 같은 벽을 보고해도 표현 제거와 연결 공개는 멱등이다.
+- `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. authored 시각이 없는 파괴 결과는 오류다.
+- `PrototypeDungeonRoomBinder`는 현재 방의 미공개 Secret 연결을 문 앞 출구 셀에 매핑한다. `BombExplosion.AffectedCells`가 그 셀에 닿으면 해당 연결만 공개하고 door/minimap 표현을 갱신한다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
 - 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자·돌진형 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자·3×3 광역·앞쪽 직선 폭발을 포함한다. 추격자 뒤 돌진형 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 범용 다중 적 목록·중형 적 피해 단계는 아직 없다.
 

@@ -45,7 +45,7 @@
 - `DungeonPlayerHealthState`가 적용된 피해의 현재 체력을 run 수명으로 소유하고, 다음 방·재방문·보스방 session과 HUD가 같은 값을 복원하며 새 run만 최대 체력으로 시작하도록 연결.
 - GDD 20.4의 선택형 회복방을 normal progression의 보스 근처 막다른 leaf로 추가했다. Core가 노드별 1회 소비와 상한 회복을 소유하고 `DungeonRecovery` 중앙 pickup이 `Proposed +2`를 적용하며, 최대 체력에서는 소비하지 않고 재입장에서도 상태를 유지한다.
 - `DungeonRunState`의 제한 정보 snapshot과 우측 상단 `PrototypeDungeonMinimapPresenter`를 연결했다. 현재 방 `C`, 방문 방 `V`, 방문 방의 직접 인접 미방문 방 `?`와 확인된 연결만 표시하며 미방문 방 종류·그 너머 연결·미공개 Secret·fast travel은 제공하지 않는다. 11개 scene의 단일 presenter·binder 참조와 토큰 HUD 하단 배치를 validator·PlayMode·실제 WebGL 캡처로 고정했다.
-- GDD 20.5의 `prototype-secret-v3` 후처리로 일반 전투방 2~3개와 맞닿는 빈 좌표에 Secret 하나를 결정론적으로 추가했다. 입구별 공개 상태는 Core run state가 소유하고, 실제 runtime `DestructibleWall` 폭발 뒤 해당 금 간 문·미니맵만 열리며 `DungeonSecret` 중앙 cache가 한 run에 한 번 `ROOM TOKENS +3`을 지급한다.
+- GDD 20.5의 `prototype-secret-v3` 후처리로 일반 전투방 2~3개와 맞닿는 빈 좌표에 Secret 하나를 결정론적으로 추가했다. 입구별 공개 상태는 Core run state가 소유한다. 금 간 문은 일반 문과 같은 경계 위치에 표시되고 문 앞 출구 셀은 `Floor`로 유지되며, 실제 폭발 `AffectedCells`가 그 셀에 닿으면 파괴벽 결과 없이 해당 문·미니맵만 열린다. `DungeonSecret` 중앙 cache는 한 run에 한 번 `ROOM TOKENS +3`을 지급한다.
 - 폭발 영향 셀과 현재 플레이어 논리 셀을 비교해 자기 폭발 피해 1을 적용하고, 같은 폭발 중복·무적 중 별도 폭발·사망 뒤 명령을 차단.
 - `PrototypePlayerHealthPresenter`가 공유 material을 복제하지 않고 피격 pulse와 사망 색을 표시하도록 TestSandbox에 연결.
 - 안정 `EnemyDefinitionId`, 주입 시계 cadence, 재계획 시점의 결정론적 BFS 거리장, 최단 경로를 벗어나지 않는 최대 두 칸 방향 유지를 소유하는 `ChaserEnemySimulation` 구현.
@@ -194,7 +194,7 @@
 - 보스 Core 테스트의 1.0/0.25/2.0초→0.75/0.25/1.5초 timing은 빠른 상태 경계 fixture다. 실제 Unity asset은 체력 4·phase 임계 2·패턴 피해 1과 1.0/0.25/2.75초→0.75/0.25/2.75초를 사용한다. P01의 정지 보스 한계에 따라 예측 가능한 한 칸 순환과 목적지 ghost·선행 폭탄 적중은 구현했지만, 이동 빈도·예고 가독성과 실제 재미는 새 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
-- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽·1회 파괴 벽과 runtime Secret 출구 overlay만 지원한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 보상·전환 anchor와 room prefab 선택은 아직 없다.
+- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적 각 한 개, 고정 벽·1회 파괴 벽을 지원한다. Secret 문은 방별 출구 셀→연결 경계 adapter가 폭발 footprint를 소비한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 다종 환경 반응물 registry, 보상·전환 anchor와 room prefab 선택은 아직 없다.
 - 다섯 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 장착된 두 폭탄 정의·성공한 마지막 활성 슬롯·현재 체력·Recovery 소비 여부는 run 전체에서 보존되고 새 run만 슬롯 0·최대 체력·미소비 Recovery로 시작한다. `+2`와 한 번 사용은 자동 검증을 통과한 `Proposed` 값이며 사람 플레이 전에는 확정하지 않는다.
 - Core 그래프의 기본 4~5 전투방, 단일 선택 가지와 Secret 하나의 2~3 Combat 인접 후보 정책은 `Proposed`다. 제한 정보 미니맵과 미공개 Secret 숨김은 구현했지만, 길 찾기 피로 감소·금 간 단서 발견성·방 반복 체감은 아직 사람 플레이로 판정하지 않았다.
 - 그래프 기반 실제 문 전환, Unity 씬 수명, 첫 보상 정의·활성 슬롯·현재 체력의 run persistence와 완료 뒤 같은 seed의 새 run 재시작은 구현됐다. 다만 두 슬롯이 찬 뒤 교체·버린 무기 보존, 저장·불러오기, 로딩 연출과 슬롯별 쿨타임 등 room-local 세부 상태 persistence는 아직 없다.
@@ -203,11 +203,13 @@
 
 ## 최근 검증
 
+- 비밀문 경계 전환 트리에서 Unity Editor builder가 11개 scene의 secret door root를 대응 일반 문 위치로 동기화했고, 콘텐츠 validator를 포함한 연결 Unity EditMode `311/311`, PlayMode `128/128`이 통과했다. PlayMode는 출구 `Floor` 접근·미공개 이동 차단·해당 셀 폭발 영향·`DestroyedWalls` 비포함·공개와 비밀방 왕복을 검증한다. `Artifacts/Verification/20260818-182656-secret-door-boundary-web/`의 11씬 Development WebGL 빌드는 138,263,355 bytes·124.752초·오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge keyboard `40/40`, 가상 Gamepad `14/14`, 1,161개 사건 분석과 두 실행의 Console/page error 0이 통과했다. 금 간 문이 일반 문과 같은 서쪽 외벽 경계에 보이는 캡처도 확인했다. 연결 증거는 `Artifacts/Verification/ConnectedTests/20260818-092238-300.json`, `Artifacts/Verification/ConnectedTests/20260818-092309-619.json`, 정적 증거는 `Artifacts/Verification/20260818-183316-static/`이다.
+
 - 돌진형 차선 획득과 `Pillars` 재구성 최종 트리에서 연결 Unity EditMode `311/311`·PlayMode `128/128`, 콘텐츠 validator·Unity Console 오류 0이 통과했다. `Artifacts/Verification/20260818-061000-charger-lane-connected-web/`의 11씬 Development WebGL은 138,265,302 bytes·379.618초·오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge keyboard `40/40`은 차선 획득 이동→전체 예고→고정 돌진→회복과 전체 던전 경로를, 가상 Gamepad `14/14`는 기존 입력 회귀를 Console/page error 0으로 확인했다. 증거는 `Artifacts/Verification/ConnectedTests/20260818-055634-459.json`, `Artifacts/Verification/ConnectedTests/20260818-060838-695.json`, `browser-smoke-final3.json`, `gamepad-smoke.json`이다. 중간 PlayMode·browser 실패 보고서는 입력 focus·긴 frame·새 방 경로 하네스 교정 근거로 보존했다.
 
 - 추격자 BFS 개선은 회귀 red `0/2`에서 기존 North 동률·무경로 배회를 재현한 뒤 green `2/2`, 추격자 전체 `18/18`, 전체 EditMode `307/307`·PlayMode `127/127`을 통과했다. 연결 증거는 `Artifacts/Verification/ConnectedTests/20260816-203100-611.json`, `20260816-203223-227.json`, `20260816-203631-968.json`, `20260816-203647-379.json`, `20260816-203705-406.json`이다. `Artifacts/Verification/20260817-053808-chaser-bfs-web/`의 11씬 Development WebGL은 138,189,741 bytes·265.500초·오류 0·기존 TextMeshPro 안내 경고 3건으로 성공했다. 기존 왕복에 의존한 첫 keyboard 경로 실패를 보존하고 첫 광역 범위 유도 경로로 교정한 뒤 keyboard 39/39, 가상 Gamepad 14/14, 1,127개 사건 분석과 두 실행의 Console/page error 0이 통과했다. 최종 StaticOnly는 `Artifacts/Verification/20260817-054819-static/`이다.
 
-- 비밀벽 정렬 수정 트리에서 content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127과 StaticOnly가 통과했다. `Artifacts/Verification/20260817-051928-secret-wall-alignment-web/`의 11씬 Development WebGL 빌드는 138,134,028 bytes·125.601초·오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge keyboard 39/39와 가상 Gamepad 14/14가 실제 출구 폭발 공개·비밀방 왕복·이후 전체 경로와 Console/page error 0을 확인했고, 1,176개 사건 로그 분석도 통과했다. 캡처에서 서쪽 금 간 surface가 runtime 파괴벽과 같은 출구 셀에 보이고 `SecretWall` 동안 중복 바깥 문이 숨겨진 것을 확인했다. 연결 테스트 증거는 `Artifacts/Verification/ConnectedTests/20260816-201547-253.json`, `Artifacts/Verification/ConnectedTests/20260816-201606-134.json`, 정적 증거는 `Artifacts/Verification/20260817-052622-static/`이다.
+- 현재 문 경계 계약으로 대체되기 전 runtime 파괴벽 정렬 기준에서도 content validator 0오류, 연결 Unity EditMode 305/305·PlayMode 127/127과 StaticOnly가 통과했다. `Artifacts/Verification/20260817-051928-secret-wall-alignment-web/`의 11씬 Development WebGL 빌드는 138,134,028 bytes·125.601초·오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. 이 기록은 이전 결함과 마이그레이션 근거로 보존하며 현재 비밀문 동작의 최신 권위 증거로 사용하지 않는다.
 
 - Git 작업 트리 기준선 확인: 작업 시작 전 clean.
 - `Tools/Verify.ps1 -StaticOnly`: 통과. Markdown 링크, 스킬 4종, asmdef 5종, Core 금지 API 검사. 최신 기록 산출물 `Artifacts/Verification/20260815-042945-static/`.
