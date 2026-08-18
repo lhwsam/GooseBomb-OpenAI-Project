@@ -109,7 +109,7 @@ Recovery 회귀는 5번 전투방 클리어 시점의 손상됐지만 살아 있
 
 방 보상 회귀는 첫 일반 전투 클리어 `combat-reward-tokens-1`, Secret cache `room-reward-tokens-4`, 이후 두 일반 전투 클리어 `combat-reward-tokens-5 → 6`을 순서대로 기다린다. 보스 격파는 값을 늘리지 않으며 완료·실패 뒤 각 `R` 재시작은 새 시작방의 추가 `combat-reward-tokens-0`과 `room-reward-tokens-0` marker로 새 Core run 상태를 증명한다.
 
-`Tools/ArmoredWebGLSmoke.mjs`는 `TestSandboxArmor`를 첫 enabled 씬으로 재정렬한 별도 development 빌드에서 갑옷 가설만 검증한다. canvas focus와 `room-ready-prototype-combat-armor` 뒤 실제 두 폭탄을 설치하고, 첫 폭발의 `armored-broken`과 그 전후 `armored-moved`, 두 번째 폭발의 `armored-died`, 일반 `enemy-died`, `room-cleared` 순서를 확인한다. 전용 screenshot, browser Console/page error 0과 함께 구조화된 JSON 결과를 남긴다.
+`Tools/ArmoredWebGLSmoke.mjs`는 `TestSandboxArmor`를 첫 씬으로 사용하는 별도 development 빌드에서 장갑병 가설만 검증한다. 정식 Build Settings와 콘텐츠 검증 순서는 바꾸지 않고, 필요하면 던전 host·binder·minimap·완료 presenter를 제거한 일회성 검증 scene 사본을 빌드한 뒤 삭제한다. canvas focus와 `room-ready-prototype-combat-armor` 뒤 시작 십자 폭탄으로 `armored-broken → armored-panic-telegraph-east-distance-3`을 기다리고, 플레이어를 T 교차점 남쪽 포켓과 예고 도착점 옆으로 이동시켜 다른 셀에 두 번째 폭탄을 설치한다. `armored-panic-run-moved → armored-panic-recover → armored-chase → armored-died → enemy-died` 순서, 예고·최종 screenshot, browser Console/page error 0을 구조화된 JSON으로 남긴다. 필수 추격자가 남을 수 있으므로 이 전용 smoke는 `room-cleared`를 요구하지 않으며 다중 적 최종 클리어는 PlayMode와 기본 던전 smoke가 소유한다.
 
 `Tools/DirectionalLineWebGLSmoke.mjs`는 기본 던전 development 빌드에서 첫 전투를 실제로 클리어한 뒤 `BombReward`의 오른쪽 `prototype-line` 후보를 수집한다. 슬롯 2로 교체하고 동쪽을 바라본 상태에서 설치한 뒤 북쪽 이동 명령을 보내도 `bomb-reward-selected-prototype-line → active-bomb-slot-1 → line-bomb-placed-east → move-direction-north → line-bomb-exploded-east` 순서가 유지돼야 한다. 전용 screenshot과 `directional-line-smoke.json`에 browser Console/page error 0을 함께 기록한다. 이 smoke는 설치 방향 고정을 증명하지만 네 방향 전체 셀 집합은 EditMode 테스트가 소유한다.
 

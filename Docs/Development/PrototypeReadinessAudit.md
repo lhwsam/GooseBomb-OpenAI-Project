@@ -1,8 +1,8 @@
 # 프로토타입 준비도 감사
 
-- 감사 기준 코드: `772dc78` (`docs: record playtest analyzer verification`)
-- 고정 사람 플레이 빌드 코드: `923a9b5` (`feat: export WebGL playtest logs`)
-- 고정 WebGL 산출물: `Artifacts/Verification/20260816-062845-playtest-log-web-postcommit/WebGLBuild`
+- 감사 기준: 장갑병 panic run 완료 트리, 2026-08-18
+- 현재 전체 경로 WebGL 산출물: `Artifacts/Verification/20260818-191733-armored-panic-web/WebGLBuild`
+- 장갑병 전용 WebGL 산출물: `Artifacts/Verification/20260818-armored-panic-standalone-web-v3/WebGL`
 - 판정: **GDD 필수 구현 범위 충족 / 프로토타입 재미 완료 판정 보류**
 - 권위 원본: [GDD v0.2 36~38장](../GameDesign/GDD_v0.2.md), [프로토타입 완료 판정](../GameDesign/ProtoType_v0.2.md), [Definition of Done](DefinitionOfDone.md)
 
@@ -21,6 +21,7 @@
 | `W39` | 11씬 Development WebGL keyboard smoke `39/39`, `Artifacts/Verification/20260816-064439-playtest-analyzer-postcommit-browser/browser-smoke.json` |
 | `G14` | 같은 빌드의 독립 Gamepad 재시도 `14/14`, `gamepad-smoke-retry.json` |
 | `V0` | `923a9b5` 연결 빌드 전 콘텐츠 validator, BuildReport warning/error `0`, Unity Console Error/Warning `0` |
+| `AP` | 장갑병 panic 완료 트리 EditMode `314/314`, PlayMode `129/129`, 정식 keyboard `40/40`, Gamepad `14/14`, 전용 Armor smoke `7/7`; 자세한 경로는 [CurrentState](CurrentState.md) |
 
 Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 `gamepad-smoke.json`에 보존되어 있다. `G14`는 독립 재시도 성공을 뜻하며 최초 실패를 없던 일로 만들지 않는다.
 
@@ -59,8 +60,8 @@ Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 
 |---|---|---|---|
 | 기본 추격자 | [기본 추격자](BasicChaserSlice.md) | `E305`, `P127`, `W39` | 충족 |
 | 돌진형 적 | [돌진형 적](ChargerEnemySlice.md) | `E305`, `P127`, `W39` | 충족 |
-| 갑옷 적 | [갑옷 적](ArmoredEnemySlice.md) | `E305`, `P127`, 전용 WebGL 증거는 [CurrentState](CurrentState.md) | 충족 |
-| 횟수제 내구도와 첫 피격 후 행동 변화 | [적 행동](../Systems/EnemyBehavior.md), [갑옷 적](ArmoredEnemySlice.md) | `E305`, `P127`, 전용 갑옷 smoke | 충족. 가설 D는 사람 검증 필요 |
+| 갑옷 적 | [장갑병 panic](ArmoredPanicRunSlice.md), [최초 갑옷 적](ArmoredEnemySlice.md) | `AP` | 충족 |
+| 횟수제 내구도와 첫 피격 후 행동 변화 | [적 행동](../Systems/EnemyBehavior.md), [장갑병 panic](ArmoredPanicRunSlice.md) | `AP` | 충족. 방향 가독성과 선행 설치 재미는 사람 검증 필요 |
 
 ### 던전
 
@@ -103,7 +104,7 @@ Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 
 | 기본 폭탄으로 적을 유도한다 | `PT-20260814-01`은 설치 뒤 행동 타임라인 미수집 | `Insufficient evidence` |
 | 두 폭탄의 설치 위치와 목적이 다르다 | `PT-20260815-02`는 폭탄별 설치 이유 미수집 | `Insufficient evidence` |
 | 교체가 단순 쿨타임 로테이션만이 아니다 | 공간·상황별 교체 이유 미수집 | `Insufficient evidence` |
-| 약한 적 한 번 처치와 중형 적 변화가 모두 재미있다 | 갑옷 자동 상태 전이는 검증했지만 첫 피격 가독성·반복감 미관찰 | `Insufficient evidence` |
+| 약한 적 한 번 처치와 중형 적 변화가 모두 재미있다 | 장갑병 수비·3칸 예고·panic 자동 전이는 검증했지만 방향 가독성·도착점 선행 설치·반복감 미관찰 | `Insufficient evidence` |
 | 최소 세 방에서 다른 전투 구도가 발생한다 | 다섯 방을 구현했지만 방별 유도·퇴로 행동 비교 미수집 | `Insufficient evidence` |
 | 보스 퓨즈와 이동을 함께 계산한다 | 이전 정지 보스는 `Not supported`; 이동 보스의 자발적 선행 설치는 미관찰 | `Retest required` |
 | 플레이어가 사망 원인을 설명한다 | UI와 source marker는 자동 검증했지만 직후 설명 응답 미수집 | `Insufficient evidence` |
@@ -114,8 +115,8 @@ Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 
 ## 마일스톤 판정
 
 - GDD 36 필수 **구현 범위**: 충족.
-- 현재 코드의 연결 Unity 회귀: EditMode `305/305`, PlayMode `127/127`, Console Error/Warning `0`.
-- 고정 Development WebGL: 11씬 빌드 성공, keyboard `39/39`, Gamepad 독립 재시도 `14/14`, browser Console/page error `0`.
+- 현재 코드의 연결 Unity 회귀: EditMode `314/314`, PlayMode `129/129`, 콘텐츠 validator·Console Error `0`.
+- 고정 Development WebGL: 정식 11씬 빌드 성공, keyboard `40/40`, Gamepad `14/14`, browser Console/page error `0`. 장갑병 전용 smoke `7/7`도 별도 통과했다.
 - 엄격한 Definition of Done 마일스톤: **미충족**.
   - 사람 플레이에서 완료 조건 8개가 판정되지 않았다.
   - 열린 Editor의 연결 검증은 현재 코드를 강하게 확인하지만, 같은 HEAD의 독립 batchmode `Fast → Full → Web` 단일 연속 실행을 대신하지 않는다.
@@ -123,7 +124,7 @@ Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 
 
 ## 다음 결정
 
-지금 추가해야 할 누락 GDD 필수 기능은 없다. 다음 단계는 [비밀방·탐색·보스 전체 경로 프로토콜](../Playtesting/SecretExplorationRouteProtocol.md)의 자연 플레이 증거 수집이다.
+지금 추가해야 할 누락 GDD 필수 기능은 없다. 다음 단계는 [장갑병 수비·panic run 프로토콜](../Playtesting/ArmoredEnemyProtocol.md)과 [비밀방·탐색·보스 전체 경로 프로토콜](../Playtesting/SecretExplorationRouteProtocol.md)의 자연 플레이 증거 수집이다.
 
 관찰 뒤 가장 강한 반복 문제 하나만 다음 수직 슬라이스로 선택한다.
 
@@ -133,7 +134,7 @@ Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 
 | 미니맵을 못 보거나 `C/V/?`를 반복 오해함 | 크기·범례·현재 방 강조 중 한 변수 |
 | 보스 목적지는 읽지만 선행 설치가 발생하지 않음 | ghost timing·Recovery·이동 빈도 중 한 변수 |
 | 광역·직선 폭탄을 같은 위치와 목적으로 사용함 | 폭탄 수치 또는 한 전투방 공간 계약 한 변수 |
-| 갑옷 첫 피격이 성공으로 읽히지 않거나 두 번째 적중이 노동임 | 첫 피격 표현 또는 행동 변화 한 변수 |
+| 장갑병 첫 피격·3칸 예고가 읽히지 않거나 두 번째 적중이 노동임 | 예고 시간·표현·질주 거리·회복 창 중 한 변수 |
 | 전체 경로가 보스 직행/전부 청소 중 하나로 고정됨 | 가지 보상·방 수·왕복 편의 중 한 변수 |
 
 보물방·패시브 아이템은 기본 전투와 두 폭탄 역할의 사람 증거가 지지된 뒤에만 다시 검토한다.

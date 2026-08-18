@@ -9,7 +9,7 @@
 
 1~5단계의 GDD 필수 구현은 완료됐지만 재미 가설은 완료되지 않았다. 요구사항별 근거와 남은 사람 판정은 [프로토타입 준비도 감사](PrototypeReadinessAudit.md)를 따른다. 6단계 패시브 아이템은 기본 전투·두 폭탄 역할의 사람 증거가 지지되기 전에는 시작하지 않는다.
 
-실제 플레이에서 반복적인 설치→외곽 도주→대기가 관찰되어 [전투·적 AI·레벨·보스 개선 제안](../GameDesign/CombatEnemyLevelBossImprovementProposal.md)을 후속 `Proposed` 백로그로 채택했다. 구현 순서는 비밀벽 정렬→추격자 BFS→돌진형 차선 획득→장갑병 panic run→자폭병/Gates→전용 보스방이며, 각 단계는 별도 자동·WebGL·사람 검증 게이트로 닫는다.
+실제 플레이에서 반복적인 설치→외곽 도주→대기가 관찰되어 [전투·적 AI·레벨·보스 개선 제안](../GameDesign/CombatEnemyLevelBossImprovementProposal.md)을 후속 `Proposed` 백로그로 채택했다. 비밀벽 정렬→추격자 BFS→돌진형 차선 획득→장갑병 panic run까지 규칙 구현과 자동·WebGL 검증을 완료했고, 현재 게이트는 장갑병 방향 가독성과 두 번째 선행 설치의 사람 검증이다. 그 증거가 지지되면 자폭병/Gates→전용 보스방 순서로 진행한다.
 
 ## 0. 개발 기반
 

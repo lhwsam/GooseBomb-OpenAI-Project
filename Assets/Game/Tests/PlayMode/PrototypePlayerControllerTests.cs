@@ -20,6 +20,7 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _chargerPrefab;
         private GameObject _chargerTelegraphCellPrefab;
         private GameObject _armoredPrefab;
+        private GameObject _armoredPanicTelegraphCellPrefab;
         private GameObject _bossPrefab;
         private GameObject _bossDangerCellPrefab;
         private PrototypeBombDefinitionAsset _definition;
@@ -36,6 +37,7 @@ namespace BombSwap.Tests.PlayMode
         private Material _chargerMaterial;
         private Material _chargerTelegraphCellMaterial;
         private Material _armoredMaterial;
+        private Material _armoredPanicTelegraphCellMaterial;
         private Material _bossMaterial;
         private Material _bossDangerCellMaterial;
         private PrototypeGameSession _session;
@@ -84,6 +86,10 @@ namespace BombSwap.Tests.PlayMode
             if (_armoredPrefab != null)
             {
                 Object.DestroyImmediate(_armoredPrefab);
+            }
+            if (_armoredPanicTelegraphCellPrefab != null)
+            {
+                Object.DestroyImmediate(_armoredPanicTelegraphCellPrefab);
             }
             if (_bossPrefab != null)
             {
@@ -148,6 +154,10 @@ namespace BombSwap.Tests.PlayMode
             if (_armoredMaterial != null)
             {
                 Object.DestroyImmediate(_armoredMaterial);
+            }
+            if (_armoredPanicTelegraphCellMaterial != null)
+            {
+                Object.DestroyImmediate(_armoredPanicTelegraphCellMaterial);
             }
             if (_bossMaterial != null)
             {
@@ -1110,11 +1120,18 @@ namespace BombSwap.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.1f);
 
             Assert.That(_session.CurrentArmoredState, Is.EqualTo(ArmoredEnemyState.Broken));
+            Assert.That(
+                _session.CurrentArmoredBehaviorState,
+                Is.EqualTo(ArmoredEnemyBehaviorState.PanicTelegraph));
             Assert.That(_session.IsArmoredAlive, Is.True);
             Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
             Assert.That(_session.IsRoomCleared, Is.False);
             Assert.That(_armoredPresenter.StateChangeCount, Is.EqualTo(1));
             Assert.That(_armoredPresenter.DeathCount, Is.Zero);
+            Assert.That(_armoredPresenter.ActivePanicTelegraphCellCount, Is.GreaterThan(0));
+            Assert.That(
+                _armoredPresenter.CurrentBehaviorState,
+                Is.EqualTo(ArmoredEnemyBehaviorState.PanicTelegraph));
             Assert.That(_armoredPresenter.CurrentColor, Is.Not.EqualTo(armoredColor));
             Assert.That(
                 _armoredPresenter.Instance.transform.localScale.y,
@@ -1130,6 +1147,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.IsRoomCleared, Is.True);
             Assert.That(_armoredPresenter.StateChangeCount, Is.EqualTo(2));
             Assert.That(_armoredPresenter.DeathCount, Is.EqualTo(1));
+            Assert.That(_armoredPresenter.ActivePanicTelegraphCellCount, Is.Zero);
             Assert.That(
                 eventOrder,
                 Is.EqualTo(new[]
@@ -1139,6 +1157,67 @@ namespace BombSwap.Tests.PlayMode
                     "armor-dead",
                     "dead-4",
                     "clear",
+                }));
+        }
+
+        [UnityTest]
+        public IEnumerator ArmoredEnemy_TelegraphsLockedPanicPathRunsAndRecoversIntoChase()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.05f,
+                areaExplosionRange: 2,
+                chaserSpawnPosition: new Vector2Int(2, -2),
+                armoredSpawnPosition: new Vector2Int(0, 2),
+                includeArmoredPresenter: true,
+                armoredCellsPerSecond: 0.2f,
+                brokenCellsPerSecond: 0.4f,
+                armoredPanicTelegraphSeconds: 0.05f,
+                armoredPanicCellsPerSecond: 20f,
+                armoredPanicRecoverSeconds: 0.05f);
+            var behaviorOrder = new List<ArmoredEnemyBehaviorState>();
+            GridPosition finalPanicPosition = default;
+            int panicMoveCount = 0;
+            _session.ArmoredAdvanced += result =>
+            {
+                if (result.HasStateTransition)
+                {
+                    behaviorOrder.Add(result.State);
+                }
+                if (result.HasMovement &&
+                    result.PreviousState == ArmoredEnemyBehaviorState.PanicRun)
+                {
+                    finalPanicPosition = result.Movement.To;
+                    panicMoveCount++;
+                }
+            };
+            yield return null;
+
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.075f);
+
+            Assert.That(_session.CurrentArmoredState, Is.EqualTo(ArmoredEnemyState.Broken));
+            Assert.That(_armoredPresenter.ActivePanicTelegraphCellCount, Is.GreaterThan(0));
+
+            yield return new WaitForSecondsRealtime(0.25f);
+
+            Assert.That(
+                _session.CurrentArmoredBehaviorState,
+                Is.EqualTo(ArmoredEnemyBehaviorState.Chase));
+            Assert.That(finalPanicPosition, Is.EqualTo(new GridPosition(2, 2)));
+            Assert.That(panicMoveCount, Is.EqualTo(2));
+            Assert.That(_session.CurrentArmoredGridPosition, Is.EqualTo(new GridPosition(2, 1)));
+            Assert.That(_armoredPresenter.MoveCount, Is.EqualTo(3));
+            Assert.That(_armoredPresenter.ActivePanicTelegraphCellCount, Is.Zero);
+            Assert.That(
+                behaviorOrder,
+                Is.EqualTo(new[]
+                {
+                    ArmoredEnemyBehaviorState.PanicRun,
+                    ArmoredEnemyBehaviorState.PanicRecover,
+                    ArmoredEnemyBehaviorState.Chase,
                 }));
         }
 
@@ -1629,6 +1708,11 @@ namespace BombSwap.Tests.PlayMode
             bool includeArmoredPresenter = false,
             float armoredCellsPerSecond = 1f,
             float brokenCellsPerSecond = 3f,
+            int armoredGuardRadius = 1,
+            float armoredPanicTelegraphSeconds = 0.5f,
+            float armoredPanicCellsPerSecond = 20f,
+            int armoredPanicRunDistance = 3,
+            float armoredPanicRecoverSeconds = 0.05f,
             bool combatEnabled = true,
             GridPosition? runtimePlayerStart = null,
             bool? runtimeCombatEnabled = null,
@@ -1782,6 +1866,20 @@ namespace BombSwap.Tests.PlayMode
                 _armoredMaterial.color = new Color(0.28f, 0.38f, 0.52f, 1f);
                 _armoredPrefab.GetComponent<Renderer>().sharedMaterial = _armoredMaterial;
                 _armoredPrefab.SetActive(false);
+                _armoredPanicTelegraphCellPrefab =
+                    GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _armoredPanicTelegraphCellPrefab.name =
+                    "ArmoredPanicTelegraphCellVisualPrefab";
+                Object.DestroyImmediate(
+                    _armoredPanicTelegraphCellPrefab.GetComponent<Collider>());
+                _armoredPanicTelegraphCellMaterial = new Material(playerShader);
+                _armoredPanicTelegraphCellMaterial.color =
+                    new Color(1f, 0.22f, 0.05f, 1f);
+                _armoredPanicTelegraphCellPrefab.GetComponent<Renderer>().sharedMaterial =
+                    _armoredPanicTelegraphCellMaterial;
+                _armoredPanicTelegraphCellPrefab.transform.localScale =
+                    new Vector3(0.86f, 0.05f, 0.86f);
+                _armoredPanicTelegraphCellPrefab.SetActive(false);
                 _armoredDefinition =
                     ScriptableObject.CreateInstance<PrototypeArmoredDefinitionAsset>();
                 _armoredDefinition.Configure(
@@ -1790,7 +1888,13 @@ namespace BombSwap.Tests.PlayMode
                     armoredCellsPerSecond,
                     brokenCellsPerSecond,
                     2,
+                    armoredGuardRadius,
+                    armoredPanicTelegraphSeconds,
+                    armoredPanicCellsPerSecond,
+                    armoredPanicRunDistance,
+                    armoredPanicRecoverSeconds,
                     _armoredPrefab,
+                    _armoredPanicTelegraphCellPrefab,
                     0.5f,
                     0.12f);
             }

@@ -84,6 +84,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/ChargerTelegraphCellPlaceholder.prefab";
         public const string ArmoredPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPlaceholder.prefab";
+        public const string ArmoredPanicTelegraphCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ArmoredPanicTelegraphCellPlaceholder.prefab";
         public const string BossPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossPlaceholder.prefab";
         public const string BossDangerCellPrefabPath =
@@ -460,10 +462,17 @@ namespace BombSwap.Editor.ContentValidation
                 definition.ValidatePresentationReferences();
                 if (core.MaxHealth != 2 ||
                     definition.ArmoredCellsPerSecond != 1f ||
-                    definition.BrokenCellsPerSecond != 3f)
+                    definition.BrokenCellsPerSecond != 3f ||
+                    definition.GuardRadius != 1 ||
+                    definition.PanicTelegraphSeconds != 0.6f ||
+                    definition.PanicCellsPerSecond != 6f ||
+                    definition.PanicRunDistance != 3 ||
+                    definition.PanicRecoverSeconds != 0.5f)
                 {
                     errors.Add(
-                        "Prototype armored definition must use two stages and the 1-to-3 cells/second phase contract.");
+                        "Prototype armored definition must use two stages, guard radius 1, " +
+                        "0.6-second telegraph, 6 cells/second for 3 panic cells, " +
+                        "0.5-second recovery, and 1-to-3 cells/second guard/chase speeds.");
                 }
             }
             catch (Exception exception)
@@ -482,6 +491,24 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Prototype armored prefab must not contain a Collider; logical grid owns collision.");
+            }
+            string telegraphPrefabPath = AssetDatabase.GetAssetPath(
+                definition.PanicTelegraphCellPrefab);
+            if (!string.Equals(
+                    telegraphPrefabPath,
+                    ArmoredPanicTelegraphCellPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Prototype armored definition must reference " +
+                    $"'{ArmoredPanicTelegraphCellPrefabPath}', found '{telegraphPrefabPath}'.");
+            }
+            if (definition.PanicTelegraphCellPrefab != null &&
+                definition.PanicTelegraphCellPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                errors.Add(
+                    "Prototype armored panic telegraph-cell prefab must not contain a Collider; " +
+                    "logical grid owns collision.");
             }
         }
 
@@ -638,6 +665,10 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         ValidatePillarsLaneLayout(room, errors);
                     }
+                    if (index == 3)
+                    {
+                        ValidateArmorPanicLayout(room, errors);
+                    }
                     RoomExitDirection[] exitDirections = room.Exits
                         .Select(roomExit => roomExit.Direction)
                         .OrderBy(direction => direction)
@@ -705,6 +736,54 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype Pillars room must preserve the authored short charge lanes, " +
                     "side escape cells, collision stops, and central 3x3 lure loop.");
+            }
+        }
+
+        private static void ValidateArmorPanicLayout(
+            CombatRoomDefinition room,
+            ICollection<string> errors)
+        {
+            var expectedFixedWalls = new HashSet<GridPosition>
+            {
+                new GridPosition(-2, -2),
+                new GridPosition(2, -2),
+                new GridPosition(-2, -1),
+                new GridPosition(2, -1),
+                new GridPosition(-1, 2),
+                new GridPosition(0, 2),
+                new GridPosition(1, 2),
+                new GridPosition(-4, 0),
+                new GridPosition(4, 0),
+            };
+            var expectedSafeCells = new HashSet<GridPosition>
+            {
+                new GridPosition(0, -2),
+                new GridPosition(-1, -2),
+                new GridPosition(1, -2),
+            };
+            var expectedRetreatAnchors = new HashSet<GridPosition>
+            {
+                new GridPosition(-3, -2),
+                new GridPosition(3, -2),
+            };
+
+            bool hasExpectedLoop = room.LureLoop.Count == 24 &&
+                room.LureLoop.All(position =>
+                    position.X >= -3 && position.X <= 3 &&
+                    position.Z >= -3 && position.Z <= 3 &&
+                    (Math.Abs(position.X) == 3 || Math.Abs(position.Z) == 3));
+            if (room.PlayerSpawn != new GridPosition(0, -2) ||
+                room.ChaserSpawn != new GridPosition(4, 4) ||
+                room.ArmoredSpawn != new GridPosition(0, 1) ||
+                !expectedFixedWalls.SetEquals(room.IndestructibleWalls) ||
+                room.DestructibleWalls.Count != 0 ||
+                !expectedSafeCells.SetEquals(room.SafePlayerCells) ||
+                !expectedRetreatAnchors.SetEquals(room.RetreatAnchors) ||
+                !hasExpectedLoop)
+            {
+                errors.Add(
+                    "Prototype Armor room must preserve the T-junction guard pocket, " +
+                    "three-cell east/west panic branches, safe approach, and outer lure loop.");
             }
         }
 

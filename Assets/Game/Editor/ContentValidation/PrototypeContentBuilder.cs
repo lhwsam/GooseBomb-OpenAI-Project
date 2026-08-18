@@ -897,6 +897,17 @@ namespace BombSwap.Editor.ContentValidation
                 Vector3.zero,
                 new Vector3(0.82f, 0.82f, 0.82f),
                 armoredMaterial);
+            Material panicTelegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/ArmoredPanicTelegraph.mat",
+                shader,
+                new Color(1f, 0.22f, 0.05f, 1f));
+            GameObject panicTelegraphCellPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ArmoredPanicTelegraphCellPrefabPath,
+                "ArmoredPanicTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.86f, 0.05f, 0.86f),
+                panicTelegraphMaterial);
 
             PrototypeArmoredDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeArmoredDefinitionAsset>(
@@ -916,7 +927,13 @@ namespace BombSwap.Editor.ContentValidation
                 1f,
                 3f,
                 2,
+                1,
+                0.6f,
+                6f,
+                3,
+                0.5f,
                 armoredPrefab,
+                panicTelegraphCellPrefab,
                 0.5f,
                 0.12f);
             EditorUtility.SetDirty(definition);
@@ -1139,10 +1156,15 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector2Int(4, 4),
                 new[]
                 {
+                    new Vector2Int(-2, -2),
+                    new Vector2Int(2, -2),
                     new Vector2Int(-2, -1),
                     new Vector2Int(2, -1),
-                    new Vector2Int(-2, 1),
-                    new Vector2Int(2, 1),
+                    new Vector2Int(-1, 2),
+                    new Vector2Int(0, 2),
+                    new Vector2Int(1, 2),
+                    new Vector2Int(-4, 0),
+                    new Vector2Int(4, 0),
                 },
                 new[]
                 {
