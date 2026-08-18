@@ -37,6 +37,12 @@ namespace BombSwap
         private bool _armoredPanicRecoverReported;
         private bool _armoredChaseReported;
         private bool _armoredDiedReported;
+        private bool _selfDestructMovedReported;
+        private bool _selfDestructWarningReported;
+        private bool _selfDestructTelegraphReported;
+        private bool _selfDestructArmedReported;
+        private bool _selfDestructDetonatedReported;
+        private bool _selfDestructDiedReported;
         private bool _enemyDiedReported;
         private bool _bossPhaseTwoReported;
         private bool _bossDefeatedReported;
@@ -102,6 +108,8 @@ namespace BombSwap
             session.ArmoredAdvanced += OnArmoredAdvanced;
             session.ArmoredMoved += OnArmoredMoved;
             session.ArmoredStateChanged += OnArmoredStateChanged;
+            session.SelfDestructAdvanced += OnSelfDestructAdvanced;
+            session.SelfDestructArmed += OnSelfDestructArmed;
             session.EnemyDied += OnEnemyDied;
             session.BossMoved += OnBossMoved;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
@@ -137,6 +145,8 @@ namespace BombSwap
                 session.ArmoredAdvanced -= OnArmoredAdvanced;
                 session.ArmoredMoved -= OnArmoredMoved;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
+                session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
+                session.SelfDestructArmed -= OnSelfDestructArmed;
                 session.EnemyDied -= OnEnemyDied;
                 session.BossMoved -= OnBossMoved;
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
@@ -176,6 +186,15 @@ namespace BombSwap
             }
             ReportPlayerHealth(session.CurrentHealth);
             WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
+            if (session.HasSelfDestruct)
+            {
+                ReportSelfDestructCell(session.CurrentSelfDestructGridPosition);
+                if (session.CurrentSelfDestructState ==
+                    SelfDestructEnemyState.WarningChase)
+                {
+                    ReportSelfDestructWarning();
+                }
+            }
             _readyReported = true;
         }
 
@@ -466,6 +485,12 @@ namespace BombSwap
 
         private void OnEnemyDied(EnemyDamageResult result)
         {
+            if (!_selfDestructDiedReported && session.HasSelfDestruct &&
+                result.ActorId == session.SelfDestructActorId)
+            {
+                WebGlHarnessReporter.Report("self-destruct-died");
+                _selfDestructDiedReported = true;
+            }
             if (_enemyDiedReported)
             {
                 return;
@@ -473,6 +498,59 @@ namespace BombSwap
 
             WebGlHarnessReporter.Report("enemy-died");
             _enemyDiedReported = true;
+        }
+
+        private void OnSelfDestructAdvanced(SelfDestructEnemyAdvanceResult result)
+        {
+            if (result.HasMovement)
+            {
+                ReportSelfDestructCell(result.Movement.To);
+                if (!_selfDestructMovedReported)
+                {
+                    WebGlHarnessReporter.Report("self-destruct-moved");
+                    _selfDestructMovedReported = true;
+                }
+            }
+            if (!_selfDestructWarningReported && result.HasStateTransition &&
+                result.State == SelfDestructEnemyState.WarningChase)
+            {
+                ReportSelfDestructWarning();
+            }
+            if (!_selfDestructTelegraphReported && result.HasStateTransition &&
+                result.State == SelfDestructEnemyState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("self-destruct-telegraph");
+                _selfDestructTelegraphReported = true;
+            }
+            if (!_selfDestructDetonatedReported && result.HasStateTransition &&
+                result.State == SelfDestructEnemyState.Detonated)
+            {
+                WebGlHarnessReporter.Report("self-destruct-detonated");
+                _selfDestructDetonatedReported = true;
+            }
+        }
+
+        private void ReportSelfDestructWarning()
+        {
+            WebGlHarnessReporter.Report("self-destruct-warning-chase");
+            _selfDestructWarningReported = true;
+        }
+
+        private static void ReportSelfDestructCell(GridPosition position)
+        {
+            WebGlHarnessReporter.Report(
+                "self-destruct-cell-x-" + position.X + "-z-" + position.Z);
+        }
+
+        private void OnSelfDestructArmed(BombSnapshot snapshot)
+        {
+            if (_selfDestructArmedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("self-destruct-armed");
+            _selfDestructArmedReported = true;
         }
 
         private void OnBossPatternTransitioned(BossPatternTransition transition)

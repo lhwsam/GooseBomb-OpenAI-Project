@@ -15,6 +15,20 @@ namespace BombSwap.Editor.Verification
         private static string _scheduledBuildPath;
         private static string _scheduledStatusPath;
 
+        [MenuItem("Bomb Swap/Verification/Build Development WebGL Connected")]
+        private static void ScheduleDevelopmentMenu()
+        {
+            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string artifactsDirectory = Path.Combine(
+                "Artifacts",
+                "Verification",
+                timestamp + "-connected-web");
+            string buildPath = Path.Combine(artifactsDirectory, "WebGLBuild");
+            string statusPath = ScheduleDevelopment(artifactsDirectory, buildPath);
+            Debug.Log(
+                "BOMBSWAP_CONNECTED_WEBGL_BUILD SCHEDULED " + statusPath);
+        }
+
         public static string ScheduleDevelopment(
             string artifactsDirectory,
             string buildPath)

@@ -21,7 +21,8 @@
 - 안정적인 room ID와 room type.
 - 홀수 격자 너비·깊이와 양수 셀 크기.
 - 출입구 위치와 방향.
-- 플레이어와 필수 추격자 spawn, 선택적 돌진형·갑옷 적 spawn.
+- 플레이어와 필수 추격자 spawn, 선택적 돌진형·갑옷 적·자폭병 spawn.
+- 자폭병이 있을 때 순서가 안정적인 자폭 유도 anchor 목록. 이 목록은 AI 경로 목적지가 아니라 레벨 설계·검증·플레이테스트가 의도한 폭발 위치와 결과를 공유하는 메타데이터다.
 - 고정 벽 셀.
 - 파괴 가능 벽 셀.
 - 플레이어 입장 안전 셀.
@@ -32,7 +33,7 @@
 
 ## 현재 수제 전투방 세트
 
-다섯 방 모두 11×9, 셀 크기 1의 `Combat` 방이며 추격자를 사용한다. 세 번째 방은 선택적 돌진형, 네 번째 방은 선택적 갑옷 적을 함께 사용한다. 네 번째 방은 장갑병의 반경 수비와 좌우 panic run을 읽기 위한 T 교차점이고, 다섯 번째 방은 새 적을 추가하지 않고 파괴 가능한 중앙 문과 좌우 우회로의 공간 선택을 검증한다.
+다섯 방 모두 11×9, 셀 크기 1의 `Combat` 방이며 추격자를 사용한다. 세 번째 방은 선택적 돌진형, 네 번째 방은 선택적 갑옷 적, 다섯 번째 방은 선택적 자폭병을 함께 사용한다. 네 번째 방은 장갑병의 반경 수비와 좌우 panic run을 읽기 위한 T 교차점이고, 다섯 번째 방은 자폭 위치에 따라 중앙 문 중 한쪽만 먼저 열리는 비대칭 경로 선택을 검증한다.
 
 | 순서 | ID / 자산 | spawn | 공간 의도 | 씬 / 다음 씬 |
 |---:|---|---|---|---|
@@ -40,7 +41,7 @@
 | 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | 세로 고정 벽 6개, 파괴 벽 `(-1,-1)·(1,-1)`: spawn 광역은 둘을 대각선 동시 파괴, 십자는 미도달 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
 | 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(0, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: 돌진형이 남쪽 정렬 셀을 획득한 뒤 서쪽 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
 | 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 남쪽 통로 벽 `x=±2,z=-2..-1`, 상단 막 `x=-1..1,z=2`, 좌우 종단 `(-4,0)·(4,0)`의 T 교차점, 파괴 벽 없음: 반경 수비→첫 피격 반대편 3칸 예고·질주→두 번째 선행 설치 | `TestSandboxArmor.unity` / `TestSandboxGates` |
-| 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`: 문을 열면 중앙 지름길과 적 진입로가 함께 열리고, 유지하면 `x=±3` 우회가 남음 | `TestSandboxGates.unity` / 없음 |
+| 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)`, 자폭병 `(3,0)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`, 자폭 유도 anchor `(0,-2)→(0,2)`: 플레이어가 추적형 자폭병을 어느 쪽으로 끄느냐에 따라 범위 1 자폭이 아래/위 문 한쪽만 먼저 열고 `x=±3` 우회는 유지 | `TestSandboxGates.unity` / 없음 |
 
 다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
 
@@ -52,7 +53,7 @@
 
 `PrototypeDungeonCombatRoomCatalog.asset`은 다섯 전투방 ScriptableObject와 대응 TestSandbox 씬 이름을 명시적으로 매핑한다. 런 시작 시 `PrototypeDungeonRunSession`이 카탈로그를 Core 정의로 변환하고 결정론적 배정 결과의 room ID를 다시 Unity asset·scene으로 해석한다. 현재 방, 방문과 클리어 같은 mutable 상태는 카탈로그에 쓰지 않는다.
 
-`CombatRoomRotationUtility`는 run 배정의 0/90/180/270도 회전을 방 정의 전체에 적용한다. 90/270도에서는 너비와 깊이를 교환하고 플레이어·추격자·돌진형·갑옷 적 spawn, 고정·파괴 벽, 안전 셀, 퇴로 anchor, 유도 loop, 출구 셀과 방향을 같은 시계 방향으로 돌린다. 일부 목록이나 scene Transform만 따로 회전하는 것은 허용하지 않는다.
+`CombatRoomRotationUtility`는 run 배정의 0/90/180/270도 회전을 방 정의 전체에 적용한다. 90/270도에서는 너비와 깊이를 교환하고 플레이어·추격자·돌진형·갑옷 적·자폭병 spawn, 자폭 anchor, 고정·파괴 벽, 안전 셀, 퇴로 anchor, 유도 loop, 출구 셀과 방향을 같은 시계 방향으로 돌린다. 일부 목록이나 scene Transform만 따로 회전하는 것은 허용하지 않는다.
 
 카탈로그의 entry는 null 방, 빈 씬 이름, 중복 room ID와 중복 씬 이름을 허용하지 않는다. 실제 씬 수명은 persistent run host·navigator·room binder가 소유하며, 카탈로그는 mutable 방문 상태를 갖지 않는 검증된 조회 경계다.
 
@@ -86,7 +87,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 
 ## 저작 불변식
 
-- 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형과 갑옷 적도 플레이어와 즉시 인접하지 않는다.
+- 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형·갑옷 적·자폭병도 플레이어와 즉시 인접하지 않는다.
 - 플레이어 spawn은 안전 셀에 포함된다.
 - 플레이어 spawn에서 서로 다른 첫 cardinal 이동을 사용하는 퇴로가 최소 두 개 존재한다. 경로는 spawn을 다시 통과하지 않고 퇴로 anchor에 도달해야 한다.
 - 유도 경로는 최소 4개의 서로 다른 플레이 가능 셀이 닫힌 cardinal 순환을 이룬다.
@@ -94,6 +95,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 같은 방향의 잠재 출구는 한 방 정의에 중복될 수 없다. 현재 다섯 프로토타입 전투방은 cardinal 네 방향을 각각 정확히 한 개 지원한다.
 - 고정 벽과 파괴 가능 벽을 제외한 초기 플레이 가능 셀은 모두 플레이어 spawn에서 연결되어 있다. 따라서 파괴는 진행 필수가 아니다.
 - 파괴 가능 벽은 고정 벽, spawn, 안전 셀, 퇴로 anchor, 유도 경로, 출구와 겹치지 않는다.
+- 자폭병이 있으면 유도 anchor가 하나 이상 있어야 하고 모두 초기 `Floor`이며 spawn·고정 벽·파괴 가능 벽·출구와 겹치지 않는다. 각 anchor의 기대 폭발 footprint는 저작 검증에서 확인하지만 Core AI는 목록을 읽어 목적지를 선택하지 않는다. 자폭병이 없으면 anchor 목록도 비어 있어야 한다.
 - 씬 spawn·장애물 Transform의 XZ 셀과 논리 메타데이터가 일치한다.
 - 회전된 room 정의의 모든 셀이 교환된 경계 안에 있고, scene `GridRoot`의 같은 Y 회전 뒤 논리 셀·시각 위치가 일치한다.
 - 폭발을 끊는 벽/기둥과 향후 파괴 가능 벽은 시각적으로 구분되어야 한다.
@@ -111,12 +113,14 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 경계 방향이 틀린 출구, 끊긴 유도 경로, 연결되지 않은 플레이 영역, 단일 퇴로.
 - 다섯 room asset의 ID 중복 또는 각 TestSandbox 씬이 순서에 맞지 않는 room asset을 참조하는 상태.
 - 던전 전투방 카탈로그 누락, 잘못된 entry 수, room asset·씬 매핑 순서 불일치 또는 Core 변환 실패.
-- 필수 추격자 또는 선택적 돌진형·갑옷 적 spawn Transform이 저작 셀과 다르거나 방 전환 controller의 session·다음 씬·지연이 잘못된 상태.
+- 필수 추격자 또는 선택적 돌진형·갑옷 적·자폭병 spawn Transform이 저작 셀과 다르거나 방 전환 controller의 session·다음 씬·지연이 잘못된 상태.
 - 논리 고정 벽과 `Environment/InteriorObstacles` 표현 셀의 누락·중복·추가.
 - 논리 파괴 벽과 `Environment/DestructibleObstacles`의 황갈색 4분할 표현 셀·재질·Collider·presenter 참조 불일치.
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
 - 갑옷 적 정의·collider 없는 적/panic 예고 prefab, 방별 선택적 spawn, session·presenter 참조 또는 수비·panic·추격 표현 구성이 권위 방 데이터와 다른 상태.
 - Armor 방의 T 교차점 고정 벽 9셀이 정확한 좌표와 다르거나 panic 좌우 종단·안전 셀·퇴로·외곽 유도 loop의 연결성이 깨진 상태.
+- 자폭병 정의·범위 1 적 폭탄·collider 없는 적/Telegraph prefab, 방별 spawn·anchor, session·presenter 참조가 권위 방 데이터와 다른 상태.
+- Gates 방의 자폭병 `(3,0)`, 유도 anchor `(0,-2)·(0,2)`, 중앙 파괴문 `(0,-1)·(0,1)`과 고정 장벽 8셀이 정확한 계약과 다르거나 각 anchor 폭발이 정확히 한쪽 문에만 닿지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.

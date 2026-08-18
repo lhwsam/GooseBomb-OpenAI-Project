@@ -1917,6 +1917,7 @@ MonoBehaviour:
   chaserSpawn: {fileID: 2013815863}
   chargerSpawn: {fileID: 0}
   armoredSpawn: {fileID: 0}
+  selfDestructSpawn: {fileID: 1041860248}
   roomDefinition: {fileID: 11400000, guid: 30b6d79e8847ee64ba4f705b1229caac, type: 2}
 --- !u!4 &455876710
 Transform:
@@ -2200,6 +2201,7 @@ GameObject:
   - component: {fileID: 549228497}
   - component: {fileID: 549228499}
   - component: {fileID: 549228500}
+  - component: {fileID: 549228502}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -2299,6 +2301,7 @@ MonoBehaviour:
   chaserDefinition: {fileID: 11400000, guid: d5e3ca0a7af7a3740b3ca2574b0cd87e, type: 2}
   chargerDefinition: {fileID: 11400000, guid: f66ea46e897cfb94a9c9cedf31599f7f, type: 2}
   armoredDefinition: {fileID: 11400000, guid: 45f80675d52a84c43bd83d96643cb36c, type: 2}
+  selfDestructDefinition: {fileID: 11400000, guid: 5f87cd37a71405e4c9d936fd5adacf6a, type: 2}
   bossDefinition: {fileID: 11400000, guid: afe4660e2a5170945aff2fcee5100f59, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15
@@ -2496,6 +2499,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeDungeonMinimapPresenter
   roomBinder: {fileID: 549228493}
+--- !u!114 &549228502
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37055c78a00dd834db4f1aa1ba900b18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeSelfDestructPresenter
+  session: {fileID: 549228485}
+  presentationRoot: {fileID: 550081171}
+  telegraphColor: {r: 1, g: 0.2, b: 0.04, a: 1}
+  deathColor: {r: 0.18, g: 0.01, b: 0.01, a: 1}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
@@ -3537,6 +3556,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1036819127}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1041860247
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1041860248}
+  m_Layer: 0
+  m_Name: SelfDestructSpawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1041860248
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1041860247}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1165390088}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1045245426
 GameObject:
   m_ObjectHideFlags: 0
@@ -4223,6 +4273,7 @@ Transform:
   - {fileID: 317508116}
   - {fileID: 550081171}
   - {fileID: 2013815863}
+  - {fileID: 1041860248}
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1180217955

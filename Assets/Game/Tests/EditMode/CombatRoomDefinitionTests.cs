@@ -294,11 +294,15 @@ namespace BombSwap.Tests.EditMode
             var destructible = new GridPosition(-1, -1);
             var charger = new GridPosition(-3, 2);
             var armored = new GridPosition(-3, -2);
+            var selfDestruct = new GridPosition(3, 0);
+            var selfDestructAnchor = new GridPosition(0, -2);
             CombatRoomDefinition source = CreateRoom(
                 walls: new[] { wall },
                 destructibleWalls: new[] { destructible },
                 chargerSpawn: charger,
-                armoredSpawn: armored);
+                armoredSpawn: armored,
+                selfDestructSpawn: selfDestruct,
+                selfDestructAnchors: new[] { selfDestructAnchor });
 
             CombatRoomDefinition rotated = CombatRoomRotationUtility.Rotate(
                 source,
@@ -313,6 +317,10 @@ namespace BombSwap.Tests.EditMode
             Assert.That(rotated.DestructibleWalls, Does.Contain(new GridPosition(-1, 1)));
             Assert.That(rotated.ChargerSpawn, Is.EqualTo(new GridPosition(2, 3)));
             Assert.That(rotated.ArmoredSpawn, Is.EqualTo(new GridPosition(-2, 3)));
+            Assert.That(rotated.SelfDestructSpawn, Is.EqualTo(new GridPosition(0, -3)));
+            Assert.That(
+                rotated.SelfDestructAnchors,
+                Does.Contain(new GridPosition(-2, 0)));
             Assert.That(
                 rotated.Exits[0].Direction,
                 Is.EqualTo(RoomExitDirection.East));
@@ -360,6 +368,37 @@ namespace BombSwap.Tests.EditMode
                     (RoomRotation)999));
         }
 
+        [Test]
+        public void Definition_RequiresSelfDestructSpawnAndDistinctTraversableAnchors()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    selfDestructAnchors: new[] { new GridPosition(0, -2) }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    selfDestructSpawn: new GridPosition(3, 0),
+                    selfDestructAnchors: new[]
+                    {
+                        new GridPosition(0, -2),
+                        new GridPosition(0, -2),
+                    }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    selfDestructSpawn: new GridPosition(3, 0),
+                    selfDestructAnchors: new[] { new GridPosition(3, 0) }));
+
+            CombatRoomDefinition room = CreateRoom(
+                selfDestructSpawn: new GridPosition(3, 0),
+                selfDestructAnchors: new[]
+                {
+                    new GridPosition(0, -2),
+                    new GridPosition(0, 2),
+                });
+
+            Assert.That(room.SelfDestructSpawn, Is.EqualTo(new GridPosition(3, 0)));
+            Assert.That(room.SelfDestructAnchors, Has.Count.EqualTo(2));
+        }
+
         private static CombatRoomDefinition CreateRoom(
             int width = 11,
             GridPosition? chaserSpawn = null,
@@ -367,6 +406,8 @@ namespace BombSwap.Tests.EditMode
             GridPosition[] destructibleWalls = null,
             GridPosition? chargerSpawn = null,
             GridPosition? armoredSpawn = null,
+            GridPosition? selfDestructSpawn = null,
+            GridPosition[] selfDestructAnchors = null,
             GridPosition[] safeCells = null,
             GridPosition[] lureLoop = null,
             RoomExit[] exits = null)
@@ -394,7 +435,9 @@ namespace BombSwap.Tests.EditMode
                 exits ?? CreateExits(),
                 destructibleWalls ?? Array.Empty<GridPosition>(),
                 chargerSpawn,
-                armoredSpawn);
+                armoredSpawn,
+                selfDestructSpawn,
+                selfDestructAnchors ?? Array.Empty<GridPosition>());
         }
 
         private static GridPosition[] CreateLureLoop()

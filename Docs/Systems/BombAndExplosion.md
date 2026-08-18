@@ -34,7 +34,7 @@
 
 현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 구현된 모양은 cardinal 네 방향으로 전파하는 `Cross`, 원점을 포함한 Chebyshev 정사각 영역을 평가하는 `SquareArea`, 설치 순간의 cardinal 방향 한 ray만 전파하는 `ForwardLine`이다. 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
 
-TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 던전 보상 후보 `prototype-line`은 `ForwardLine`·fuse 2.25초·범위 3·설치 2.25초다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 세 수치 집합은 플레이테스트 전까지 `Proposed`다.
+TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 던전 보상 후보 `prototype-line`은 `ForwardLine`·fuse 2.25초·범위 3·설치 2.25초다. 자폭병 전용 `prototype-self-destruct-blast`는 `Cross`·fuse 0.75초·범위 1이며 플레이어 무기 슬롯·설치 쿨타임을 사용하지 않는다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 네 수치 집합은 플레이테스트 전까지 `Proposed`다.
 
 ## 폭발 전파 규칙
 
@@ -95,8 +95,10 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 직선 폭탄의 비대칭 설치체를 확정된 방향으로 회전한다. 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
 - `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. authored 시각이 없는 파괴 결과는 오류다.
 - `PrototypeDungeonRoomBinder`는 현재 방의 미공개 Secret 연결을 문 앞 출구 셀에 매핑한다. `BombExplosion.AffectedCells`가 그 셀에 닿으면 해당 연결만 공개하고 door/minimap 표현을 갱신한다.
+- 자폭병은 Telegraph 시작 시 `ActorId(6)` 소유의 `prototype-self-destruct-blast`를 자기 셀에 직접 설치한다. 이 적 폭탄은 `BombSimulation`의 활성 폭탄과 연쇄 스케줄러에는 포함되지만 플레이어 loadout·설치 쿨타임·`BombPlaced` 입력 성공 사건에는 포함되지 않는다.
+- 자폭 폭발은 다른 정의와 같은 `BombExploded`·`AffectedCells`·`DestroyedWalls` 결과를 제공한다. 자기 폭발이 자폭병의 단일 사망을 확정하고, 범위 안 플레이어·다른 적·보스와 Gates 파괴문은 기존 소비 경로로 반응한다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
-- 현재 수직 슬라이스는 플레이어 자기 피해, 내구도 1 기본 추격자·돌진형 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자·3×3 광역·앞쪽 직선 폭발을 포함한다. 추격자 뒤 돌진형 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 범용 다중 적 목록·중형 적 피해 단계는 아직 없다.
+- 현재 수직 슬라이스는 플레이어 자기 피해, 기본 추격자·돌진형·갑옷 적·자폭병 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자·3×3 광역·앞쪽 직선·적 소유 범위 1 십자 폭발을 포함한다. 추격자→돌진형→갑옷 적→자폭병 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 범용 다중 적 목록과 일반화된 적 폭탄 소유권 UI는 아직 없다.
 
 ## 불변식
 
@@ -120,6 +122,7 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - 서로 다른 정의 간 연쇄, 양수 고정 지연, 중복 예약 방지.
 - fuse와 chain 동시 도달 시 단일 폭발.
 - 큰 시계 진행에서도 예약 시각 순서가 보존되는 연쇄 처리.
+- 적 소유 폭탄도 플레이어 폭탄과 같은 양수 고정 연쇄 지연·벽 차단·파괴벽 지연 적용을 사용하고 소유자와 정의 ID를 보존한다.
 
 다음 항목은 후속 폭탄·피해 시스템에서 추가한다.
 
