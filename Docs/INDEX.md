@@ -56,6 +56,7 @@
 | 플레이어 피해·런 체력·회복방 | `Systems/DamageAndInvulnerability.md`, `Development/RecoveryRoomSlice.md`, `Systems/DungeonGeneration.md` |
 | 최소 미니맵·탐색 정보 | `Development/MinimalMinimapSlice.md`, `Systems/DungeonGeneration.md`, ADR-0007 |
 | 금이 간 벽 비밀방 | `Development/SecretRoomSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |
+| 비밀문 출구 경계·폭발 판정 | `Development/SecretDoorBoundarySlice.md`, `Development/SecretRoomSlice.md`, `Systems/BombAndExplosion.md`, `Systems/RoomAuthoring.md` |
 | 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md`, `GameDesign/CombatEnemyLevelBossImprovementProposal.md`, `Development/ChargerLaneAcquisitionSlice.md` |
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md`, `Development/ChargerLaneAcquisitionSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |

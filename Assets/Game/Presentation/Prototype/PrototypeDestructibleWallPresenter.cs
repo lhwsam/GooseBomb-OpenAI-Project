@@ -134,15 +134,6 @@ namespace BombSwap
                 GridPosition position = explosion.DestroyedWalls[index];
                 if (!_wallVisuals.TryGetValue(position, out GameObject visual))
                 {
-                    if (session.IsRuntimeDestructibleWall(position))
-                    {
-                        if (session.GetCell(position).Terrain != GridTerrain.Floor)
-                        {
-                            throw new InvalidOperationException(
-                                $"Destroyed runtime exit wall {position} must be logical floor.");
-                        }
-                        continue;
-                    }
                     throw new InvalidOperationException(
                         $"Destroyed wall {position} has no authored presentation visual.");
                 }

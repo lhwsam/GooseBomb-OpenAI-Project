@@ -2027,10 +2027,7 @@ namespace BombSwap.Editor.ContentValidation
             GameObject northCracks = EnsureSecretCrackRoot(
                 boundary,
                 "NorthSecretCracks",
-                GetExitCellLocalPosition(
-                    room,
-                    RoomExitDirection.North,
-                    cellSize),
+                north.transform.localPosition,
                 true,
                 cellSize,
                 destructibleWallMaterial,
@@ -2038,10 +2035,7 @@ namespace BombSwap.Editor.ContentValidation
             GameObject eastCracks = EnsureSecretCrackRoot(
                 boundary,
                 "EastSecretCracks",
-                GetExitCellLocalPosition(
-                    room,
-                    RoomExitDirection.East,
-                    cellSize),
+                east.transform.localPosition,
                 false,
                 cellSize,
                 destructibleWallMaterial,
@@ -2049,10 +2043,7 @@ namespace BombSwap.Editor.ContentValidation
             GameObject southCracks = EnsureSecretCrackRoot(
                 boundary,
                 "SouthSecretCracks",
-                GetExitCellLocalPosition(
-                    room,
-                    RoomExitDirection.South,
-                    cellSize),
+                south.transform.localPosition,
                 true,
                 cellSize,
                 destructibleWallMaterial,
@@ -2060,10 +2051,7 @@ namespace BombSwap.Editor.ContentValidation
             GameObject westCracks = EnsureSecretCrackRoot(
                 boundary,
                 "WestSecretCracks",
-                GetExitCellLocalPosition(
-                    room,
-                    RoomExitDirection.West,
-                    cellSize),
+                west.transform.localPosition,
                 false,
                 cellSize,
                 destructibleWallMaterial,
@@ -2076,7 +2064,7 @@ namespace BombSwap.Editor.ContentValidation
         private static GameObject EnsureSecretCrackRoot(
             Transform boundary,
             string rootName,
-            Vector3 secretWallLocalPosition,
+            Vector3 secretDoorLocalPosition,
             bool northSouthDoor,
             float cellSize,
             Material wallMaterial,
@@ -2087,7 +2075,7 @@ namespace BombSwap.Editor.ContentValidation
             {
                 root = CreateChild(rootName, boundary);
             }
-            root.localPosition = secretWallLocalPosition;
+            root.localPosition = secretDoorLocalPosition;
             root.localRotation = Quaternion.identity;
             root.localScale = Vector3.one;
 
@@ -2140,27 +2128,6 @@ namespace BombSwap.Editor.ContentValidation
 
             root.gameObject.SetActive(false);
             return root.gameObject;
-        }
-
-        private static Vector3 GetExitCellLocalPosition(
-            CombatRoomDefinition room,
-            RoomExitDirection direction,
-            float cellSize)
-        {
-            for (int index = 0; index < room.Exits.Count; index++)
-            {
-                RoomExit roomExit = room.Exits[index];
-                if (roomExit.Direction == direction)
-                {
-                    return new Vector3(
-                        roomExit.Cell.X * cellSize,
-                        0f,
-                        roomExit.Cell.Z * cellSize);
-                }
-            }
-
-            throw new InvalidOperationException(
-                $"Prototype room '{room.Id}' has no {direction} exit cell.");
         }
 
         private static Renderer EnsureBoundaryPrimitive(

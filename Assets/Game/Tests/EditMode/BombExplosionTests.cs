@@ -39,6 +39,8 @@ namespace BombSwap.Tests.EditMode
             Assert.That(explosions[0].DetonatedAt, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(explosions[0].Cause, Is.EqualTo(BombDetonationCause.Fuse));
             Assert.That(explosions[0].AffectedCells, Is.EquivalentTo(new[] { Origin }));
+            Assert.That(explosions[0].Affects(Origin), Is.True);
+            Assert.That(explosions[0].Affects(new GridPosition(1, 0)), Is.False);
             Assert.That(fixture.Simulation.ActiveBombCount, Is.Zero);
             Assert.That(fixture.Grid.GetCell(Origin).HasBomb, Is.False);
         }

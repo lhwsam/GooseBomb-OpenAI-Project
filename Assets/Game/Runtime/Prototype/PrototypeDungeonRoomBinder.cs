@@ -26,8 +26,10 @@ namespace BombSwap
         private RoomRotation _roomRotation;
         private bool _transitionRequested;
         private readonly Dictionary<GridPosition, RoomExitDirection>
-            _runtimeSecretWallDirections =
+            _runtimeSecretDoorDirections =
                 new Dictionary<GridPosition, RoomExitDirection>();
+        private IReadOnlyList<GridPosition> _runtimeSecretDoorImpactCells =
+            Array.AsReadOnly(Array.Empty<GridPosition>());
 
         public event Action<int> CombatRewardTokenCountChanged;
 
@@ -48,6 +50,9 @@ namespace BombSwap
         public DungeonRoomNodeId RuntimeRoomId => _runtimeRoomId;
 
         public RoomType RuntimeRoomType => _runtimeRoomType;
+
+        public IReadOnlyList<GridPosition> RuntimeSecretDoorImpactCells =>
+            _runtimeSecretDoorImpactCells;
 
         public int CombatRewardTokenCount =>
             _runHost != null ? _runHost.RunSession.CombatRewardTokenCount : 0;
@@ -353,8 +358,8 @@ namespace BombSwap
                 rewardCatalog.SwapCooldownSeconds,
                 runLoadout.ActiveSlotIndex);
             roomSession.PrepareRuntimePlayerHealth(runHealth.CurrentHealth);
-            _runtimeSecretWallDirections.Clear();
-            var runtimeSecretWalls = new List<GridPosition>();
+            _runtimeSecretDoorDirections.Clear();
+            var runtimeSecretDoorImpactCells = new List<GridPosition>();
             IReadOnlyList<DungeonRoomExitState> roomExitStates =
                 run.GetExitStates(roomId);
             for (int index = 0; index < roomExitStates.Count; index++)
@@ -365,23 +370,24 @@ namespace BombSwap
                     continue;
                 }
 
-                GridPosition wallCell = FindExitCell(
+                GridPosition impactCell = FindExitCell(
                     _runtimeRoomDefinition.Exits,
                     exit.Direction);
-                if (_runtimeSecretWallDirections.ContainsKey(wallCell))
+                if (_runtimeSecretDoorDirections.ContainsKey(impactCell))
                 {
                     throw new InvalidOperationException(
-                        $"Runtime secret wall cell {wallCell} is duplicated.");
+                        $"Runtime secret-door impact cell {impactCell} is duplicated.");
                 }
-                _runtimeSecretWallDirections.Add(wallCell, exit.Direction);
-                runtimeSecretWalls.Add(wallCell);
+                _runtimeSecretDoorDirections.Add(impactCell, exit.Direction);
+                runtimeSecretDoorImpactCells.Add(impactCell);
             }
+            _runtimeSecretDoorImpactCells = Array.AsReadOnly(
+                runtimeSecretDoorImpactCells.ToArray());
             roomSession.PrepareRuntimeRoom(
                 _runtimeRoomDefinition,
                 playerStart,
                 combatEnabledForVisit,
-                bossEnabledForVisit,
-                runtimeSecretWalls);
+                bossEnabledForVisit);
             WebGlHarnessReporter.ReportDungeonRoomReady(
                 roomId,
                 room.RoomType,
@@ -432,11 +438,11 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
-            for (int index = 0; index < explosion.DestroyedWalls.Count; index++)
+            for (int index = 0; index < explosion.AffectedCells.Count; index++)
             {
-                GridPosition destroyedWall = explosion.DestroyedWalls[index];
-                if (!_runtimeSecretWallDirections.TryGetValue(
-                        destroyedWall,
+                GridPosition affectedCell = explosion.AffectedCells[index];
+                if (!_runtimeSecretDoorDirections.TryGetValue(
+                        affectedCell,
                         out RoomExitDirection direction))
                 {
                     continue;
@@ -447,17 +453,36 @@ namespace BombSwap
                 if (!result.WasRevealed)
                 {
                     throw new InvalidOperationException(
-                        $"Destroyed secret wall {destroyedWall} did not reveal its " +
+                        $"Affected secret door at {affectedCell} did not reveal its " +
                         $"dungeon connection: {result.Status}.");
                 }
 
-                _runtimeSecretWallDirections.Remove(destroyedWall);
+                _runtimeSecretDoorDirections.Remove(affectedCell);
+                RemoveSecretDoorImpactCell(affectedCell);
                 RefreshDoors();
                 SecretExitRevealed?.Invoke(result);
                 WebGlHarnessReporter.Report(
                     "secret-wall-revealed-room-" + result.FromRoomId.Value +
                     "-direction-" + direction.ToString().ToLowerInvariant());
             }
+        }
+
+        private void RemoveSecretDoorImpactCell(GridPosition removedCell)
+        {
+            var remaining = new List<GridPosition>(
+                Math.Max(0, _runtimeSecretDoorImpactCells.Count - 1));
+            for (int index = 0;
+                index < _runtimeSecretDoorImpactCells.Count;
+                index++)
+            {
+                GridPosition cell = _runtimeSecretDoorImpactCells[index];
+                if (cell != removedCell)
+                {
+                    remaining.Add(cell);
+                }
+            }
+
+            _runtimeSecretDoorImpactCells = Array.AsReadOnly(remaining.ToArray());
         }
 
         private void OnPlayerDied(PlayerDamageResult result)

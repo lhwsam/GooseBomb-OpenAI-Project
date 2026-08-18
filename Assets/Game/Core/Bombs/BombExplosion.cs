@@ -45,5 +45,18 @@ namespace BombSwap.Core
         public IReadOnlyList<GridPosition> AffectedCells { get; }
 
         public IReadOnlyList<GridPosition> DestroyedWalls { get; }
+
+        public bool Affects(GridPosition position)
+        {
+            for (int index = 0; index < AffectedCells.Count; index++)
+            {
+                if (AffectedCells[index] == position)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

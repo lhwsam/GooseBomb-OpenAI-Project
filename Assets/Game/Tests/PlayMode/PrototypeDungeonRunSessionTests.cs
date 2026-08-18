@@ -1053,11 +1053,14 @@ namespace BombSwap.Tests.PlayMode
                         .Single();
                 Assert.That(entranceBinder.RuntimeRoomId, Is.EqualTo(entranceCombat));
                 Assert.That(entranceSession.EnemyActiveCount, Is.Zero);
-                Assert.That(entranceSession.RuntimeDestructibleWalls, Has.Count.EqualTo(1));
-                GridPosition secretWall = entranceSession.RuntimeDestructibleWalls[0];
                 Assert.That(
-                    entranceSession.GetCell(secretWall).Terrain,
-                    Is.EqualTo(GridTerrain.DestructibleWall));
+                    entranceBinder.RuntimeSecretDoorImpactCells,
+                    Has.Count.EqualTo(1));
+                GridPosition secretDoorImpactCell =
+                    entranceBinder.RuntimeSecretDoorImpactCells[0];
+                Assert.That(
+                    entranceSession.GetCell(secretDoorImpactCell).Terrain,
+                    Is.EqualTo(GridTerrain.Floor));
                 Assert.That(entranceMinimap.DisplayedSnapshot.ContainsRoom(secretRoom), Is.False);
                 Assert.That(
                     CountDisplayedDoorStatuses(
@@ -1075,16 +1078,33 @@ namespace BombSwap.Tests.PlayMode
                         entranceBinder.DoorPresenter.WestSecretCracks,
                     }
                     .Single(root => root.activeSelf);
+                Renderer hiddenSecretDoor = new[]
+                    {
+                        entranceBinder.DoorPresenter.NorthDoor,
+                        entranceBinder.DoorPresenter.EastDoor,
+                        entranceBinder.DoorPresenter.SouthDoor,
+                        entranceBinder.DoorPresenter.WestDoor,
+                    }
+                    .Single(renderer => !renderer.enabled);
                 Assert.That(
-                    entranceSession.GridSpace.WorldToGrid(
-                        visibleSecretWall.transform.position),
-                    Is.EqualTo(secretWall),
-                    "The visible secret wall must occupy its authoritative runtime grid cell.");
+                    Vector3.Distance(
+                        visibleSecretWall.transform.position,
+                        hiddenSecretDoor.transform.position),
+                    Is.LessThan(0.001f),
+                    "The cracked secret door must occupy the normal door position.");
 
-                GridPosition bombCell = FindWalkableNeighbor(entranceSession, secretWall);
                 keyboard = InputSystem.AddDevice<Keyboard>();
-                yield return MoveSessionTo(entranceSession, keyboard, bombCell);
-                Assert.That(entranceSession.CurrentGridPosition, Is.EqualTo(bombCell));
+                yield return MoveSessionTo(
+                    entranceSession,
+                    keyboard,
+                    secretDoorImpactCell);
+                Assert.That(
+                    entranceSession.CurrentGridPosition,
+                    Is.EqualTo(secretDoorImpactCell));
+                Assert.That(run.CurrentRoomId, Is.EqualTo(entranceCombat));
+                Assert.That(
+                    run.TryTravelTo(secretRoom).Status,
+                    Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 bool explosionObserved = false;
                 BombExplosion observedExplosion = default;
                 entranceSession.BombExploded += explosion =>
@@ -1093,6 +1113,10 @@ namespace BombSwap.Tests.PlayMode
                     observedExplosion = explosion;
                 };
                 Assert.That(entranceSession.TryPlaceBomb(), Is.True);
+                GridPosition evadeCell = FindWalkableNeighbor(
+                    entranceSession,
+                    secretDoorImpactCell);
+                yield return MoveSessionTo(entranceSession, keyboard, evadeCell);
 
                 float revealDeadline = Time.realtimeSinceStartup + 5f;
                 while (!explosionObserved &&
@@ -1106,17 +1130,20 @@ namespace BombSwap.Tests.PlayMode
                     Is.True,
                     $"Bomb did not explode; active={entranceSession.ActiveBombCount}.");
                 Assert.That(
-                    observedExplosion.AffectedCells,
-                    Does.Contain(secretWall),
+                    observedExplosion.Affects(secretDoorImpactCell),
+                    Is.True,
                     $"Bomb {observedExplosion.DefinitionId} at {observedExplosion.Origin} " +
-                    $"did not affect adjacent secret wall {secretWall}.");
+                    $"did not reach secret-door impact cell {secretDoorImpactCell}.");
                 Assert.That(
                     observedExplosion.DestroyedWalls,
-                    Does.Contain(secretWall));
+                    Has.No.Member(secretDoorImpactCell));
 
                 Assert.That(
-                    entranceSession.GetCell(secretWall).Terrain,
+                    entranceSession.GetCell(secretDoorImpactCell).Terrain,
                     Is.EqualTo(GridTerrain.Floor));
+                Assert.That(
+                    entranceBinder.RuntimeSecretDoorImpactCells,
+                    Is.Empty);
                 Assert.That(
                     run.RunState.CreateMinimapSnapshot().ContainsRoom(secretRoom),
                     Is.True);
@@ -1154,7 +1181,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(secretBinder.RuntimeRoomType, Is.EqualTo(RoomType.Secret));
                 Assert.That(secretSession.EnemyActiveCount, Is.Zero);
                 Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
-                Assert.That(secretSession.RuntimeDestructibleWalls, Has.Count.EqualTo(1));
+                Assert.That(
+                    secretBinder.RuntimeSecretDoorImpactCells,
+                    Has.Count.EqualTo(1));
                 Assert.That(
                     CountDisplayedDoorStatuses(
                         secretBinder.DoorPresenter,
