@@ -27,6 +27,7 @@
 - 보스방 도착과 클리어 완료 구분, 완료 UI 단일 표시와 전투 정지, 완료 전·pending 중 재시작 거부, 같은 seed의 새 run state·시작방·초기 한 슬롯 복구, WebGL `R` 재시작.
 - 갑옷 적의 반경 1 수비, 서로 다른 폭발 2회, 첫 폭발 중심 기반 최대 3칸 cardinal panic 경로 선택·고정, 예고 0.6초·6 cells/s 질주·0.5초 회복·3 cells/s 추격, 같은 `BombId` 중복 차단과 어느 panic 단계에서든 두 번째 사망 뒤 점유 단일 제거.
 - panic 경로의 네 방향·대각선·거리/투영/안정 순서 동률, 초기 벽·폭탄·actor 차단, 예고 뒤 경로 비확장, 실행 중 새 장애물의 조기 회복과 collider 없는 예고 셀 풀링·회수.
+- Editor 전용 `ArmoredPanicPlaytest`가 Armor 권위 방 asset·spawn·장애물과 일치하고, chaser+armored 런타임만 준비하며, 던전 adapter·다음 씬·표준 Build Settings 없이 직접 Play해 Console 오류가 없는지 확인한다.
 - 방 경계·연결성, 서로 다른 첫 이동의 퇴로 2개, 닫힌 유도 경로와 씬 표현 일치.
 - 중앙 게이트 방의 고정 장벽 8셀·파괴 문 2셀·좌우 우회 연결, 추격자 단일 구성, 논리/시각 파괴 벽 수 일치와 실제 WebGL 진입·클리어·HUD 비중첩.
 - 동일 버전·정의·seed 던전 재현과 golden snapshot, 4~5 전투방·첫 보상·보스 전실/보스 경로·선택 전투 가지·보스 근처 단일 Recovery leaf, normal 연결 트리와 Secret의 Combat 2~3연결·후보 우선순위·암시적 좌표 연결 방지.

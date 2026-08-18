@@ -20,6 +20,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string TestSandboxArmorScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxArmor.unity";
+        public const string ArmoredPanicPlaytestScenePath =
+            "Assets/Game/Scenes/TestSandbox/ArmoredPanicPlaytest.unity";
         public const string TestSandboxGatesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity";
         public const string DungeonStartScenePath =
@@ -124,6 +126,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeDungeonSpecialRoomCatalog(errors);
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
+            ValidateStandaloneArmoredPlaytestScene(errors);
             ValidateBuildSettings(errors);
         }
 
@@ -1218,6 +1221,108 @@ namespace BombSwap.Editor.ContentValidation
                 true,
                 true,
                 errors);
+        }
+
+        private static void ValidateStandaloneArmoredPlaytestScene(
+            ICollection<string> errors)
+        {
+            var sceneErrors = new List<string>();
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    ArmoredPanicPlaytestScenePath) == null)
+            {
+                errors.Add(
+                    $"{ArmoredPanicPlaytestScenePath}: Missing standalone armored panic playtest scene.");
+                return;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(ArmoredPanicPlaytestScenePath);
+            bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
+            if (openedForValidation)
+            {
+                scene = EditorSceneManager.OpenScene(
+                    ArmoredPanicPlaytestScenePath,
+                    OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                TestSandboxContext[] contexts = FindComponents<TestSandboxContext>(scene);
+                PrototypeGameSession[] sessions = FindComponents<PrototypeGameSession>(scene);
+                PrototypeArmoredPresenter[] armoredPresenters =
+                    FindComponents<PrototypeArmoredPresenter>(scene);
+                PrototypeRoomAdvanceController[] advanceControllers =
+                    FindComponents<PrototypeRoomAdvanceController>(scene);
+                int dungeonAdapterCount =
+                    FindComponents<PrototypeDungeonRunHost>(scene).Length +
+                    FindComponents<PrototypeDungeonRoomBinder>(scene).Length +
+                    FindComponents<PrototypeDungeonMinimapPresenter>(scene).Length +
+                    FindComponents<PrototypeDungeonDoorPresenter>(scene).Length +
+                    FindComponents<PrototypeRunCompletionPresenter>(scene).Length;
+
+                if (contexts.Length != 1 || sessions.Length != 1 ||
+                    armoredPresenters.Length != 1 || advanceControllers.Length != 1)
+                {
+                    sceneErrors.Add(
+                        "Standalone Armor playtest requires exactly one context, session, " +
+                        "armored presenter, and no-op room advance controller.");
+                }
+                if (dungeonAdapterCount != 0)
+                {
+                    sceneErrors.Add(
+                        "Standalone Armor playtest must not contain dungeon host, binder, " +
+                        "minimap, door presenter, or run-completion adapters.");
+                }
+                if (sessions.Length == 1 &&
+                    (!sessions[0].IsCombatEnabledByDefault ||
+                     sessions[0].IsBossEnabledByDefault))
+                {
+                    sceneErrors.Add(
+                        "Standalone Armor playtest must enable its non-boss combat encounter.");
+                }
+                if (advanceControllers.Length == 1 &&
+                    (!string.IsNullOrEmpty(advanceControllers[0].NextSceneName) ||
+                     sessions.Length != 1 ||
+                     advanceControllers[0].Session != sessions[0]))
+                {
+                    sceneErrors.Add(
+                        "Standalone Armor playtest room advance must reference its session " +
+                        "and keep the next scene empty.");
+                }
+                if (contexts.Length == 1)
+                {
+                    ValidateRoomSceneBinding(
+                        contexts[0],
+                        PrototypeCombatArmorDefinitionPath,
+                        sceneErrors);
+                }
+                if (!FindComponents<Camera>(scene).Any(camera =>
+                        camera.enabled && camera.CompareTag("MainCamera")))
+                {
+                    sceneErrors.Add("Standalone Armor playtest requires an enabled MainCamera.");
+                }
+            }
+            finally
+            {
+                if (openedForValidation && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+
+            foreach (string error in sceneErrors)
+            {
+                errors.Add($"{ArmoredPanicPlaytestScenePath}: {error}");
+            }
+
+            if (EditorBuildSettings.scenes.Any(sceneSetting =>
+                    sceneSetting.enabled && string.Equals(
+                        sceneSetting.path,
+                        ArmoredPanicPlaytestScenePath,
+                        StringComparison.Ordinal)))
+            {
+                errors.Add(
+                    "Standalone Armor playtest scene must stay outside the standard enabled Build Settings scenes.");
+            }
         }
 
         private static void ValidateTestSandboxScene(
