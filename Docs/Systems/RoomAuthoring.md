@@ -75,6 +75,15 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 Collider 접촉이 아니라 확정 `PlayerMovementStep`으로만 수집한다.
 - cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.
 
+## 장갑병 독립 플레이테스트 씬
+
+- `ArmoredPanicPlaytest.unity`는 `prototype-combat-armor`와 일반 TestSandbox shell에서 생성하는 Editor 전용 미러다. 장갑병 전용 규칙이나 중복 방 수치를 소유하지 않는다.
+- builder는 동기화할 때 권위 `PrototypeCombatArmor.asset`의 격자, spawn, 장애물과 적 정의를 적용한 뒤 던전 `RunHost`, room binder, 미니맵, 문 presenter, 완료 presenter를 제거한다.
+- `PrototypeRoomAdvanceController`는 현재 session을 참조하되 다음 씬 이름을 비워 둔다. 전투를 클리어해도 다른 씬으로 이동하지 않으므로 같은 상태를 관찰할 수 있다.
+- 표준 Build Settings enabled scene에는 넣지 않는다. 실제 던전 전환이나 WebGL 빌드 검증을 대신하지 않으며 빠른 장갑 상태·panic 이동·두 번째 적중 조작 확인에만 사용한다.
+- Editor 메뉴 `Bomb Swap > Playtest > Play Armored Panic Room`이 동기화, 단일 씬 열기, Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
+- 콘텐츠 validator는 Armor room 참조·spawn·장애물 표현, 필수 session/presenter, 빈 다음 씬, 던전 전용 adapter 부재, MainCamera 존재와 Build Settings 제외를 함께 검사한다.
+
 ## 저작 불변식
 
 - 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형과 갑옷 적도 플레이어와 즉시 인접하지 않는다.

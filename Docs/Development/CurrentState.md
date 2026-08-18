@@ -83,6 +83,7 @@
 - 상단 막·남쪽 진입로·좌우 3칸 가지를 가진 T 교차점으로 네 번째 `prototype-combat-armor` 방·씬을 갱신하고, 정의 수치·예고 prefab·정확한 고정 벽 9셀을 Editor builder와 validator로 고정했다.
 - 연결된 Unity Test Runner의 도메인 리로드 뒤에도 실행 ID와 최종 수치를 JSON으로 보존하는 `ConnectedTestHarness`를 구현.
 - 갑옷 전용 WebGL smoke가 첫 실제 폭발의 `Broken/Telegraph east 3 → PanicRun → Recover → Chase`, 다른 셀의 두 번째 폭탄과 `Dead`를 확인한다. 정식 11씬 빌드의 기존 입력·폭탄·던전·보스 회귀와 전용 시작 씬 가설을 분리해 검증한다.
+- `Bomb Swap > Playtest > Play Armored Panic Room` 메뉴와 Build Settings 밖의 `ArmoredPanicPlaytest.unity`를 추가했다. 현재 Armor room asset에서 매번 동기화하고 던전 host·binder·미니맵·문 전환을 제거해 청회색 장갑병의 첫 피격·panic·두 번째 적중을 Editor에서 즉시 반복할 수 있다.
 - 갑옷 첫 피격 가독성, 경로 예고 인지, 예고 도착점 선행 설치와 반복 노동감을 분리해 관찰하도록 고정 WebGL 프로토콜과 익명 기록 템플릿을 panic/T 교차점 계약으로 갱신했다.
 - `prototype-secret-v3` 결정론적 한 층 Core 그래프를 구현해 명시 seed에서 시작→첫 전투→폭탄 보상→주 경로 전투 3개→보스 전실→보스의 normal tree, 선택 전투 가지, 단일 Recovery leaf와 후보가 있을 때 Combat 2~3개에 연결되는 Secret 하나를 생성.
 - 고정 seed 혼합·LCG·상위 비트 범위 변환과 유한 정수 XZ backtracking으로 연결된 트리, 고유 좌표, 연결되지 않은 방의 암시적 cardinal 인접 금지를 보장.

@@ -6,6 +6,18 @@
 - 대상 방: `prototype-combat-armor`
 - 연결 가설: `ProtoType_v0.2.md` 가설 B, 테스트 3 “횟수제 적”
 
+## 가장 빠른 로컬 실행
+
+Unity 상단 메뉴에서 `Bomb Swap > Playtest > Play Armored Panic Room`을 선택한다. 전용 씬을 현재 Armor 방 데이터에 맞춰 동기화하고 씬을 연 뒤 바로 Play Mode로 진입한다.
+
+- 청회색의 큰 적이 장갑병이고 초록색 적은 이 방 스키마에 함께 들어 있는 기본 추격자다.
+- 이동은 `WASD` 또는 방향키, 폭탄 설치는 `Z`, 폭탄 교체는 `X`, 일시정지는 `Esc`다.
+- 첫 폭발을 맞은 장갑병은 주황색으로 바뀌며 panic 경로를 예고한다. 서로 다른 폭발을 한 번 더 맞혀야 사망한다.
+- 다시 시도하려면 Play Mode를 정지하고 같은 메뉴를 다시 선택한다. 시작 상태가 매번 초기화된다.
+- 씬만 열고 싶으면 `Bomb Swap > Playtest > Open Armored Panic Room`, 권위 방 데이터에서 씬만 다시 만들고 싶으면 `Bomb Swap > Playtest > Rebuild Armored Panic Room`을 사용한다.
+
+전용 씬은 `Assets/Game/Scenes/TestSandbox/ArmoredPanicPlaytest.unity`이며 일반 던전의 진행 host·binder·미니맵·문 전환을 의도적으로 갖지 않는다. 표준 Build Settings에도 포함하지 않는다. 이 경로는 빠른 Editor 조작 확인용이고, 최종 WebGL 가독성·브라우저 입력 검증은 아래의 고정 WebGL 프로토콜을 사용한다.
+
 ## 이번 세션이 답할 질문
 
 1. 설명 없이도 첫 폭발이 갑옷만 파괴했고 적이 아직 살아 있다는 사실을 즉시 읽는가?

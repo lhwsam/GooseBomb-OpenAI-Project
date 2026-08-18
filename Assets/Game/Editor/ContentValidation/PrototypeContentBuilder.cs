@@ -132,6 +132,14 @@ namespace BombSwap.Editor.ContentValidation
                 bossDefinition,
                 roomDefinitions[4],
                 string.Empty);
+            bool armoredPlaytestSceneCreated = EnsureArmoredPanicPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[3]);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxScenePath,
                 combatRoomCatalog,
@@ -255,12 +263,44 @@ namespace BombSwap.Editor.ContentValidation
             AssetDatabase.SaveAssets();
 
             return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
-                armorSceneCreated || gatesSceneCreated || startSceneCreated ||
+                armorSceneCreated || gatesSceneCreated || armoredPlaytestSceneCreated ||
+                startSceneCreated ||
                 rewardSceneCreated ||
                 bossAnteSceneCreated || recoverySceneCreated || secretSceneCreated ||
                 bossSceneCreated
-                ? "Created BombSwap prototype dungeon content and eleven graph room scenes."
-                : "BombSwap prototype dungeon content exists; synchronized room scenes, graph bindings, references, and Build Settings.";
+                ? "Created BombSwap prototype dungeon content, eleven graph room scenes, and the standalone Armor playtest scene."
+                : "BombSwap prototype content exists; synchronized dungeon rooms, standalone Armor playtest, graph bindings, references, and Build Settings.";
+        }
+
+        public static string CreateOrUpdateArmoredPanicPlaytestScene()
+        {
+            PrototypeBombLoadoutAsset bombLoadout = LoadRequiredAsset<
+                PrototypeBombLoadoutAsset>(PrototypeContentValidator.PrototypeBombLoadoutPath);
+            PrototypePlayerVitalsAsset playerVitals = LoadRequiredAsset<
+                PrototypePlayerVitalsAsset>(PrototypeContentValidator.PrototypePlayerVitalsPath);
+            PrototypeChaserDefinitionAsset chaserDefinition = LoadRequiredAsset<
+                PrototypeChaserDefinitionAsset>(PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            PrototypeChargerDefinitionAsset chargerDefinition = LoadRequiredAsset<
+                PrototypeChargerDefinitionAsset>(PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            PrototypeArmoredDefinitionAsset armoredDefinition = LoadRequiredAsset<
+                PrototypeArmoredDefinitionAsset>(PrototypeContentValidator.PrototypeArmoredDefinitionPath);
+            PrototypeBossDefinitionAsset bossDefinition = LoadRequiredAsset<
+                PrototypeBossDefinitionAsset>(PrototypeContentValidator.PrototypeBossDefinitionPath);
+            PrototypeCombatRoomDefinitionAsset roomDefinition = LoadRequiredAsset<
+                PrototypeCombatRoomDefinitionAsset>(PrototypeContentValidator.PrototypeCombatArmorDefinitionPath);
+
+            bool created = EnsureArmoredPanicPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition);
+            AssetDatabase.SaveAssets();
+            return created
+                ? $"Created standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'."
+                : $"Synchronized standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -1490,6 +1530,73 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             return created;
+        }
+
+        private static bool EnsureArmoredPanicPlaytestScene(
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
+        {
+            bool created = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.ArmoredPanicPlaytestScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition,
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.ArmoredPanicPlaytestScenePath);
+            return created;
+        }
+
+        private static void StripDungeonAdaptersFromStandalonePlaytest(
+            string scenePath)
+        {
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                foreach (PrototypeDungeonRunHost host in
+                    FindAllInScene<PrototypeDungeonRunHost>(scene))
+                {
+                    UnityEngine.Object.DestroyImmediate(host.gameObject);
+                }
+                DestroyAllInScene<PrototypeDungeonRoomBinder>(scene);
+                DestroyAllInScene<PrototypeDungeonMinimapPresenter>(scene);
+                DestroyAllInScene<PrototypeDungeonDoorPresenter>(scene);
+                DestroyAllInScene<PrototypeRunCompletionPresenter>(scene);
+
+                PrototypeGameSession session = FindExactlyOne<PrototypeGameSession>(scene);
+                PrototypeRoomAdvanceController advance =
+                    FindExactlyOne<PrototypeRoomAdvanceController>(scene);
+                advance.Configure(session, string.Empty);
+                EditorUtility.SetDirty(advance);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save standalone playtest scene '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
         }
 
         private static void EnsureDungeonRoomBinding(
@@ -2950,6 +3057,19 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static T LoadRequiredAsset<T>(string assetPath)
+            where T : UnityEngine.Object
+        {
+            T asset = AssetDatabase.LoadAssetAtPath<T>(assetPath);
+            if (asset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Required prototype asset is missing: {assetPath}");
+            }
+
+            return asset;
+        }
+
         private static T FindExactlyOne<T>(Scene scene) where T : Component
         {
             T found = null;
@@ -2975,6 +3095,14 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             return found;
+        }
+
+        private static void DestroyAllInScene<T>(Scene scene) where T : Component
+        {
+            foreach (T component in FindAllInScene<T>(scene))
+            {
+                UnityEngine.Object.DestroyImmediate(component);
+            }
         }
 
         private static T[] FindAllInScene<T>(Scene scene) where T : Component
