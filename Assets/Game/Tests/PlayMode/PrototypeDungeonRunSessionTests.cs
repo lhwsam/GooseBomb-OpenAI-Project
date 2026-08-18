@@ -2162,23 +2162,28 @@ namespace BombSwap.Tests.PlayMode
             Keyboard keyboard,
             GridPosition destination)
         {
-            IReadOnlyList<CardinalDirection> path = FindWalkablePath(
-                session,
-                session.CurrentGridPosition,
-                destination);
-            for (int index = 0; index < path.Count; index++)
+            int movementGuard = 0;
+            while (session.CurrentGridPosition != destination &&
+                   movementGuard++ < 256)
             {
-                CardinalDirection direction = path[index];
-                GridPosition expected = Offset(
+                IReadOnlyList<CardinalDirection> path = FindWalkablePath(
+                    session,
                     session.CurrentGridPosition,
-                    direction);
+                    destination);
+                Assert.That(
+                    path.Count,
+                    Is.GreaterThan(0),
+                    $"No walkable path remains toward {destination}.");
+                CardinalDirection direction = path[0];
+                GridPosition start = session.CurrentGridPosition;
+                session.InputReader.SetInputFocus(true);
                 InputSystem.QueueStateEvent(
                     keyboard,
                     new KeyboardState(ToKey(direction)));
                 InputSystem.Update();
 
                 float deadline = Time.realtimeSinceStartup + 1.5f;
-                while (session.CurrentGridPosition != expected &&
+                while (session.CurrentGridPosition == start &&
                        Time.realtimeSinceStartup < deadline)
                 {
                     yield return null;
@@ -2188,10 +2193,15 @@ namespace BombSwap.Tests.PlayMode
                 InputSystem.Update();
                 Assert.That(
                     session.CurrentGridPosition,
-                    Is.EqualTo(expected),
+                    Is.Not.EqualTo(start),
                     $"Timed out moving {direction} toward {destination}.");
                 yield return null;
             }
+
+            Assert.That(
+                session.CurrentGridPosition,
+                Is.EqualTo(destination),
+                $"Movement guard exhausted before reaching {destination}.");
         }
 
         private static IReadOnlyList<CardinalDirection> FindWalkablePath(

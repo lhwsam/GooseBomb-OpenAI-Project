@@ -836,6 +836,17 @@ namespace BombSwap.Editor.ContentValidation
                 Vector3.zero,
                 new Vector3(0.7f, 0.7f, 0.7f),
                 chargerMaterial);
+            Material chargerTelegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/ChargerTelegraph.mat",
+                shader,
+                new Color(1f, 0.72f, 0.05f, 1f));
+            GameObject chargerTelegraphCellPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ChargerTelegraphCellPrefabPath,
+                "ChargerTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.82f, 0.04f, 0.82f),
+                chargerTelegraphMaterial);
 
             PrototypeChargerDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeChargerDefinitionAsset>(
@@ -853,10 +864,12 @@ namespace BombSwap.Editor.ContentValidation
                 "prototype-charger",
                 1,
                 1,
+                1f,
                 0.75f,
                 8f,
-                0.75f,
+                1f,
                 chargerPrefab,
+                chargerTelegraphCellPrefab,
                 0.45f,
                 0.12f);
             EditorUtility.SetDirty(definition);
@@ -1085,11 +1098,13 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector2Int(3, 2),
                 new[]
                 {
-                    new Vector2Int(-1, -2),
-                    new Vector2Int(1, -1),
-                    new Vector2Int(-1, 0),
-                    new Vector2Int(1, 1),
-                    new Vector2Int(-1, 2),
+                    new Vector2Int(-4, -2),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(2, 1),
+                    new Vector2Int(-3, -3),
+                    new Vector2Int(-3, 3),
+                    new Vector2Int(3, -3),
+                    new Vector2Int(3, 3),
                 },
                 new[]
                 {
@@ -1099,16 +1114,16 @@ namespace BombSwap.Editor.ContentValidation
                 },
                 new[]
                 {
-                    new Vector2Int(-4, 1),
-                    new Vector2Int(0, -3),
+                    new Vector2Int(-3, -1),
+                    new Vector2Int(-2, -2),
                 },
-                CreateRectangleLoop(-2, 2, -3, 3),
+                CreateRectangleLoop(-1, 1, -1, 1),
                 CreateCardinalRoomExits(5, 4),
                 new[]
                 {
-                    Vector2Int.zero,
+                    new Vector2Int(2, -2),
                 },
-                new Vector2Int(-3, 2));
+                new Vector2Int(0, 1));
             EditorUtility.SetDirty(pillars);
 
             PrototypeCombatRoomDefinitionAsset armor = GetOrCreateRoomDefinition(

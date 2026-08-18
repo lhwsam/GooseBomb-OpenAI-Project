@@ -38,13 +38,15 @@
 |---:|---|---|---|---|
 | 1 | `prototype-combat-loop` / `PrototypeCombatLoop.asset` | 플레이어 `(0, 0)`, 추격자 `(1, -1)` | 중앙 십자 고정 벽 4개, 파괴 벽 없음, 기존 전투 기준선 | `TestSandbox.unity` / `TestSandboxLanes` |
 | 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | 세로 고정 벽 6개, 파괴 벽 `(-1,-1)·(1,-1)`: spawn 광역은 둘을 대각선 동시 파괴, 십자는 미도달 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
-| 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(-3, 2)` | 엇갈린 고정 기둥 5개, 중앙 파괴 벽 `(0,0)`: 파괴 전 엄폐·파괴 후 공간 확장, 시작 세로 돌진 예고선 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
+| 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(0, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: 돌진형이 남쪽 정렬 셀을 획득한 뒤 서쪽 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
 | 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 좌우 기둥 `(-2,-1)·(2,-1)·(-2,1)·(2,1)`, 열린 중앙 실험선, 파괴 벽 없음: 갑옷 2회 피격과 상태별 속도 비교 | `TestSandboxArmor.unity` / `TestSandboxGates` |
 | 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`: 문을 열면 중앙 지름길과 적 진입로가 함께 열리고, 유지하면 `x=±3` 우회가 남음 | `TestSandboxGates.unity` / 없음 |
 
 다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
 
 유도 경로는 사람과 플레이테스트 도구가 읽는 공간 의도다. 현재 추격 AI에 waypoint를 강제하지 않으며 실제 유도 재미는 관찰 플레이테스트로 판단한다.
+
+`Pillars`의 고정 기둥은 `(-4,-2)`, `(-2,1)`, `(2,1)`, `(-3,-3)`, `(-3,3)`, `(3,-3)`, `(3,3)`이다. 파괴벽 `(2,-2)`는 동쪽 차선을 열 수 있는 종단이고, 안전 셀 `(-3,-2)·(-3,-1)·(-2,-2)`와 뒤의 두 셀을 퇴로 anchor로 사용한다. 이 정확한 셀 집합은 builder와 validator가 함께 고정하지만, 1 cell/s 획득·0.75초 예고·8 cells/s 돌진에서 실제 유도 선택이 읽히는지는 `Proposed`다.
 
 ## 던전 런 카탈로그
 

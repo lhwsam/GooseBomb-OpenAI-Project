@@ -231,6 +231,12 @@ namespace BombSwap
         public ChargerEnemyState CurrentChargerState =>
             _charger != null ? _charger.State : ChargerEnemyState.Track;
 
+        public CardinalDirection CurrentChargerLockedDirection =>
+            _charger != null ? _charger.LockedDirection : CardinalDirection.None;
+
+        public int CurrentChargerLockedChargeDistance =>
+            _charger != null ? _charger.LockedChargeDistance : 0;
+
         public bool IsChargerAlive =>
             _hasCharger && _chargerHealth != null && !_chargerHealth.IsDead;
 

@@ -8,6 +8,7 @@ namespace BombSwap.Core
             EnemyDefinitionId id,
             int maxHealth,
             int contactDamage,
+            TimeSpan laneAcquireStepInterval,
             TimeSpan telegraphDuration,
             TimeSpan chargeStepInterval,
             TimeSpan recoverDuration)
@@ -30,6 +31,7 @@ namespace BombSwap.Core
                     contactDamage,
                     "Enemy contact damage must be positive.");
             }
+            ValidatePositive(laneAcquireStepInterval, nameof(laneAcquireStepInterval));
             ValidatePositive(telegraphDuration, nameof(telegraphDuration));
             ValidatePositive(chargeStepInterval, nameof(chargeStepInterval));
             ValidatePositive(recoverDuration, nameof(recoverDuration));
@@ -37,6 +39,7 @@ namespace BombSwap.Core
             Id = id;
             MaxHealth = maxHealth;
             ContactDamage = contactDamage;
+            LaneAcquireStepInterval = laneAcquireStepInterval;
             TelegraphDuration = telegraphDuration;
             ChargeStepInterval = chargeStepInterval;
             RecoverDuration = recoverDuration;
@@ -47,6 +50,8 @@ namespace BombSwap.Core
         public int MaxHealth { get; }
 
         public int ContactDamage { get; }
+
+        public TimeSpan LaneAcquireStepInterval { get; }
 
         public TimeSpan TelegraphDuration { get; }
 
