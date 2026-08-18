@@ -42,6 +42,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeAreaBomb.asset";
         public const string PrototypeLineBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeLineBomb.asset";
+        public const string PrototypeSelfDestructBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeSelfDestructBlast.asset";
         public const string PrototypeBombLoadoutPath =
             "Assets/Game/Content/Bombs/PrototypeBombLoadout.asset";
         public const string PrototypeBombRewardCatalogPath =
@@ -54,6 +56,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Enemies/PrototypeCharger.asset";
         public const string PrototypeArmoredDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeArmored.asset";
+        public const string PrototypeSelfDestructDefinitionPath =
+            "Assets/Game/Content/Enemies/PrototypeSelfDestruct.asset";
         public const string PrototypeBossDefinitionPath =
             "Assets/Game/Content/Bosses/PrototypeBoss.asset";
         public const string PrototypeCombatRoomDefinitionPath =
@@ -88,6 +92,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPlaceholder.prefab";
         public const string ArmoredPanicTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPanicTelegraphCellPlaceholder.prefab";
+        public const string SelfDestructPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/SelfDestructPlaceholder.prefab";
+        public const string SelfDestructTelegraphCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/SelfDestructTelegraphCellPlaceholder.prefab";
         public const string BossPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossPlaceholder.prefab";
         public const string BossDangerCellPrefabPath =
@@ -118,6 +126,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeChaserDefinition(errors);
             ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeArmoredDefinition(errors);
+            ValidatePrototypeSelfDestructDefinition(errors);
             ValidatePrototypeBossDefinition(errors);
             ValidatePrototypeRecoveryMaterial(errors);
             ValidatePrototypeSecretMaterials(errors);
@@ -515,6 +524,75 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static void ValidatePrototypeSelfDestructDefinition(
+            ICollection<string> errors)
+        {
+            PrototypeSelfDestructDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeSelfDestructDefinitionPath);
+            PrototypeBombDefinitionAsset blastDefinition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeSelfDestructBombDefinitionPath);
+            if (definition == null)
+            {
+                errors.Add(
+                    $"Missing prototype self-destruct definition: {PrototypeSelfDestructDefinitionPath}");
+                return;
+            }
+            if (blastDefinition == null)
+            {
+                errors.Add(
+                    $"Missing prototype self-destruct blast definition: {PrototypeSelfDestructBombDefinitionPath}");
+                return;
+            }
+
+            try
+            {
+                SelfDestructEnemyDefinition core = definition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+                BombDefinition blast = blastDefinition.CreateCoreDefinition();
+                if (definition.ChaseCellsPerSecond != 2f ||
+                    core.ChaseStepInterval != TimeSpan.FromSeconds(0.5) ||
+                    definition.WarningDistance != 3 ||
+                    core.WarningDistance != 3 ||
+                    definition.PrimeDistance != 1 ||
+                    core.PrimeDistance != 1 ||
+                    blast.Id != new BombDefinitionId("prototype-self-destruct-blast") ||
+                    blast.ExplosionShape != BombExplosionShape.Cross ||
+                    blast.FuseDuration != TimeSpan.FromSeconds(0.75) ||
+                    blast.Range != 1)
+                {
+                    errors.Add(
+                        "Prototype self-destruct enemy must chase at 2 cells/second, " +
+                        "warn within 3 cells, prime within 1 cell, and " +
+                        "use a 0.75-second range-1 cross blast.");
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype self-destruct definition: {exception.Message}");
+            }
+
+            string blastPath = AssetDatabase.GetAssetPath(
+                definition.DetonationBombDefinition);
+            string prefabPath = AssetDatabase.GetAssetPath(definition.EnemyPrefab);
+            string telegraphPath = AssetDatabase.GetAssetPath(
+                definition.TelegraphCellPrefab);
+            if (!string.Equals(
+                    blastPath,
+                    PrototypeSelfDestructBombDefinitionPath,
+                    StringComparison.Ordinal) ||
+                !string.Equals(prefabPath, SelfDestructPrefabPath, StringComparison.Ordinal) ||
+                !string.Equals(
+                    telegraphPath,
+                    SelfDestructTelegraphCellPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Prototype self-destruct definition has inconsistent blast or presentation references.");
+            }
+        }
+
         private static void ValidatePrototypeBossDefinition(ICollection<string> errors)
         {
             PrototypeBossDefinitionAsset definition =
@@ -626,6 +704,14 @@ namespace BombSwap.Editor.ContentValidation
                 new GridPosition(0, 1),
                 null,
             };
+            GridPosition?[] expectedSelfDestructSpawns =
+            {
+                null,
+                null,
+                null,
+                null,
+                new GridPosition(3, 0),
+            };
 
             var seenIds = new HashSet<string>(StringComparer.Ordinal);
             for (int index = 0; index < expectedPaths.Length; index++)
@@ -663,6 +749,21 @@ namespace BombSwap.Editor.ContentValidation
                         errors.Add(
                             $"Prototype combat room '{path}' has unexpected armored spawn " +
                             $"'{room.ArmoredSpawn}'; expected '{expectedArmoredSpawns[index]}'.");
+                    }
+                    if (room.SelfDestructSpawn != expectedSelfDestructSpawns[index])
+                    {
+                        errors.Add(
+                            $"Prototype combat room '{path}' has unexpected self-destruct spawn " +
+                            $"'{room.SelfDestructSpawn}'; expected '{expectedSelfDestructSpawns[index]}'.");
+                    }
+                    if (index == 4 && !room.SelfDestructAnchors.SequenceEqual(new[]
+                        {
+                            new GridPosition(0, -2),
+                            new GridPosition(0, 2),
+                        }))
+                    {
+                        errors.Add(
+                            "Prototype Gates room must use the authored lower/upper self-destruct anchors.");
                     }
                     if (index == 2)
                     {
@@ -1384,6 +1485,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeChargerPresenter>(scene);
                 PrototypeArmoredPresenter[] armoredPresenters =
                     FindComponents<PrototypeArmoredPresenter>(scene);
+                PrototypeSelfDestructPresenter[] selfDestructPresenters =
+                    FindComponents<PrototypeSelfDestructPresenter>(scene);
                 PrototypeBossPresenter[] bossPresenters =
                     FindComponents<PrototypeBossPresenter>(scene);
                 PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
@@ -1458,6 +1561,12 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypeArmoredPresenter; found {armoredPresenters.Length}.");
+                }
+                if (selfDestructPresenters.Length != 1)
+                {
+                    errors.Add(
+                        "TestSandbox must contain exactly one PrototypeSelfDestructPresenter; " +
+                        $"found {selfDestructPresenters.Length}.");
                 }
                 if (bossPresenters.Length != 1)
                 {
@@ -1572,6 +1681,8 @@ namespace BombSwap.Editor.ContentValidation
                         session.ChargerDefinition);
                     string armoredDefinitionPath = AssetDatabase.GetAssetPath(
                         session.ArmoredDefinition);
+                    string selfDestructDefinitionPath = AssetDatabase.GetAssetPath(
+                        session.SelfDestructDefinition);
                     string bossDefinitionPath = AssetDatabase.GetAssetPath(
                         session.BossDefinition);
                     if (session.Context != contexts[0] || session.InputReader != readers[0] ||
@@ -1594,6 +1705,10 @@ namespace BombSwap.Editor.ContentValidation
                         !string.Equals(
                             armoredDefinitionPath,
                             PrototypeArmoredDefinitionPath,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            selfDestructDefinitionPath,
+                            PrototypeSelfDestructDefinitionPath,
                             StringComparison.Ordinal) ||
                         !string.Equals(
                             bossDefinitionPath,
@@ -1707,6 +1822,20 @@ namespace BombSwap.Editor.ContentValidation
                         presenter.PresentationRoot != runtimePresentation)
                     {
                         errors.Add("TestSandbox armored presenter has inconsistent scene references.");
+                    }
+                }
+
+                if (selfDestructPresenters.Length == 1 && sessions.Length == 1 &&
+                    contexts.Length == 1)
+                {
+                    PrototypeSelfDestructPresenter presenter = selfDestructPresenters[0];
+                    Transform runtimePresentation =
+                        contexts[0].GridRoot.Find("RuntimePresentation");
+                    if (presenter.Session != sessions[0] ||
+                        presenter.PresentationRoot != runtimePresentation)
+                    {
+                        errors.Add(
+                            "TestSandbox self-destruct presenter has inconsistent scene references.");
                     }
                 }
 
@@ -2108,6 +2237,28 @@ namespace BombSwap.Editor.ContentValidation
             else if (context.ArmoredSpawn != null)
             {
                 errors.Add("TestSandbox has an armored spawn Transform without an authored armored cell.");
+            }
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                if (context.SelfDestructSpawn == null)
+                {
+                    errors.Add(
+                        "TestSandbox is missing the authored self-destruct spawn Transform.");
+                }
+                else
+                {
+                    ValidateTransformCell(
+                        context,
+                        context.SelfDestructSpawn,
+                        room.SelfDestructSpawn.Value,
+                        "self-destruct spawn",
+                        errors);
+                }
+            }
+            else if (context.SelfDestructSpawn != null)
+            {
+                errors.Add(
+                    "TestSandbox has a self-destruct spawn Transform without an authored cell.");
             }
 
             Transform obstacles = context.GridRoot.Find("Environment/InteriorObstacles");

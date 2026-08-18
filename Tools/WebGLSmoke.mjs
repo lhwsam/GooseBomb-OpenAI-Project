@@ -229,6 +229,38 @@ async function getLastPlayerCell(page) {
   });
 }
 
+async function getLastSelfDestructCell(page) {
+  return page.evaluate(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      const match = /^self-destruct-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+      if (match) return { x: Number(match[1]), z: Number(match[2]) };
+    }
+    return null;
+  });
+}
+
+async function waitForSelfDestructAtCell(page, expectedX, expectedZ, timeout = 15_000) {
+  await page.waitForFunction(({ x, z }) => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return false;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (name === `self-destruct-cell-x-${x}-z-${z}`) return true;
+    }
+    return false;
+  }, { x: expectedX, z: expectedZ }, { timeout });
+
+  const observed = await getLastSelfDestructCell(page);
+  if (!observed || observed.x !== expectedX || observed.z !== expectedZ) {
+    throw new Error(
+      `Expected self-destruct cell (${expectedX}, ${expectedZ}), observed ${JSON.stringify(observed)}.`,
+    );
+  }
+}
+
 async function getLastPlayerHealth(page) {
   return page.evaluate(() => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -1136,6 +1168,9 @@ async function main() {
     await waitForEvent(page, "room-ready-prototype-combat-gates", {
       timeout: 60_000,
     });
+    await moveToCell(page, 3, -3, "zx");
+    await waitForSelfDestructAtCell(page, 3, -1, 10_000);
+    await moveToCell(page, -1, -2, "xz");
     fs.mkdirSync(path.dirname(gatesRoomScreenshotPath), { recursive: true });
     await page.screenshot({ path: gatesRoomScreenshotPath });
     checks.push({
@@ -1144,11 +1179,34 @@ async function main() {
       detail: gatesRoomScreenshotPath,
     });
 
+    const gatesDestroyedWallsBefore = await eventCount(
+      page,
+      "destructible-wall-destroyed",
+    );
     const room5AreaPlacementsBefore = await eventCount(
       page,
       "place-bomb-definition-prototype-area",
     );
-    await moveToCell(page, -3, 2);
+    await waitForEvent(page, "self-destruct-warning-chase", {
+      timeout: 10_000,
+    });
+    await waitForSelfDestructAtCell(page, 0, -2, 10_000);
+    await waitForEvent(page, "self-destruct-armed", { timeout: 5_000 });
+    await waitForEvent(page, "self-destruct-telegraph", { timeout: 5_000 });
+    await moveToCell(page, -1, -3);
+    await waitForEvent(page, "self-destruct-detonated", { timeout: 5_000 });
+    await waitForEvent(page, "self-destruct-died", { timeout: 5_000 });
+    await waitForEvent(
+      page,
+      "bomb-exploded-definition-prototype-self-destruct-blast",
+      { timeout: 5_000 },
+    );
+    await waitForEvent(page, "destructible-wall-destroyed", {
+      count: gatesDestroyedWallsBefore + 1,
+      timeout: 5_000,
+    });
+
+    await moveToCell(page, 3, 2);
     await waitForChaserAtDistance(page, 2);
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
@@ -1157,13 +1215,13 @@ async function main() {
     });
     const room5ExplosionsBefore = await eventCount(page, "bomb-exploded");
     const room5ClearsBefore = await eventCount(page, "room-cleared");
-    await moveToCell(page, -5, 2);
+    await moveToCell(page, 5, 2);
     await waitForEvent(page, "bomb-exploded", {
       count: room5ExplosionsBefore + 1,
       timeout: 15_000,
     });
     if (await eventCount(page, "room-cleared") === room5ClearsBefore) {
-      await moveToCell(page, -3, 1);
+      await moveToCell(page, 3, 1);
       await waitForChaserAtDistance(page, 2);
       await page.waitForTimeout(200);
       const secondRoom5AreaPlacementBefore = await eventCount(
@@ -1176,7 +1234,7 @@ async function main() {
         timeout: 5_000,
       });
       const secondRoom5ExplosionBefore = await eventCount(page, "bomb-exploded");
-      await moveToCell(page, -3, -1);
+      await moveToCell(page, 3, -1);
       await waitForEvent(page, "bomb-exploded", {
         count: secondRoom5ExplosionBefore + 1,
         timeout: 5_000,
@@ -1188,9 +1246,14 @@ async function main() {
     });
     await waitForEvent(page, "combat-reward-tokens-6", { timeout: 5_000 });
     checks.push({
+      name: "self-destruct-gates-interaction",
+      status: "passed",
+      detail: "The Gates enemy followed the player's two-stage lure, entered warning chase, stopped at the lower lure cell, armed, detonated its dedicated blast, destroyed one authored gate, and died once.",
+    });
+    checks.push({
       name: "third-main-path-combat-clear",
       status: "passed",
-      detail: "The persisted reward loadout cleared the gates combat room 5 after using its west-side detour.",
+      detail: "The persisted reward loadout cleared gates combat room 5 after the player used the east-side cleanup route.",
     });
 
     const healthBeforeRecoveryDetour = await getLastPlayerHealth(page);

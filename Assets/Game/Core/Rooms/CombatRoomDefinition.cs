@@ -31,7 +31,9 @@ namespace BombSwap.Core
             IReadOnlyList<RoomExit> exits,
             IReadOnlyList<GridPosition> destructibleWalls = null,
             GridPosition? chargerSpawn = null,
-            GridPosition? armoredSpawn = null)
+            GridPosition? armoredSpawn = null,
+            GridPosition? selfDestructSpawn = null,
+            IReadOnlyList<GridPosition> selfDestructAnchors = null)
         {
             if (!id.IsValid)
             {
@@ -81,6 +83,10 @@ namespace BombSwap.Core
                 nameof(retreatAnchors),
                 true);
             GridPosition[] lureArray = CopyUniquePositions(lureLoop, nameof(lureLoop), true);
+            GridPosition[] selfDestructAnchorArray = CopyUniquePositions(
+                selfDestructAnchors ?? Array.Empty<GridPosition>(),
+                nameof(selfDestructAnchors),
+                selfDestructSpawn.HasValue);
             RoomExit[] exitArray = CopyExits(exits);
 
             ValidateTraversableCell(playerSpawn, nameof(playerSpawn));
@@ -129,6 +135,53 @@ namespace BombSwap.Core
                         nameof(armoredSpawn));
                 }
             }
+            if (selfDestructSpawn.HasValue)
+            {
+                GridPosition authoredSelfDestructSpawn = selfDestructSpawn.Value;
+                ValidateTraversableCell(
+                    authoredSelfDestructSpawn,
+                    nameof(selfDestructSpawn));
+                if (authoredSelfDestructSpawn == playerSpawn ||
+                    authoredSelfDestructSpawn == chaserSpawn ||
+                    (chargerSpawn.HasValue &&
+                     authoredSelfDestructSpawn == chargerSpawn.Value) ||
+                    (armoredSpawn.HasValue &&
+                     authoredSelfDestructSpawn == armoredSpawn.Value))
+                {
+                    throw new ArgumentException(
+                        "Self-destruct spawn must be distinct from all other actor spawns.",
+                        nameof(selfDestructSpawn));
+                }
+                if (playerSpawn.IsCardinallyAdjacentTo(authoredSelfDestructSpawn))
+                {
+                    throw new ArgumentException(
+                        "Player and self-destruct enemy cannot begin in cardinal contact.",
+                        nameof(selfDestructSpawn));
+                }
+            }
+            else if (selfDestructAnchorArray.Length > 0)
+            {
+                throw new ArgumentException(
+                    "Self-destruct anchors require a self-destruct spawn.",
+                    nameof(selfDestructAnchors));
+            }
+
+            ValidateTraversableCells(
+                selfDestructAnchorArray,
+                nameof(selfDestructAnchors));
+            for (int index = 0; index < selfDestructAnchorArray.Length; index++)
+            {
+                GridPosition anchor = selfDestructAnchorArray[index];
+                if (anchor == playerSpawn || anchor == chaserSpawn ||
+                    (chargerSpawn.HasValue && anchor == chargerSpawn.Value) ||
+                    (armoredSpawn.HasValue && anchor == armoredSpawn.Value) ||
+                    (selfDestructSpawn.HasValue && anchor == selfDestructSpawn.Value))
+                {
+                    throw new ArgumentException(
+                        $"Self-destruct anchor {anchor} cannot overlap an actor spawn.",
+                        nameof(selfDestructAnchors));
+                }
+            }
 
             ValidateTraversableCells(safeArray, nameof(safePlayerCells));
             ValidateTraversableCells(retreatArray, nameof(retreatAnchors));
@@ -157,6 +210,13 @@ namespace BombSwap.Core
                     "Safe player cells cannot include the armored enemy spawn.",
                     nameof(safePlayerCells));
             }
+            if (selfDestructSpawn.HasValue &&
+                Array.IndexOf(safeArray, selfDestructSpawn.Value) >= 0)
+            {
+                throw new ArgumentException(
+                    "Safe player cells cannot include the self-destruct enemy spawn.",
+                    nameof(safePlayerCells));
+            }
             if (retreatArray.Length < 2)
             {
                 throw new ArgumentException(
@@ -172,6 +232,8 @@ namespace BombSwap.Core
             DestructibleWalls = Array.AsReadOnly(destructibleWallArray);
             ChargerSpawn = chargerSpawn;
             ArmoredSpawn = armoredSpawn;
+            SelfDestructSpawn = selfDestructSpawn;
+            SelfDestructAnchors = Array.AsReadOnly(selfDestructAnchorArray);
             SafePlayerCells = Array.AsReadOnly(safeArray);
             RetreatAnchors = Array.AsReadOnly(retreatArray);
             LureLoop = Array.AsReadOnly(lureArray);
@@ -193,6 +255,10 @@ namespace BombSwap.Core
         public GridPosition? ChargerSpawn { get; }
 
         public GridPosition? ArmoredSpawn { get; }
+
+        public GridPosition? SelfDestructSpawn { get; }
+
+        public IReadOnlyList<GridPosition> SelfDestructAnchors { get; }
 
         public IReadOnlyList<GridPosition> IndestructibleWalls { get; }
 

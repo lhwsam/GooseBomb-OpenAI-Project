@@ -48,6 +48,15 @@ namespace BombSwap.Editor.ContentValidation
             Debug.Log(summary);
         }
 
+        [MenuItem("Bomb Swap/Prototype/Refresh Self-Destruct Content")]
+        public static void RefreshSelfDestructContentMenu()
+        {
+            CreatePrototypeSelfDestructContentIfMissing();
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Refreshed prototype self-destruct definition, blast, and presentation content.");
+        }
+
         public static string CreateMissingPrototypeContent()
         {
             InputActionAsset inputActions = CreateInputActionsIfMissing();
@@ -72,6 +81,7 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeChargerContentIfMissing();
             PrototypeArmoredDefinitionAsset armoredDefinition =
                 CreatePrototypeArmoredContentIfMissing();
+            CreatePrototypeSelfDestructContentIfMissing();
             PrototypeBossDefinitionAsset bossDefinition =
                 CreatePrototypeBossContentIfMissing();
             CreatePrototypeRecoveryMaterialIfMissing();
@@ -980,6 +990,94 @@ namespace BombSwap.Editor.ContentValidation
             return definition;
         }
 
+        private static PrototypeSelfDestructDefinitionAsset
+            CreatePrototypeSelfDestructContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Enemies");
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+            Material enemyMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/SelfDestruct.mat",
+                shader,
+                new Color(0.92f, 0.18f, 0.08f, 1f));
+            Material telegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/SelfDestructTelegraph.mat",
+                shader,
+                new Color(1f, 0.38f, 0.04f, 1f));
+            GameObject enemyPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.SelfDestructPrefabPath,
+                "SelfDestructPlaceholder",
+                PrimitiveType.Sphere,
+                Vector3.zero,
+                new Vector3(0.72f, 0.72f, 0.72f),
+                enemyMaterial);
+            GameObject telegraphPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.SelfDestructTelegraphCellPrefabPath,
+                "SelfDestructTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.86f, 0.05f, 0.86f),
+                telegraphMaterial);
+            GameObject bombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BombPrefabPath);
+            GameObject explosionPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.ExplosionCellPrefabPath);
+
+            PrototypeBombDefinitionAsset blastDefinition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructBombDefinitionPath);
+            if (blastDefinition == null)
+            {
+                blastDefinition = ScriptableObject.CreateInstance<
+                    PrototypeBombDefinitionAsset>();
+                blastDefinition.name = "PrototypeSelfDestructBlast";
+                AssetDatabase.CreateAsset(
+                    blastDefinition,
+                    PrototypeContentValidator.PrototypeSelfDestructBombDefinitionPath);
+            }
+            blastDefinition.Configure(
+                "prototype-self-destruct-blast",
+                0.75f,
+                1,
+                bombPrefab,
+                explosionPrefab,
+                0.25f,
+                1f,
+                BombExplosionShape.Cross);
+            EditorUtility.SetDirty(blastDefinition);
+
+            PrototypeSelfDestructDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<
+                    PrototypeSelfDestructDefinitionAsset>();
+                definition.name = "PrototypeSelfDestruct";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
+            }
+            definition.Configure(
+                "prototype-self-destruct",
+                2f,
+                3,
+                1,
+                blastDefinition,
+                enemyPrefab,
+                telegraphPrefab,
+                0.45f,
+                0.12f);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
         private static PrototypeBossDefinitionAsset CreatePrototypeBossContentIfMissing()
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
@@ -1263,6 +1361,14 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     new Vector2Int(0, -1),
                     new Vector2Int(0, 1),
+                },
+                null,
+                null,
+                new Vector2Int(3, 0),
+                new[]
+                {
+                    new Vector2Int(0, -2),
+                    new Vector2Int(0, 2),
                 });
             EditorUtility.SetDirty(gates);
 
@@ -1757,6 +1863,9 @@ namespace BombSwap.Editor.ContentValidation
             bool combatEnabled,
             bool bossEnabled)
         {
+            PrototypeSelfDestructDefinitionAsset selfDestructDefinition =
+                LoadRequiredAsset<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
             PrototypeGameSession gameSession = FindExactlyOne<PrototypeGameSession>(scene);
@@ -1770,7 +1879,8 @@ namespace BombSwap.Editor.ContentValidation
                 startingArmored: armoredDefinition,
                 startingCombatEnabled: combatEnabled,
                 startingBoss: bossDefinition,
-                startingBossEnabled: bossEnabled);
+                startingBossEnabled: bossEnabled,
+                startingSelfDestruct: selfDestructDefinition);
             EditorUtility.SetDirty(gameSession);
         }
 
@@ -2316,6 +2426,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
+            PrototypeSelfDestructDefinitionAsset selfDestructDefinition =
+                LoadRequiredAsset<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
             {
@@ -2367,6 +2480,8 @@ namespace BombSwap.Editor.ContentValidation
                 systems.AddComponent<PrototypeChargerPresenter>();
             PrototypeArmoredPresenter armoredPresenter =
                 systems.AddComponent<PrototypeArmoredPresenter>();
+            PrototypeSelfDestructPresenter selfDestructPresenter =
+                systems.AddComponent<PrototypeSelfDestructPresenter>();
             PrototypeBossPresenter bossPresenter =
                 systems.AddComponent<PrototypeBossPresenter>();
             PrototypeWeaponHud weaponHud = systems.AddComponent<PrototypeWeaponHud>();
@@ -2475,6 +2590,16 @@ namespace BombSwap.Editor.ContentValidation
                     0f,
                     armoredCell.Z * cellSize);
             }
+            Transform selfDestructSpawn = null;
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                GridPosition selfDestructCell = room.SelfDestructSpawn.Value;
+                selfDestructSpawn = CreateChild("SelfDestructSpawn", gridRoot.transform);
+                selfDestructSpawn.localPosition = new Vector3(
+                    selfDestructCell.X * cellSize,
+                    0f,
+                    selfDestructCell.Z * cellSize);
+            }
             GameObject player = CreatePrimitive(
                 "PlayerPlaceholder",
                 PrimitiveType.Capsule,
@@ -2504,7 +2629,8 @@ namespace BombSwap.Editor.ContentValidation
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
-                armoredSpawn);
+                armoredSpawn,
+                selfDestructSpawn);
             gameSession.Configure(
                 context,
                 inputReader,
@@ -2513,7 +2639,8 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 startingCharger: chargerDefinition,
                 startingArmored: armoredDefinition,
-                startingBoss: bossDefinition);
+                startingBoss: bossDefinition,
+                startingSelfDestruct: selfDestructDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -2521,6 +2648,7 @@ namespace BombSwap.Editor.ContentValidation
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
             armoredPresenter.Configure(gameSession, runtimePresentation);
+            selfDestructPresenter.Configure(gameSession, runtimePresentation);
             bossPresenter.Configure(gameSession, runtimePresentation);
             SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
@@ -2548,6 +2676,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
+            PrototypeSelfDestructDefinitionAsset selfDestructDefinition =
+                LoadRequiredAsset<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
             PrototypePlayerController playerController = FindExactlyOne<PrototypePlayerController>(scene);
@@ -2594,6 +2725,13 @@ namespace BombSwap.Editor.ContentValidation
             if (armoredPresenter == null)
             {
                 armoredPresenter = systems.AddComponent<PrototypeArmoredPresenter>();
+            }
+            PrototypeSelfDestructPresenter selfDestructPresenter =
+                systems.GetComponent<PrototypeSelfDestructPresenter>();
+            if (selfDestructPresenter == null)
+            {
+                selfDestructPresenter =
+                    systems.AddComponent<PrototypeSelfDestructPresenter>();
             }
             PrototypeBossPresenter bossPresenter =
                 systems.GetComponent<PrototypeBossPresenter>();
@@ -2655,6 +2793,21 @@ namespace BombSwap.Editor.ContentValidation
                 UnityEngine.Object.DestroyImmediate(armoredSpawn.gameObject);
                 armoredSpawn = null;
             }
+            Transform selfDestructSpawn = context.GridRoot.Find("SelfDestructSpawn");
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                if (selfDestructSpawn == null)
+                {
+                    selfDestructSpawn = CreateChild(
+                        "SelfDestructSpawn",
+                        context.GridRoot);
+                }
+            }
+            else if (selfDestructSpawn != null)
+            {
+                UnityEngine.Object.DestroyImmediate(selfDestructSpawn.gameObject);
+                selfDestructSpawn = null;
+            }
             SynchronizeInteriorObstacles(context.GridRoot, roomDefinition, room);
             Transform destructibleObstacles = SynchronizeDestructibleObstacles(
                 context.GridRoot,
@@ -2674,6 +2827,11 @@ namespace BombSwap.Editor.ContentValidation
             {
                 armoredSpawn.position = gridSpace.GridToWorld(room.ArmoredSpawn.Value);
             }
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                selfDestructSpawn.position =
+                    gridSpace.GridToWorld(room.SelfDestructSpawn.Value);
+            }
 
             Renderer playerRenderer =
                 context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
@@ -2691,7 +2849,8 @@ namespace BombSwap.Editor.ContentValidation
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
-                armoredSpawn);
+                armoredSpawn,
+                selfDestructSpawn);
             gameSession.Configure(
                 context,
                 inputReader,
@@ -2700,7 +2859,8 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 startingCharger: chargerDefinition,
                 startingArmored: armoredDefinition,
-                startingBoss: bossDefinition);
+                startingBoss: bossDefinition,
+                startingSelfDestruct: selfDestructDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -2708,6 +2868,7 @@ namespace BombSwap.Editor.ContentValidation
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
             armoredPresenter.Configure(gameSession, runtimePresentation);
+            selfDestructPresenter.Configure(gameSession, runtimePresentation);
             bossPresenter.Configure(gameSession, runtimePresentation);
             SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
@@ -2723,6 +2884,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(chaserPresenter);
             EditorUtility.SetDirty(chargerPresenter);
             EditorUtility.SetDirty(armoredPresenter);
+            EditorUtility.SetDirty(selfDestructPresenter);
             EditorUtility.SetDirty(bossPresenter);
             EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);

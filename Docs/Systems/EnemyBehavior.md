@@ -1,6 +1,6 @@
 # 적 행동
 
-- 상태: 프로토타입 3종 역할 `Accepted`, 세부 상태/수치 `Proposed`
+- 상태: 프로토타입 4종 역할·구현 계약 `Accepted`, 세부 수치·재미 `Proposed`
 - 설계 원본: `GDD_v0.2.md` 16~18장
 - 코드 소유: 판단은 `BombSwap.Core`, 이동/애니메이션은 `BombSwap.Unity`
 
@@ -15,6 +15,7 @@
 | 추격자 | 지속 압박과 기본 유도 학습 | Acquire, Chase, Repath, Hit, Dead |
 | 돌진형 | 예고 후 직선 경로를 강제 | Track, Telegraph, Charge, Recover, Dead |
 | 갑옷 적 | 교차점 수비, 첫 적중 뒤 예고된 반대편 질주 | 내구 `Armored → Broken → Dead`, 행동 `Guard → PanicTelegraph → PanicRun → PanicRecover → Chase → Dead` |
+| 자폭병 | 점멸하며 추적하다 인접 시 멈춰 적·문·퇴로를 함께 바꾸는 적 폭발 | Chase, WarningChase, Telegraph, Detonated |
 
 AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신과 격자/경로 규칙을 우선한다.
 
@@ -57,6 +58,19 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - `PrototypeArmoredPresenter`는 공유 재질을 복제하지 않고 `MaterialPropertyBlock`과 scale로 내구 상태를 구분한다. collider 없는 얇은 셀 placeholder를 최대 3개 풀링해 고정 panic 경로를 표시하고 Run 시작 또는 사망 때 회수하며, 수비·panic·추격 각각의 논리 cadence로 확정 이동을 보간한다.
 - 네 번째 `prototype-combat-armor` 방은 플레이어 `(0,-2)`, 갑옷 적 `(0,1)`을 유지하면서 상단 막과 남쪽 진입로, 좌우 3칸 가지를 가진 T 교차점으로 바뀌었다. 파괴 가능 벽과 돌진형은 제외해 첫 폭발 방향→예고된 두 번째 설치 위치 질문을 분리한다.
 
+## 구현된 자폭병
+
+- `SelfDestructEnemyDefinition`은 안정적인 적 정의 ID, 추적 cadence, 경고·점화 Manhattan 거리와 자폭 폭탄 정의를 소유한다. `prototype-self-destruct`는 2 cells/s, 경고 거리 3, 점화 거리 1이고 `prototype-self-destruct-blast`는 fuse 0.75초, `Cross`, 범위 1을 사용한다. 수치는 사람 플레이 전까지 `Proposed`다.
+- `SelfDestructEnemySimulation`은 `ActorId(6)`으로 공유 `GridState`를 점유하고 `Chase → WarningChase → Telegraph → Detonated`를 결정론적으로 진행한다. 접촉 즉발과 접촉 피해는 없으며 플레이어 셀로 들어가지 않는다.
+- 매 추적 cadence에 현재 플레이어 셀에서 역방향 BFS 거리장을 만들고 최단 거리가 작아지는 한 칸을 `North → East → South → West` 동률 순서로 선택한다. actor·폭탄 점유와 비바닥은 차단하며 경로가 없으면 임의 배회하지 않고 기다린다.
+- 이동 뒤 Manhattan 3칸 이내면 `WarningChase`가 되어 계속 추적한다. 플레이어가 경고 범위 밖으로 벗어나면 `Chase`로 돌아간다. 자폭병이 cadence 시작 시 플레이어와 cardinal 인접한 상태여야 `Telegraph`로 전환하므로, 인접 셀로 들어간 이동 보간이 끝나기 전 점화되지 않고 플레이어가 그 사이 빠져나가면 추적을 계속한다.
+- `WarningChase`는 정상색과 주황 경고색 사이를 3Hz로 점멸하고 최대 1.08배로 pulse한다. `Telegraph`에서는 이동을 멈추고 권위 셀에 고정하며 8Hz·최대 1.18배 pulse와 실제 범위 셀을 함께 표시한다. 이는 `MaterialPropertyBlock`과 기존 인스턴스 scale만 갱신하며 material 인스턴스를 만들지 않는다.
+- `Chase` 또는 `WarningChase` 중 플레이어 폭발에 맞으면 현재 권위 셀로 표현을 맞춘 뒤 즉시 Telegraph가 된다. 이후 플레이어 이동이나 추가 폭발은 원점과 상태를 다시 선택하지 않는다.
+- Telegraph 시작 시 자폭병 소유의 논리 폭탄 하나를 같은 셀에 설치한다. 플레이어 슬롯·쿨타임과 분리되지만 기존 `BombSimulation`의 ID, fuse, 0.15초 연쇄 지연, 벽 차단과 파괴벽 규칙을 그대로 사용한다.
+- 자기 폭발이 확정되면 자폭병 체력과 actor 점유를 한 번 제거하고 `EnemyDied`를 발행한다. 범위에 든 플레이어·다른 적·보스는 기존 대상별 피해와 무적 계약을 사용한다.
+- 적 폭탄 자체는 일반 `BombPlaced` 플레이어 사건을 만들지 않지만 폭발은 정의별 기존 VFX와 `BombExploded` 경로를 재사용한다.
+- 다섯 번째 `prototype-combat-gates` 방은 자폭병 `(3,0)`과 유도 anchor `(0,-2) → (0,2)`를 사용한다. anchor는 AI 목적지가 아니라 사람이 의도와 결과를 읽는 레벨 메타데이터다. 플레이어가 추적형 자폭병을 어느 anchor 쪽으로 끄느냐에 따라 범위 1 십자 폭발이 중앙 파괴문 `(0,-1)` 또는 `(0,1)` 중 한쪽만 먼저 연다.
+
 ## 불변식
 
 - 적 판단은 보이지 않는 Transform 검색이나 프레임 순서에 의존하지 않는다.
@@ -67,7 +81,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 
 ## 경로 탐색
 
-프로토타입에서는 격자 기반의 단순하고 결정적인 규칙을 사용한다. 추격자는 플레이어 셀에서 역방향 BFS 거리장을 만들고, 돌진형은 현재 셀에서 가장 가까운 유효 정렬 후보를 BFS로 찾는다. 갑옷 적의 수비·추격은 제한된 국소 Manhattan 선택을 사용하고 panic은 폭발 시점에 최대 3칸 cardinal 직선 가지를 한 번 잠근다. 모두 매 frame이 아니라 각자의 명시 cadence와 전이 경계에서만 판단하며 목표/자기 셀 외의 actor·폭탄 점유와 비바닥을 차단한다. 경로가 없으면 임의 배회하지 않는다. 탐색 저장소와 panic 배열은 simulation이 재사용하며 플레이어 미래 위치나 폭발 위험을 계산하지 않는다. AI Navigation 패키지는 Core 경로 판정의 원본이 아니다.
+프로토타입에서는 격자 기반의 단순하고 결정적인 규칙을 사용한다. 추격자와 자폭병은 플레이어 셀에서 역방향 BFS 거리장을 만들고, 돌진형은 현재 셀에서 가장 가까운 유효 정렬 후보를 BFS로 찾는다. 갑옷 적의 수비·추격은 제한된 국소 Manhattan 선택을 사용하고 panic은 폭발 시점에 최대 3칸 cardinal 직선 가지를 한 번 잠근다. 모두 매 frame이 아니라 각자의 명시 cadence와 전이 경계에서만 판단하며 목표/자기 셀 외의 actor·폭탄 점유와 비바닥을 차단한다. 경로가 없으면 임의 배회하지 않는다. 탐색 저장소와 panic 배열은 simulation이 재사용하며 플레이어 미래 위치나 폭발 위험을 계산하지 않는다. AI Navigation 패키지는 Core 경로 판정의 원본이 아니다.
 
 ## 자동 테스트
 
@@ -87,6 +101,9 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 갑옷 적의 수비 반경·거리 감소, 네 방향·대각선·동률 panic 선택, 최대 거리 고정, Telegraph·Run·Recover·Chase의 정확한 시간 경계와 시계 역행.
 - 갑옷 적 panic의 벽·폭탄·actor 초기 차단, 실행 중 새 장애물의 조기 회복, 기존 장애물 제거 뒤 경로 비확장, 유효 가지 없음과 cardinal 인접 접촉.
 - PlayMode의 첫 피격 내구 표현·전체 경로 예고·상태별 이동 보간·예고 회수, 두 번째 사망·점유 제거·단일 방 클리어와 적별 presenter 생존 상태.
-- Development WebGL의 `chaser-cell-x-<x>-z-<z>` marker로 실제 확정 셀 이동과 플레이어 cardinal 인접 상태를 관측한다. 이 marker는 자동 경로 동기화와 순환 진단용이며 행동의 재미를 통과 판정하지 않는다.
+- 자폭병 정의 경계, 정확한 cadence, 현재 플레이어 BFS 추적·결정론적 우회·경로 없음, 경고 범위 진입/이탈, 인접 진입 뒤 한 cadence 유지, 점화 전 플레이어 이탈과 플레이어 폭발 trigger·중복 무시.
+- 자폭병 소유 폭탄의 arm·연쇄·detonation ID, 자기 폭발 사망·단일 점유 제거와 Gates 한쪽 파괴문 개방.
+- PlayMode의 자폭병 경고 추적 상태와 색·scale pulse, 이동 중 플레이어 폭발 trigger 시 권위 셀 고정, 기존 폭탄 스케줄러의 실제 자폭과 파괴벽 변경·단일 사망 사건.
+- Development WebGL의 `self-destruct-cell-x-<x>-z-<z>`와 `self-destruct-warning-chase` marker로 실제 확정 셀·경고 진입을 관측한다. 이 marker는 자동 경로 동기화용이며 점멸의 가독성이나 행동의 재미를 통과 판정하지 않는다.
 
-다음 제안 수직 슬라이스는 자폭병과 `Gates`의 비대칭 환경 상호작용이다. 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책은 여러 동일 적을 실제로 추가할 때까지 보류한다.
+다음 판단은 3칸 경고 점멸과 인접 후 0.75초 점화가 과도하게 빠르거나 느리지 않은지, 자폭병을 `Gates` 한쪽 문으로 유도하는 의도가 별도 설명 없이 읽히는지 사람 플레이로 확인하는 것이다. 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책은 여러 동일 적을 실제로 추가할 때까지 보류한다.

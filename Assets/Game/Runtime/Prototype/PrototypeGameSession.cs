@@ -19,7 +19,10 @@ namespace BombSwap
         private static readonly ActorId PrototypeChargerActorId = new ActorId(3);
         private static readonly ActorId PrototypeArmoredActorId = new ActorId(4);
         private static readonly ActorId PrototypeBossActorId = new ActorId(5);
+        private static readonly ActorId PrototypeSelfDestructActorId = new ActorId(6);
         private static readonly IReadOnlyList<GridPosition> NoBossDangerCells =
+            Array.AsReadOnly(Array.Empty<GridPosition>());
+        private static readonly IReadOnlyList<GridPosition> NoSelfDestructTelegraphCells =
             Array.AsReadOnly(Array.Empty<GridPosition>());
 
         [SerializeField]
@@ -45,6 +48,9 @@ namespace BombSwap
 
         [SerializeField]
         private PrototypeArmoredDefinitionAsset armoredDefinition;
+
+        [SerializeField]
+        private PrototypeSelfDestructDefinitionAsset selfDestructDefinition;
 
         [SerializeField]
         private PrototypeBossDefinitionAsset bossDefinition;
@@ -75,6 +81,9 @@ namespace BombSwap
         private ChargerEnemyDefinition _coreChargerDefinition;
         private ArmoredEnemySimulation _armored;
         private ArmoredEnemyDefinition _coreArmoredDefinition;
+        private SelfDestructEnemySimulation _selfDestruct;
+        private EnemyHealthSimulation _selfDestructHealth;
+        private SelfDestructEnemyDefinition _coreSelfDestructDefinition;
         private BossBattleSimulation _boss;
         private CombatRoomDefinition _runtimeRoomDefinition;
         private GridPosition? _runtimePlayerStart;
@@ -97,6 +106,7 @@ namespace BombSwap
         private bool _roomCleared;
         private bool _hasCharger;
         private bool _hasArmored;
+        private bool _hasSelfDestruct;
         private bool _isPaused;
 
         public event Action<PlayerMovementStep> PlayerMoved;
@@ -126,6 +136,10 @@ namespace BombSwap
         public event Action<ArmoredEnemyAdvanceResult> ArmoredAdvanced;
 
         public event Action<ArmoredEnemyDamageResult> ArmoredStateChanged;
+
+        public event Action<SelfDestructEnemyAdvanceResult> SelfDestructAdvanced;
+
+        public event Action<BombSnapshot> SelfDestructArmed;
 
         public event Action<EnemyMovementStep> BossMoved;
 
@@ -164,6 +178,9 @@ namespace BombSwap
 
         public PrototypeArmoredDefinitionAsset ArmoredDefinition => armoredDefinition;
 
+        public PrototypeSelfDestructDefinitionAsset SelfDestructDefinition =>
+            selfDestructDefinition;
+
         public PrototypeBossDefinitionAsset BossDefinition => bossDefinition;
 
         public float CellsPerSecond => cellsPerSecond;
@@ -183,6 +200,7 @@ namespace BombSwap
             (!HasChaser || (_chaser != null && _chaserHealth != null)) &&
             (!_hasCharger || (_charger != null && _chargerHealth != null)) &&
             (!_hasArmored || _armored != null) &&
+            (!_hasSelfDestruct || (_selfDestruct != null && _selfDestructHealth != null)) &&
             (!HasBoss || _boss != null);
 
         public bool IsReady { get; private set; }
@@ -264,6 +282,27 @@ namespace BombSwap
 
         public bool IsArmoredAlive => _hasArmored && _armored != null && !_armored.IsDead;
 
+        public bool HasSelfDestruct => _hasSelfDestruct;
+
+        public ActorId SelfDestructActorId =>
+            _selfDestruct != null ? _selfDestruct.ActorId : default;
+
+        public GridPosition CurrentSelfDestructGridPosition =>
+            _selfDestruct != null ? _selfDestruct.CurrentPosition : default;
+
+        public SelfDestructEnemyState CurrentSelfDestructState =>
+            _selfDestruct != null
+                ? _selfDestruct.State
+                : SelfDestructEnemyState.Chase;
+
+        public bool IsSelfDestructAlive =>
+            _hasSelfDestruct && _selfDestructHealth != null && !_selfDestructHealth.IsDead;
+
+        public IReadOnlyList<GridPosition> CurrentSelfDestructTelegraphCells =>
+            _selfDestruct != null
+                ? _selfDestruct.TelegraphCells
+                : NoSelfDestructTelegraphCells;
+
         public GridPosition GetCurrentArmoredPanicPathCell(int index)
         {
             if (_armored == null)
@@ -315,6 +354,10 @@ namespace BombSwap
                 {
                     count++;
                 }
+                if (_selfDestructHealth != null && !_selfDestructHealth.IsDead)
+                {
+                    count++;
+                }
                 if (_boss != null && !_boss.IsDead)
                 {
                     count++;
@@ -357,7 +400,8 @@ namespace BombSwap
             PrototypeArmoredDefinitionAsset startingArmored = null,
             bool startingCombatEnabled = true,
             PrototypeBossDefinitionAsset startingBoss = null,
-            bool startingBossEnabled = false)
+            bool startingBossEnabled = false,
+            PrototypeSelfDestructDefinitionAsset startingSelfDestruct = null)
         {
             if (Application.isPlaying && isActiveAndEnabled)
             {
@@ -406,6 +450,7 @@ namespace BombSwap
             chaserDefinition = startingChaser;
             chargerDefinition = startingCharger;
             armoredDefinition = startingArmored;
+            selfDestructDefinition = startingSelfDestruct;
             bossDefinition = startingBoss;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
@@ -517,8 +562,10 @@ namespace BombSwap
                 (playerStart == roomDefinition.ChaserSpawn ||
                  (roomDefinition.ChargerSpawn.HasValue &&
                   playerStart == roomDefinition.ChargerSpawn.Value) ||
-                 (roomDefinition.ArmoredSpawn.HasValue &&
-                  playerStart == roomDefinition.ArmoredSpawn.Value)))
+                  (roomDefinition.ArmoredSpawn.HasValue &&
+                   playerStart == roomDefinition.ArmoredSpawn.Value) ||
+                  (roomDefinition.SelfDestructSpawn.HasValue &&
+                   playerStart == roomDefinition.SelfDestructSpawn.Value)))
             {
                 throw new ArgumentException(
                     $"Runtime player start {playerStart} cannot overlap an enemy spawn.",
@@ -641,6 +688,13 @@ namespace BombSwap
 
         public PrototypeBombDefinitionAsset GetBombDefinition(BombDefinitionId definitionId)
         {
+            if (selfDestructDefinition != null &&
+                selfDestructDefinition.DetonationBombDefinition != null &&
+                selfDestructDefinition.DetonationBombDefinition.DefinitionId ==
+                definitionId.Value)
+            {
+                return selfDestructDefinition.DetonationBombDefinition;
+            }
             if (_runtimeBombDefinitions != null)
             {
                 for (int index = 0; index < _runtimeBombDefinitions.Length; index++)
@@ -866,6 +920,19 @@ namespace BombSwap
                     ArmoredMoved?.Invoke(armoredAdvance.Movement);
                 }
             }
+            if (_hasSelfDestruct && !_selfDestructHealth.IsDead)
+            {
+                SelfDestructEnemyAdvanceResult selfDestructAdvance =
+                    _selfDestruct.Advance();
+                if (selfDestructAdvance.ShouldArm)
+                {
+                    ArmSelfDestruct();
+                }
+                if (selfDestructAdvance.HasActivity)
+                {
+                    SelfDestructAdvanced?.Invoke(selfDestructAdvance);
+                }
+            }
 
             BossPatternTransition? bossTransition = null;
             if (HasBoss && !_boss.IsDead &&
@@ -923,6 +990,10 @@ namespace BombSwap
                 if (_hasArmored)
                 {
                     ApplyArmoredExplosionDamage(explosion);
+                }
+                if (_hasSelfDestruct)
+                {
+                    ApplySelfDestructExplosion(explosion);
                 }
                 if (HasBoss)
                 {
@@ -1024,6 +1095,7 @@ namespace BombSwap
                 context.RoomDefinition.CreateCoreDefinition();
             _hasCharger = HasChaser && roomDefinition.ChargerSpawn.HasValue;
             _hasArmored = HasChaser && roomDefinition.ArmoredSpawn.HasValue;
+            _hasSelfDestruct = HasChaser && roomDefinition.SelfDestructSpawn.HasValue;
             if (_hasCharger && chargerDefinition == null)
             {
                 throw new InvalidOperationException(
@@ -1033,6 +1105,11 @@ namespace BombSwap
             {
                 throw new InvalidOperationException(
                     "A room with an armored spawn requires an armored definition reference.");
+            }
+            if (_hasSelfDestruct && selfDestructDefinition == null)
+            {
+                throw new InvalidOperationException(
+                    "A room with a self-destruct spawn requires a self-destruct definition reference.");
             }
 
             _grid = CreateGrid(roomDefinition);
@@ -1121,6 +1198,26 @@ namespace BombSwap
                     PrototypeArmoredActorId,
                     _movement.ActorId,
                     roomDefinition.ArmoredSpawn.Value);
+            }
+            if (_hasSelfDestruct)
+            {
+                if (context.SelfDestructSpawn == null)
+                {
+                    throw new InvalidOperationException(
+                        "A room with a self-destruct enemy requires a self-destruct spawn Transform.");
+                }
+
+                _coreSelfDestructDefinition = selfDestructDefinition.CreateCoreDefinition();
+                _selfDestruct = new SelfDestructEnemySimulation(
+                    _grid,
+                    _clock,
+                    _coreSelfDestructDefinition,
+                    PrototypeSelfDestructActorId,
+                    _movement.ActorId,
+                    roomDefinition.SelfDestructSpawn.Value);
+                _selfDestructHealth = new EnemyHealthSimulation(
+                    _selfDestruct.ActorId,
+                    1);
             }
             if (bossEnabledForVisit)
             {
@@ -1269,6 +1366,74 @@ namespace BombSwap
 
             _armoredDamageResults.Add(result);
             _appliedEnemyDamageResults.Add(result.Damage);
+        }
+
+        private void ApplySelfDestructExplosion(BombExplosion explosion)
+        {
+            if (_selfDestructHealth.IsDead)
+            {
+                return;
+            }
+            if (_selfDestruct.IsArmed && explosion.BombId == _selfDestruct.ArmedBombId)
+            {
+                SelfDestructEnemyAdvanceResult result =
+                    _selfDestruct.CompleteDetonation(explosion.BombId);
+                EnemyDamageResult damage = _selfDestructHealth.ApplyExplosionDamage(
+                    explosion.BombId,
+                    DefaultEnemyExplosionDamage);
+                if (!damage.WasApplied || !damage.WasFatal)
+                {
+                    throw new InvalidOperationException(
+                        "A self-destruct enemy must die when its armed bomb detonates.");
+                }
+
+                _appliedEnemyDamageResults.Add(damage);
+                if (!_grid.TryRemoveActor(_selfDestruct.ActorId))
+                {
+                    throw new InvalidOperationException(
+                        "Detonated self-destruct enemy could not be removed from the logical grid.");
+                }
+
+                SelfDestructAdvanced?.Invoke(result);
+                return;
+            }
+            if ((_selfDestruct.State != SelfDestructEnemyState.Chase &&
+                    _selfDestruct.State != SelfDestructEnemyState.WarningChase) ||
+                !_grid.TryGetActorPosition(
+                    _selfDestruct.ActorId,
+                    out GridPosition position) ||
+                !Contains(explosion.AffectedCells, position) ||
+                !_selfDestruct.TryTriggerFromExplosion(
+                    explosion.BombId,
+                    out SelfDestructEnemyAdvanceResult triggerResult))
+            {
+                return;
+            }
+
+            ArmSelfDestruct();
+            SelfDestructAdvanced?.Invoke(triggerResult);
+        }
+
+        private void ArmSelfDestruct()
+        {
+            if (!_bombs.TryPlaceBomb(
+                _coreSelfDestructDefinition.DetonationBombDefinition,
+                _selfDestruct.CurrentPosition,
+                _selfDestruct.ActorId,
+                out BombId bombId))
+            {
+                throw new InvalidOperationException(
+                    "Self-destruct enemy could not arm its logical bomb.");
+            }
+
+            _selfDestruct.ConfirmArmed(bombId);
+            if (!_bombs.TryGetBomb(bombId, out BombSnapshot snapshot))
+            {
+                throw new InvalidOperationException(
+                    "Armed self-destruct bomb could not be read from the simulation.");
+            }
+
+            SelfDestructArmed?.Invoke(snapshot);
         }
 
         private void ApplyBossExplosionDamage(BombExplosion explosion)

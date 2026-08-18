@@ -1847,6 +1847,7 @@ MonoBehaviour:
   chaserSpawn: {fileID: 2013815863}
   chargerSpawn: {fileID: 0}
   armoredSpawn: {fileID: 1289157626}
+  selfDestructSpawn: {fileID: 0}
   roomDefinition: {fileID: 11400000, guid: 45d9508772be0744696d9304b9d63b4b, type: 2}
 --- !u!4 &455876710
 Transform:
@@ -2018,6 +2019,7 @@ GameObject:
   - component: {fileID: 549228497}
   - component: {fileID: 549228499}
   - component: {fileID: 549228500}
+  - component: {fileID: 549228502}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -2117,6 +2119,7 @@ MonoBehaviour:
   chaserDefinition: {fileID: 11400000, guid: d5e3ca0a7af7a3740b3ca2574b0cd87e, type: 2}
   chargerDefinition: {fileID: 11400000, guid: f66ea46e897cfb94a9c9cedf31599f7f, type: 2}
   armoredDefinition: {fileID: 11400000, guid: 45f80675d52a84c43bd83d96643cb36c, type: 2}
+  selfDestructDefinition: {fileID: 11400000, guid: 5f87cd37a71405e4c9d936fd5adacf6a, type: 2}
   bossDefinition: {fileID: 11400000, guid: afe4660e2a5170945aff2fcee5100f59, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15
@@ -2314,6 +2317,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeDungeonMinimapPresenter
   roomBinder: {fileID: 549228493}
+--- !u!114 &549228502
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37055c78a00dd834db4f1aa1ba900b18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeSelfDestructPresenter
+  session: {fileID: 549228485}
+  presentationRoot: {fileID: 550081171}
+  telegraphColor: {r: 1, g: 0.2, b: 0.04, a: 1}
+  deathColor: {r: 0.18, g: 0.01, b: 0.01, a: 1}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

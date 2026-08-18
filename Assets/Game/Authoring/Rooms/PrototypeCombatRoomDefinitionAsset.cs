@@ -69,6 +69,15 @@ namespace BombSwap
         private Vector2Int armoredSpawn;
 
         [SerializeField]
+        private bool hasSelfDestruct;
+
+        [SerializeField]
+        private Vector2Int selfDestructSpawn;
+
+        [SerializeField]
+        private Vector2Int[] selfDestructAnchors = Array.Empty<Vector2Int>();
+
+        [SerializeField]
         private Vector2Int[] indestructibleWalls = Array.Empty<Vector2Int>();
 
         [SerializeField]
@@ -108,6 +117,12 @@ namespace BombSwap
 
         public Vector2Int ArmoredSpawn => armoredSpawn;
 
+        public bool HasSelfDestruct => hasSelfDestruct;
+
+        public Vector2Int SelfDestructSpawn => selfDestructSpawn;
+
+        public IReadOnlyList<Vector2Int> SelfDestructAnchors => selfDestructAnchors;
+
         public IReadOnlyList<Vector2Int> IndestructibleWalls => indestructibleWalls;
 
         public IReadOnlyList<Vector2Int> DestructibleWalls => destructibleWalls;
@@ -135,7 +150,9 @@ namespace BombSwap
             PrototypeRoomExitData[] authoredExits,
             Vector2Int[] authoredDestructibleWalls = null,
             Vector2Int? authoredChargerSpawn = null,
-            Vector2Int? authoredArmoredSpawn = null)
+            Vector2Int? authoredArmoredSpawn = null,
+            Vector2Int? authoredSelfDestructSpawn = null,
+            Vector2Int[] authoredSelfDestructAnchors = null)
         {
             ValidateFinitePositive(authoredCellSize, nameof(authoredCellSize));
             Vector2Int[] wallCopy = CloneRequired(
@@ -152,6 +169,9 @@ namespace BombSwap
             Vector2Int[] destructibleWallCopy = CloneRequired(
                 authoredDestructibleWalls ?? Array.Empty<Vector2Int>(),
                 nameof(authoredDestructibleWalls));
+            Vector2Int[] selfDestructAnchorCopy = CloneRequired(
+                authoredSelfDestructAnchors ?? Array.Empty<Vector2Int>(),
+                nameof(authoredSelfDestructAnchors));
 
             CreateCoreDefinition(
                 authoredRoomId,
@@ -167,7 +187,9 @@ namespace BombSwap
                 exitCopy,
                 destructibleWallCopy,
                 authoredChargerSpawn,
-                authoredArmoredSpawn);
+                authoredArmoredSpawn,
+                authoredSelfDestructSpawn,
+                selfDestructAnchorCopy);
 
             roomId = authoredRoomId;
             roomType = authoredRoomType;
@@ -180,6 +202,9 @@ namespace BombSwap
             chargerSpawn = authoredChargerSpawn ?? default;
             hasArmored = authoredArmoredSpawn.HasValue;
             armoredSpawn = authoredArmoredSpawn ?? default;
+            hasSelfDestruct = authoredSelfDestructSpawn.HasValue;
+            selfDestructSpawn = authoredSelfDestructSpawn ?? default;
+            selfDestructAnchors = selfDestructAnchorCopy;
             indestructibleWalls = wallCopy;
             destructibleWalls = destructibleWallCopy;
             safePlayerCells = safeCopy;
@@ -205,7 +230,9 @@ namespace BombSwap
                 exits,
                 destructibleWalls,
                 hasCharger ? chargerSpawn : (Vector2Int?)null,
-                hasArmored ? armoredSpawn : (Vector2Int?)null);
+                hasArmored ? armoredSpawn : (Vector2Int?)null,
+                hasSelfDestruct ? selfDestructSpawn : (Vector2Int?)null,
+                selfDestructAnchors);
         }
 
         private static CombatRoomDefinition CreateCoreDefinition(
@@ -222,7 +249,9 @@ namespace BombSwap
             IReadOnlyList<PrototypeRoomExitData> authoredExits,
             IReadOnlyList<Vector2Int> authoredDestructibleWalls,
             Vector2Int? authoredChargerSpawn,
-            Vector2Int? authoredArmoredSpawn)
+            Vector2Int? authoredArmoredSpawn,
+            Vector2Int? authoredSelfDestructSpawn,
+            IReadOnlyList<Vector2Int> authoredSelfDestructAnchors)
         {
             return new CombatRoomDefinition(
                 new RoomDefinitionId(authoredRoomId),
@@ -242,7 +271,11 @@ namespace BombSwap
                     : (GridPosition?)null,
                 authoredArmoredSpawn.HasValue
                     ? ToCorePosition(authoredArmoredSpawn.Value)
-                    : (GridPosition?)null);
+                    : (GridPosition?)null,
+                authoredSelfDestructSpawn.HasValue
+                    ? ToCorePosition(authoredSelfDestructSpawn.Value)
+                    : (GridPosition?)null,
+                ToCorePositions(authoredSelfDestructAnchors));
         }
 
         private static GridPosition ToCorePosition(Vector2Int position)

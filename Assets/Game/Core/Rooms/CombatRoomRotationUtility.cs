@@ -35,7 +35,9 @@ namespace BombSwap.Core
                 RotateExits(definition.Exits, rotation),
                 RotatePositions(definition.DestructibleWalls, rotation),
                 RotateOptional(definition.ChargerSpawn, rotation),
-                RotateOptional(definition.ArmoredSpawn, rotation));
+                RotateOptional(definition.ArmoredSpawn, rotation),
+                RotateOptional(definition.SelfDestructSpawn, rotation),
+                RotatePositions(definition.SelfDestructAnchors, rotation));
         }
 
         public static GridPosition Rotate(
