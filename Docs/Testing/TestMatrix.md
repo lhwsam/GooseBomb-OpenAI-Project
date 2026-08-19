@@ -21,9 +21,11 @@
 - 두 슬롯 독립 쿨타임과 비활성 회복.
 - 피해 무적과 사망 단일 발생.
 - run 체력의 방 이동·재입장 persistence, Recovery의 상한 `+2`·최대 체력 비소비·노드별 단일 소비·terminal 거부와 무적 상태 불변.
-- 보스 Telegraph→Execute→Recovery exact boundary, 예고/실행 셀 동일성, 4칸 이상 폐쇄 cardinal 이동 route 검증, 목적지 danger 포함, 한 칸 이동·actor 차단 재시도·bomb 동시 점유와 제거 독립성, Recovery 한정 폭탄 피해, 안전한 phase 전환과 사망 점유 단일 제거.
-- Unity 보스방 단일 활성과 `LureLoop` 전달, 패턴 피해와 기존 무적 공유, 위험 셀·목적지 ghost의 Telegraph/Execute 표시, pause 중 이동 보간 정지, 선행 설치 적중과 네 이동·4회 반격, 2페이즈·격파·단일 방 클리어와 실제 WebGL 가독성.
-- 플레이어 HUD의 초기/피해/회복/사망 체력 snapshot과 bar 비율, 일반 방의 보스 panel 비표시, 보스 HUD의 초기/피해/2페이즈/격파 반영, 11개 씬의 단일 HUD·session 참조와 실제 WebGL 배치 가독성.
+- 보스 3 phase 정의와 Telegraph→Execute→Recovery exact boundary, 제한 추격의 한 칸별 재판단·2/3/2회 상한, 방향 고정 최대 3칸 돌진, 중앙 복귀, 3/4/4개 순차 투척, 행별 parity·반전, 과열당 서로 다른 `BombId` 최대 2피해, 안전한 phase 예약·일회성 LastStand·사망 점유 단일 제거.
+- 보스 자폭병 소환 셀의 먼 앵커 안정 선택·Telegraph 잠금, 한 번만 소환, 해결 전 강화 패턴 대기, 4.5초 강제 점화와 과열 밖 보스 피해 1. 최대 돌진과 강제 점화가 동시에 실행되지 않는지 검증한다.
+- Unity 보스방 단일 활성, 착탄 예약 중 설치 거부, 포물선 flight→landing 순간 논리 설치·fuse 시작, 동일 frame 순번 안정성, 정의별 pooled 시각화, 다중 이동 보간·pause, 정확한 목적지 ghost 비표시와 돌진·착탄·소환·parity 셀 표시를 검증한다.
+- 플레이어 HUD의 초기/피해/회복/사망 체력 snapshot과 bar 비율, 일반 방의 보스 panel 비표시, 보스 HUD의 체력 10·phase 1/2/3·격파 반영, 11개 씬의 단일 HUD·session 참조와 실제 WebGL 배치 가독성.
+- Editor 전용 `BossBattlePlaytest`가 보스 권위 arena·6 투척/3 소환 앵커와 일치하고, 던전 run host·다음 씬·표준 Build Settings 없이 직접 Play해 보스·동적 자폭병·HUD와 Console 오류 0을 확인한다.
 - 보스방 도착과 클리어 완료 구분, 완료 UI 단일 표시와 전투 정지, 완료 전·pending 중 재시작 거부, 같은 seed의 새 run state·시작방·초기 한 슬롯 복구, WebGL `R` 재시작.
 - 갑옷 적의 반경 1 수비, 서로 다른 폭발 2회, 첫 폭발 중심 기반 최대 3칸 cardinal panic 경로 선택·고정, 예고 0.6초·6 cells/s 질주·0.5초 회복·3 cells/s 추격, 같은 `BombId` 중복 차단과 어느 panic 단계에서든 두 번째 사망 뒤 점유 단일 제거.
 - panic 경로의 네 방향·대각선·거리/투영/안정 순서 동률, 초기 벽·폭탄·actor 차단, 예고 뒤 경로 비확장, 실행 중 새 장애물의 조기 회복과 collider 없는 예고 셀 풀링·회수.

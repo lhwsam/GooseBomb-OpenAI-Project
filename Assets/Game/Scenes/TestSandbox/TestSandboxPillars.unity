@@ -2445,6 +2445,7 @@ MonoBehaviour:
   presentationRoot: {fileID: 550081171}
   bombPoolSize: 8
   explosionPoolSize: 32
+  bossThrowArcHeight: 2.2
 --- !u!114 &549228485
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2621,6 +2622,7 @@ MonoBehaviour:
   executeColor: {r: 1, g: 0.08, b: 0.04, a: 0.9}
   recoveryColor: {r: 0.16, g: 1, b: 0.34, a: 1}
   phaseTwoColor: {r: 0.72, g: 0.18, b: 1, a: 1}
+  lastStandColor: {r: 1, g: 0.12, b: 0.42, a: 1}
   deathColor: {r: 0.12, g: 0.01, b: 0.02, a: 1}
   moveTargetColor: {r: 0.12, g: 0.86, b: 1, a: 1}
 --- !u!114 &549228497
@@ -2679,6 +2681,10 @@ MonoBehaviour:
   presentationRoot: {fileID: 550081171}
   telegraphColor: {r: 1, g: 0.2, b: 0.04, a: 1}
   deathColor: {r: 0.18, g: 0.01, b: 0.01, a: 1}
+  warningPulseHz: 3
+  telegraphPulseHz: 8
+  warningScaleMultiplier: 1.08
+  telegraphScaleMultiplier: 1.18
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

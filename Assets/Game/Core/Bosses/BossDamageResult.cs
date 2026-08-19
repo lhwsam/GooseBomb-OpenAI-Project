@@ -6,6 +6,13 @@ namespace BombSwap.Core
         IgnoredNotVulnerable = 1,
         IgnoredDuplicateExplosion = 2,
         IgnoredDefeated = 3,
+        IgnoredOverheatCap = 4,
+    }
+
+    public enum BossDamageSource
+    {
+        PlayerBomb = 0,
+        SelfDestruct = 1,
     }
 
     public readonly struct BossDamageResult
@@ -17,6 +24,7 @@ namespace BombSwap.Core
             int previousHealth,
             int currentHealth,
             BossPhase phase,
+            BossDamageSource source,
             BossDamageStatus status)
         {
             ActorId = actorId;
@@ -25,6 +33,7 @@ namespace BombSwap.Core
             PreviousHealth = previousHealth;
             CurrentHealth = currentHealth;
             Phase = phase;
+            Source = source;
             Status = status;
         }
 
@@ -41,6 +50,8 @@ namespace BombSwap.Core
         public int CurrentHealth { get; }
 
         public BossPhase Phase { get; }
+
+        public BossDamageSource Source { get; }
 
         public BossDamageStatus Status { get; }
 

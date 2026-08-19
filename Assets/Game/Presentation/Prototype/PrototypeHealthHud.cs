@@ -397,6 +397,8 @@ namespace BombSwap
                     return 1;
                 case BossPhase.Two:
                     return 2;
+                case BossPhase.LastStand:
+                    return 3;
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(phase),

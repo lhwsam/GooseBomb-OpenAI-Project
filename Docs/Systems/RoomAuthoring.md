@@ -45,6 +45,16 @@
 
 다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
 
+## 전용 보스 arena
+
+- `prototype-boss-arena` / `PrototypeBossArena.asset`은 일반 전투방과 같은 검증된 `CombatRoomDefinition` 스키마를 재사용하지만 절차 배정 카탈로그에는 포함하지 않는다. `DungeonBoss.unity`만 이 shell을 참조한다.
+- 크기는 11×9, 플레이어 spawn은 `(0,-3)`, 보스 spawn은 `(0,1)`이다. 스키마의 필수 추격자 spawn `(4,3)`은 보스 전용 session에서 생성하지 않는 저작 placeholder다.
+- 고정 기둥은 `(-2,-1)·(2,-1)·(-2,1)·(2,1)` 네 셀이다. 파괴 가능 벽과 선택 적 spawn은 없다.
+- 스키마의 `RetreatAnchors`는 보스 투척 후보 6개 `(-4,-2)·(-3,3)·(0,-3)·(0,3)·(3,3)·(4,-2)`를 소유한다. One은 가까운 서로 다른 3개, Two는 떨어진 두 일반 지점과 각 중앙 방향 인접 연쇄 셀, LastStand는 외곽→안쪽 4개 계획에 사용한다.
+- 보스 전환용 자폭병 저작 spawn은 `(-4,3)`, 소환 후보는 `(-3,3)·(0,3)·(3,3)`이다. Core는 비점유 후보 중 현재 플레이어에게서 먼 셀을 안정 좌표 순서로 고르고 Telegraph에 표시한다.
+- 기존 `LureLoop` 메타데이터는 `CombatRoomDefinition` 스키마 호환을 위해 남지만 현재 보스는 이를 이동 경로로 사용하지 않는다. 제한 추격·돌진·중앙 복귀가 매 step 권위 격자에서 경로를 계획하며 정확한 목적지 ghost는 표시하지 않는다.
+- builder는 room asset을 먼저 갱신한 뒤 `DungeonBoss`와 `BossBattlePlaytest`의 바닥·기둥·spawn·context 참조를 Editor API로 재생성한다. validator는 정확한 room ID·크기·spawn·기둥·6 투척 anchor·3 소환 anchor와 `DungeonBoss` 단독 던전 참조를 검사한다. 전용 플레이테스트 씬은 Build Settings에 넣지 않는다.
+
 유도 경로는 사람과 플레이테스트 도구가 읽는 공간 의도다. 현재 추격 AI에 waypoint를 강제하지 않으며 실제 유도 재미는 관찰 플레이테스트로 판단한다.
 
 `Pillars`의 고정 기둥은 `(-4,-2)`, `(-2,1)`, `(2,1)`, `(-3,-3)`, `(-3,3)`, `(3,-3)`, `(3,3)`이다. 파괴벽 `(2,-2)`는 동쪽 차선을 열 수 있는 종단이고, 안전 셀 `(-3,-2)·(-3,-1)·(-2,-2)`와 뒤의 두 셀을 퇴로 anchor로 사용한다. 이 정확한 셀 집합은 builder와 validator가 함께 고정하지만, 1 cell/s 획득·0.75초 예고·8 cells/s 돌진에서 실제 유도 선택이 읽히는지는 `Proposed`다.

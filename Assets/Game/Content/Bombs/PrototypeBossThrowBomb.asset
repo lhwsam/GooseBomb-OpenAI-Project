@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84230d018447ddb43bfc80534091f13a, type: 3}
+  m_Name: PrototypeBossThrowBomb
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
+  definitionId: prototype-boss-throw
+  fuseSeconds: 1.25
+  range: 2
+  explosionShape: 0
+  placementCooldownSeconds: 1.5
+  bombPrefab: {fileID: 7724589455602740904, guid: 6081a143c1732534b9a149a1f5a21324, type: 3}
+  explosionCellPrefab: {fileID: 4397675498649740211, guid: cbd671f7024b41341879d837a6f1ca5a, type: 3}
+  explosionVisualSeconds: 0.25

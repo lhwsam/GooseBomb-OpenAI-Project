@@ -741,7 +741,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.IsRoomCleared, Is.False);
                 Assert.That(presenter.IsInitialized, Is.True);
                 Assert.That(presenter.IsBossVisible, Is.True);
-                Assert.That(presenter.VisibleDangerCellCount, Is.GreaterThan(0));
+                Assert.That(session.CurrentBossPattern, Is.EqualTo(BossPatternKind.LimitedChase));
+                Assert.That(presenter.VisibleDangerCellCount, Is.EqualTo(0));
+                Assert.That(presenter.IsMoveTargetVisible, Is.False);
                 Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
                 Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
                 Assert.That(completionPresenter.IsVisible, Is.False);

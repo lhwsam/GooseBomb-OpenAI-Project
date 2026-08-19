@@ -17,6 +17,7 @@
 | 현재 진행 상태 | [CurrentState](Development/CurrentState.md) | 완료·진행·미구현, 알려진 문제, 바로 다음 작업 |
 | 프로토타입 준비도 | [PrototypeReadinessAudit](Development/PrototypeReadinessAudit.md) | GDD 필수 구현, 자동 증거, 사람 완료 판정의 분리 |
 | 플레이 피드백 기반 전투 개선 | [CombatEnemyLevelBossImprovementProposal](GameDesign/CombatEnemyLevelBossImprovementProposal.md) | 적 AI·방·보스 개선 가설과 독립 수직 슬라이스 순서 |
+| 보스 페이즈 개선 | [BossPhaseImprovementProposal](GameDesign/BossPhaseImprovementProposal.md) | 체력 10·3구간 시퀀스·자폭병 유도·과열 반격의 첫 플레이테스트 설계 |
 | 구현 완료 기준 | [Definition of Done](Development/DefinitionOfDone.md) | 변경 종류별 필수 검증 |
 | 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
 | 플레이테스트 운영 | [Playtesting](Playtesting/) | 관찰 프로토콜, 익명 세션 기록, 유지·변경·제거 판정 |
@@ -60,9 +61,9 @@
 | 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md`, `GameDesign/CombatEnemyLevelBossImprovementProposal.md`, `Development/ChargerLaneAcquisitionSlice.md`, `Development/ArmoredPanicRunSlice.md`, `Development/SelfDestructGatesSlice.md` |
 | 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md`, `Development/ChargerLaneAcquisitionSlice.md`, `Development/ArmoredPanicRunSlice.md`, `Development/SelfDestructGatesSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
-| 보스 | `Systems/BossBattle.md`, `Development/BossCoreSlice.md` |
-| 보스 이동·선행 설치 | `Development/BossMovementSlice.md`, `Systems/BossBattle.md`, `Systems/GridAndMovement.md` |
-| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Playtesting/ArmoredEnemyProtocol.md`, `Playtesting/SelfDestructGatesProtocol.md`, `Systems/Telemetry.md` |
+| 보스 | `GameDesign/BossPhaseImprovementProposal.md`, `Systems/BossBattle.md`, `Development/BossPhaseReworkSlice.md` |
+| 보스 이동·투척·자폭병 합동 구간 | `Development/BossPhaseReworkSlice.md`, `Systems/BossBattle.md`, `Systems/GridAndMovement.md`, `Systems/BombAndExplosion.md` |
+| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/BossPhaseReworkProtocol.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Playtesting/ArmoredEnemyProtocol.md`, `Playtesting/SelfDestructGatesProtocol.md`, `Systems/Telemetry.md` |
 | 다음 수직 슬라이스·마일스톤 판단 | `Development/PrototypeReadinessAudit.md`, `Development/PrototypeRoadmap.md`, `Development/DefinitionOfDone.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | 반응형 WebGL 화면·템플릿 | `Development/ResponsiveWebGLCanvasSlice.md`, `WebGL/BuildAndHosting.md`, `WebGL/BrowserTestMatrix.md` |

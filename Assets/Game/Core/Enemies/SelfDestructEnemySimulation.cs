@@ -206,6 +206,20 @@ namespace BombSwap.Core
             return true;
         }
 
+        public bool TryForceTrigger(out SelfDestructEnemyAdvanceResult result)
+        {
+            if (!IsChasing)
+            {
+                result = NoActivity();
+                return false;
+            }
+
+            ObserveCurrentTime();
+            TargetPosition = CurrentPosition;
+            result = BeginTelegraph(default);
+            return true;
+        }
+
         public void ConfirmArmed(BombId bombId)
         {
             if (!bombId.IsValid)
@@ -257,6 +271,17 @@ namespace BombSwap.Core
         private bool IsChasing =>
             State == SelfDestructEnemyState.Chase ||
             State == SelfDestructEnemyState.WarningChase;
+
+        private void ObserveCurrentTime()
+        {
+            TimeSpan now = clock.Now;
+            if (now < lastObservedTime)
+            {
+                throw new InvalidOperationException(
+                    "Game clock moved backwards during self-destruct movement.");
+            }
+            lastObservedTime = now;
+        }
 
         private SelfDestructEnemyAdvanceResult BeginTelegraph(
             BombId triggeringExplosionId)

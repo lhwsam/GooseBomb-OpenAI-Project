@@ -9,6 +9,18 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeGameSession : MonoBehaviour
     {
+        private sealed class PendingBossBombFlight
+        {
+            public PendingBossBombFlight(BossBombFlight flight)
+            {
+                Flight = flight;
+            }
+
+            public BossBombFlight Flight { get; }
+
+            public bool WasLaunched { get; set; }
+        }
+
         public const float DefaultCellsPerSecond = 5f;
         public const float DefaultChainDelaySeconds = 0.15f;
         public const int DefaultExplosionDamage = 1;
@@ -103,10 +115,16 @@ namespace BombSwap
             new List<ArmoredEnemyDamageResult>();
         private readonly List<BossDamageResult> _bossDamageResults =
             new List<BossDamageResult>();
+        private readonly List<PendingBossBombFlight> _pendingBossBombFlights =
+            new List<PendingBossBombFlight>(4);
+        private readonly HashSet<GridPosition> _bossReservedBombCells =
+            new HashSet<GridPosition>();
         private bool _roomCleared;
         private bool _hasCharger;
         private bool _hasArmored;
         private bool _hasSelfDestruct;
+        private bool _bossSummonedSelfDestruct;
+        private TimeSpan _bossSelfDestructForceAt;
         private bool _isPaused;
 
         public event Action<PlayerMovementStep> PlayerMoved;
@@ -114,6 +132,10 @@ namespace BombSwap
         public event Action<GridSubcellPosition, CardinalDirection> PlayerPositionChanged;
 
         public event Action<BombSnapshot> BombPlaced;
+
+        public event Action<BombSnapshot> BossBombPlaced;
+
+        public event Action<BossBombFlight> BossBombLaunched;
 
         public event Action<BombExplosion> BombExploded;
 
@@ -138,6 +160,8 @@ namespace BombSwap
         public event Action<ArmoredEnemyDamageResult> ArmoredStateChanged;
 
         public event Action<SelfDestructEnemyAdvanceResult> SelfDestructAdvanced;
+
+        public event Action<ActorId> SelfDestructSpawned;
 
         public event Action<BombSnapshot> SelfDestructArmed;
 
@@ -331,7 +355,7 @@ namespace BombSwap
             _boss != null ? _boss.Phase : BossPhase.One;
 
         public BossPatternKind CurrentBossPattern =>
-            _boss != null ? _boss.CurrentPattern : BossPatternKind.AlternatingColumns;
+            _boss != null ? _boss.CurrentPattern : BossPatternKind.LimitedChase;
 
         public IReadOnlyList<GridPosition> CurrentBossDangerCells =>
             _boss != null ? _boss.CurrentDangerCells : NoBossDangerCells;
@@ -343,6 +367,11 @@ namespace BombSwap
         public bool IsBossAlive => HasBoss && _boss != null && !_boss.IsDead;
 
         public bool IsBossVulnerable => HasBoss && _boss != null && _boss.IsVulnerable;
+
+        public int CurrentBossOverheatDamage =>
+            _boss != null ? _boss.CurrentOverheatDamage : 0;
+
+        public int PendingBossBombFlightCount => _pendingBossBombFlights.Count;
 
         public int EnemyActiveCount
         {
@@ -691,6 +720,19 @@ namespace BombSwap
 
         public PrototypeBombDefinitionAsset GetBombDefinition(BombDefinitionId definitionId)
         {
+            if (bossDefinition != null)
+            {
+                if (bossDefinition.ThrowBombDefinition != null &&
+                    bossDefinition.ThrowBombDefinition.DefinitionId == definitionId.Value)
+                {
+                    return bossDefinition.ThrowBombDefinition;
+                }
+                if (bossDefinition.ChainBombDefinition != null &&
+                    bossDefinition.ChainBombDefinition.DefinitionId == definitionId.Value)
+                {
+                    return bossDefinition.ChainBombDefinition;
+                }
+            }
             if (selfDestructDefinition != null &&
                 selfDestructDefinition.DetonationBombDefinition != null &&
                 selfDestructDefinition.DetonationBombDefinition.DefinitionId ==
@@ -783,6 +825,10 @@ namespace BombSwap
                     "Prototype bomb placement is not initialized.");
             }
             if (_health.IsDead || _isPaused)
+            {
+                return false;
+            }
+            if (_bossReservedBombCells.Contains(_movement.CurrentPosition))
             {
                 return false;
             }
@@ -925,8 +971,19 @@ namespace BombSwap
             }
             if (_hasSelfDestruct && !_selfDestructHealth.IsDead)
             {
-                SelfDestructEnemyAdvanceResult selfDestructAdvance =
-                    _selfDestruct.Advance();
+                SelfDestructEnemyAdvanceResult selfDestructAdvance = default;
+                bool forceBossSummon = _bossSummonedSelfDestruct &&
+                    _clock.Now >= _bossSelfDestructForceAt &&
+                    (_boss == null || !_boss.IsHeavyAttackActive) &&
+                    _selfDestruct.TryForceTrigger(out selfDestructAdvance);
+                if (!forceBossSummon)
+                {
+                    selfDestructAdvance = _bossSummonedSelfDestruct &&
+                        _boss != null &&
+                        _boss.IsHeavyAttackActive
+                            ? default
+                            : _selfDestruct.Advance();
+                }
                 if (selfDestructAdvance.ShouldArm)
                 {
                     ArmSelfDestruct();
@@ -942,23 +999,35 @@ namespace BombSwap
                 _boss.TryAdvance(out BossPatternTransition transition))
             {
                 bossTransition = transition;
-                if (!_health.IsDead && transition.AttackResolved &&
-                    Contains(transition.DangerCells, _movement.CurrentPosition))
+                if (transition.BeganTelegraph && transition.AttackPlan.HasPlacements)
                 {
-                    PlayerDamageResult patternDamage = _health.ApplyBossPatternDamage(
-                        _boss.ActorId,
-                        _boss.Definition.PatternDamage);
-                    if (patternDamage.WasApplied)
+                    ReserveBossAttack(transition.AttackPlan);
+                }
+                if (transition.AttackResolved)
+                {
+                    if (transition.AttackPlan.HasPlacements)
                     {
-                        _appliedDamageResults.Add(patternDamage);
+                        BeginBossAttackFlights(transition.AttackPlan);
                     }
+                    if (transition.Pattern == BossPatternKind.SummonSelfDestruct)
+                    {
+                        SpawnBossSelfDestruct();
+                    }
+                    ApplyBossPatternDamage(transition);
                 }
             }
+
+            ProcessBossBombFlights();
 
             var explosions = _bombs.ProcessDueBombs();
             if (bossTransition.HasValue && bossTransition.Value.BossMoved)
             {
-                BossMoved?.Invoke(bossTransition.Value.Movement);
+                IReadOnlyList<EnemyMovementStep> bossMovements =
+                    bossTransition.Value.Movements;
+                for (int index = 0; index < bossMovements.Count; index++)
+                {
+                    BossMoved?.Invoke(bossMovements[index]);
+                }
             }
             for (int index = 0; index < explosions.Count; index++)
             {
@@ -1099,6 +1168,9 @@ namespace BombSwap
             _hasCharger = HasChaser && roomDefinition.ChargerSpawn.HasValue;
             _hasArmored = HasChaser && roomDefinition.ArmoredSpawn.HasValue;
             _hasSelfDestruct = HasChaser && roomDefinition.SelfDestructSpawn.HasValue;
+            bool bossHasSelfDestructSummon = bossEnabledForVisit &&
+                roomDefinition.SelfDestructSpawn.HasValue &&
+                roomDefinition.SelfDestructAnchors.Count >= 2;
             if (_hasCharger && chargerDefinition == null)
             {
                 throw new InvalidOperationException(
@@ -1109,7 +1181,8 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "A room with an armored spawn requires an armored definition reference.");
             }
-            if (_hasSelfDestruct && selfDestructDefinition == null)
+            if ((_hasSelfDestruct || bossHasSelfDestructSummon) &&
+                selfDestructDefinition == null)
             {
                 throw new InvalidOperationException(
                     "A room with a self-destruct spawn requires a self-destruct definition reference.");
@@ -1222,6 +1295,10 @@ namespace BombSwap
                     _selfDestruct.ActorId,
                     1);
             }
+            else if (bossHasSelfDestructSummon)
+            {
+                _coreSelfDestructDefinition = selfDestructDefinition.CreateCoreDefinition();
+            }
             if (bossEnabledForVisit)
             {
                 BossBattleDefinition coreBossDefinition =
@@ -1231,9 +1308,11 @@ namespace BombSwap
                     _clock,
                     coreBossDefinition,
                     PrototypeBossActorId,
+                    _movement.ActorId,
                     bossDefinition.BossSpawn,
                     CreatePlayableArenaCells(roomDefinition),
-                    roomDefinition.LureLoop);
+                    roomDefinition.RetreatAnchors,
+                    roomDefinition.SelfDestructAnchors);
             }
             _roomCleared = !combatEnabledForVisit;
 
@@ -1397,6 +1476,11 @@ namespace BombSwap
                         "Detonated self-destruct enemy could not be removed from the logical grid.");
                 }
 
+                if (_bossSummonedSelfDestruct && _boss != null && !_boss.IsDead)
+                {
+                    _boss.NotifySelfDestructResolved();
+                }
+
                 SelfDestructAdvanced?.Invoke(result);
                 return;
             }
@@ -1441,18 +1525,169 @@ namespace BombSwap
 
         private void ApplyBossExplosionDamage(BombExplosion explosion)
         {
-            if (_boss.IsDead ||
+            if (_boss.IsDead || explosion.OwnerId == _boss.ActorId ||
                 !Contains(explosion.AffectedCells, _boss.BossPosition))
             {
                 return;
             }
 
-            BossDamageResult result = _boss.ApplyExplosion(
-                explosion.BombId,
-                DefaultEnemyExplosionDamage);
+            BossDamageResult result = _bossSummonedSelfDestruct &&
+                _selfDestruct != null &&
+                explosion.OwnerId == _selfDestruct.ActorId
+                    ? _boss.ApplySelfDestructExplosion(
+                        explosion.BombId,
+                        DefaultEnemyExplosionDamage)
+                    : _boss.ApplyExplosion(
+                        explosion.BombId,
+                        DefaultEnemyExplosionDamage);
             if (result.WasApplied)
             {
                 _bossDamageResults.Add(result);
+            }
+        }
+
+        private void ReserveBossAttack(BossBombAttackPlan plan)
+        {
+            if (plan == null)
+            {
+                throw new ArgumentNullException(nameof(plan));
+            }
+
+            for (int index = 0; index < plan.Placements.Count; index++)
+            {
+                BossBombPlacement placement = plan.Placements[index];
+                if (!_bossReservedBombCells.Add(placement.Position))
+                {
+                    throw new InvalidOperationException(
+                        $"Boss attack reserved duplicate cell {placement.Position}.");
+                }
+            }
+        }
+
+        private void BeginBossAttackFlights(BossBombAttackPlan plan)
+        {
+            for (int index = 0; index < plan.Placements.Count; index++)
+            {
+                BossBombPlacement placement = plan.Placements[index];
+                TimeSpan launchesAt = _clock.Now.Add(placement.LaunchOffset);
+                TimeSpan landsAt = launchesAt.Add(placement.FlightDuration);
+                _pendingBossBombFlights.Add(new PendingBossBombFlight(
+                    new BossBombFlight(
+                        index,
+                        placement.Definition,
+                        _boss.BossPosition,
+                        placement.Position,
+                        launchesAt,
+                        landsAt)));
+            }
+        }
+
+        private void ProcessBossBombFlights()
+        {
+            int index = 0;
+            while (index < _pendingBossBombFlights.Count)
+            {
+                PendingBossBombFlight pending = _pendingBossBombFlights[index];
+                if (!pending.WasLaunched && _clock.Now >= pending.Flight.LaunchedAt)
+                {
+                    pending.WasLaunched = true;
+                    BossBombLaunched?.Invoke(pending.Flight);
+                }
+                if (_clock.Now < pending.Flight.LandsAt)
+                {
+                    index++;
+                    continue;
+                }
+
+                if (!_bombs.TryPlaceBomb(
+                        pending.Flight.Definition,
+                        pending.Flight.Target,
+                        _boss.ActorId,
+                        out BombId bombId) ||
+                    !_bombs.TryGetBomb(bombId, out BombSnapshot snapshot))
+                {
+                    throw new InvalidOperationException(
+                        $"Boss bomb could not land at {pending.Flight.Target}.");
+                }
+
+                _bossReservedBombCells.Remove(pending.Flight.Target);
+                BossBombPlaced?.Invoke(snapshot);
+                _pendingBossBombFlights.RemoveAt(index);
+            }
+        }
+
+        private void SpawnBossSelfDestruct()
+        {
+            if (_bossSummonedSelfDestruct || _coreSelfDestructDefinition == null)
+            {
+                return;
+            }
+
+            CombatRoomDefinition room = _runtimeRoomDefinition ??
+                context.RoomDefinition.CreateCoreDefinition();
+            GridPosition spawn = _boss.CurrentDangerCells.Count == 1
+                ? _boss.CurrentDangerCells[0]
+                : SelectBossSelfDestructSpawn(room.SelfDestructAnchors);
+            _selfDestruct = new SelfDestructEnemySimulation(
+                _grid,
+                _clock,
+                _coreSelfDestructDefinition,
+                PrototypeSelfDestructActorId,
+                _movement.ActorId,
+                spawn);
+            _selfDestructHealth = new EnemyHealthSimulation(_selfDestruct.ActorId, 1);
+            _hasSelfDestruct = true;
+            _bossSummonedSelfDestruct = true;
+            _bossSelfDestructForceAt = _clock.Now.Add(
+                TimeSpan.FromSeconds(bossDefinition.SelfDestructForceSeconds));
+            SelfDestructSpawned?.Invoke(_selfDestruct.ActorId);
+        }
+
+        private GridPosition SelectBossSelfDestructSpawn(
+            IReadOnlyList<GridPosition> candidates)
+        {
+            GridPosition selected = default;
+            long selectedDistance = long.MinValue;
+            for (int index = 0; index < candidates.Count; index++)
+            {
+                GridPosition candidate = candidates[index];
+                GridCellState cell = _grid.GetCell(candidate);
+                if (!cell.IsWalkableTerrain || cell.HasActor || cell.HasBomb)
+                {
+                    continue;
+                }
+                long distance = Math.Abs((long)candidate.X - _movement.CurrentPosition.X) +
+                    Math.Abs((long)candidate.Z - _movement.CurrentPosition.Z);
+                if (distance > selectedDistance)
+                {
+                    selected = candidate;
+                    selectedDistance = distance;
+                }
+            }
+            if (selectedDistance == long.MinValue)
+            {
+                throw new InvalidOperationException(
+                    "Boss has no available authored self-destruct summon anchor.");
+            }
+            return selected;
+        }
+
+        private void ApplyBossPatternDamage(BossPatternTransition transition)
+        {
+            if (_health.IsDead ||
+                (transition.Pattern != BossPatternKind.FixedCharge &&
+                 transition.Pattern != BossPatternKind.ParityWave) ||
+                !Contains(transition.DangerCells, _movement.CurrentPosition))
+            {
+                return;
+            }
+
+            PlayerDamageResult damage = _health.ApplyBossPatternDamage(
+                _boss.ActorId,
+                _boss.Definition.PatternDamage);
+            if (damage.WasApplied)
+            {
+                _appliedDamageResults.Add(damage);
             }
         }
 

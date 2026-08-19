@@ -7,490 +7,382 @@ namespace BombSwap.Tests.EditMode
 {
     public sealed class BossBattleSimulationTests
     {
+        private static readonly ActorId PlayerActor = new ActorId(1);
         private static readonly ActorId BossActor = new ActorId(5);
-        private static readonly TimeSpan PhaseOneTelegraph = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan PhaseOneExecute = TimeSpan.FromMilliseconds(250);
-        private static readonly TimeSpan PhaseOneRecovery = TimeSpan.FromSeconds(2);
-        private static readonly TimeSpan PhaseTwoTelegraph = TimeSpan.FromMilliseconds(750);
-        private static readonly TimeSpan PhaseTwoExecute = TimeSpan.FromMilliseconds(250);
-        private static readonly TimeSpan PhaseTwoRecovery = TimeSpan.FromSeconds(1.5);
+        private static readonly TimeSpan Tick = TimeSpan.FromMilliseconds(10);
 
         [Test]
-        public void Definition_StoresHealthDamageThresholdAndPhaseTimings()
+        public void Definition_ValidatesThreePhaseAndBombContracts()
         {
             BossBattleDefinition definition = CreateDefinition();
 
-            Assert.That(definition.Id, Is.EqualTo(new EnemyDefinitionId("prototype-boss")));
-            Assert.That(definition.MaxHealth, Is.EqualTo(4));
-            Assert.That(definition.PhaseTwoHealthThreshold, Is.EqualTo(2));
-            Assert.That(definition.PatternDamage, Is.EqualTo(1));
-            Assert.That(definition.PhaseOneTimings.TelegraphDuration, Is.EqualTo(PhaseOneTelegraph));
-            Assert.That(definition.PhaseOneTimings.ExecuteDuration, Is.EqualTo(PhaseOneExecute));
-            Assert.That(definition.PhaseOneTimings.RecoveryDuration, Is.EqualTo(PhaseOneRecovery));
-            Assert.That(definition.GetTimings(BossPhase.One), Is.EqualTo(definition.PhaseOneTimings));
-            Assert.That(definition.GetTimings(BossPhase.Two), Is.EqualTo(definition.PhaseTwoTimings));
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                definition.GetTimings((BossPhase)99));
-        }
-
-        [Test]
-        public void Definition_RejectsInvalidIdentityHealthThresholdDamageAndTimings()
-        {
-            BossPatternTimings phaseOne = CreateDefinition().PhaseOneTimings;
-            BossPatternTimings phaseTwo = CreateDefinition().PhaseTwoTimings;
-            EnemyDefinitionId id = new EnemyDefinitionId("prototype-boss");
+            Assert.That(definition.MaxHealth, Is.EqualTo(10));
+            Assert.That(definition.PhaseTwoHealthThreshold, Is.EqualTo(7));
+            Assert.That(definition.LastStandHealthThreshold, Is.EqualTo(2));
+            Assert.That(definition.MaxOverheatDamage, Is.EqualTo(2));
+            Assert.That(definition.Tuning.PhaseOneChaseCount, Is.EqualTo(2));
+            Assert.That(definition.Tuning.PhaseTwoChaseCount, Is.EqualTo(3));
+            Assert.That(
+                definition.GetTimings(BossPhase.LastStand, BossPatternKind.Overheat)
+                    .RecoveryDuration,
+                Is.EqualTo(TimeSpan.FromMilliseconds(50)));
 
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossPatternTimings(TimeSpan.Zero, PhaseOneExecute, PhaseOneRecovery));
+                CreateDefinition(maxHealth: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossPatternTimings(PhaseOneTelegraph, TimeSpan.Zero, PhaseOneRecovery));
+                CreateDefinition(phaseTwoThreshold: 10));
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossPatternTimings(PhaseOneTelegraph, PhaseOneExecute, TimeSpan.Zero));
+                CreateDefinition(lastStandThreshold: 7));
             Assert.Throws<ArgumentException>(() =>
-                new BossBattleDefinition(default, 4, 2, 1, phaseOne, phaseTwo));
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossBattleDefinition(id, 0, 0, 1, phaseOne, phaseTwo));
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossBattleDefinition(id, 4, 0, 1, phaseOne, phaseTwo));
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossBattleDefinition(id, 4, 4, 1, phaseOne, phaseTwo));
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new BossBattleDefinition(id, 4, 2, 0, phaseOne, phaseTwo));
+                new BossBattleDefinition(
+                    new EnemyDefinitionId("boss"),
+                    10,
+                    7,
+                    2,
+                    1,
+                    2,
+                    CreateTuning(),
+                    CreateThrowBomb(),
+                    CreateThrowBomb()));
         }
 
         [Test]
-        public void Constructor_StartsWithReadableColumnTelegraphAndOwnsBossCell()
+        public void InitialSequence_ChasesTwiceThenLocksThreeCellCharge()
         {
             var clock = new ManualGameClock();
             GridState grid = CreateArenaGrid();
             BossBattleSimulation boss = CreateSimulation(grid, clock);
 
-            Assert.That(boss.State, Is.EqualTo(BossBattleState.Telegraph));
-            Assert.That(boss.Phase, Is.EqualTo(BossPhase.One));
-            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.AlternatingColumns));
-            Assert.That(boss.PatternSequence, Is.Zero);
-            Assert.That(boss.StateEndsAt, Is.EqualTo(PhaseOneTelegraph));
-            Assert.That(boss.IsVulnerable, Is.False);
-            Assert.That(boss.CurrentDangerCells, Is.EqualTo(new[]
-            {
-                new GridPosition(-2, -2), new GridPosition(0, -2), new GridPosition(2, -2),
-                new GridPosition(-2, -1), new GridPosition(0, -1), new GridPosition(2, -1),
-                new GridPosition(-2, 0), new GridPosition(0, 0), new GridPosition(2, 0),
-                new GridPosition(-2, 1), new GridPosition(0, 1),
-                new GridPosition(1, 1), new GridPosition(2, 1),
-                new GridPosition(-2, 2), new GridPosition(0, 2), new GridPosition(2, 2),
-            }));
-            Assert.That(boss.CurrentDangerCells, Is.Not.InstanceOf<GridPosition[]>());
-            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(0, 1)));
-            Assert.That(boss.NextBossPosition, Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(boss.MovementRoute, Is.EqualTo(CreateMovementRoute()));
-            Assert.That(boss.MovementRoute, Is.Not.InstanceOf<GridPosition[]>());
-            Assert.Throws<NotSupportedException>(() =>
-                ((IList<GridPosition>)boss.MovementRoute).Clear());
-            Assert.That(grid.TryGetActorPosition(BossActor, out GridPosition position), Is.True);
-            Assert.That(position, Is.EqualTo(new GridPosition(0, 1)));
-        }
-
-        [Test]
-        public void Telegraph_ResolvesAtExactBoundaryWithIdenticalDangerSnapshot()
-        {
-            var clock = new ManualGameClock();
-            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
-            IReadOnlyList<GridPosition> telegraphed = boss.CurrentDangerCells;
-
-            clock.Advance(PhaseOneTelegraph - TimeSpan.FromTicks(1));
-            Assert.That(boss.TryAdvance(out _), Is.False);
-            clock.Advance(TimeSpan.FromTicks(1));
-
-            Assert.That(boss.TryAdvance(out BossPatternTransition transition), Is.True);
-            Assert.That(transition.PreviousState, Is.EqualTo(BossBattleState.Telegraph));
-            Assert.That(transition.State, Is.EqualTo(BossBattleState.Execute));
-            Assert.That(transition.Pattern, Is.EqualTo(BossPatternKind.AlternatingColumns));
-            Assert.That(transition.Phase, Is.EqualTo(BossPhase.One));
-            Assert.That(transition.PatternSequence, Is.Zero);
-            Assert.That(transition.ScheduledAt, Is.EqualTo(PhaseOneTelegraph));
-            Assert.That(transition.AttackResolved, Is.True);
-            Assert.That(transition.BecameVulnerable, Is.False);
-            Assert.That(transition.DangerCells, Is.SameAs(telegraphed));
-            Assert.That(transition.BossMoved, Is.True);
-            Assert.That(transition.MovementBlocked, Is.False);
-            Assert.That(transition.BossPosition, Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(transition.NextBossPosition, Is.EqualTo(new GridPosition(1, 0)));
-            Assert.That(
-                transition.Movement,
-                Is.EqualTo(new EnemyMovementStep(
-                    BossActor,
-                    new GridPosition(0, 1),
-                    new GridPosition(1, 1),
-                    CardinalDirection.East)));
-            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(boss.NextBossPosition, Is.EqualTo(new GridPosition(1, 0)));
-            Assert.That(boss.StateEndsAt, Is.EqualTo(PhaseOneTelegraph + PhaseOneExecute));
-        }
-
-        [Test]
-        public void TelegraphMove_CanEnterBombCellAndBombRemovalPreservesBossOccupancy()
-        {
-            var clock = new ManualGameClock();
-            GridState grid = CreateArenaGrid();
-            BossBattleSimulation boss = CreateSimulation(grid, clock);
-            GridPosition destination = new GridPosition(1, 1);
-            Assert.That(grid.TryAddBomb(destination), Is.True);
-
-            clock.Advance(PhaseOneTelegraph);
-
-            Assert.That(boss.TryAdvance(out BossPatternTransition transition), Is.True);
-            Assert.That(transition.BossMoved, Is.True);
-            Assert.That(grid.GetCell(destination).HasActor, Is.True);
-            Assert.That(grid.GetCell(destination).HasBomb, Is.True);
-            Assert.That(grid.TryRemoveBomb(destination), Is.True);
-            Assert.That(grid.GetCell(destination).HasActor, Is.True);
-            Assert.That(grid.GetCell(destination).HasBomb, Is.False);
-            Assert.That(grid.TryGetActorPosition(BossActor, out GridPosition stored), Is.True);
-            Assert.That(stored, Is.EqualTo(destination));
-        }
-
-        [Test]
-        public void TelegraphMove_BlockedByActorRetriesSameTargetOnNextPattern()
-        {
-            var clock = new ManualGameClock();
-            GridState grid = CreateArenaGrid();
-            BossBattleSimulation boss = CreateSimulation(grid, clock);
-            var blocker = new ActorId(6);
-            GridPosition destination = new GridPosition(1, 1);
-            Assert.That(grid.TryAddActor(blocker, destination), Is.True);
-
-            clock.Advance(PhaseOneTelegraph);
-            Assert.That(boss.TryAdvance(out BossPatternTransition blocked), Is.True);
-
-            Assert.That(blocked.BossMoved, Is.False);
-            Assert.That(blocked.MovementBlocked, Is.True);
-            Assert.That(blocked.BossPosition, Is.EqualTo(new GridPosition(0, 1)));
-            Assert.That(blocked.NextBossPosition, Is.EqualTo(destination));
-            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(0, 1)));
-            Assert.That(boss.NextBossPosition, Is.EqualTo(destination));
-
-            clock.Advance(PhaseOneExecute);
-            Assert.That(boss.TryAdvance(out _), Is.True);
-            clock.Advance(PhaseOneRecovery);
-            Assert.That(boss.TryAdvance(out BossPatternTransition telegraph), Is.True);
-            Assert.That(telegraph.State, Is.EqualTo(BossBattleState.Telegraph));
-            Assert.That(telegraph.NextBossPosition, Is.EqualTo(destination));
-            Assert.That(telegraph.DangerCells, Does.Contain(destination));
-            Assert.That(grid.TryRemoveActor(blocker), Is.True);
-
-            clock.Advance(PhaseOneTelegraph);
-            Assert.That(boss.TryAdvance(out BossPatternTransition retried), Is.True);
-            Assert.That(retried.BossMoved, Is.True);
-            Assert.That(retried.MovementBlocked, Is.False);
-            Assert.That(retried.BossPosition, Is.EqualTo(destination));
-            Assert.That(boss.BossPosition, Is.EqualTo(destination));
-        }
-
-        [Test]
-        public void Execute_EntersRecoveryAtExactBoundaryAndBecomesVulnerable()
-        {
-            var clock = new ManualGameClock();
-            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
-            clock.Advance(PhaseOneTelegraph);
-            Assert.That(boss.TryAdvance(out _), Is.True);
-            clock.Advance(PhaseOneExecute);
-
-            Assert.That(boss.TryAdvance(out BossPatternTransition transition), Is.True);
-            Assert.That(transition.PreviousState, Is.EqualTo(BossBattleState.Execute));
-            Assert.That(transition.State, Is.EqualTo(BossBattleState.Recovery));
-            Assert.That(transition.BecameVulnerable, Is.True);
-            Assert.That(transition.AttackResolved, Is.False);
-            Assert.That(boss.IsVulnerable, Is.True);
-            Assert.That(
-                boss.StateEndsAt,
-                Is.EqualTo(PhaseOneTelegraph + PhaseOneExecute + PhaseOneRecovery));
-        }
-
-        [Test]
-        public void Explosion_IsIgnoredOutsideRecoveryThenAppliesOnceDuringOpening()
-        {
-            var clock = new ManualGameClock();
-            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
-            BombId firstBomb = CreateBombId(1);
-
-            BossDamageResult early = boss.ApplyExplosion(firstBomb, 1);
-            Assert.That(early.Status, Is.EqualTo(BossDamageStatus.IgnoredNotVulnerable));
-            Assert.That(boss.CurrentHealth, Is.EqualTo(4));
-
-            AdvanceToRecovery(clock, boss);
-            BossDamageResult applied = boss.ApplyExplosion(firstBomb, 1);
-            BossDamageResult duplicate = boss.ApplyExplosion(firstBomb, 1);
-
-            Assert.That(applied.Status, Is.EqualTo(BossDamageStatus.Applied));
-            Assert.That(applied.AppliedDamage, Is.EqualTo(1));
-            Assert.That(applied.WasFatal, Is.False);
-            Assert.That(duplicate.Status, Is.EqualTo(BossDamageStatus.IgnoredDuplicateExplosion));
-            Assert.That(boss.CurrentHealth, Is.EqualTo(3));
-        }
-
-        [Test]
-        public void PhaseOne_AlternatesFromColumnsToRowsAtSafeTransitionPoint()
-        {
-            var clock = new ManualGameClock();
-            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
-            AdvanceToRecovery(clock, boss);
-            clock.Advance(PhaseOneRecovery);
-
-            Assert.That(boss.TryAdvance(out BossPatternTransition transition), Is.True);
-            Assert.That(transition.PreviousState, Is.EqualTo(BossBattleState.Recovery));
-            Assert.That(transition.State, Is.EqualTo(BossBattleState.Telegraph));
-            Assert.That(transition.Phase, Is.EqualTo(BossPhase.One));
-            Assert.That(transition.Pattern, Is.EqualTo(BossPatternKind.AlternatingRows));
-            Assert.That(transition.PatternSequence, Is.EqualTo(1));
-            Assert.That(transition.DangerCells, Is.EqualTo(new[]
-            {
-                new GridPosition(-2, -1), new GridPosition(-1, -1),
-                new GridPosition(0, -1), new GridPosition(1, -1), new GridPosition(2, -1),
-                new GridPosition(1, 0),
-                new GridPosition(-2, 1), new GridPosition(-1, 1),
-                new GridPosition(0, 1), new GridPosition(1, 1), new GridPosition(2, 1),
-            }));
-        }
-
-        [Test]
-        public void HealthThreshold_ChangesToCheckerboardOnlyAfterRecoveryEnds()
-        {
-            var clock = new ManualGameClock();
-            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
-            AdvanceToRecovery(clock, boss);
-            boss.ApplyExplosion(CreateBombId(1), 1);
-            boss.ApplyExplosion(CreateBombId(2), 1);
-
-            Assert.That(boss.CurrentHealth, Is.EqualTo(2));
-            Assert.That(boss.Phase, Is.EqualTo(BossPhase.One));
-            clock.Advance(PhaseOneRecovery);
-            Assert.That(boss.TryAdvance(out BossPatternTransition transition), Is.True);
-
-            Assert.That(transition.Phase, Is.EqualTo(BossPhase.Two));
-            Assert.That(transition.Pattern, Is.EqualTo(BossPatternKind.Checkerboard));
-            Assert.That(transition.PatternSequence, Is.EqualTo(1));
-            Assert.That(boss.StateEndsAt, Is.EqualTo(
-                PhaseOneTelegraph + PhaseOneExecute + PhaseOneRecovery + PhaseTwoTelegraph));
-            Assert.That(transition.DangerCells, Is.EqualTo(new[]
-            {
-                new GridPosition(-1, -2), new GridPosition(1, -2),
-                new GridPosition(-2, -1), new GridPosition(0, -1), new GridPosition(2, -1),
-                new GridPosition(-1, 0), new GridPosition(1, 0),
-                new GridPosition(-2, 1), new GridPosition(0, 1), new GridPosition(2, 1),
-                new GridPosition(-1, 2), new GridPosition(1, 2),
-            }));
-        }
-
-        [Test]
-        public void FatalRecoveryHit_RemovesBossAndCannotClearTwice()
-        {
-            var clock = new ManualGameClock();
-            GridState grid = CreateArenaGrid();
-            BossBattleSimulation boss = CreateSimulation(grid, clock);
-            AdvanceToRecovery(clock, boss);
-
-            BossDamageResult fatal = default;
-            for (int index = 1; index <= 4; index++)
-            {
-                fatal = boss.ApplyExplosion(CreateBombId(index), 1);
-            }
-
-            Assert.That(fatal.WasFatal, Is.True);
-            Assert.That(boss.State, Is.EqualTo(BossBattleState.Defeated));
-            Assert.That(boss.IsDead, Is.True);
-            Assert.That(boss.IsVulnerable, Is.False);
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.LimitedChase));
             Assert.That(boss.CurrentDangerCells, Is.Empty);
-            Assert.That(grid.TryGetActorPosition(BossActor, out _), Is.False);
-            Assert.That(boss.TryAdvance(out _), Is.False);
+            CompleteCurrentPattern(boss, clock);
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.LimitedChase));
 
-            BossDamageResult afterDeath = boss.ApplyExplosion(CreateBombId(5), 1);
-            Assert.That(afterDeath.Status, Is.EqualTo(BossDamageStatus.IgnoredDefeated));
-            Assert.That(afterDeath.WasFatal, Is.False);
-            Assert.That(boss.CurrentHealth, Is.Zero);
+            GridPosition playerDestination = new GridPosition(4, 0);
+            MovePlayerAlongGrid(grid, playerDestination);
+            CompleteCurrentPattern(boss, clock);
+
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.FixedCharge));
+            Assert.That(boss.CurrentDangerCells.Count, Is.InRange(2, 3));
+            IReadOnlyList<GridPosition> locked = boss.CurrentDangerCells;
+            MovePlayerAlongGrid(grid, new GridPosition(-4, -3));
+            Assert.That(boss.CurrentDangerCells, Is.SameAs(locked));
         }
 
         [Test]
-        public void LargeClockAdvance_PreservesScheduledBoundariesAcrossTransitions()
+        public void Charge_ExecutesCardinalPathWithoutEnteringPlayerCell()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateArenaGrid(new GridPosition(5, 1));
+            BossBattleSimulation boss = CreateSimulation(grid, clock);
+            AdvanceUntilPattern(boss, clock, BossPatternKind.FixedCharge);
+            IReadOnlyList<GridPosition> danger = boss.CurrentDangerCells;
+
+            AdvanceOneTransition(boss, clock, out BossPatternTransition execute);
+
+            Assert.That(execute.AttackResolved, Is.True);
+            Assert.That(execute.Movements, Has.Count.EqualTo(2));
+            Assert.That(danger, Does.Contain(new GridPosition(5, 1)));
+            Assert.That(boss.BossPosition, Is.EqualTo(new GridPosition(4, 1)));
+            Assert.That(grid.TryGetActorPosition(PlayerActor, out GridPosition player), Is.True);
+            Assert.That(player, Is.EqualTo(new GridPosition(5, 1)));
+        }
+
+        [Test]
+        public void PhaseOneVolley_ReservesThreeUniqueSequentialFlights()
         {
             var clock = new ManualGameClock();
             BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
-            clock.Advance(TimeSpan.FromSeconds(10));
+            AdvanceUntilPattern(boss, clock, BossPatternKind.BombVolley);
 
-            Assert.That(boss.TryAdvance(out BossPatternTransition execute), Is.True);
-            Assert.That(execute.ScheduledAt, Is.EqualTo(PhaseOneTelegraph));
-            Assert.That(boss.TryAdvance(out BossPatternTransition recovery), Is.True);
-            Assert.That(recovery.ScheduledAt, Is.EqualTo(PhaseOneTelegraph + PhaseOneExecute));
-            Assert.That(boss.TryAdvance(out BossPatternTransition nextTelegraph), Is.True);
-            Assert.That(
-                nextTelegraph.ScheduledAt,
-                Is.EqualTo(PhaseOneTelegraph + PhaseOneExecute + PhaseOneRecovery));
-            Assert.That(nextTelegraph.Pattern, Is.EqualTo(BossPatternKind.AlternatingRows));
+            Assert.That(boss.CurrentAttackPlan.Placements, Has.Count.EqualTo(3));
+            var positions = new HashSet<GridPosition>();
+            for (int index = 0; index < boss.CurrentAttackPlan.Placements.Count; index++)
+            {
+                BossBombPlacement placement = boss.CurrentAttackPlan.Placements[index];
+                Assert.That(positions.Add(placement.Position), Is.True);
+                Assert.That(placement.Definition.Id, Is.EqualTo(CreateThrowBomb().Id));
+                Assert.That(
+                    placement.LaunchOffset,
+                    Is.EqualTo(TimeSpan.FromMilliseconds(10 * index)));
+                Assert.That(placement.FlightDuration, Is.EqualTo(Tick));
+            }
+            Assert.That(boss.CurrentDangerCells, Is.Not.Empty);
         }
 
         [Test]
-        public void ConstructorAndAdvance_RejectInvalidArenaAndClockRegression()
+        public void ParityWave_AdvancesRowsAndLeavesAlternatingSafeCells()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
+            AdvanceUntilPattern(boss, clock, BossPatternKind.ParityWave);
+            IReadOnlyList<GridPosition> first = boss.CurrentDangerCells;
+
+            Assert.That(first, Is.Not.Empty);
+            int row = first[0].Z;
+            int parity = (first[0].X + first[0].Z) & 1;
+            for (int index = 0; index < first.Count; index++)
+            {
+                Assert.That(first[index].Z, Is.EqualTo(row));
+                Assert.That((first[index].X + first[index].Z) & 1, Is.EqualTo(parity));
+            }
+            Assert.That(first.Count, Is.LessThan(11));
+
+            CompleteCurrentPattern(boss, clock);
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.ParityWave));
+            Assert.That(boss.CurrentDangerCells[0].Z, Is.Not.EqualTo(row));
+        }
+
+        [Test]
+        public void Overheat_AcceptsTwoBombsThenEnforcesDamageCap()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
+            AdvanceUntilRecovery(boss, clock, BossPatternKind.Overheat);
+
+            BossDamageResult first = boss.ApplyExplosion(CreateBombId(1), 1);
+            BossDamageResult second = boss.ApplyExplosion(CreateBombId(2), 1);
+            BossDamageResult capped = boss.ApplyExplosion(CreateBombId(3), 1);
+
+            Assert.That(first.WasApplied, Is.True);
+            Assert.That(second.WasApplied, Is.True);
+            Assert.That(boss.CurrentHealth, Is.EqualTo(8));
+            Assert.That(boss.CurrentOverheatDamage, Is.EqualTo(2));
+            Assert.That(capped.Status, Is.EqualTo(BossDamageStatus.IgnoredOverheatCap));
+        }
+
+        [Test]
+        public void PhaseTwoTransition_IsDeferredUntilOverheatCompletes()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
+            DealOverheatDamage(boss, clock, 2);
+            DealOverheatDamage(boss, clock, 1, completeRecovery: false);
+
+            Assert.That(boss.CurrentHealth, Is.EqualTo(7));
+            Assert.That(boss.Phase, Is.EqualTo(BossPhase.One));
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.Overheat));
+
+            AdvanceOneTransition(boss, clock, out BossPatternTransition transition);
+            Assert.That(transition.BeganTelegraph, Is.True);
+            Assert.That(boss.Phase, Is.EqualTo(BossPhase.Two));
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.ReturnToCenter));
+        }
+
+        [Test]
+        public void PhaseTwoFirstCycle_SummonsOnceAndWaitsForResolution()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
+            DealOverheatDamage(boss, clock, 2);
+            DealOverheatDamage(boss, clock, 1);
+            AdvanceUntilPattern(boss, clock, BossPatternKind.SummonSelfDestruct);
+            Assert.That(boss.CurrentDangerCells, Has.Count.EqualTo(1));
+            Assert.That(
+                boss.CurrentDangerCells[0],
+                Is.EqualTo(new GridPosition(-3, 3)));
+
+            AdvanceOneTransition(boss, clock, out BossPatternTransition summon);
+            Assert.That(summon.AttackResolved, Is.True);
+            AdvanceUntilPattern(boss, clock, BossPatternKind.WaitForSelfDestruct);
+            AdvanceClockToBoundary(boss, clock);
+            Assert.That(boss.TryAdvance(out _), Is.False);
+
+            boss.NotifySelfDestructResolved();
+            Assert.That(boss.TryAdvance(out BossPatternTransition resolved), Is.True);
+            Assert.That(resolved.AttackResolved, Is.True);
+
+            AdvanceUntilPattern(boss, clock, BossPatternKind.BombVolley);
+            Assert.That(boss.CurrentAttackPlan.Placements, Has.Count.EqualTo(4));
+            Assert.That(
+                boss.CurrentAttackPlan.Placements[0].Definition.Id,
+                Is.EqualTo(CreateThrowBomb().Id));
+            Assert.That(
+                boss.CurrentAttackPlan.Placements[1].Definition.Id,
+                Is.EqualTo(CreateChainBomb().Id));
+        }
+
+        [Test]
+        public void SelfDestructHit_BypassesOverheatAndReservesLastStand()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(
+                CreateArenaGrid(),
+                clock,
+                CreateDefinition(phaseTwoThreshold: 9, lastStandThreshold: 8));
+            DealOverheatDamage(boss, clock, 2);
+            Assert.That(boss.Phase, Is.EqualTo(BossPhase.Two));
+
+            BossDamageResult result = boss.ApplySelfDestructExplosion(CreateBombId(9), 1);
+            Assert.That(result.WasApplied, Is.True);
+            Assert.That(result.Source, Is.EqualTo(BossDamageSource.SelfDestruct));
+            Assert.That(boss.CurrentHealth, Is.EqualTo(7));
+
+            AdvanceUntilPhase(boss, clock, BossPhase.LastStand);
+            Assert.That(boss.CurrentPattern, Is.EqualTo(BossPatternKind.LimitedChase));
+            AdvanceUntilPattern(boss, clock, BossPatternKind.LastStandBombChain);
+            Assert.That(boss.CurrentAttackPlan.Placements, Has.Count.EqualTo(4));
+        }
+
+        [Test]
+        public void PlayerExplosion_IsIgnoredOutsideOverheat()
+        {
+            BossBattleSimulation boss = CreateSimulation(
+                CreateArenaGrid(),
+                new ManualGameClock());
+
+            BossDamageResult result = boss.ApplyExplosion(CreateBombId(1), 1);
+
+            Assert.That(result.Status, Is.EqualTo(BossDamageStatus.IgnoredNotVulnerable));
+            Assert.That(boss.CurrentHealth, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void FatalHit_RemovesBossAndStopsTransitions()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(
+                CreateArenaGrid(),
+                clock,
+                CreateDefinition(
+                    maxHealth: 3,
+                    phaseTwoThreshold: 2,
+                    lastStandThreshold: 1,
+                    maxOverheatDamage: 3));
+            AdvanceUntilRecovery(boss, clock, BossPatternKind.Overheat);
+            BossDamageResult result = boss.ApplyExplosion(CreateBombId(1), 3);
+
+            Assert.That(result.WasFatal, Is.True);
+            Assert.That(boss.IsDead, Is.True);
+            Assert.That(boss.CurrentDangerCells, Is.Empty);
+            Assert.That(boss.TryAdvance(out _), Is.False);
+        }
+
+        [Test]
+        public void Constructor_RejectsTooFewThrowAnchorsAndClockRegression()
         {
             var clock = new MutableGameClock(TimeSpan.Zero);
             GridState grid = CreateArenaGrid();
-            IReadOnlyList<GridPosition> arena = CreateArenaCells();
-
-            Assert.Throws<ArgumentException>(() =>
-                new BossBattleSimulation(
-                    grid,
-                    clock,
-                    CreateDefinition(),
-                    default,
-                    new GridPosition(0, 1),
-                    arena,
-                    CreateMovementRoute()));
             Assert.Throws<ArgumentException>(() =>
                 new BossBattleSimulation(
                     grid,
                     clock,
                     CreateDefinition(),
                     BossActor,
-                    new GridPosition(3, 3),
-                    arena,
-                    CreateMovementRoute()));
-            Assert.Throws<ArgumentException>(() =>
-                new BossBattleSimulation(
-                    grid,
-                    clock,
-                    CreateDefinition(),
-                    BossActor,
+                    PlayerActor,
                     new GridPosition(0, 1),
-                    new[] { new GridPosition(0, 1), new GridPosition(0, 1) },
-                    CreateMovementRoute()));
+                    CreateArenaCells(),
+                    new[]
+                    {
+                        new GridPosition(-4, -2),
+                        new GridPosition(4, -2),
+                    },
+                    CreateSummonAnchors()));
 
             BossBattleSimulation boss = CreateSimulation(grid, clock);
-            clock.Now = TimeSpan.FromSeconds(2);
+            clock.Now = Tick;
             Assert.That(boss.TryAdvance(out _), Is.True);
-            clock.Now = TimeSpan.FromSeconds(1);
+            clock.Now = TimeSpan.Zero;
             Assert.Throws<InvalidOperationException>(() => boss.TryAdvance(out _));
         }
 
-        [Test]
-        public void Constructor_RejectsInvalidMovementRoutesAndCopiesValidRoute()
-        {
-            IReadOnlyList<GridPosition> arena = CreateArenaCells();
-            GridPosition start = new GridPosition(0, 1);
-
-            Assert.Throws<ArgumentNullException>(() =>
-                CreateSimulationWithRoute(null));
-            Assert.Throws<ArgumentException>(() =>
-                CreateSimulationWithRoute(new[]
-                {
-                    start,
-                    new GridPosition(1, 1),
-                    new GridPosition(1, 0),
-                }));
-            Assert.Throws<ArgumentException>(() =>
-                CreateSimulationWithRoute(new[]
-                {
-                    start,
-                    new GridPosition(1, 1),
-                    new GridPosition(1, 0),
-                    new GridPosition(1, 1),
-                }));
-            Assert.Throws<ArgumentException>(() =>
-                CreateSimulationWithRoute(new[]
-                {
-                    start,
-                    new GridPosition(1, 1),
-                    new GridPosition(3, 1),
-                    new GridPosition(0, 2),
-                }));
-            Assert.Throws<ArgumentException>(() =>
-                CreateSimulationWithRoute(new[]
-                {
-                    new GridPosition(-2, -2),
-                    new GridPosition(-2, -1),
-                    new GridPosition(-1, -1),
-                    new GridPosition(-1, -2),
-                }));
-            Assert.Throws<ArgumentException>(() =>
-                CreateSimulationWithRoute(new[]
-                {
-                    start,
-                    new GridPosition(1, 0),
-                    new GridPosition(1, -1),
-                    new GridPosition(0, -1),
-                }));
-
-            var authored = new List<GridPosition>(CreateMovementRoute());
-            BossBattleSimulation boss = new BossBattleSimulation(
-                CreateArenaGrid(),
-                new ManualGameClock(),
-                CreateDefinition(),
-                BossActor,
-                start,
-                arena,
-                authored);
-            authored[4] = new GridPosition(2, 2);
-
-            Assert.That(boss.MovementRoute, Is.EqualTo(CreateMovementRoute()));
-            Assert.That(boss.NextBossPosition, Is.EqualTo(new GridPosition(1, 1)));
-        }
-
-        private static BossBattleSimulation CreateSimulation(GridState grid, IGameClock clock)
+        private static BossBattleSimulation CreateSimulation(
+            GridState grid,
+            IGameClock clock,
+            BossBattleDefinition definition = null)
         {
             return new BossBattleSimulation(
                 grid,
                 clock,
-                CreateDefinition(),
+                definition ?? CreateDefinition(),
                 BossActor,
+                PlayerActor,
                 new GridPosition(0, 1),
                 CreateArenaCells(),
-                CreateMovementRoute());
+                CreateThrowAnchors(),
+                CreateSummonAnchors());
         }
 
-        private static BossBattleSimulation CreateSimulationWithRoute(
-            IReadOnlyList<GridPosition> route)
-        {
-            return new BossBattleSimulation(
-                CreateArenaGrid(),
-                new ManualGameClock(),
-                CreateDefinition(),
-                BossActor,
-                new GridPosition(0, 1),
-                CreateArenaCells(),
-                route);
-        }
-
-        private static BossBattleDefinition CreateDefinition()
+        private static BossBattleDefinition CreateDefinition(
+            int maxHealth = 10,
+            int phaseTwoThreshold = 7,
+            int lastStandThreshold = 2,
+            int maxOverheatDamage = 2)
         {
             return new BossBattleDefinition(
                 new EnemyDefinitionId("prototype-boss"),
-                4,
-                2,
+                maxHealth,
+                phaseTwoThreshold,
+                lastStandThreshold,
                 1,
-                new BossPatternTimings(
-                    PhaseOneTelegraph,
-                    PhaseOneExecute,
-                    PhaseOneRecovery),
-                new BossPatternTimings(
-                    PhaseTwoTelegraph,
-                    PhaseTwoExecute,
-                    PhaseTwoRecovery));
+                Math.Min(maxOverheatDamage, maxHealth),
+                CreateTuning(),
+                CreateThrowBomb(),
+                CreateChainBomb());
         }
 
-        private static GridState CreateArenaGrid()
+        private static BossPatternTuning CreateTuning()
+        {
+            var timings = new BossPatternTimings(Tick, Tick, Tick);
+            return new BossPatternTuning(
+                timings,
+                timings,
+                timings,
+                timings,
+                timings,
+                timings,
+                timings,
+                timings,
+                TimeSpan.FromMilliseconds(30),
+                TimeSpan.FromMilliseconds(30),
+                TimeSpan.FromMilliseconds(50),
+                2,
+                3,
+                2,
+                3,
+                Tick,
+                Tick,
+                TimeSpan.FromMilliseconds(45));
+        }
+
+        private static BombDefinition CreateThrowBomb()
+        {
+            return new BombDefinition(
+                new BombDefinitionId("boss-throw"),
+                BombExplosionShape.Cross,
+                TimeSpan.FromMilliseconds(100),
+                2);
+        }
+
+        private static BombDefinition CreateChainBomb()
+        {
+            return new BombDefinition(
+                new BombDefinitionId("boss-chain"),
+                BombExplosionShape.Cross,
+                TimeSpan.FromMilliseconds(200),
+                2);
+        }
+
+        private static GridState CreateArenaGrid(GridPosition? playerPosition = null)
         {
             var grid = new GridState();
-            foreach (GridPosition position in CreateArenaCells())
+            IReadOnlyList<GridPosition> cells = CreateArenaCells();
+            for (int index = 0; index < cells.Count; index++)
             {
-                Assert.That(grid.TrySetTerrain(position, GridTerrain.Floor), Is.True);
+                Assert.That(grid.TrySetTerrain(cells[index], GridTerrain.Floor), Is.True);
             }
+            Assert.That(
+                grid.TryAddActor(PlayerActor, playerPosition ?? new GridPosition(0, -3)),
+                Is.True);
             return grid;
         }
 
         private static IReadOnlyList<GridPosition> CreateArenaCells()
         {
             var cells = new List<GridPosition>();
-            for (int z = -2; z <= 2; z++)
+            for (int z = -4; z <= 4; z++)
             {
-                for (int x = -2; x <= 2; x++)
+                for (int x = -5; x <= 5; x++)
                 {
                     cells.Add(new GridPosition(x, z));
                 }
@@ -498,49 +390,152 @@ namespace BombSwap.Tests.EditMode
             return cells;
         }
 
-        private static IReadOnlyList<GridPosition> CreateMovementRoute()
+        private static IReadOnlyList<GridPosition> CreateThrowAnchors()
         {
             return new[]
             {
-                new GridPosition(-1, -1),
-                new GridPosition(-1, 0),
-                new GridPosition(-1, 1),
-                new GridPosition(0, 1),
-                new GridPosition(1, 1),
-                new GridPosition(1, 0),
-                new GridPosition(1, -1),
-                new GridPosition(0, -1),
+                new GridPosition(-4, -2),
+                new GridPosition(-3, 3),
+                new GridPosition(0, -3),
+                new GridPosition(0, 3),
+                new GridPosition(3, 3),
+                new GridPosition(4, -2),
             };
         }
 
-        private static void AdvanceToRecovery(
-            ManualGameClock clock,
-            BossBattleSimulation boss)
+        private static IReadOnlyList<GridPosition> CreateSummonAnchors()
         {
-            clock.Advance(PhaseOneTelegraph);
-            Assert.That(boss.TryAdvance(out _), Is.True);
-            clock.Advance(PhaseOneExecute);
-            Assert.That(boss.TryAdvance(out _), Is.True);
+            return new[]
+            {
+                new GridPosition(-3, 3),
+                new GridPosition(3, 3),
+            };
+        }
+
+        private static void CompleteCurrentPattern(
+            BossBattleSimulation boss,
+            ManualGameClock clock)
+        {
+            AdvanceOneTransition(boss, clock, out _);
+            AdvanceOneTransition(boss, clock, out _);
+            AdvanceOneTransition(boss, clock, out _);
+        }
+
+        private static void AdvanceUntilPattern(
+            BossBattleSimulation boss,
+            ManualGameClock clock,
+            BossPatternKind pattern)
+        {
+            int guard = 0;
+            while ((boss.CurrentPattern != pattern ||
+                    boss.State != BossBattleState.Telegraph) && guard++ < 1000)
+            {
+                if (boss.IsWaitingForSelfDestruct)
+                {
+                    boss.NotifySelfDestructResolved();
+                }
+                AdvanceOneTransition(boss, clock, out _);
+            }
+            Assert.That(guard, Is.LessThan(1000), $"Did not reach pattern {pattern}.");
+        }
+
+        private static void AdvanceUntilRecovery(
+            BossBattleSimulation boss,
+            ManualGameClock clock,
+            BossPatternKind pattern)
+        {
+            AdvanceUntilPattern(boss, clock, pattern);
+            AdvanceOneTransition(boss, clock, out _);
+            AdvanceOneTransition(boss, clock, out _);
             Assert.That(boss.State, Is.EqualTo(BossBattleState.Recovery));
+        }
+
+        private static void AdvanceUntilPhase(
+            BossBattleSimulation boss,
+            ManualGameClock clock,
+            BossPhase phase)
+        {
+            int guard = 0;
+            while (boss.Phase != phase && guard++ < 2000)
+            {
+                if (boss.IsWaitingForSelfDestruct)
+                {
+                    boss.NotifySelfDestructResolved();
+                }
+                AdvanceOneTransition(boss, clock, out _);
+            }
+            Assert.That(guard, Is.LessThan(2000), $"Did not reach phase {phase}.");
+        }
+
+        private static void DealOverheatDamage(
+            BossBattleSimulation boss,
+            ManualGameClock clock,
+            int damage,
+            bool completeRecovery = true)
+        {
+            AdvanceUntilRecovery(boss, clock, BossPatternKind.Overheat);
+            for (int index = 0; index < damage; index++)
+            {
+                Assert.That(
+                    boss.ApplyExplosion(
+                            CreateBombId((boss.CurrentHealth * 10) + index),
+                            1)
+                        .WasApplied,
+                    Is.True);
+            }
+            if (completeRecovery)
+            {
+                AdvanceOneTransition(boss, clock, out _);
+            }
+        }
+
+        private static void AdvanceOneTransition(
+            BossBattleSimulation boss,
+            ManualGameClock clock,
+            out BossPatternTransition transition)
+        {
+            AdvanceClockToBoundary(boss, clock);
+            Assert.That(boss.TryAdvance(out transition), Is.True);
+        }
+
+        private static void AdvanceClockToBoundary(
+            BossBattleSimulation boss,
+            ManualGameClock clock)
+        {
+            TimeSpan remaining = boss.StateEndsAt - clock.Now;
+            if (remaining > TimeSpan.Zero)
+            {
+                clock.Advance(remaining);
+            }
+        }
+
+        private static void MovePlayerAlongGrid(GridState grid, GridPosition destination)
+        {
+            Assert.That(grid.TryGetActorPosition(PlayerActor, out GridPosition current), Is.True);
+            while (current.X != destination.X)
+            {
+                current = current.Offset(Math.Sign(destination.X - current.X), 0);
+                Assert.That(grid.TryMoveActor(PlayerActor, current), Is.True);
+            }
+            while (current.Z != destination.Z)
+            {
+                current = current.Offset(0, Math.Sign(destination.Z - current.Z));
+                Assert.That(grid.TryMoveActor(PlayerActor, current), Is.True);
+            }
         }
 
         private static BombId CreateBombId(int sequence)
         {
             var grid = new GridState();
             var clock = new ManualGameClock();
-            var bombs = new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(100));
-            var definition = new BombDefinition(
-                new BombDefinitionId("boss-test"),
-                BombExplosionShape.Cross,
-                TimeSpan.FromSeconds(10),
-                0);
+            var bombs = new BombSimulation(grid, clock, TimeSpan.FromMilliseconds(1));
             BombId created = default;
-            for (int index = 1; index <= sequence; index++)
+            for (int index = 0; index <= sequence; index++)
             {
-                var position = new GridPosition(index, 0);
+                GridPosition position = new GridPosition(index, 0);
                 grid.TrySetTerrain(position, GridTerrain.Floor);
                 Assert.That(
-                    bombs.TryPlaceBomb(definition, position, new ActorId(10), out created),
+                    bombs.TryPlaceBomb(CreateThrowBomb(), position, new ActorId(10), out created),
                     Is.True);
             }
             return created;

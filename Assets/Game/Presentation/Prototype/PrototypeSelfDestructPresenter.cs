@@ -106,6 +106,7 @@ namespace BombSwap
             }
 
             session.SelfDestructAdvanced += OnSelfDestructAdvanced;
+            session.SelfDestructSpawned += OnSelfDestructSpawned;
             session.EnemyDied += OnEnemyDied;
             session.Ready += OnSessionReady;
             if (session.IsReady)
@@ -119,6 +120,7 @@ namespace BombSwap
             if (session != null)
             {
                 session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
+                session.SelfDestructSpawned -= OnSelfDestructSpawned;
                 session.EnemyDied -= OnEnemyDied;
                 session.Ready -= OnSessionReady;
             }
@@ -192,6 +194,29 @@ namespace BombSwap
             {
                 IsInitialized = true;
                 CurrentState = SelfDestructEnemyState.Chase;
+                return;
+            }
+
+            CreatePresentation();
+        }
+
+        private void OnSelfDestructSpawned(ActorId actorId)
+        {
+            if (actorId != session.SelfDestructActorId)
+            {
+                throw new InvalidOperationException(
+                    "Prototype self-destruct presenter received another actor's spawn.");
+            }
+            if (instance == null)
+            {
+                CreatePresentation();
+            }
+        }
+
+        private void CreatePresentation()
+        {
+            if (instance != null)
+            {
                 return;
             }
 
