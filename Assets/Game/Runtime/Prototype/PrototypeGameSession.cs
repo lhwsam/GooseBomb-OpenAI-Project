@@ -1069,7 +1069,7 @@ namespace BombSwap
             }
 
             if (!_health.IsDead && HasChaser && !_chaserHealth.IsDead &&
-                _movement.CurrentPosition.IsCardinallyAdjacentTo(_chaser.CurrentPosition))
+                _chaser.CanDealContactDamage)
             {
                 PlayerDamageResult contactDamage = _health.ApplyContactDamage(
                     _chaser.ActorId,

@@ -1355,7 +1355,7 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ChaserContact_UsesLogicalAdjacencyAndSharedInvulnerability()
+        public IEnumerator ChaserContact_WaitsForStepArrivalAndUsesSharedInvulnerability()
         {
             CreateRuntime(
                 Vector2Int.zero,
@@ -1381,6 +1381,17 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
 
             Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(new GridPosition(1, 0)));
+            Assert.That(contactDamageCount, Is.Zero);
+            Assert.That(_session.CurrentHealth, Is.EqualTo(5));
+            Assert.That(_healthPresenter.DamagePulseCount, Is.Zero);
+
+            yield return new WaitForSecondsRealtime(0.35f);
+
+            Assert.That(contactDamageCount, Is.Zero);
+            Assert.That(_session.CurrentHealth, Is.EqualTo(5));
+
+            yield return new WaitForSecondsRealtime(0.2f);
+
             Assert.That(contactDamageCount, Is.EqualTo(1));
             Assert.That(firstContact.SourceActorId, Is.EqualTo(_session.ChaserActorId));
             Assert.That(firstContact.AppliedDamage, Is.EqualTo(1));

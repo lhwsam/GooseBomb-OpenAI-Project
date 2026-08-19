@@ -774,6 +774,12 @@ async function main() {
       detail: "Moved around the authored blockers to the deterministic west Start exit.",
     });
 
+    const healthProbeChargerTrackBefore = await eventCount(
+      page,
+      "charger-track-moved",
+    );
+    const healthProbeEntryEventStart = await page.evaluate(() =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__.length);
     await triggerBoundaryTransition(
       page,
       "ArrowLeft",
@@ -814,27 +820,26 @@ async function main() {
       page,
       "player-health-current-5",
     );
-    const chargerTrackMovesBefore = await eventCount(
-      page,
-      "charger-track-moved",
-    );
-    const chargerRecoversBefore = await eventCount(
-      page,
-      "charger-recover",
-    );
-    await waitForEvent(page, "charger-recover", {
-      count: chargerRecoversBefore + 1,
-      timeout: 5_000,
-    });
-    await moveToCell(page, 4, 2);
     await waitForEvent(page, "charger-track-moved", {
-      count: chargerTrackMovesBefore + 1,
+      count: healthProbeChargerTrackBefore + 1,
       timeout: 5_000,
     });
+    const firstEntryChargerAction = await page.evaluate((startIndex) =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__
+        .slice(startIndex)
+        .map((event) => typeof event === "string" ? event : event?.name)
+        .find((name) =>
+          name === "charger-track-moved" || name === "charger-telegraph"),
+    healthProbeEntryEventStart);
+    if (firstEntryChargerAction !== "charger-track-moved") {
+      throw new Error(
+        `Expected the first Pillars charger action to be Track movement, got ${firstEntryChargerAction ?? "<none>"}.`,
+      );
+    }
     checks.push({
-      name: "charger-lane-acquisition",
+      name: "charger-safe-entry-track-first",
       status: "passed",
-      detail: "After recovery, an unaligned target caused a visible Track movement before the next locked charge sequence.",
+      detail: "The rotated seed-0 Pillars spawn produced Track movement before any Telegraph instead of attacking immediately on entry.",
     });
     await waitForEvent(page, "player-died", { timeout: 15_000 });
     await waitForEvent(page, "run-failed", { timeout: 5_000 });
@@ -942,7 +947,7 @@ async function main() {
     await moveToCell(page, 3, 0);
     await moveToCell(page, 3, -1);
     await moveToCell(page, 0, -1);
-    await moveToCell(page, 0, 0);
+    await moveToCell(page, -1, -1);
     await waitForEvent(page, "bomb-exploded", {
       count: combatExplosionsBefore + 1,
       timeout: 15_000,
@@ -1775,10 +1780,6 @@ async function main() {
       "dungeon-room-ready-2-combat-active",
       "room-ready-prototype-combat-pillars",
       "charger-track-moved",
-      "charger-telegraph",
-      "charger-charge",
-      "charger-charge-moved",
-      "charger-recover",
       "move-motion-direction-west",
       "move-motion-direction-north",
       "place-bomb-definition-prototype-cross",

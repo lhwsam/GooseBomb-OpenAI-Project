@@ -88,7 +88,7 @@ node ./Tools/AnalyzePlaytestLog.mjs `
   --outputDirectory './Artifacts/Playtests/<session-id>/analysis'
 ```
 
-성공 표식은 `BOMBSWAP_PLAYTEST_LOG_ANALYSIS|passed`다. 출력은 `playtest-log-summary.json`과 `playtest-log-summary.md`이며 같은 입력에서는 같은 내용이 생성된다. 분석 도구가 실패하면 원본 JSON을 수정하지 말고 다운로드 누락, 다른 schema 또는 사건 시간 역행 여부를 기록한다.
+성공 표식은 `BOMBSWAP_PLAYTEST_LOG_ANALYSIS|passed`다. 출력은 `bombswap/playtest-summary@2` 형식의 `playtest-log-summary.json`과 `playtest-log-summary.md`이며 같은 입력에서는 같은 내용이 생성된다. 보스 encounter 시간, phase·상태·source·폭탄 정의별 적중, 보스 패턴 피격, 과열과 자폭병 적중을 자동 정리하지만 의도·가독성·공정성은 판정하지 않는다. 분석 도구가 실패하면 원본 JSON을 수정하지 말고 다운로드 누락, 다른 schema 또는 사건 시간 역행 여부를 기록한다.
 
 ## 도구 자체 검증
 

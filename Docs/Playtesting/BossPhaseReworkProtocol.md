@@ -35,6 +35,24 @@
 | 피격 원인 설명 | 정확 / 부분 / 불명 |
 | 최후 발악 인상 | 마지막 시험 / 반복 / 불공정 |
 
+## 자동 로그와 사람 기록 분리
+
+정식 WebGL 세션에서는 보스전이 끝난 직후 footer의 `SAVE TEST LOG`를 눌러 원본 JSON을 저장하고 [로컬 WebGL 관찰 세션](ManualWebGLRun.md)의 분석 명령을 실행한다. `bombswap/playtest-summary@2`는 다음 항목을 자동으로 정리한다.
+
+- encounter별 보스전 시간과 종료 결과
+- phase·Telegraph/Execute/Recovery·source·폭탄 정의별 보스 피해
+- phase·pattern별 플레이어 피격
+- 과열 완료, 폭탄 정의 교대 적중, 자폭병 소환·폭발·보스 적중
+
+다음 항목은 자동 사건으로 의도를 추정하지 말고 관찰표와 직후 인터뷰에 직접 기록한다.
+
+- 두 슬롯 교대의 시도 이유와 실패한 시도
+- 패턴 종료 전 선행 설치 의도
+- 자폭병을 보스에게 유도하려 했는지 여부와 강제 점화 이해
+- parity 안전 칸 재사용, 피격 원인 설명과 최후 발악 인상
+
+상세 marker와 해석 제한은 [보스 플레이테스트 계측 수직 슬라이스](../Development/BossPlaytestTelemetrySlice.md)를 따른다.
+
 ## 관찰 질문
 
 플레이 중에는 정답을 설명하지 않고 다음을 관찰한다.

@@ -20,6 +20,7 @@ namespace BombSwap.Core
         private readonly Queue<GridPosition> searchFrontier =
             new Queue<GridPosition>();
         private TimeSpan nextStepAt;
+        private TimeSpan contactEligibleAt;
         private TimeSpan lastObservedTime;
         private int remainingCommittedSteps;
 
@@ -69,6 +70,7 @@ namespace BombSwap.Core
             TargetActorId = targetActorId;
             CurrentPosition = startPosition;
             nextStepAt = clock.Now;
+            contactEligibleAt = clock.Now;
             lastObservedTime = clock.Now;
         }
 
@@ -83,6 +85,23 @@ namespace BombSwap.Core
         public CardinalDirection CurrentDirection { get; private set; }
 
         public int RemainingCommittedSteps => remainingCommittedSteps;
+
+        public bool CanDealContactDamage
+        {
+            get
+            {
+                TimeSpan now = clock.Now;
+                if (now < lastObservedTime)
+                {
+                    throw new InvalidOperationException(
+                        "Game clock moved backwards during chaser contact evaluation.");
+                }
+
+                return now >= contactEligibleAt &&
+                    grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition) &&
+                    CurrentPosition.IsCardinallyAdjacentTo(targetPosition);
+            }
+        }
 
         public bool TryAdvance(out EnemyMovementStep step)
         {
@@ -139,6 +158,7 @@ namespace BombSwap.Core
             }
 
             CurrentPosition = to;
+            contactEligibleAt = nextStepAt;
             remainingCommittedSteps--;
             step = new EnemyMovementStep(ActorId, from, to, direction);
             return true;
