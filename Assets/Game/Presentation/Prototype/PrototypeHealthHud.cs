@@ -235,6 +235,7 @@ namespace BombSwap
                 ? "BOSS  ·  PHASE " + GetPhaseNumber(phase) +
                   "  ·  " + currentHealth + " / " + maxHealth
                 : "BOSS DEFEATED  ·  0 / " + maxHealth;
+            _bossHealthLabel.color = Color.white;
         }
 
         private void RefreshCombatRewardTokens(int tokenCount)

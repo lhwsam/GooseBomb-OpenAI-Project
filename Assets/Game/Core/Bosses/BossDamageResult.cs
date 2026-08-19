@@ -3,10 +3,8 @@ namespace BombSwap.Core
     public enum BossDamageStatus
     {
         Applied = 0,
-        IgnoredNotVulnerable = 1,
         IgnoredDuplicateExplosion = 2,
         IgnoredDefeated = 3,
-        IgnoredOverheatCap = 4,
     }
 
     public enum BossDamageSource

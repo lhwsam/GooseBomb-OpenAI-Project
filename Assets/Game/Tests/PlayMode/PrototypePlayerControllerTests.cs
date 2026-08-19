@@ -1474,12 +1474,14 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_bossPresenter.IsMoveTargetVisible, Is.False);
 
             int frameGuard = 0;
-            while (!_session.IsBossVulnerable && frameGuard++ < 600)
+            while ((_session.CurrentBossPattern != BossPatternKind.Overheat ||
+                    _session.CurrentBossState != BossBattleState.Recovery) &&
+                   frameGuard++ < 600)
             {
                 yield return null;
             }
             Assert.That(frameGuard, Is.LessThan(600));
-            Assert.That(_session.IsBossVulnerable, Is.True);
+            Assert.That(_bossPresenter.CurrentPattern, Is.EqualTo(BossPatternKind.Overheat));
 
             PressAndRelease(Key.X);
             yield return null;
@@ -1492,9 +1494,43 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_session.CurrentBossHealth, Is.EqualTo(1));
             Assert.That(bossDamageCount, Is.EqualTo(2));
-            Assert.That(_session.CurrentBossOverheatDamage, Is.EqualTo(2));
             Assert.That(_session.IsRoomCleared, Is.False);
             Assert.That(_bossPresenter.DisplayedHealth, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator BossEncounter_ExplosionDuringTelegraphDamagesBossImmediately()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.03f,
+                combatEnabled: true,
+                bossEnabled: true,
+                includeBossPresenter: true,
+                includeHealthHud: true,
+                bossMaxHealth: 3,
+                bossPhaseTwoHealthThreshold: 2,
+                bossPhaseOneTelegraphSeconds: 1.5f,
+                bossPhaseOneExecuteSeconds: 0.02f,
+                bossPhaseOneRecoverySeconds: 0.3f);
+            int damagedCount = 0;
+            _session.BossDamaged += _ => damagedCount++;
+
+            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
+            Assert.That(_session.IsBossAlive, Is.True);
+            Assert.That(_healthHud.BossHealthText, Does.Not.Contain("VULNERABLE"));
+            Assert.That(_healthHud.BossHealthText, Does.Not.Contain("BLOCKED"));
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(damagedCount, Is.EqualTo(1));
+            Assert.That(_session.CurrentBossHealth, Is.EqualTo(2));
+            Assert.That(_bossPresenter.DamageCount, Is.EqualTo(1));
+            Assert.That(_bossPresenter.DisplayedHealth, Is.EqualTo(2));
+            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
+            Assert.That(_healthHud.BossHealthText, Does.Contain("2 / 3"));
         }
 
         [UnityTest]
@@ -1670,11 +1706,13 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
 
             int frameGuard = 0;
-            while (!_session.IsBossVulnerable && frameGuard++ < 600)
+            while ((_session.CurrentBossPattern != BossPatternKind.Overheat ||
+                    _session.CurrentBossState != BossBattleState.Recovery) &&
+                   frameGuard++ < 600)
             {
                 yield return null;
             }
-            Assert.That(_session.IsBossVulnerable, Is.True);
+            Assert.That(frameGuard, Is.LessThan(600));
 
             yield return new WaitForSecondsRealtime(0.04f);
             Assert.That(

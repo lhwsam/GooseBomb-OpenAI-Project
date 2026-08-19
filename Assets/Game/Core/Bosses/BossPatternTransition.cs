@@ -69,9 +69,6 @@ namespace BombSwap.Core
         public bool AttackResolved =>
             PreviousState == BossBattleState.Telegraph && State == BossBattleState.Execute;
 
-        public bool BecameVulnerable =>
-            Pattern == BossPatternKind.Overheat && State == BossBattleState.Recovery;
-
         public bool BeganTelegraph =>
             PreviousState == BossBattleState.Recovery && State == BossBattleState.Telegraph;
     }

@@ -55,7 +55,6 @@ namespace BombSwap.Core
         private int sequenceIndex;
         private int phaseOneCycleIndex;
         private int phaseTwoCycleIndex;
-        private int overheatDamageTaken;
         private bool phaseTwoPending;
         private bool phaseTwoTransitionPlayed;
         private bool lastStandPending;
@@ -136,11 +135,7 @@ namespace BombSwap.Core
         public TimeSpan StateEndsAt => stateEndsAt;
         public int MaxHealth => health.MaxHealth;
         public int CurrentHealth => health.CurrentHealth;
-        public int CurrentOverheatDamage => overheatDamageTaken;
         public bool IsDead => State == BossBattleState.Defeated;
-        public bool IsVulnerable =>
-            CurrentPattern == BossPatternKind.Overheat &&
-            State == BossBattleState.Recovery;
         public bool IsWaitingForSelfDestruct =>
             CurrentPattern == BossPatternKind.WaitForSelfDestruct &&
             State != BossBattleState.Defeated;
@@ -230,29 +225,10 @@ namespace BombSwap.Core
                     BossDamageSource.PlayerBomb,
                     BossDamageStatus.IgnoredDefeated);
             }
-            if (!IsVulnerable)
-            {
-                return CreateIgnoredDamage(
-                    explosionId,
-                    damage,
-                    BossDamageSource.PlayerBomb,
-                    BossDamageStatus.IgnoredNotVulnerable);
-            }
-            int remaining = Definition.MaxOverheatDamage - overheatDamageTaken;
-            if (remaining <= 0)
-            {
-                return CreateIgnoredDamage(
-                    explosionId,
-                    damage,
-                    BossDamageSource.PlayerBomb,
-                    BossDamageStatus.IgnoredOverheatCap);
-            }
-
             return ApplyDamage(
                 explosionId,
-                Math.Min(damage, remaining),
-                BossDamageSource.PlayerBomb,
-                true);
+                damage,
+                BossDamageSource.PlayerBomb);
         }
 
         public BossDamageResult ApplySelfDestructExplosion(BombId explosionId, int damage)
@@ -278,8 +254,7 @@ namespace BombSwap.Core
             return ApplyDamage(
                 explosionId,
                 damage,
-                BossDamageSource.SelfDestruct,
-                false);
+                BossDamageSource.SelfDestruct);
         }
 
         public void NotifySelfDestructResolved()
@@ -296,8 +271,7 @@ namespace BombSwap.Core
         private BossDamageResult ApplyDamage(
             BombId explosionId,
             int damage,
-            BossDamageSource source,
-            bool countsTowardOverheatCap)
+            BossDamageSource source)
         {
             EnemyDamageResult enemyDamage = health.ApplyExplosionDamage(explosionId, damage);
             if (!enemyDamage.WasApplied)
@@ -317,10 +291,6 @@ namespace BombSwap.Core
                     status);
             }
 
-            if (countsTowardOverheatCap)
-            {
-                overheatDamageTaken += enemyDamage.AppliedDamage;
-            }
             ReserveHealthTransitions();
             var result = new BossDamageResult(
                 ActorId,
@@ -523,11 +493,6 @@ namespace BombSwap.Core
             plannedMovement.Clear();
             CurrentDangerCells = NoDangerCells;
             CurrentAttackPlan = BossBombAttackPlan.Empty(CurrentPattern);
-            if (CurrentPattern == BossPatternKind.Overheat)
-            {
-                overheatDamageTaken = 0;
-            }
-
             switch (CurrentPattern)
             {
                 case BossPatternKind.LimitedChase:

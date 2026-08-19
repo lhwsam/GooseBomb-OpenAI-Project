@@ -12,7 +12,10 @@ namespace BombSwap
         [SerializeField] private int phaseTwoHealthThreshold = 7;
         [SerializeField] private int lastStandHealthThreshold = 2;
         [SerializeField] private int patternDamage = 1;
-        [SerializeField] private int maxOverheatDamage = 2;
+        [SerializeField, Tooltip(
+            "Legacy serialized value retained for existing assets. " +
+            "Player bombs are no longer capped per overheat.")]
+        private int maxOverheatDamage = 2;
 
         [Header("Chase and charge")]
         [SerializeField] private float chaseTelegraphSeconds = 0.12f;
@@ -69,7 +72,6 @@ namespace BombSwap
         public int PhaseTwoHealthThreshold => phaseTwoHealthThreshold;
         public int LastStandHealthThreshold => lastStandHealthThreshold;
         public int PatternDamage => patternDamage;
-        public int MaxOverheatDamage => maxOverheatDamage;
         public GridPosition BossSpawn => new GridPosition(bossSpawn.x, bossSpawn.y);
         public GameObject BossPrefab => bossPrefab;
         public GameObject DangerCellPrefab => dangerCellPrefab;
@@ -200,7 +202,6 @@ namespace BombSwap
                 phaseTwoHealthThreshold,
                 lastStandHealthThreshold,
                 patternDamage,
-                maxOverheatDamage,
                 new BossPatternTuning(
                     CreateTimings(
                         chaseTelegraphSeconds,

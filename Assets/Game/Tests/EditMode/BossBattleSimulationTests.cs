@@ -19,7 +19,6 @@ namespace BombSwap.Tests.EditMode
             Assert.That(definition.MaxHealth, Is.EqualTo(10));
             Assert.That(definition.PhaseTwoHealthThreshold, Is.EqualTo(7));
             Assert.That(definition.LastStandHealthThreshold, Is.EqualTo(2));
-            Assert.That(definition.MaxOverheatDamage, Is.EqualTo(2));
             Assert.That(definition.Tuning.PhaseOneChaseCount, Is.EqualTo(2));
             Assert.That(definition.Tuning.PhaseTwoChaseCount, Is.EqualTo(3));
             Assert.That(
@@ -40,7 +39,6 @@ namespace BombSwap.Tests.EditMode
                     7,
                     2,
                     1,
-                    2,
                     CreateTuning(),
                     CreateThrowBomb(),
                     CreateThrowBomb()));
@@ -134,21 +132,41 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void Overheat_AcceptsTwoBombsThenEnforcesDamageCap()
+        public void PlayerBombs_ApplyInTelegraphExecuteAndRecovery()
+        {
+            var clock = new ManualGameClock();
+            BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
+
+            Assert.That(boss.State, Is.EqualTo(BossBattleState.Telegraph));
+            BossDamageResult first = boss.ApplyExplosion(CreateBombId(1), 1);
+            AdvanceOneTransition(boss, clock, out _);
+            Assert.That(boss.State, Is.EqualTo(BossBattleState.Execute));
+            BossDamageResult second = boss.ApplyExplosion(CreateBombId(2), 1);
+            AdvanceOneTransition(boss, clock, out _);
+            Assert.That(boss.State, Is.EqualTo(BossBattleState.Recovery));
+            BossDamageResult third = boss.ApplyExplosion(CreateBombId(3), 1);
+            BossDamageResult duplicate = boss.ApplyExplosion(CreateBombId(3), 1);
+
+            Assert.That(first.WasApplied, Is.True);
+            Assert.That(second.WasApplied, Is.True);
+            Assert.That(third.WasApplied, Is.True);
+            Assert.That(boss.CurrentHealth, Is.EqualTo(7));
+            Assert.That(
+                duplicate.Status,
+                Is.EqualTo(BossDamageStatus.IgnoredDuplicateExplosion));
+        }
+
+        [Test]
+        public void Overheat_AcceptsMoreThanTwoDistinctPlayerBombs()
         {
             var clock = new ManualGameClock();
             BossBattleSimulation boss = CreateSimulation(CreateArenaGrid(), clock);
             AdvanceUntilRecovery(boss, clock, BossPatternKind.Overheat);
 
-            BossDamageResult first = boss.ApplyExplosion(CreateBombId(1), 1);
-            BossDamageResult second = boss.ApplyExplosion(CreateBombId(2), 1);
-            BossDamageResult capped = boss.ApplyExplosion(CreateBombId(3), 1);
-
-            Assert.That(first.WasApplied, Is.True);
-            Assert.That(second.WasApplied, Is.True);
-            Assert.That(boss.CurrentHealth, Is.EqualTo(8));
-            Assert.That(boss.CurrentOverheatDamage, Is.EqualTo(2));
-            Assert.That(capped.Status, Is.EqualTo(BossDamageStatus.IgnoredOverheatCap));
+            Assert.That(boss.ApplyExplosion(CreateBombId(1), 1).WasApplied, Is.True);
+            Assert.That(boss.ApplyExplosion(CreateBombId(2), 1).WasApplied, Is.True);
+            Assert.That(boss.ApplyExplosion(CreateBombId(3), 1).WasApplied, Is.True);
+            Assert.That(boss.CurrentHealth, Is.EqualTo(7));
         }
 
         [Test]
@@ -225,7 +243,7 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void PlayerExplosion_IsIgnoredOutsideOverheat()
+        public void PlayerExplosion_AppliesOutsideOverheat()
         {
             BossBattleSimulation boss = CreateSimulation(
                 CreateArenaGrid(),
@@ -233,8 +251,8 @@ namespace BombSwap.Tests.EditMode
 
             BossDamageResult result = boss.ApplyExplosion(CreateBombId(1), 1);
 
-            Assert.That(result.Status, Is.EqualTo(BossDamageStatus.IgnoredNotVulnerable));
-            Assert.That(boss.CurrentHealth, Is.EqualTo(10));
+            Assert.That(result.WasApplied, Is.True);
+            Assert.That(boss.CurrentHealth, Is.EqualTo(9));
         }
 
         [Test]
@@ -247,8 +265,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(
                     maxHealth: 3,
                     phaseTwoThreshold: 2,
-                    lastStandThreshold: 1,
-                    maxOverheatDamage: 3));
+                    lastStandThreshold: 1));
             AdvanceUntilRecovery(boss, clock, BossPatternKind.Overheat);
             BossDamageResult result = boss.ApplyExplosion(CreateBombId(1), 3);
 
@@ -306,8 +323,7 @@ namespace BombSwap.Tests.EditMode
         private static BossBattleDefinition CreateDefinition(
             int maxHealth = 10,
             int phaseTwoThreshold = 7,
-            int lastStandThreshold = 2,
-            int maxOverheatDamage = 2)
+            int lastStandThreshold = 2)
         {
             return new BossBattleDefinition(
                 new EnemyDefinitionId("prototype-boss"),
@@ -315,7 +331,6 @@ namespace BombSwap.Tests.EditMode
                 phaseTwoThreshold,
                 lastStandThreshold,
                 1,
-                Math.Min(maxOverheatDamage, maxHealth),
                 CreateTuning(),
                 CreateThrowBomb(),
                 CreateChainBomb());

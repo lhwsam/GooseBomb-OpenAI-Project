@@ -664,7 +664,6 @@ namespace BombSwap.Editor.ContentValidation
                     core.PhaseTwoHealthThreshold != 7 ||
                     core.LastStandHealthThreshold != 2 ||
                     core.PatternDamage != 1 ||
-                    core.MaxOverheatDamage != 2 ||
                     core.Tuning.PhaseOneChaseCount != 2 ||
                     core.Tuning.PhaseTwoChaseCount != 3 ||
                     core.Tuning.LastStandChaseCount != 2 ||
