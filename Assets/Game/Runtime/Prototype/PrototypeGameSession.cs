@@ -366,11 +366,6 @@ namespace BombSwap
 
         public bool IsBossAlive => HasBoss && _boss != null && !_boss.IsDead;
 
-        public bool IsBossVulnerable => HasBoss && _boss != null && _boss.IsVulnerable;
-
-        public int CurrentBossOverheatDamage =>
-            _boss != null ? _boss.CurrentOverheatDamage : 0;
-
         public int PendingBossBombFlightCount => _pendingBossBombFlights.Count;
 
         public int EnemyActiveCount

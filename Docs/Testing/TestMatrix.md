@@ -21,8 +21,8 @@
 - 두 슬롯 독립 쿨타임과 비활성 회복.
 - 피해 무적과 사망 단일 발생.
 - run 체력의 방 이동·재입장 persistence, Recovery의 상한 `+2`·최대 체력 비소비·노드별 단일 소비·terminal 거부와 무적 상태 불변.
-- 보스 3 phase 정의와 Telegraph→Execute→Recovery exact boundary, 제한 추격의 한 칸별 재판단·2/3/2회 상한, 방향 고정 최대 3칸 돌진, 중앙 복귀, 3/4/4개 순차 투척, 행별 parity·반전, 과열당 서로 다른 `BombId` 최대 2피해, 안전한 phase 예약·일회성 LastStand·사망 점유 단일 제거.
-- 보스 자폭병 소환 셀의 먼 앵커 안정 선택·Telegraph 잠금, 한 번만 소환, 해결 전 강화 패턴 대기, 4.5초 강제 점화와 과열 밖 보스 피해 1. 최대 돌진과 강제 점화가 동시에 실행되지 않는지 검증한다.
+- 보스 3 phase 정의와 Telegraph→Execute→Recovery exact boundary, 제한 추격의 한 칸별 재판단·2/3/2회 상한, 방향 고정 최대 3칸 돌진, 중앙 복귀, 3/4/4개 순차 투척, 행별 parity·반전, 모든 생존 상태의 서로 다른 `BombId` 피해·동일 폭발 중복 차단, 안전한 phase 예약·일회성 LastStand·사망 점유 단일 제거.
+- 보스 자폭병 소환 셀의 먼 앵커 안정 선택·Telegraph 잠금, 한 번만 소환, 해결 전 강화 패턴 대기, 4.5초 강제 점화와 상태 무관 보스 피해 1. 최대 돌진과 강제 점화가 동시에 실행되지 않는지 검증한다.
 - Unity 보스방 단일 활성, 착탄 예약 중 설치 거부, 포물선 flight→landing 순간 논리 설치·fuse 시작, 동일 frame 순번 안정성, 정의별 pooled 시각화, 다중 이동 보간·pause, 정확한 목적지 ghost 비표시와 돌진·착탄·소환·parity 셀 표시를 검증한다.
 - 플레이어 HUD의 초기/피해/회복/사망 체력 snapshot과 bar 비율, 일반 방의 보스 panel 비표시, 보스 HUD의 체력 10·phase 1/2/3·격파 반영, 11개 씬의 단일 HUD·session 참조와 실제 WebGL 배치 가독성.
 - Editor 전용 `BossBattlePlaytest`가 보스 권위 arena·6 투척/3 소환 앵커와 일치하고, 던전 run host·다음 씬·표준 Build Settings 없이 직접 Play해 보스·동적 자폭병·HUD와 Console 오류 0을 확인한다.

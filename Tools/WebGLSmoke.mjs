@@ -1542,7 +1542,7 @@ async function main() {
       checks.push({
         name: `boss-overheat-${label}`,
         status: "passed",
-        detail: `Two distinct player bombs were preplaced through ${parityRows} sequential parity rows before the overheat counter window.`,
+        detail: `Two distinct player bombs were preplaced through ${parityRows} sequential parity rows and damaged the always-damageable boss during the scripted counter sequence.`,
       });
     };
 
@@ -1595,7 +1595,7 @@ async function main() {
     checks.push({
       name: "boss-battle-cleared",
       status: "passed",
-      detail: "Room 7 accepted at most two distinct player bombs per overheat across all three phases and presented the floor-clear result once.",
+      detail: "Room 7 accepted player-bomb damage through all three phases and presented the floor-clear result once.",
     });
 
     await page.setViewportSize({ width: 1024, height: 768 });

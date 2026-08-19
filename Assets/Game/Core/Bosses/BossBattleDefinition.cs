@@ -10,7 +10,6 @@ namespace BombSwap.Core
             int phaseTwoHealthThreshold,
             int lastStandHealthThreshold,
             int patternDamage,
-            int maxOverheatDamage,
             BossPatternTuning tuning,
             BombDefinition throwBombDefinition,
             BombDefinition chainBombDefinition)
@@ -44,14 +43,6 @@ namespace BombSwap.Core
                 throw new ArgumentOutOfRangeException(
                     nameof(patternDamage), patternDamage, "Boss pattern damage must be positive.");
             }
-            if (maxOverheatDamage <= 0 || maxOverheatDamage > maxHealth)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(maxOverheatDamage),
-                    maxOverheatDamage,
-                    "Overheat damage cap must be positive and no greater than maximum health.");
-            }
-
             Tuning = tuning ?? throw new ArgumentNullException(nameof(tuning));
             ValidateBossBombDefinition(throwBombDefinition, nameof(throwBombDefinition));
             ValidateBossBombDefinition(chainBombDefinition, nameof(chainBombDefinition));
@@ -73,7 +64,6 @@ namespace BombSwap.Core
             PhaseTwoHealthThreshold = phaseTwoHealthThreshold;
             LastStandHealthThreshold = lastStandHealthThreshold;
             PatternDamage = patternDamage;
-            MaxOverheatDamage = maxOverheatDamage;
             ThrowBombDefinition = throwBombDefinition;
             ChainBombDefinition = chainBombDefinition;
         }
@@ -83,7 +73,6 @@ namespace BombSwap.Core
         public int PhaseTwoHealthThreshold { get; }
         public int LastStandHealthThreshold { get; }
         public int PatternDamage { get; }
-        public int MaxOverheatDamage { get; }
         public BossPatternTuning Tuning { get; }
         public BombDefinition ThrowBombDefinition { get; }
         public BombDefinition ChainBombDefinition { get; }
