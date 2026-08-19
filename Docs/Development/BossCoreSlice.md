@@ -1,6 +1,7 @@
 # 보스 Core 수직 슬라이스 작업 계약
 
 - 상태: `Core + Unity Implemented / WebGL Verified / Playtest Pending`
+- 후속 상태: 이 기준선과 [전용 보스방·실제 폭탄 수직 슬라이스](BossBombArenaSlice.md)의 보스 동작은 [체력 10 보스 페이즈 개편](BossPhaseReworkSlice.md)으로 대체됐다. 과거 검증 근거만 유지한다.
 - 규칙 소유: `BombSwap.Core`
 - 후속 연결: `BombSwap.Authoring`, `BombSwap.Unity`
 - 관련: [보스 전투](../Systems/BossBattle.md), [피해와 무적](../Systems/DamageAndInvulnerability.md), [완료 정의](DefinitionOfDone.md)

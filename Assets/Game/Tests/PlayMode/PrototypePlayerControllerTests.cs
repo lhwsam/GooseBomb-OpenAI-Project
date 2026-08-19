@@ -34,6 +34,8 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeArmoredDefinitionAsset _armoredDefinition;
         private PrototypeBombDefinitionAsset _selfDestructBombDefinition;
         private PrototypeSelfDestructDefinitionAsset _selfDestructDefinition;
+        private PrototypeBombDefinitionAsset _bossThrowBombDefinition;
+        private PrototypeBombDefinitionAsset _bossChainBombDefinition;
         private PrototypeBossDefinitionAsset _bossDefinition;
         private PrototypeCombatRoomDefinitionAsset _roomDefinition;
         private Material _playerMaterial;
@@ -153,6 +155,14 @@ namespace BombSwap.Tests.PlayMode
             if (_bossDefinition != null)
             {
                 Object.DestroyImmediate(_bossDefinition);
+            }
+            if (_bossThrowBombDefinition != null)
+            {
+                Object.DestroyImmediate(_bossThrowBombDefinition);
+            }
+            if (_bossChainBombDefinition != null)
+            {
+                Object.DestroyImmediate(_bossChainBombDefinition);
             }
             if (_roomDefinition != null)
             {
@@ -1424,150 +1434,158 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator BossEncounter_TelegraphsDamagesOpensAndClearsAfterTwoHits()
+        public IEnumerator BossEncounter_OverheatAcceptsTwoBombsAndHidesDestinationGhost()
         {
             CreateRuntime(
                 Vector2Int.zero,
                 false,
                 fuseSeconds: 0.03f,
                 placementCooldownSeconds: 0.01f,
+                areaPlacementCooldownSeconds: 0.01f,
                 invulnerabilitySeconds: 0.75f,
                 combatEnabled: true,
                 bossEnabled: true,
+                includePresenter: true,
                 includeBossPresenter: true,
-                bossPhaseOneRecoverySeconds: 1f);
-            int patternDamageCount = 0;
-            int bossDamageCount = 0;
-            int roomClearedCount = 0;
-            _session.PlayerDamaged += result =>
-            {
-                if (result.SourceKind == PlayerDamageSourceKind.BossPattern)
+                retreatAnchors: new[]
                 {
-                    patternDamageCount++;
-                }
-            };
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(-1, 2),
+                    new Vector2Int(1, 2),
+                    new Vector2Int(2, -1),
+                },
+                bossMaxHealth: 3,
+                bossPhaseTwoHealthThreshold: 2,
+                bossPhaseOneTelegraphSeconds: 0.02f,
+                bossPhaseOneExecuteSeconds: 0.02f,
+                bossPhaseOneRecoverySeconds: 1f,
+                bossPhaseTwoTelegraphSeconds: 0.02f,
+                bossPhaseTwoExecuteSeconds: 0.02f);
+            int bossDamageCount = 0;
             _session.BossDamaged += _ => bossDamageCount++;
-            _session.RoomCleared += () => roomClearedCount++;
 
             Assert.That(_session.IsInitialized, Is.True);
             Assert.That(_session.HasBoss, Is.True);
             Assert.That(_session.HasChaser, Is.False);
             Assert.That(_session.BossActorId, Is.EqualTo(new ActorId(5)));
-            Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(0, 1)));
-            Assert.That(_session.NextBossGridPosition, Is.EqualTo(new GridPosition(1, 1)));
             Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
             Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
             Assert.That(_bossPresenter.IsBossVisible, Is.True);
-            Assert.That(_bossPresenter.IsMoveTargetVisible, Is.True);
-            Assert.That(
-                _bossPresenter.DisplayedMoveTarget,
-                Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(_bossPresenter.VisibleDangerCellCount, Is.GreaterThan(0));
-
-            PressAndRelease(Key.X);
-            yield return null;
-            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
+            Assert.That(_bossPresenter.IsMoveTargetVisible, Is.False);
 
             int frameGuard = 0;
-            while (_session.CurrentBossState != BossBattleState.Recovery &&
-                   frameGuard++ < 60)
+            while (!_session.IsBossVulnerable && frameGuard++ < 600)
             {
                 yield return null;
             }
-
-            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
+            Assert.That(frameGuard, Is.LessThan(600));
             Assert.That(_session.IsBossVulnerable, Is.True);
-            Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(patternDamageCount, Is.EqualTo(1));
-            Assert.That(_session.CurrentHealth, Is.EqualTo(4));
-            Assert.That(_bossPresenter.PatternTransitionCount, Is.EqualTo(2));
-            Assert.That(_bossPresenter.MovementCount, Is.EqualTo(1));
-            Assert.That(
-                _bossPresenter.DisplayedBossPosition,
-                Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(_bossPresenter.IsMoveTargetVisible, Is.False);
-            Assert.That(_bossPresenter.VisibleDangerCellCount, Is.Zero);
-            Vector3 expectedBossPosition =
-                _session.GridSpace.GridToWorld(new GridPosition(1, 1)) +
-                (Vector3.up * _session.BossDefinition.VisualHeight);
-            Assert.That(
-                Vector3.Distance(
-                    _bossPresenter.BossInstance.transform.position,
-                    expectedBossPosition),
-                Is.LessThan(0.001f));
 
+            PressAndRelease(Key.X);
+            yield return null;
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.08f);
+            PressAndRelease(Key.X);
+            yield return null;
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.08f);
 
             Assert.That(_session.CurrentBossHealth, Is.EqualTo(1));
-            Assert.That(bossDamageCount, Is.EqualTo(1));
+            Assert.That(bossDamageCount, Is.EqualTo(2));
+            Assert.That(_session.CurrentBossOverheatDamage, Is.EqualTo(2));
             Assert.That(_session.IsRoomCleared, Is.False);
             Assert.That(_bossPresenter.DisplayedHealth, Is.EqualTo(1));
-
-            PressAndRelease(Key.Z);
-            yield return new WaitForSecondsRealtime(0.08f);
-
-            Assert.That(_session.IsBossAlive, Is.False);
-            Assert.That(_session.CurrentBossHealth, Is.Zero);
-            Assert.That(_session.EnemyActiveCount, Is.Zero);
-            Assert.That(_session.IsRoomCleared, Is.True);
-            Assert.That(bossDamageCount, Is.EqualTo(2));
-            Assert.That(roomClearedCount, Is.EqualTo(1));
-            Assert.That(_bossPresenter.DeathCount, Is.EqualTo(1));
-            Assert.That(_bossPresenter.VisibleDangerCellCount, Is.Zero);
-            Assert.That(
-                _session.GetCell(new GridPosition(1, 1)).HasActor,
-                Is.False);
         }
 
         [UnityTest]
-        public IEnumerator BossEncounter_PreplacedAreaBombHitsAfterTelegraphedMove()
+        public IEnumerator BossEncounter_AttackDamageReportsBossPatternSource()
         {
             CreateRuntime(
                 Vector2Int.zero,
                 false,
-                fuseSeconds: 0.14f,
-                placementCooldownSeconds: 0.01f,
-                areaPlacementCooldownSeconds: 0.01f,
+                invulnerabilitySeconds: 0.01f,
                 combatEnabled: true,
                 bossEnabled: true,
-                includeBossPresenter: true,
-                bossMaxHealth: 2,
-                bossPhaseOneTelegraphSeconds: 0.06f,
-                bossPhaseOneExecuteSeconds: 0.03f,
-                bossPhaseOneRecoverySeconds: 0.35f);
-            var sequence = new List<string>();
-            _session.BossMoved += _ => sequence.Add("moved");
-            _session.BossPatternTransitioned += transition =>
+                bossMaxHealth: 3,
+                bossPhaseTwoHealthThreshold: 2,
+                bossPhaseOneTelegraphSeconds: 0.01f,
+                bossPhaseOneExecuteSeconds: 0.01f,
+                bossPhaseOneRecoverySeconds: 0.02f,
+                bossPhaseTwoTelegraphSeconds: 0.01f,
+                bossPhaseTwoExecuteSeconds: 0.01f);
+            PlayerDamageResult? bossPatternDamage = null;
+            _session.PlayerDamaged += result =>
             {
-                if (transition.State == BossBattleState.Recovery)
+                if (result.SourceKind == PlayerDamageSourceKind.BossPattern)
                 {
-                    sequence.Add("recovery");
+                    bossPatternDamage = result;
                 }
             };
-            _session.BombExploded += _ => sequence.Add("exploded");
-            _session.BossDamaged += _ => sequence.Add("damaged");
 
-            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
-            Assert.That(_bossPresenter.DisplayedMoveTarget, Is.EqualTo(new GridPosition(1, 1)));
-            PressAndRelease(Key.X);
-            yield return null;
-            PressAndRelease(Key.Z);
-
-            yield return new WaitForSecondsRealtime(0.22f);
-
-            Assert.That(_session.CurrentBossGridPosition, Is.EqualTo(new GridPosition(1, 1)));
-            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
-            Assert.That(_session.CurrentBossHealth, Is.EqualTo(1));
-            Assert.That(_bossPresenter.MovementCount, Is.EqualTo(1));
-            Assert.That(_bossPresenter.DamageCount, Is.EqualTo(1));
-            Assert.That(sequence, Is.EqualTo(new[]
+            int frameGuard = 0;
+            while (!bossPatternDamage.HasValue && frameGuard++ < 600)
             {
-                "moved",
-                "recovery",
-                "exploded",
-                "damaged",
-            }));
+                yield return null;
+            }
+
+            Assert.That(frameGuard, Is.LessThan(600));
+            Assert.That(bossPatternDamage.HasValue, Is.True);
+            Assert.That(
+                bossPatternDamage.Value.SourceActorId,
+                Is.EqualTo(_session.BossActorId));
+        }
+
+        [UnityTest]
+        public IEnumerator BossEncounter_ThrownBombFliesThenBeginsFuseOnLanding()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includePresenter: true,
+                combatEnabled: true,
+                bossEnabled: true,
+                bossMaxHealth: 3,
+                bossPhaseTwoHealthThreshold: 2,
+                bossPhaseOneTelegraphSeconds: 0.01f,
+                bossPhaseOneExecuteSeconds: 0.01f,
+                bossPhaseOneRecoverySeconds: 0.2f,
+                bossPhaseTwoTelegraphSeconds: 0.01f,
+                bossPhaseTwoExecuteSeconds: 0.01f);
+            BossBombFlight launched = default;
+            BombSnapshot landed = default;
+            _session.BossBombLaunched += flight =>
+            {
+                if (launched.Definition == null)
+                {
+                    launched = flight;
+                }
+            };
+            _session.BossBombPlaced += snapshot =>
+            {
+                if (launched.Definition != null && snapshot.Position == launched.Target)
+                {
+                    landed = snapshot;
+                }
+            };
+
+            int frameGuard = 0;
+            while (launched.Definition == null && frameGuard++ < 600)
+            {
+                yield return null;
+            }
+            Assert.That(launched.Definition, Is.Not.Null);
+            Assert.That(_presenter.ActiveBossFlightVisualCount, Is.GreaterThan(0));
+
+            frameGuard = 0;
+            while (!landed.Id.IsValid && frameGuard++ < 180)
+            {
+                yield return null;
+            }
+            Assert.That(landed.Id.IsValid, Is.True);
+            Assert.That(landed.OwnerId, Is.EqualTo(_session.BossActorId));
+            Assert.That(landed.Position, Is.EqualTo(launched.Target));
+            Assert.That(landed.DetonatesAt, Is.GreaterThan(launched.LandsAt));
+            Assert.That(_presenter.ActiveBossFlightVisualCount, Is.LessThan(3));
         }
 
         [UnityTest]
@@ -1577,6 +1595,7 @@ namespace BombSwap.Tests.PlayMode
                 Vector2Int.zero,
                 false,
                 combatEnabled: true,
+                runtimePlayerStart: new GridPosition(0, -2),
                 bossEnabled: true,
                 includeBossPresenter: true,
                 bossPhaseOneTelegraphSeconds: 0.04f,
@@ -1609,7 +1628,7 @@ namespace BombSwap.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.35f);
 
             Vector3 expectedBossPosition =
-                _session.GridSpace.GridToWorld(new GridPosition(1, 1)) +
+                _session.GridSpace.GridToWorld(_session.CurrentBossGridPosition) +
                 (Vector3.up * _session.BossDefinition.VisualHeight);
             Assert.That(
                 Vector3.Distance(
@@ -1619,7 +1638,7 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator HealthHud_TracksBossHealthPhaseAndDefeat()
+        public IEnumerator HealthHud_TracksBossHealthAndDeferredPhaseTwo()
         {
             CreateRuntime(
                 Vector2Int.zero,
@@ -1629,16 +1648,20 @@ namespace BombSwap.Tests.PlayMode
                 placementCooldownSeconds: 0.01f,
                 combatEnabled: true,
                 bossEnabled: true,
-                bossMaxHealth: 2,
-                bossPhaseTwoHealthThreshold: 1,
-                bossPhaseOneRecoverySeconds: 0.15f,
+                bossMaxHealth: 3,
+                bossPhaseTwoHealthThreshold: 2,
+                bossPhaseOneTelegraphSeconds: 0.01f,
+                bossPhaseOneExecuteSeconds: 0.01f,
+                bossPhaseOneRecoverySeconds: 0.35f,
+                bossPhaseTwoTelegraphSeconds: 0.01f,
+                bossPhaseTwoExecuteSeconds: 0.01f,
                 bossPhaseTwoRecoverySeconds: 0.25f);
             yield return null;
 
             Assert.That(_healthHud.IsInitialized, Is.True);
             Assert.That(_healthHud.IsBossPanelVisible, Is.True);
-            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
-            Assert.That(_healthHud.DisplayedBossMaxHealth, Is.EqualTo(2));
+            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(3));
+            Assert.That(_healthHud.DisplayedBossMaxHealth, Is.EqualTo(3));
             Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.One));
             Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(1f));
 
@@ -1647,21 +1670,26 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
 
             int frameGuard = 0;
-            while (_session.CurrentBossState != BossBattleState.Recovery &&
-                   frameGuard++ < 60)
+            while (!_session.IsBossVulnerable && frameGuard++ < 600)
             {
                 yield return null;
             }
-            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
+            Assert.That(_session.IsBossVulnerable, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.04f);
+            Assert.That(
+                _session.CurrentBossHealth,
+                Is.EqualTo(3),
+                "Boss must ignore its own blast even while vulnerable.");
 
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.08f);
 
-            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(1));
-            Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(0.5f));
+            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
+            Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(2f / 3f).Within(0.001f));
 
             frameGuard = 0;
-            while (_session.CurrentBossPhase != BossPhase.Two && frameGuard++ < 60)
+            while (_session.CurrentBossPhase != BossPhase.Two && frameGuard++ < 600)
             {
                 yield return null;
             }
@@ -1669,20 +1697,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.Two));
             Assert.That(_healthHud.BossHealthText, Does.Contain("PHASE 2"));
 
-            frameGuard = 0;
-            while (_session.CurrentBossState != BossBattleState.Recovery &&
-                   frameGuard++ < 60)
-            {
-                yield return null;
-            }
-            Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Recovery));
-
-            PressAndRelease(Key.Z);
-            yield return new WaitForSecondsRealtime(0.08f);
-
-            Assert.That(_healthHud.DisplayedBossHealth, Is.Zero);
-            Assert.That(_healthHud.BossHealthFillFraction, Is.Zero);
-            Assert.That(_healthHud.BossHealthText, Does.Contain("DEFEATED"));
+            Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
         }
 
         [UnityTest]
@@ -1894,8 +1909,8 @@ namespace BombSwap.Tests.PlayMode
             bool bossEnabled = false,
             bool includeBossPresenter = false,
             Vector2Int? bossSpawnPosition = null,
-            int bossMaxHealth = 2,
-            int bossPhaseTwoHealthThreshold = 1,
+            int bossMaxHealth = 3,
+            int bossPhaseTwoHealthThreshold = 2,
             float bossPhaseOneTelegraphSeconds = 0.05f,
             float bossPhaseOneExecuteSeconds = 0.02f,
             float bossPhaseOneRecoverySeconds = 0.3f,
@@ -1913,6 +1928,25 @@ namespace BombSwap.Tests.PlayMode
             float selfDestructFuseSeconds = 0.08f,
             int selfDestructExplosionRange = 2)
         {
+            if (bossEnabled && retreatAnchors == null)
+            {
+                retreatAnchors = new[]
+                {
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(-1, 2),
+                    new Vector2Int(1, 2),
+                    new Vector2Int(2, -1),
+                };
+            }
+            if (bossEnabled && !selfDestructSpawnPosition.HasValue)
+            {
+                selfDestructSpawnPosition = new Vector2Int(-2, 2);
+                selfDestructAnchors = new[]
+                {
+                    new Vector2Int(-1, 2),
+                    new Vector2Int(2, 2),
+                };
+            }
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
             _bombPrefab = new GameObject("BombVisualPrefab");
@@ -2147,6 +2181,26 @@ namespace BombSwap.Tests.PlayMode
             }
             if (bossEnabled)
             {
+                _bossThrowBombDefinition =
+                    ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+                _bossThrowBombDefinition.Configure(
+                    "test-boss-throw",
+                    0.08f,
+                    2,
+                    _bombPrefab,
+                    _explosionPrefab,
+                    0.04f,
+                    0.01f);
+                _bossChainBombDefinition =
+                    ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+                _bossChainBombDefinition.Configure(
+                    "test-boss-chain",
+                    0.18f,
+                    2,
+                    _bombPrefab,
+                    _explosionPrefab,
+                    0.04f,
+                    0.01f);
                 _bossPrefab = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 _bossPrefab.name = "BossVisualPrefab";
                 Object.DestroyImmediate(_bossPrefab.GetComponent<Collider>());
@@ -2182,6 +2236,8 @@ namespace BombSwap.Tests.PlayMode
                     authoredBossSpawn,
                     _bossPrefab,
                     _bossDangerCellPrefab,
+                    _bossThrowBombDefinition,
+                    _bossChainBombDefinition,
                     0.6f,
                     0.03f,
                     0.12f);

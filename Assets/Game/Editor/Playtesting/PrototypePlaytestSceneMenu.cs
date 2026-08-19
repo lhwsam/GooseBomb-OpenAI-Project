@@ -21,6 +21,12 @@ namespace BombSwap.Editor.Playtesting
             "Bomb Swap/Playtest/Play Self-Destruct Gates Room";
         private const string RebuildSelfDestructMenuPath =
             "Bomb Swap/Playtest/Rebuild Self-Destruct Gates Room";
+        private const string OpenBossMenuPath =
+            "Bomb Swap/Playtest/Open Boss Battle Room";
+        private const string PlayBossMenuPath =
+            "Bomb Swap/Playtest/Play Boss Battle Room";
+        private const string RebuildBossMenuPath =
+            "Bomb Swap/Playtest/Rebuild Boss Battle Room";
 
         [MenuItem(OpenMenuPath, false, 100)]
         public static void OpenArmoredPanicRoom()
@@ -101,6 +107,49 @@ namespace BombSwap.Editor.Playtesting
 
         [MenuItem(RebuildSelfDestructMenuPath, true)]
         private static bool CanRebuildSelfDestructGatesRoom()
+        {
+            return CanPreparePlaytestRoom();
+        }
+
+        [MenuItem(OpenBossMenuPath, false, 120)]
+        public static void OpenBossBattleRoom()
+        {
+            TryPrepareAndOpen(
+                PrototypeContentValidator.BossBattlePlaytestScenePath,
+                PrototypeContentBuilder.CreateOrUpdateBossBattlePlaytestScene);
+        }
+
+        [MenuItem(OpenBossMenuPath, true)]
+        private static bool CanOpenBossBattleRoom()
+        {
+            return CanPreparePlaytestRoom();
+        }
+
+        [MenuItem(PlayBossMenuPath, false, 121)]
+        public static void PlayBossBattleRoom()
+        {
+            if (TryPrepareAndOpen(
+                    PrototypeContentValidator.BossBattlePlaytestScenePath,
+                    PrototypeContentBuilder.CreateOrUpdateBossBattlePlaytestScene))
+            {
+                EditorApplication.isPlaying = true;
+            }
+        }
+
+        [MenuItem(PlayBossMenuPath, true)]
+        private static bool CanPlayBossBattleRoom()
+        {
+            return CanPreparePlaytestRoom();
+        }
+
+        [MenuItem(RebuildBossMenuPath, false, 122)]
+        public static void RebuildBossBattleRoom()
+        {
+            Debug.Log(PrototypeContentBuilder.CreateOrUpdateBossBattlePlaytestScene());
+        }
+
+        [MenuItem(RebuildBossMenuPath, true)]
+        private static bool CanRebuildBossBattleRoom()
         {
             return CanPreparePlaytestRoom();
         }

@@ -23,6 +23,9 @@ namespace BombSwap
         [SerializeField]
         private int explosionPoolSize = DefaultExplosionPoolSize;
 
+        [SerializeField]
+        private float bossThrowArcHeight = 2.2f;
+
         private readonly Dictionary<BombId, ActiveBombVisual> _activeBombs =
             new Dictionary<BombId, ActiveBombVisual>();
         private readonly Dictionary<BombDefinitionId, Stack<GameObject>> _availableBombs =
@@ -31,6 +34,8 @@ namespace BombSwap
             new Dictionary<BombDefinitionId, Stack<GameObject>>();
         private readonly List<TimedExplosionVisual> _activeExplosions =
             new List<TimedExplosionVisual>();
+        private readonly List<ActiveBossFlightVisual> _activeBossFlights =
+            new List<ActiveBossFlightVisual>(4);
         private bool _initialized;
 
         public PrototypeGameSession Session => session;
@@ -44,6 +49,8 @@ namespace BombSwap
         public int ActiveBombVisualCount => _activeBombs.Count;
 
         public int ActiveExplosionVisualCount => _activeExplosions.Count;
+
+        public int ActiveBossFlightVisualCount => _activeBossFlights.Count;
 
         public void Configure(
             PrototypeGameSession gameSession,
@@ -97,6 +104,8 @@ namespace BombSwap
             }
 
             session.BombPlaced += OnBombPlaced;
+            session.BossBombPlaced += OnBombPlaced;
+            session.BossBombLaunched += OnBossBombLaunched;
             session.BombExploded += OnBombExploded;
             session.Ready += OnSessionReady;
             if (session.IsReady)
@@ -110,14 +119,27 @@ namespace BombSwap
             if (session != null)
             {
                 session.BombPlaced -= OnBombPlaced;
+                session.BossBombPlaced -= OnBombPlaced;
+                session.BossBombLaunched -= OnBossBombLaunched;
                 session.BombExploded -= OnBombExploded;
                 session.Ready -= OnSessionReady;
             }
+            for (int index = 0; index < _activeBossFlights.Count; index++)
+            {
+                ActiveBossFlightVisual flight = _activeBossFlights[index];
+                flight.Instance.SetActive(false);
+                GetBombPool(flight.DefinitionId).Push(flight.Instance);
+            }
+            _activeBossFlights.Clear();
         }
 
         private void Update()
         {
             float elapsedSeconds = Time.deltaTime;
+            if (!session.IsPaused)
+            {
+                UpdateBossFlights(Time.unscaledDeltaTime);
+            }
             for (int index = _activeExplosions.Count - 1; index >= 0; index--)
             {
                 TimedExplosionVisual visual = _activeExplosions[index];
@@ -182,7 +204,13 @@ namespace BombSwap
 
             PrototypeBombDefinitionAsset definition =
                 session.GetBombDefinition(snapshot.DefinitionId);
-            GameObject instance = AcquireBomb(snapshot.DefinitionId, definition);
+            GameObject instance = snapshot.OwnerId == session.BossActorId
+                ? TakeLandedBossFlight(snapshot)
+                : null;
+            if (instance == null)
+            {
+                instance = AcquireBomb(snapshot.DefinitionId, definition);
+            }
             instance.transform.position = session.GridSpace.GridToWorld(snapshot.Position);
             instance.transform.rotation = definition.ExplosionShape == BombExplosionShape.ForwardLine
                 ? GetPlacementRotation(snapshot.PlacementDirection)
@@ -191,6 +219,67 @@ namespace BombSwap
             _activeBombs.Add(
                 snapshot.Id,
                 new ActiveBombVisual(instance, snapshot.DefinitionId));
+        }
+
+        private void OnBossBombLaunched(BossBombFlight flight)
+        {
+            Initialize();
+            BombDefinitionId definitionId = flight.Definition.Id;
+            PrototypeBombDefinitionAsset definition = session.GetBombDefinition(definitionId);
+            GameObject instance = AcquireBomb(definitionId, definition);
+            instance.transform.position = ToFlightPoint(flight.Origin, 0f);
+            instance.transform.rotation = Quaternion.identity;
+            instance.SetActive(true);
+            _activeBossFlights.Add(new ActiveBossFlightVisual(
+                instance,
+                definitionId,
+                flight,
+                0f));
+        }
+
+        private void UpdateBossFlights(float elapsedSeconds)
+        {
+            for (int index = 0; index < _activeBossFlights.Count; index++)
+            {
+                ActiveBossFlightVisual visual = _activeBossFlights[index];
+                visual.ElapsedSeconds = Mathf.Min(
+                    visual.ElapsedSeconds + elapsedSeconds,
+                    (float)visual.Flight.Duration.TotalSeconds);
+                float progress = Mathf.Clamp01(
+                    visual.ElapsedSeconds / (float)visual.Flight.Duration.TotalSeconds);
+                Vector3 origin = session.GridSpace.GridToWorld(visual.Flight.Origin);
+                Vector3 target = session.GridSpace.GridToWorld(visual.Flight.Target);
+                Vector3 position = Vector3.LerpUnclamped(origin, target, progress);
+                position.y += Mathf.Sin(progress * Mathf.PI) * bossThrowArcHeight;
+                visual.Instance.transform.position = position;
+                visual.Instance.transform.Rotate(
+                    Vector3.up,
+                    elapsedSeconds * 540f,
+                    Space.World);
+                _activeBossFlights[index] = visual;
+            }
+        }
+
+        private GameObject TakeLandedBossFlight(BombSnapshot snapshot)
+        {
+            for (int index = 0; index < _activeBossFlights.Count; index++)
+            {
+                ActiveBossFlightVisual flight = _activeBossFlights[index];
+                if (flight.DefinitionId != snapshot.DefinitionId ||
+                    flight.Flight.Target != snapshot.Position)
+                {
+                    continue;
+                }
+
+                _activeBossFlights.RemoveAt(index);
+                return flight.Instance;
+            }
+            return null;
+        }
+
+        private Vector3 ToFlightPoint(GridPosition position, float height)
+        {
+            return session.GridSpace.GridToWorld(position) + (Vector3.up * height);
         }
 
         private void OnBombExploded(BombExplosion explosion)
@@ -319,6 +408,26 @@ namespace BombSwap
             public BombDefinitionId DefinitionId { get; }
 
             public float RemainingSeconds { get; set; }
+        }
+
+        private struct ActiveBossFlightVisual
+        {
+            public ActiveBossFlightVisual(
+                GameObject instance,
+                BombDefinitionId definitionId,
+                BossBombFlight flight,
+                float elapsedSeconds)
+            {
+                Instance = instance;
+                DefinitionId = definitionId;
+                Flight = flight;
+                ElapsedSeconds = elapsedSeconds;
+            }
+
+            public GameObject Instance { get; }
+            public BombDefinitionId DefinitionId { get; }
+            public BossBombFlight Flight { get; }
+            public float ElapsedSeconds { get; set; }
         }
     }
 }

@@ -229,6 +229,19 @@ async function getLastPlayerCell(page) {
   });
 }
 
+async function getLastChaserCell(page) {
+  return page.evaluate(() => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      const match = /^chaser-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+      if (match) return { x: Number(match[1]), z: Number(match[2]) };
+    }
+    return null;
+  });
+}
+
 async function getLastSelfDestructCell(page) {
   return page.evaluate(() => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -1187,6 +1200,7 @@ async function main() {
       page,
       "place-bomb-definition-prototype-area",
     );
+    const room5ClearsBefore = await eventCount(page, "room-cleared");
     await waitForEvent(page, "self-destruct-warning-chase", {
       timeout: 10_000,
     });
@@ -1197,7 +1211,13 @@ async function main() {
     await waitForSelfDestructAtCell(page, 0, -2, 10_000);
     await waitForEvent(page, "self-destruct-armed", { timeout: 5_000 });
     await waitForEvent(page, "self-destruct-telegraph", { timeout: 5_000 });
-    await moveToCell(page, -1, -3);
+    const gatesChaserAtArm = await getLastChaserCell(page);
+    if (!gatesChaserAtArm) {
+      throw new Error("The Gates cleanup route requires a reported chaser cell.");
+    }
+    const gatesTrapX = gatesChaserAtArm.x < -1 ? 1 : -1;
+    const gatesEscapeX = gatesTrapX > 0 ? 4 : -4;
+    await moveToCell(page, gatesTrapX, -3, "zx");
     await waitForEvent(page, "self-destruct-detonated", { timeout: 5_000 });
     await waitForEvent(page, "self-destruct-died", { timeout: 5_000 });
     await waitForEvent(
@@ -1209,18 +1229,26 @@ async function main() {
       count: gatesDestroyedWallsBefore + 1,
       timeout: 5_000,
     });
-
-    await waitForChaserAtDistance(page, 1);
+    const gatesChaserBeforeCleanup = await getLastChaserCell(page);
+    const gatesPlayerBeforeCleanup = await getLastPlayerCell(page);
+    if (!gatesChaserBeforeCleanup || !gatesPlayerBeforeCleanup) {
+      throw new Error("The Gates cleanup route lost its actor positions.");
+    }
+    const gatesCleanupDistance =
+      Math.abs(gatesChaserBeforeCleanup.x - gatesPlayerBeforeCleanup.x) +
+      Math.abs(gatesChaserBeforeCleanup.z - gatesPlayerBeforeCleanup.z);
+    if (gatesCleanupDistance > 3) {
+      await waitForChaserAtDistance(page, 3);
+    }
+    const room5CleanupExplosionsBefore = await eventCount(page, "bomb-exploded");
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
       count: room5AreaPlacementsBefore + 1,
       timeout: 5_000,
     });
-    const room5ExplosionsBefore = await eventCount(page, "bomb-exploded");
-    const room5ClearsBefore = await eventCount(page, "room-cleared");
-    await moveToCell(page, -3, -4);
+    await moveToCell(page, gatesEscapeX, -3);
     await waitForEvent(page, "bomb-exploded", {
-      count: room5ExplosionsBefore + 1,
+      count: room5CleanupExplosionsBefore + 1,
       timeout: 15_000,
     });
     await waitForEvent(page, "room-cleared", {
@@ -1236,7 +1264,7 @@ async function main() {
     checks.push({
       name: "third-main-path-combat-clear",
       status: "passed",
-      detail: "The persisted reward loadout cleared gates combat room 5 after the player used the east-side cleanup route.",
+      detail: "After the gate blast, a pre-emptive east-lane area bomb caught the pursuing chaser without another contact hit and cleared combat room 5.",
     });
 
     const healthBeforeRecoveryDetour = await getLastPlayerHealth(page);
@@ -1345,9 +1373,18 @@ async function main() {
       "ArrowDown",
       "dungeon-room-ready-7-boss-active",
     );
-    await waitForEvent(page, "boss-pattern-telegraph", { timeout: 5_000 });
+    await waitForEvent(page, "boss-pattern-limited-chase-telegraph", {
+      timeout: 5_000,
+    });
     await waitForEvent(page, "boss-cell-x-0-z-1", { timeout: 5_000 });
-    await waitForEvent(page, "boss-move-target-x-1-z-1", { timeout: 5_000 });
+    const firstChargeTelegraphBefore = await eventCount(
+      page,
+      "boss-pattern-fixed-charge-telegraph",
+    );
+    await waitForEvent(page, "boss-pattern-fixed-charge-telegraph", {
+      count: firstChargeTelegraphBefore + 1,
+      timeout: 15_000,
+    });
     fs.mkdirSync(path.dirname(bossTelegraphScreenshotPath), { recursive: true });
     await page.screenshot({ path: bossTelegraphScreenshotPath });
     checks.push({
@@ -1355,115 +1392,201 @@ async function main() {
       status: "passed",
       detail: bossTelegraphScreenshotPath,
     });
-
-    const bossRecoveriesBefore = await eventCount(page, "boss-pattern-recovery");
-    const bossDamageBefore = await eventCount(page, "boss-damaged");
     const bossClearBefore = await eventCount(page, "room-cleared");
-    const bossMovesBefore = await eventCount(page, "boss-moved");
     const bossMoveBlocksBefore = await eventCount(page, "boss-move-blocked");
-    const bossCycles = [
-      {
-        targetEvent: "boss-move-target-x-1-z-1",
-        movedCellEvent: "boss-cell-x-1-z-1",
-        placementX: 1,
-        placementZ: 2,
-        escapeX: 3,
-        escapeZ: 2,
-        preplace: true,
-      },
-      {
-        targetEvent: "boss-move-target-x-1-z-0",
-        movedCellEvent: "boss-cell-x-1-z-0",
-        placementX: 1,
-        placementZ: -1,
-        placementOrder: "zx",
-        escapeX: 3,
-        escapeZ: -1,
-      },
-      {
-        targetEvent: "boss-move-target-x-1-z--1",
-        movedCellEvent: "boss-cell-x-1-z--1",
-        placementX: 2,
-        placementZ: -1,
-        escapeX: 4,
-        escapeZ: -1,
-      },
-      {
-        targetEvent: "boss-move-target-x-0-z--1",
-        movedCellEvent: "boss-cell-x-0-z--1",
-        placementX: 1,
-        placementZ: -2,
-        placementOrder: "zx",
-        escapeX: 3,
-        escapeZ: -2,
-      },
-    ];
-    for (let index = 0; index < bossCycles.length; index++) {
-      const cycle = bossCycles[index];
-      await moveToCell(
+
+    let activeBossBombSlot = 1;
+
+    const placeBossCounterBomb = async (definitionId) => {
+      const marker = `place-bomb-definition-${definitionId}`;
+      const before = await eventCount(page, marker);
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, marker, {
+        count: before + 1,
+        timeout: 5_000,
+      });
+    };
+
+    const swapBossCounterSlot = async (targetSlot) => {
+      const marker = `active-bomb-slot-${targetSlot}`;
+      const before = await eventCount(page, marker);
+      await page.keyboard.press("KeyX");
+      await waitForEvent(page, marker, {
+        count: before + 1,
+        timeout: 5_000,
+      });
+      activeBossBombSlot = targetSlot;
+    };
+
+    const dodgeNextBossCharge = async () => {
+      const before = await eventCount(
         page,
-        cycle.placementX,
-        cycle.placementZ,
-        cycle.placementOrder ?? "xz",
+        "boss-pattern-fixed-charge-telegraph",
       );
-      await waitForEvent(page, cycle.targetEvent, { timeout: 10_000 });
+      await waitForEvent(page, "boss-pattern-fixed-charge-telegraph", {
+        count: before + 1,
+        timeout: 20_000,
+      });
+      await moveToCell(page, 4, -2, "zx");
+      await moveToCell(page, 1, -2);
+      await moveToCell(page, 1, 0);
+    };
 
-      let placementsBefore = null;
-      if (cycle.preplace) {
-        const executesBeforePlacement = await eventCount(page, "boss-pattern-execute");
-        placementsBefore = await eventCount(
-          page,
-          "place-bomb-definition-prototype-area",
-        );
-        await page.keyboard.press("KeyZ");
-        await waitForEvent(page, "place-bomb-definition-prototype-area", {
-          count: placementsBefore + 1,
-          timeout: 5_000,
-        });
-        const executesAfterPlacement = await eventCount(page, "boss-pattern-execute");
-        if (executesAfterPlacement !== executesBeforePlacement) {
-          throw new Error(
-            "The first boss bomb was not preplaced during Telegraph.",
-          );
+    const counterBossOverheat = async (parityRows, label, finalCycle = false) => {
+      const parityTelegraphsBefore = await eventCount(
+        page,
+        "boss-pattern-parity-wave-telegraph",
+      );
+      const parityRecoveriesBefore = await eventCount(
+        page,
+        "boss-pattern-parity-wave-recovery",
+      );
+      const overheatRecoveriesBefore = await eventCount(
+        page,
+        "boss-pattern-overheat-recovery",
+      );
+      const damageBefore = await eventCount(page, "boss-damaged");
+
+      await waitForEvent(page, "boss-pattern-parity-wave-telegraph", {
+        count: parityTelegraphsBefore + 1,
+        timeout: 25_000,
+      });
+      await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+        count: parityRecoveriesBefore + 1,
+        timeout: 5_000,
+      });
+
+      if (parityRows === 9) {
+        if (activeBossBombSlot === 1) {
+          await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+            count: parityRecoveriesBefore + 5,
+            timeout: 10_000,
+          });
+          await moveToCell(page, 0, 0);
+          await placeBossCounterBomb("prototype-area");
+          await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+            count: parityRecoveriesBefore + 6,
+            timeout: 5_000,
+          });
+          await moveToCell(page, 1, 1);
+          await swapBossCounterSlot(0);
+          await placeBossCounterBomb("prototype-cross");
+        } else {
+          await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+            count: parityRecoveriesBefore + 3,
+            timeout: 10_000,
+          });
+          await moveToCell(page, 1, 1);
+          await placeBossCounterBomb("prototype-cross");
+          await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+            count: parityRecoveriesBefore + 5,
+            timeout: 5_000,
+          });
+          await moveToCell(page, 0, 0, "zx");
+          await swapBossCounterSlot(1);
+          await placeBossCounterBomb("prototype-area");
         }
-      }
-
-      await waitForEvent(page, "boss-moved", {
-        count: bossMovesBefore + index + 1,
-        timeout: 10_000,
-      });
-      await waitForEvent(page, cycle.movedCellEvent, { timeout: 10_000 });
-      await waitForEvent(page, "boss-pattern-recovery", {
-        count: bossRecoveriesBefore + index + 1,
-        timeout: 10_000,
-      });
-      if (!cycle.preplace) {
-        placementsBefore = await eventCount(
-          page,
-          "place-bomb-definition-prototype-area",
-        );
-        await page.keyboard.press("KeyZ");
-        await waitForEvent(page, "place-bomb-definition-prototype-area", {
-          count: placementsBefore + 1,
+      } else if (activeBossBombSlot === 1) {
+        await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+          count: parityRecoveriesBefore + 12,
+          timeout: 15_000,
+        });
+        await moveToCell(page, 0, 0);
+        await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+          count: parityRecoveriesBefore + 14,
           timeout: 5_000,
         });
+        await placeBossCounterBomb("prototype-area");
+        await moveToCell(page, 1, 1);
+        await swapBossCounterSlot(0);
+        await placeBossCounterBomb("prototype-cross");
+      } else {
+        await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+          count: parityRecoveriesBefore + 3,
+          timeout: 15_000,
+        });
+        await moveToCell(page, 0, 0);
+        await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+          count: parityRecoveriesBefore + 12,
+          timeout: 15_000,
+        });
+        await moveToCell(page, 1, 0);
+        await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+          count: parityRecoveriesBefore + 13,
+          timeout: 5_000,
+        });
+        await moveToCell(page, 1, 1);
+        await placeBossCounterBomb("prototype-cross");
+        await waitForEvent(page, "boss-pattern-parity-wave-recovery", {
+          count: parityRecoveriesBefore + 14,
+          timeout: 5_000,
+        });
+        await moveToCell(page, 0, 0, "zx");
+        await swapBossCounterSlot(1);
+        await placeBossCounterBomb("prototype-area");
       }
-      await moveToCell(page, cycle.escapeX, cycle.escapeZ);
-      await waitForEvent(page, "boss-damaged", {
-        count: bossDamageBefore + index + 1,
-        timeout: 8_000,
+
+      await moveToCell(page, 4, 0, "zx");
+      await waitForEvent(page, "boss-pattern-overheat-recovery", {
+        count: overheatRecoveriesBefore + 1,
+        timeout: 10_000,
       });
-    }
+      if (finalCycle) {
+        await waitForEvent(page, "boss-defeated", { timeout: 8_000 });
+      } else {
+        await waitForEvent(page, "boss-damaged", {
+          count: damageBefore + 2,
+          timeout: 8_000,
+        });
+      }
+      checks.push({
+        name: `boss-overheat-${label}`,
+        status: "passed",
+        detail: `Two distinct player bombs were preplaced through ${parityRows} sequential parity rows before the overheat counter window.`,
+      });
+    };
+
+    await moveToCell(page, 1, 0, "xz");
+    await counterBossOverheat(9, "phase-one-a");
+    await dodgeNextBossCharge();
+    await counterBossOverheat(9, "phase-one-b");
+
+    await waitForEvent(page, "boss-phase-two", { timeout: 15_000 });
+    await waitForEvent(page, "boss-summon-target-x--3-z-3", {
+      timeout: 10_000,
+    });
+    await waitForEvent(page, "boss-self-destruct-spawned", {
+      timeout: 10_000,
+    });
+    await dodgeNextBossCharge();
+    await waitForEvent(page, "self-destruct-armed", { timeout: 12_000 });
+    await moveToCell(page, 0, -4, "zx");
+    await waitForEvent(page, "self-destruct-died", { timeout: 5_000 });
+    await moveToCell(page, 1, 0, "xz");
+    await counterBossOverheat(18, "phase-two-a");
+
+    await dodgeNextBossCharge();
+    await counterBossOverheat(18, "phase-two-b");
+    await waitForEvent(page, "boss-phase-last-stand", { timeout: 15_000 });
+    await dodgeNextBossCharge();
+    await counterBossOverheat(18, "last-stand", true);
+
     if (await eventCount(page, "boss-move-blocked") !== bossMoveBlocksBefore) {
-      throw new Error("The authored boss route was unexpectedly blocked.");
+      throw new Error("The deterministic boss movement was unexpectedly blocked.");
     }
     checks.push({
-      name: "boss-telegraphed-movement",
+      name: "boss-phased-counterplay",
       status: "passed",
-      detail: "The first area bomb was preplaced during Telegraph, then four authored targets matched four authoritative boss moves without blocking.",
+      detail: "The browser route cleared two phase-one overheats, the one-time self-destruct gate, two phase-two overheats, and the one-time last stand without exact move-target ghosts.",
     });
-    await waitForEvent(page, "boss-phase-two", { timeout: 10_000 });
-    await waitForEvent(page, "boss-defeated", { timeout: 5_000 });
+    await waitForEvent(
+      page,
+      "boss-bomb-armed-definition-prototype-boss-chain",
+      { timeout: 10_000 },
+    );
+    await waitForEvent(page, "boss-chain-bomb-detonated-by-chain", {
+      timeout: 10_000,
+    });
     await waitForEvent(page, "room-cleared", {
       count: bossClearBefore + 1,
       timeout: 5_000,
@@ -1472,7 +1595,7 @@ async function main() {
     checks.push({
       name: "boss-battle-cleared",
       status: "passed",
-      detail: "Room 7 telegraphed deterministic attacks and movement, accepted a preplaced hit plus three Recovery counterattacks, and presented the floor-clear result once.",
+      detail: "Room 7 accepted at most two distinct player bombs per overheat across all three phases and presented the floor-clear result once.",
     });
 
     await page.setViewportSize({ width: 1024, height: 768 });
@@ -1693,20 +1816,31 @@ async function main() {
       "minimap-visible-connections-9",
       "dungeon-room-ready-7-boss-active",
       "boss-pattern-telegraph",
+      "boss-pattern-limited-chase-telegraph",
+      "boss-pattern-fixed-charge-telegraph",
+      "boss-pattern-return-to-center-telegraph",
+      "boss-pattern-bomb-volley-telegraph",
+      "boss-pattern-parity-wave-telegraph",
+      "boss-pattern-overheat-recovery",
+      "boss-pattern-summon-self-destruct-telegraph",
+      "boss-pattern-wait-for-self-destruct-telegraph",
+      "boss-pattern-last-stand-bomb-chain-telegraph",
+      "boss-summon-target-x--3-z-3",
+      "boss-self-destruct-spawned",
+      "boss-bomb-launched-definition-prototype-boss-throw",
+      "boss-bomb-launched-definition-prototype-boss-chain",
+      "boss-bomb-armed-definition-prototype-boss-throw",
+      "boss-bomb-armed-definition-prototype-boss-chain",
+      "bomb-exploded-definition-prototype-boss-throw",
+      "bomb-exploded-definition-prototype-boss-chain",
+      "boss-chain-bomb-detonated-by-chain",
       "boss-cell-x-0-z-1",
-      "boss-move-target-x-1-z-1",
-      "boss-move-target-x-1-z-0",
-      "boss-move-target-x-1-z--1",
-      "boss-move-target-x-0-z--1",
       "boss-moved",
-      "boss-cell-x-1-z-1",
-      "boss-cell-x-1-z-0",
-      "boss-cell-x-1-z--1",
-      "boss-cell-x-0-z--1",
       "boss-pattern-execute",
       "boss-pattern-recovery",
       "boss-damaged",
       "boss-phase-two",
+      "boss-phase-last-stand",
       "boss-defeated",
       "run-completed",
       "player-died",

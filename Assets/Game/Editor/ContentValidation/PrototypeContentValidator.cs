@@ -24,6 +24,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/ArmoredPanicPlaytest.unity";
         public const string SelfDestructGatesPlaytestScenePath =
             "Assets/Game/Scenes/TestSandbox/SelfDestructGatesPlaytest.unity";
+        public const string BossBattlePlaytestScenePath =
+            "Assets/Game/Scenes/TestSandbox/BossBattlePlaytest.unity";
         public const string TestSandboxGatesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity";
         public const string DungeonStartScenePath =
@@ -46,6 +48,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeLineBomb.asset";
         public const string PrototypeSelfDestructBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeSelfDestructBlast.asset";
+        public const string PrototypeBossThrowBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeBossThrowBomb.asset";
+        public const string PrototypeBossChainBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeBossChainBomb.asset";
         public const string PrototypeBombLoadoutPath =
             "Assets/Game/Content/Bombs/PrototypeBombLoadout.asset";
         public const string PrototypeBombRewardCatalogPath =
@@ -72,6 +78,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Rooms/PrototypeCombatArmor.asset";
         public const string PrototypeCombatGatesDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatGates.asset";
+        public const string PrototypeBossArenaDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeBossArena.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -84,6 +92,14 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/LineBombPlaceholder.prefab";
         public const string LineExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/LineExplosionCellPlaceholder.prefab";
+        public const string BossThrowBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BossThrowBombPlaceholder.prefab";
+        public const string BossThrowExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BossThrowExplosionCellPlaceholder.prefab";
+        public const string BossChainBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BossChainBombPlaceholder.prefab";
+        public const string BossChainExplosionCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/BossChainExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
         public const string ChargerPrefabPath =
@@ -139,6 +155,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateTestSandboxes(errors);
             ValidateStandaloneArmoredPlaytestScene(errors);
             ValidateStandaloneSelfDestructPlaytestScene(errors);
+            ValidateStandaloneBossPlaytestScene(errors);
             ValidateBuildSettings(errors);
         }
 
@@ -177,6 +194,32 @@ namespace BombSwap.Editor.ContentValidation
                     BombExplosionShape.ForwardLine,
                     3,
                     errors);
+            PrototypeBombDefinitionAsset bossThrowDefinition =
+                ValidatePrototypeBombDefinition(
+                    PrototypeBossThrowBombDefinitionPath,
+                    BossThrowBombPrefabPath,
+                    BossThrowExplosionCellPrefabPath,
+                    "prototype-boss-throw",
+                    BombExplosionShape.Cross,
+                    2,
+                    errors);
+            PrototypeBombDefinitionAsset bossChainDefinition =
+                ValidatePrototypeBombDefinition(
+                    PrototypeBossChainBombDefinitionPath,
+                    BossChainBombPrefabPath,
+                    BossChainExplosionCellPrefabPath,
+                    "prototype-boss-chain",
+                    BombExplosionShape.Cross,
+                    2,
+                    errors);
+            if ((bossThrowDefinition != null &&
+                 bossThrowDefinition.FuseSeconds != 1.25f) ||
+                (bossChainDefinition != null &&
+                 bossChainDefinition.FuseSeconds != 2.25f))
+            {
+                errors.Add(
+                    "Prototype boss throw/chain bomb fuses must be 1.25 and 2.25 seconds.");
+            }
             ValidateForwardLineBombVisual(errors);
             PrototypeBombLoadoutAsset loadout =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
@@ -617,15 +660,29 @@ namespace BombSwap.Editor.ContentValidation
                 BossBattleDefinition core = definition.CreateCoreDefinition();
                 definition.ValidatePresentationReferences();
                 if (core.Id != new EnemyDefinitionId("prototype-boss") ||
-                    core.MaxHealth != 4 ||
-                    core.PhaseTwoHealthThreshold != 2 ||
+                    core.MaxHealth != 10 ||
+                    core.PhaseTwoHealthThreshold != 7 ||
+                    core.LastStandHealthThreshold != 2 ||
                     core.PatternDamage != 1 ||
-                    core.PhaseOneTimings.TelegraphDuration != TimeSpan.FromSeconds(1) ||
-                    core.PhaseOneTimings.ExecuteDuration != TimeSpan.FromSeconds(0.25) ||
-                    core.PhaseOneTimings.RecoveryDuration != TimeSpan.FromSeconds(2.75) ||
-                    core.PhaseTwoTimings.TelegraphDuration != TimeSpan.FromSeconds(0.75) ||
-                    core.PhaseTwoTimings.ExecuteDuration != TimeSpan.FromSeconds(0.25) ||
-                    core.PhaseTwoTimings.RecoveryDuration != TimeSpan.FromSeconds(2.75) ||
+                    core.MaxOverheatDamage != 2 ||
+                    core.Tuning.PhaseOneChaseCount != 2 ||
+                    core.Tuning.PhaseTwoChaseCount != 3 ||
+                    core.Tuning.LastStandChaseCount != 2 ||
+                    core.Tuning.ChargeDistance != 3 ||
+                    core.Tuning.BombFlightDuration != TimeSpan.FromSeconds(0.45) ||
+                    core.Tuning.BombThrowInterval != TimeSpan.FromSeconds(0.4) ||
+                    core.Tuning.SelfDestructForceDelay != TimeSpan.FromSeconds(4.5) ||
+                    core.Tuning.PhaseOneOverheatDuration != TimeSpan.FromSeconds(2) ||
+                    core.Tuning.PhaseTwoOverheatDuration != TimeSpan.FromSeconds(1.5) ||
+                    core.Tuning.LastStandOverheatDuration != TimeSpan.FromSeconds(2.25) ||
+                    core.ThrowBombDefinition.Id !=
+                        new BombDefinitionId("prototype-boss-throw") ||
+                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(1.25) ||
+                    core.ThrowBombDefinition.Range != 2 ||
+                    core.ChainBombDefinition.Id !=
+                        new BombDefinitionId("prototype-boss-chain") ||
+                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2.25) ||
+                    core.ChainBombDefinition.Range != 2 ||
                     definition.BossSpawn != new GridPosition(0, 1))
                 {
                     errors.Add(
@@ -639,6 +696,8 @@ namespace BombSwap.Editor.ContentValidation
 
             string bossPrefabPath = AssetDatabase.GetAssetPath(definition.BossPrefab);
             string dangerPrefabPath = AssetDatabase.GetAssetPath(definition.DangerCellPrefab);
+            string throwBombPath = AssetDatabase.GetAssetPath(definition.ThrowBombDefinition);
+            string chainBombPath = AssetDatabase.GetAssetPath(definition.ChainBombDefinition);
             if (!string.Equals(bossPrefabPath, BossPrefabPath, StringComparison.Ordinal))
             {
                 errors.Add(
@@ -652,6 +711,18 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     $"Prototype boss definition must reference '{BossDangerCellPrefabPath}', found '{dangerPrefabPath}'.");
             }
+            if (!string.Equals(
+                    throwBombPath,
+                    PrototypeBossThrowBombDefinitionPath,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    chainBombPath,
+                    PrototypeBossChainBombDefinitionPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Prototype boss definition must reference the canonical throw and chain bomb assets.");
+            }
             if ((definition.BossPrefab != null &&
                  definition.BossPrefab.GetComponentInChildren<Collider>(true) != null) ||
                 (definition.DangerCellPrefab != null &&
@@ -663,18 +734,49 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeCombatRoomDefinitionAsset shell =
                 AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
-                    PrototypeCombatRoomDefinitionPath);
+                    PrototypeBossArenaDefinitionPath);
             if (shell != null)
             {
                 CombatRoomDefinition room = shell.CreateCoreDefinition();
-                if (!room.IsInside(definition.BossSpawn) ||
+                var expectedPillars = new HashSet<GridPosition>
+                {
+                    new GridPosition(-2, -1),
+                    new GridPosition(2, -1),
+                    new GridPosition(-2, 1),
+                    new GridPosition(2, 1),
+                };
+                if (room.Id != new RoomDefinitionId("prototype-boss-arena") ||
+                    room.Width != 11 || room.Depth != 9 ||
+                    room.PlayerSpawn != new GridPosition(0, -3) ||
+                    !expectedPillars.SetEquals(room.IndestructibleWalls) ||
+                    !room.RetreatAnchors.SequenceEqual(new[]
+                    {
+                        new GridPosition(-4, -2),
+                        new GridPosition(-3, 3),
+                        new GridPosition(0, -3),
+                        new GridPosition(0, 3),
+                        new GridPosition(3, 3),
+                        new GridPosition(4, -2),
+                    }) ||
+                    room.SelfDestructSpawn != new GridPosition(-4, 3) ||
+                    !room.SelfDestructAnchors.SequenceEqual(new[]
+                    {
+                        new GridPosition(-3, 3),
+                        new GridPosition(0, 3),
+                        new GridPosition(3, 3),
+                    }) ||
+                    !room.IsInside(definition.BossSpawn) ||
                     room.IsBlocked(definition.BossSpawn) ||
                     room.PlayerSpawn == definition.BossSpawn ||
                     !room.LureLoop.Contains(definition.BossSpawn))
                 {
                     errors.Add(
-                        "Prototype boss spawn must be a traversable shell-room lure-loop cell distinct from the player spawn.");
+                        "Prototype boss arena must preserve its 11x9 spawn, four pillars, six throw anchors, three summon anchors, and central lure loop.");
                 }
+            }
+            else
+            {
+                errors.Add($"Missing prototype boss arena: {PrototypeBossArenaDefinitionPath}");
             }
         }
 
@@ -1453,7 +1555,7 @@ namespace BombSwap.Editor.ContentValidation
                 errors);
             ValidateTestSandboxScene(
                 DungeonBossScenePath,
-                PrototypeCombatRoomDefinitionPath,
+                PrototypeBossArenaDefinitionPath,
                 true,
                 true,
                 errors);
@@ -1467,6 +1569,7 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatArmorDefinitionPath,
                 typeof(PrototypeArmoredPresenter),
                 "Armor",
+                false,
                 errors);
         }
 
@@ -1478,6 +1581,19 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatGatesDefinitionPath,
                 typeof(PrototypeSelfDestructPresenter),
                 "Self-Destruct Gates",
+                false,
+                errors);
+        }
+
+        private static void ValidateStandaloneBossPlaytestScene(
+            ICollection<string> errors)
+        {
+            ValidateStandaloneCombatPlaytestScene(
+                BossBattlePlaytestScenePath,
+                PrototypeBossArenaDefinitionPath,
+                typeof(PrototypeBossPresenter),
+                "Boss Battle",
+                true,
                 errors);
         }
 
@@ -1486,6 +1602,7 @@ namespace BombSwap.Editor.ContentValidation
             string expectedRoomPath,
             Type requiredPresenterType,
             string label,
+            bool expectedBoss,
             ICollection<string> errors)
         {
             var sceneErrors = new List<string>();
@@ -1536,10 +1653,10 @@ namespace BombSwap.Editor.ContentValidation
                 }
                 if (sessions.Length == 1 &&
                     (!sessions[0].IsCombatEnabledByDefault ||
-                     sessions[0].IsBossEnabledByDefault))
+                     sessions[0].IsBossEnabledByDefault != expectedBoss))
                 {
                     sceneErrors.Add(
-                        $"Standalone {label} playtest must enable its non-boss combat encounter.");
+                        $"Standalone {label} playtest has an invalid combat/boss configuration.");
                 }
                 if (advanceControllers.Length == 1 &&
                     (!string.IsNullOrEmpty(advanceControllers[0].NextSceneName) ||
