@@ -47,6 +47,25 @@ boss-player-damaged-phase-<phase>-pattern-<pattern>-health-<remaining>
 - 폭탄 정의 교대는 성공 적중 순서만 뜻한다. 교체 의도, 실패한 설치, 자폭병 유도 의도와 parity 안전 칸 재사용은 관찰 기록이 소유한다.
 - 상세 계약과 하위 로그 호환성은 [보스 플레이테스트 계측 수직 슬라이스](../Development/BossPlaytestTelemetrySlice.md)를 따른다.
 
+## 투척병 전용 검증 marker
+
+Development WebGL의 독립 투척병 씬은 다음 표식으로 규칙 연결 순서를 확인한다.
+
+```text
+thrower-cell-x-<x>-z-<z>
+thrower-track-moved
+thrower-telegraph-x-<x>-z-<z>
+thrower-bomb-launched
+thrower-bomb-armed-definition-prototype-thrower-blocker
+thrower-bomb-detonated
+thrower-bomb-detonated-by-chain
+thrower-died
+```
+
+- `telegraph` 좌표는 매 volley에서 잠긴 서로 다른 저작 목표 3개를 각각 기록한다. 첫 volley만 기록하고 중단하지 않으므로 다음 사격 anchor에서 가장 가까운 압박점 1개가 유지되고 측면 2개가 바뀌는지도 관찰할 수 있다. `launched`와 `armed`도 성공적인 표준 volley에서는 각각 3번 발생하며, `armed`는 표현 비행이 아니라 공용 `BombSimulation` 착탄 성공을 뜻한다.
+- `detonated-by-chain`은 최종 `BombExplosion.Cause == Chain`일 때만 기록한다.
+- 이 표식은 자동화 동기화용이다. 플레이어가 예고를 실제로 읽었는지, 피하거나 연쇄하려는 의도가 있었는지, 압박이 재미있는지는 영상·관찰·인터뷰가 소유한다.
+
 ## 원칙
 
 - 이벤트 이름과 필드는 버전 관리한다.

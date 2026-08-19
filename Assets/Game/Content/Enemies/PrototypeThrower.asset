@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b6b72530ab1c7e40879b7b259b4b81c, type: 3}
+  m_Name: PrototypeThrower
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeThrowerDefinitionAsset
+  definitionId: prototype-thrower
+  moveCellsPerSecond: 1
+  telegraphSeconds: 0.3
+  flightSeconds: 0.45
+  recoverySeconds: 0.75
+  maxHealth: 1
+  bombsPerVolley: 3
+  bombDefinition: {fileID: 11400000, guid: ee3b0c55019745d46b29347256d96568, type: 2}
+  enemyPrefab: {fileID: 2246957002122644732, guid: 3300a465cf394a44e8b4154dac395fc3, type: 3}
+  telegraphCellPrefab: {fileID: 6127233976684694925, guid: d3e0a0a81c3bd6b4c9559fae57559058, type: 3}
+  visualHeight: 0.5
+  deathVisualSeconds: 0.12

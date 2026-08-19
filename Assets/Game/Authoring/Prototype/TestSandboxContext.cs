@@ -33,6 +33,9 @@ namespace BombSwap
         private Transform selfDestructSpawn;
 
         [SerializeField]
+        private Transform throwerSpawn;
+
+        [SerializeField]
         private PrototypeCombatRoomDefinitionAsset roomDefinition;
 
         public BombSwapInputReader InputReader => inputReader;
@@ -50,6 +53,8 @@ namespace BombSwap
         public Transform ArmoredSpawn => armoredSpawn;
 
         public Transform SelfDestructSpawn => selfDestructSpawn;
+
+        public Transform ThrowerSpawn => throwerSpawn;
 
         public PrototypeCombatRoomDefinitionAsset RoomDefinition => roomDefinition;
 
@@ -76,7 +81,8 @@ namespace BombSwap
             PrototypeCombatRoomDefinitionAsset authoredRoomDefinition,
             Transform authoredChargerSpawn = null,
             Transform authoredArmoredSpawn = null,
-            Transform authoredSelfDestructSpawn = null)
+            Transform authoredSelfDestructSpawn = null,
+            Transform authoredThrowerSpawn = null)
         {
             if (reader == null)
             {
@@ -162,6 +168,24 @@ namespace BombSwap
                     "A self-destruct spawn Transform requires an authored self-destruct cell.",
                     nameof(authoredSelfDestructSpawn));
             }
+            if (coreRoom.ThrowerSpawn.HasValue)
+            {
+                if (authoredThrowerSpawn == null)
+                {
+                    throw new ArgumentNullException(nameof(authoredThrowerSpawn));
+                }
+                ValidateTransformCell(
+                    gridSpace,
+                    authoredThrowerSpawn,
+                    coreRoom.ThrowerSpawn.Value,
+                    nameof(authoredThrowerSpawn));
+            }
+            else if (authoredThrowerSpawn != null)
+            {
+                throw new ArgumentException(
+                    "A thrower spawn Transform requires an authored thrower cell.",
+                    nameof(authoredThrowerSpawn));
+            }
 
             inputReader = reader;
             gridRoot = grid;
@@ -171,6 +195,7 @@ namespace BombSwap
             chargerSpawn = authoredChargerSpawn;
             armoredSpawn = authoredArmoredSpawn;
             selfDestructSpawn = authoredSelfDestructSpawn;
+            throwerSpawn = authoredThrowerSpawn;
             roomDefinition = authoredRoomDefinition;
         }
 

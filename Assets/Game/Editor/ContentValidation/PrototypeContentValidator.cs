@@ -26,6 +26,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/TestSandbox/SelfDestructGatesPlaytest.unity";
         public const string BossBattlePlaytestScenePath =
             "Assets/Game/Scenes/TestSandbox/BossBattlePlaytest.unity";
+        public const string ThrowerLanesPlaytestScenePath =
+            "Assets/Game/Scenes/TestSandbox/ThrowerLanesPlaytest.unity";
         public const string TestSandboxGatesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity";
         public const string DungeonStartScenePath =
@@ -48,6 +50,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeLineBomb.asset";
         public const string PrototypeSelfDestructBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeSelfDestructBlast.asset";
+        public const string PrototypeThrowerBombDefinitionPath =
+            "Assets/Game/Content/Bombs/PrototypeThrowerBlocker.asset";
         public const string PrototypeBossThrowBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeBossThrowBomb.asset";
         public const string PrototypeBossChainBombDefinitionPath =
@@ -66,6 +70,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Enemies/PrototypeArmored.asset";
         public const string PrototypeSelfDestructDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeSelfDestruct.asset";
+        public const string PrototypeThrowerDefinitionPath =
+            "Assets/Game/Content/Enemies/PrototypeThrower.asset";
         public const string PrototypeBossDefinitionPath =
             "Assets/Game/Content/Bosses/PrototypeBoss.asset";
         public const string PrototypeCombatRoomDefinitionPath =
@@ -80,6 +86,8 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Rooms/PrototypeCombatGates.asset";
         public const string PrototypeBossArenaDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeBossArena.asset";
+        public const string PrototypeCombatThrowerDefinitionPath =
+            "Assets/Game/Content/Rooms/PrototypeCombatThrower.asset";
         public const string BombPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
         public const string ExplosionCellPrefabPath =
@@ -114,6 +122,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Prototype/SelfDestructPlaceholder.prefab";
         public const string SelfDestructTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/SelfDestructTelegraphCellPlaceholder.prefab";
+        public const string ThrowerPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ThrowerPlaceholder.prefab";
+        public const string ThrowerTelegraphCellPrefabPath =
+            "Assets/Game/Content/Prefabs/Prototype/ThrowerTelegraphCellPlaceholder.prefab";
         public const string BossPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossPlaceholder.prefab";
         public const string BossDangerCellPrefabPath =
@@ -145,6 +157,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeArmoredDefinition(errors);
             ValidatePrototypeSelfDestructDefinition(errors);
+            ValidatePrototypeThrowerDefinition(errors);
             ValidatePrototypeBossDefinition(errors);
             ValidatePrototypeRecoveryMaterial(errors);
             ValidatePrototypeSecretMaterials(errors);
@@ -156,6 +169,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateStandaloneArmoredPlaytestScene(errors);
             ValidateStandaloneSelfDestructPlaytestScene(errors);
             ValidateStandaloneBossPlaytestScene(errors);
+            ValidateStandaloneThrowerPlaytestScene(errors);
             ValidateBuildSettings(errors);
         }
 
@@ -776,6 +790,88 @@ namespace BombSwap.Editor.ContentValidation
             else
             {
                 errors.Add($"Missing prototype boss arena: {PrototypeBossArenaDefinitionPath}");
+            }
+        }
+
+        private static void ValidatePrototypeThrowerDefinition(
+            ICollection<string> errors)
+        {
+            PrototypeThrowerDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeThrowerDefinitionAsset>(
+                    PrototypeThrowerDefinitionPath);
+            PrototypeBombDefinitionAsset bombDefinition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeThrowerBombDefinitionPath);
+            PrototypeCombatRoomDefinitionAsset roomDefinition =
+                AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
+                    PrototypeCombatThrowerDefinitionPath);
+            if (definition == null || bombDefinition == null || roomDefinition == null)
+            {
+                errors.Add(
+                    "Missing prototype thrower definition, blocker bomb, or dedicated room definition.");
+                return;
+            }
+
+            try
+            {
+                ThrowerEnemyDefinition core = definition.CreateCoreDefinition();
+                BombDefinition bomb = bombDefinition.CreateCoreDefinition();
+                CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+                definition.ValidatePresentationReferences();
+                if (core.Id != new EnemyDefinitionId("prototype-thrower") ||
+                    core.MoveStepInterval != TimeSpan.FromSeconds(1) ||
+                    core.TelegraphDuration != TimeSpan.FromSeconds(0.3) ||
+                    core.FlightDuration != TimeSpan.FromSeconds(0.45) ||
+                    core.RecoveryDuration != TimeSpan.FromSeconds(0.75) ||
+                    core.MaxHealth != 1 ||
+                    core.BombsPerVolley != 3 ||
+                    bomb.Id != new BombDefinitionId("prototype-thrower-blocker") ||
+                    bomb.ExplosionShape != BombExplosionShape.Cross ||
+                    bomb.FuseDuration != TimeSpan.FromSeconds(1.5) ||
+                    bomb.Range != 1 ||
+                    room.Id != new RoomDefinitionId("prototype-combat-thrower") ||
+                    room.ThrowerSpawn != new GridPosition(0, 3) ||
+                    !room.ThrowerFiringAnchors.SequenceEqual(new[]
+                    {
+                        new GridPosition(0, 3),
+                        new GridPosition(3, 2),
+                        new GridPosition(-3, 2),
+                    }) ||
+                    !room.ThrowerTargetAnchors.SequenceEqual(new[]
+                    {
+                        new GridPosition(0, 0),
+                        new GridPosition(-3, -2),
+                        new GridPosition(3, -2),
+                        new GridPosition(-4, 1),
+                        new GridPosition(4, 1),
+                        new GridPosition(0, 4),
+                    }))
+                {
+                    errors.Add(
+                        "Prototype thrower content does not match the Proposed timing, bomb, " +
+                        "or dedicated Lanes anchor contract.");
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Invalid prototype thrower content: {exception.Message}");
+            }
+
+            if (!string.Equals(
+                    AssetDatabase.GetAssetPath(definition.BombDefinition),
+                    PrototypeThrowerBombDefinitionPath,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(definition.EnemyPrefab),
+                    ThrowerPrefabPath,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(definition.TelegraphCellPrefab),
+                    ThrowerTelegraphCellPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Prototype thrower definition has inconsistent bomb or presentation references.");
             }
         }
 
@@ -1594,6 +1690,18 @@ namespace BombSwap.Editor.ContentValidation
                 typeof(PrototypeBossPresenter),
                 "Boss Battle",
                 true,
+                errors);
+        }
+
+        private static void ValidateStandaloneThrowerPlaytestScene(
+            ICollection<string> errors)
+        {
+            ValidateStandaloneCombatPlaytestScene(
+                ThrowerLanesPlaytestScenePath,
+                PrototypeCombatThrowerDefinitionPath,
+                typeof(PrototypeThrowerPresenter),
+                "Thrower Lanes",
+                false,
                 errors);
         }
 

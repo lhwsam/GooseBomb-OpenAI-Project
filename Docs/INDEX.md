@@ -58,12 +58,12 @@
 | 최소 미니맵·탐색 정보 | `Development/MinimalMinimapSlice.md`, `Systems/DungeonGeneration.md`, ADR-0007 |
 | 금이 간 벽 비밀방 | `Development/SecretRoomSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |
 | 비밀문 출구 경계·폭발 판정 | `Development/SecretDoorBoundarySlice.md`, `Development/SecretRoomSlice.md`, `Systems/BombAndExplosion.md`, `Systems/RoomAuthoring.md` |
-| 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md`, `GameDesign/CombatEnemyLevelBossImprovementProposal.md`, `Development/ChargerLaneAcquisitionSlice.md`, `Development/ArmoredPanicRunSlice.md`, `Development/SelfDestructGatesSlice.md` |
-| 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md`, `Development/ChargerLaneAcquisitionSlice.md`, `Development/ArmoredPanicRunSlice.md`, `Development/SelfDestructGatesSlice.md` |
+| 적 AI | `Systems/EnemyBehavior.md`, `Systems/GridAndMovement.md`, `GameDesign/CombatEnemyLevelBossImprovementProposal.md`, `Development/ChargerLaneAcquisitionSlice.md`, `Development/ArmoredPanicRunSlice.md`, `Development/SelfDestructGatesSlice.md`, `Development/ThrowerVerticalSlice.md` |
+| 방 제작 | `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md`, `Development/FifthCombatRoomSlice.md`, `Development/ChargerLaneAcquisitionSlice.md`, `Development/ArmoredPanicRunSlice.md`, `Development/SelfDestructGatesSlice.md`, `Development/ThrowerVerticalSlice.md` |
 | 던전 생성 | `Systems/DungeonGeneration.md`, ADR-0003 |
 | 보스 | `GameDesign/BossPhaseImprovementProposal.md`, `Systems/BossBattle.md`, `Development/BossPhaseReworkSlice.md` |
 | 보스 이동·투척·자폭병 합동 구간 | `Development/BossPhaseReworkSlice.md`, `Systems/BossBattle.md`, `Systems/GridAndMovement.md`, `Systems/BombAndExplosion.md` |
-| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/BossPhaseReworkProtocol.md`, `Development/BossPlaytestTelemetrySlice.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Playtesting/ArmoredEnemyProtocol.md`, `Playtesting/SelfDestructGatesProtocol.md`, `Systems/Telemetry.md` |
+| 플레이테스트 준비·분석 | `Playtesting/README.md`, `Playtesting/BossPhaseReworkProtocol.md`, `Development/BossPlaytestTelemetrySlice.md`, `Playtesting/SecretExplorationRouteProtocol.md`, `Playtesting/ArmoredEnemyProtocol.md`, `Playtesting/SelfDestructGatesProtocol.md`, `Playtesting/ThrowerLanesProtocol.md`, `Systems/Telemetry.md` |
 | 다음 수직 슬라이스·마일스톤 판단 | `Development/PrototypeReadinessAudit.md`, `Development/PrototypeRoadmap.md`, `Development/DefinitionOfDone.md` |
 | 입력 변경 | `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
 | 반응형 WebGL 화면·템플릿 | `Development/ResponsiveWebGLCanvasSlice.md`, `WebGL/BuildAndHosting.md`, `WebGL/BrowserTestMatrix.md` |

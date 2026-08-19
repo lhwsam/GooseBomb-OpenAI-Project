@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-20
-- 단계: 체력 10 보스의 상시 피해 허용 뒤 긍정적 첫 피드백을 기록하고, 보스전 시간·phase/state별 적중·피격·두 폭탄·자폭병 근거를 수집하는 WebGL 계측 하네스까지 검증한 뒤 고정 사람 세션을 기다리는 상태
+- 단계: 기존 보스와 다섯 전투방의 첫 플레이 확인 뒤, 퇴로 차단 투척병을 메인 던전 밖 독립 Lanes 수직 슬라이스로 구현·자동/WebGL 검증하고 사람 조작감 판정을 기다리는 상태
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -126,6 +126,9 @@
 - 선택적 자폭병 `ActorId(6)`을 추격자·돌진형·갑옷 적 뒤 고정 순서로 공유 격자·폭발·방 클리어에 연결했다. 접촉 즉발·접촉 피해는 없으며, 자기 폭발이 actor 점유와 적 생존을 한 번 제거한다.
 - `prototype-combat-gates`에 자폭병 `(3,0)`과 anchor `(0,-2)→(0,2)`를 연결했다. 각 anchor의 범위 2 폭발은 첫 파괴 가능 문에서 해당 ray가 끝나 중앙 파괴문 `(0,-1)` 또는 `(0,1)` 중 한쪽만 열고, 기존 좌우 우회로는 유지한다.
 - WebGL 기본 smoke가 자폭병 이동·arm·예고·자기 폭발·사망과 실제 파괴벽 수 증가를 기다리도록 확장됐다. 플레이어 폭탄으로 추격자를 먼저 처치해도 자폭 fuse가 끝나기 전 추가 폭탄을 설치하지 않는다.
+- `ThrowerEnemySimulation`의 `Track → Telegraph → Recover`를 구현했다. 현재 플레이어 셀 대신 거리·저작 순서로 서로 다른 퇴로 anchor 3개를 고정 예고하고, 저작 사격 anchor를 순환하며, 0.45초 세 포물선 비행 뒤 `ActorId(7)` 소유 범위 1 십자 폭탄 3개를 공용 `BombSimulation`에 착탄시킨다. 한 번에 3발 volley 하나만 유지하고 점유된 착탄은 해당 발만 재조준 없이 실패하며 자기 폭발만 무시한다.
+- 전용 `prototype-combat-thrower` asset과 `ThrowerLanesPlaytest.unity`, 보라색 적·자홍색 목표 예고·포물선 비행 표현, Editor `Open/Play/Rebuild Thrower Lanes Room` 진입점과 콘텐츠 validator를 추가했다. 전용 씬은 표준 Build Settings와 메인 던전 카탈로그에서 제외되어 기존 다섯 전투방 편성은 변하지 않는다.
+- 연결 WebGL 빌드 하네스가 Build Settings 직렬화 변경 없이 지정한 독립 scene 하나를 직접 예약·빌드할 수 있게 확장됐고, `Tools/ThrowerWebGLSmoke.mjs`가 서로 다른 세 저작 목표 잠금→세 비행→세 논리 착탄→플레이어 폭탄 연쇄 기폭과 브라우저 오류 0을 검증한다.
 
 ## 현재 저장소 사실
 
@@ -150,11 +153,12 @@
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 1 cell/s BFS로 가장 가까운 유효 행/열 차선을 획득한다. 정렬 뒤 0.75초 동안 방향·최대 거리를 고정 예고하고 8 cells/s로 돌진한 뒤 1초 회복한다. 수치는 `Proposed`다.
 - 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 장갑 동안 spawn 반경 1을 수비한다. 첫 서로 다른 폭발은 갑옷만 파괴하고 폭발 중심 반대편의 가장 긴 cardinal 가지를 최대 3칸 고정해 `0.6초 예고 → 6 cells/s 질주 → 0.5초 회복 → 3 cells/s 추격`으로 전환하며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
 - 선택적 `SelfDestructEnemySimulation`은 `ActorId(6)`으로 같은 격자를 점유하고 현재 플레이어 셀을 일반 2 cells/s BFS로 추적한다. Manhattan 3칸 안에 연속으로 있으면 1.5초 동안 5 cells/s까지 가속하고 점멸도 3→8Hz로 상승하며, cadence 시작 시 1칸 이내면 조기 점화하거나 누적 만료 시 현재 셀에서 `prototype-self-destruct-blast`를 arm한다. 3칸 밖으로 이탈하면 누적을 초기화하고, 추적 중 플레이어 폭발 피격도 현재 셀에서 점화를 시작한다. 0.75초 뒤 범위 2 십자 자기 폭발로만 사망하며 접촉 피해는 없다. 수치는 `Proposed`다.
-- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 갑옷 적은 내구 단계 2·접촉 피해 1이고 자폭병은 플레이어 폭발에 즉사하지 않고 Telegraph로 전환한다. 세션은 추격자→돌진형→갑옷 적→자폭병 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하며 binder가 연결문을 개방한다. 첫 보상은 `prototype-area`와 범위 3의 `prototype-line` 중 하나를 빈 슬롯에 장착한다.
+- 선택적 `ThrowerEnemySimulation`은 전용 씬에서 `ActorId(7)`로 같은 격자를 점유한다. 1 cell/s로 저작 사격 anchor를 순환하고 6개 저작 목표 후보를 현재 플레이어와 가까운 순서로 정렬한다. 가장 가까운 압박점 1개와 사격 anchor index에 따라 순환하며 직전 volley에서 쓰지 않은 후보를 우선하는 측면 2개를 0.3초 고정 예고한 뒤 세 방향 0.45초 비행·1.5초 fuse·범위 1 십자 폭탄을 각각 착탄한다. 폭탄은 기존 0.15초 연쇄 지연을 공유한다. 수치는 `Proposed`이며 메인 던전에는 아직 편성하지 않았다.
+- 기본 추격자와 돌진형은 내구도 1·접촉 피해 1이며 영향 셀 폭발 한 번에 사망한다. 갑옷 적은 내구 단계 2·접촉 피해 1이고 자폭병은 플레이어 폭발에 즉사하지 않고 Telegraph로 전환한다. 투척병은 체력 1이고 자기 폭탄만 무시한다. 세션은 추격자→돌진형→갑옷 적→자폭병→투척병 고정 순서로 처리하고 마지막 적 사망 뒤 단일 방 클리어를 발행하며 binder가 연결문을 개방한다. 첫 보상은 `prototype-area`와 범위 3의 `prototype-line` 중 하나를 빈 슬롯에 장착한다.
 - 보스는 `ActorId(5)`와 체력 10을 사용한다. 플레이어 폭탄과 자폭병 폭발은 살아 있는 보스에게 패턴 상태와 무관하게 서로 다른 `BombId`당 한 번 피해를 주며 과열별 누적 상한은 없다. 같은 폭발 중복, 사망 뒤 피해와 보스 소유 폭탄 자기 피해는 거부한다. Two 전환에서 먼 저작 셀을 예고한 뒤 자폭병을 한 번 소환하고 4.5초 뒤 강제 점화하며, 해결 전 강화 투척을 시작하지 않는다.
 - `PrototypeDungeonRunSession`은 Core run 결과와 실패의 정확한 `PlayerDamageResult`를 노출한다. `PrototypeRunCompletionPresenter`가 다음 frame에 snapshot을 읽어 방 simulation을 멈추고 `FLOOR CLEARED` 또는 `RUN FAILED`를 표시한다. 실패 시 source와 고정 적 ID로 `BOMB EXPLOSION`, `CHASER CONTACT`, `CHARGER CHARGE`, `ARMORED ENEMY CONTACT`, 일반 `ENEMY CONTACT`, `BOSS ATTACK`을 구분한다. `R` 또는 게임패드 Select를 받은 persistent host는 같은 seed·catalog의 새 run state를 만들어 페이지 reload 없이 `DungeonStart`를 다시 로드한다.
 - 다섯 room asset은 모두 11×9이며 cardinal 네 방향의 중앙 잠재 출구와 중앙 십자, 평행 통로, 짧은 돌진 차선, 갑옷 T 교차점, 중앙 게이트의 서로 다른 고정 벽·spawn·퇴로·유도 순환 경로를 소유한다. 첫 방은 파괴 벽이 없고, 두 번째는 `(-1,-1)·(1,-1)`, 세 번째는 동쪽 차선 종단 `(2,-2)` 파괴 벽과 seed-0 회전 입장 축을 피하는 돌진형 spawn `(-1,1)`, 네 번째는 갑옷 적 spawn `(0,1)`과 남쪽 통로·상단 막·좌우 3칸 panic 가지, 다섯 번째는 `(0,-1)·(0,1)` 파괴 문, `x=±3` 우회, 자폭병 spawn `(3,0)`과 유도 anchor `(0,-2)·(0,2)`를 소유한다. 자폭 anchor는 AI 목적지가 아니라 대표 유인 위치와 각 문 폭발 결과를 검증하는 저작 메타데이터다. 정확한 셀 계약은 `Docs/Systems/RoomAuthoring.md`가 소유한다.
-- 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적·자폭병 spawn, 자폭 유도 anchor를 대응 방 자산에서 읽는다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
+- 각 TestSandbox 씬의 `TestSandboxContext`는 격자 크기·셀 크기·blocked cell과 선택적 돌진형·갑옷 적·자폭병·투척병 spawn, 자폭 유도 anchor를 대응 방 자산에서 읽는다. 투척병 사격/목표 anchor는 room Core 정의가 소유한다. spawn과 내부 장애물 Transform은 표현이며 validator가 저작 셀과 일치하는지 확인한다.
 - TestSandbox 로드아웃은 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 쿨타임 1.5초)와 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 쿨타임 2.5초), 교체 쿨타임 2초를 소유한다. 수치는 모두 `Proposed`다.
 - EditMode 테스트는 기존 Core 회귀와 함께 보스 정의·3 phase, 제한 추격·고정 돌진, 3/4/4개 순차 투척, 행별 parity, 모든 생존 상태의 플레이어 폭탄 피해·중복 차단, 안전한 phase 예약, 소환 셀 잠금·자폭병 해결 대기/직접 피해, LastStand와 사망·시계·저작 앵커 계약을 검증한다.
 - `GridSpace`는 임의 원점·양수 셀 크기의 격자↔3D XZ 변환을 제공하고 Y를 표현 높이로 분리한다.
@@ -171,6 +175,7 @@
 
 ## 진행 중
 
+- [퇴로 차단 투척병 수직 슬라이스](ThrowerVerticalSlice.md)의 규칙·전용 콘텐츠/씬·EditMode/PlayMode를 3발 volley와 연속 사격의 측면 2칸 순환으로 확장했다. 남은 게이트는 전용 Lanes 사람 플레이에서 0.3초에 동시에 보이는 중앙/측면 세 퇴로 예고와 다음 공격에서 바뀐 측면을 읽고 이동 경로를 바꾸는지, 투척 폭탄을 피하기만 하는 대신 의도적으로 연쇄하는 선택이 생기는지 확인하는 것이다.
 - [프로토타입 준비도 감사](PrototypeReadinessAudit.md)의 GDD 필수 구현 뒤 실제 플레이에서 설치→외곽 도주→대기 반복, 적 역할 중복, 약한 보스 선행 설치 요구가 관찰됐다. [전투·적 AI·레벨·보스 개선 제안](../GameDesign/CombatEnemyLevelBossImprovementProposal.md)을 `Proposed` 후속 백로그로 기록하고 독립 수직 슬라이스 순서로 검증한다.
 - 첫 개선 단위로 추격자의 국소 Manhattan 선택을 재계획 시점 BFS 거리장으로 교체했다. 막힌 포켓 우회, committed overshoot 중단, 경로 없음 대기와 전체 Unity·WebGL 회귀를 통과했다. 압박·유도 재미는 새 고정 빌드 사람 플레이가 남아 있다.
 - 두 번째 개선 단위로 돌진형의 제자리 정렬 대기를 cadence 기반 BFS 차선 획득으로 교체하고, 방향·최대 거리 고정 예고와 `Pillars`의 짧은 차선·측면 탈출 포켓을 연결했다. [2026-08-20 입장·접촉 가독성 결과](../Playtesting/Results/PT-20260820-06.md)에 따라 돌진형 spawn을 seed-0 회전 입장 축 밖으로 옮겼으며, 최소 한 Track 이동 뒤 예고와 추격자 시각 도착 뒤 접촉은 수정 빌드 사람 재검증을 받아 `Accepted`했다. 최종 조합 난이도는 전체 경로에서 회귀 관찰한다.
@@ -186,14 +191,14 @@
 
 ## 바로 다음 권장 작업
 
-1. 최신 고정 Development WebGL의 `DungeonStart` 전체 경로로 [보스 프로토콜](../Playtesting/BossPhaseReworkProtocol.md)을 수행하고 종료 직후 `SAVE TEST LOG`를 저장한다. `Pillars` 입장과 추격자 접촉 교정은 이 경로에서 회귀 관찰만 한다.
-2. 자동 요약의 encounter 시간·phase/state/source/폭탄 정의별 적중·보스 패턴 피격과 관찰 기록의 선행 설치·자폭병 유도 의도·parity 재사용·LastStand 인상을 함께 `PT-*` 결과로 판정한다.
-3. 반복되는 가장 강한 문제 하나가 있을 때만 프로토콜 조정 순서의 첫 해당 범주 하나를 수정한다. 새 반복 문제가 없으면 현재 보스와 일반 전투 수치를 유지하고 다음 프로토타입 완료 조건으로 이동한다.
+1. Editor 메뉴 `Bomb Swap > Playtest > Play Thrower Lanes Room`으로 전용 씬을 반복 플레이해 세 예고의 동시 인지, 두 번째 공격에서 바뀌는 측면 2칸, 남은 퇴로 선택, 회피/연쇄 선택, 사격 anchor 순환과 추격자 조합의 공정성을 기록한다.
+2. 규칙 오류와 조작감 수치 문제를 분리한다. 목표 잠금·착탄·연쇄 계약이 깨진 경우만 즉시 수정하고, 사용자 요청으로 조정한 0.3초 예고와 1.5초 fuse·범위 1·1 cell/s는 관찰 근거가 있을 때 한 범주씩 조정한다.
+3. 사람 결과가 지지되면 기존 `Lanes` 교체 또는 새 여섯 번째 방 추가 중 하나를 별도 기획으로 선택하고 던전 카탈로그·회전·전체 경로를 다시 검증한다. 지지되지 않으면 전용 슬라이스를 유지한 채 메인 던전 편성을 보류한다.
 
 ## 알려진 위험과 미정
 
 - 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. P01은 수정 WebGL에서 일반 키 해제 즉시 정지, 빠른 `상→우` 반복과 벽 모서리 직교 전환이 자연스러움을 확인했다. 보고된 결함의 재현 계약은 `Supported`로 갱신했지만 최종 속도와 코너 보정 수치는 한 사람의 세션만으로 확정하지 않는다.
-- 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`, 선택적 자폭병 `ActorId(6)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
+- 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`, 선택적 자폭병 `ActorId(6)`, 선택적 투척병 `ActorId(7)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 설치 방향 앞쪽 범위 3 직선 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 직선 후보는 기존 긴 십자 수치를 유지해 영향 셀이 크게 줄었으므로 복도 정렬 이점보다 약함이 먼저 느껴지는지 확인해야 한다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 함께 관찰한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
 - 전투방당 `+1`, Secret cache `+3`과 `ROOM TOKENS`는 GDD의 작은 클리어·발견 보상을 관찰하기 위한 소비처 없는 `Proposed` 임시 점수다. 상점·아이템 드롭·메타 재화·저장과 최종 경제 밸런스를 뜻하지 않으며 실제 반복 동기를 높이는지는 사람 플레이테스트가 필요하다.
 - 최대 체력 5, 자기 폭발/추격자 접촉/돌진 충돌 피해 1, 무적 0.75초와 피격 색 pulse는 자동 계약을 통과했지만 재미·가독성은 플레이테스트 전까지 `Proposed`다. 추격자는 이동 시작의 논리 셀 확정과 0.5초 보이는 이동 사이에 피해가 앞서지 않도록 도착 시각을 기다리지만, 지속 인접 시 무적 종료마다 반복 피해가 가능하다. 기본 체력 HUD와 source 기반 사망 원인 문구·재시작은 구현됐지만 공격 이름·위치·시간을 포함한 상세 타임라인, 최종 HUD 아트·오디오는 아직 없다.
@@ -201,11 +206,12 @@
 - 돌진형의 1 cell/s 획득·0.75초 예고·8 cells/s 돌진·1초 회복과 `Pillars`의 차선 종단·spawn `(-1,1)` 배치는 `Proposed`다. 자동 검증은 BFS·cadence·방향/최대 거리 잠금·전체 셀 예고·충돌의 정확성과 seed-0 회전 입장 축 비정렬만 보장한다. 최소 한 Track 이동이 실제 입장 판단 여유로 충분한지, 획득 이동과 강한 돌진의 구분, 두 적의 동시 압력, 폭탄/기둥 유도 선택은 사람 플레이테스트가 필요하다. 폭탄 충돌 연쇄·기절은 아직 구현하지 않았다.
 - 갑옷 적의 반경 1, 예고 0.6초, panic 6 cells/s·3칸, 회복 0.5초, 추격 3 cells/s와 외형 축소·색/경로 표현은 `Proposed`다. 자동 검증은 폭발 중심 기반 경로 선택·고정, 상태 시간, 두 서로 다른 폭발, 점유·클리어 순서를 보장한다. 예고 방향이 충분히 읽히고 두 번째 설치를 실제로 선행하게 만드는지는 사람 플레이테스트가 필요하다.
 - 자폭병의 일반 2 cells/s·경고 최대 5 cells/s, 연속 경고 1.5초, 경고/조기 점화 거리 3/1, 3→8Hz pulse, 0.75초 fuse, 범위 2 십자와 Gates 유도 anchor `(0,-2)·(0,2)`는 `Proposed`다. 자동 검증은 현재 플레이어 BFS, 경고 진입·이탈·재진입 초기화, 가속·유한 점화, 인접 조기 정지, 표현 정합, 플레이어 폭발 trigger, 기존 연쇄 지연·벽 차단, 자기 사망과 한쪽 문 파괴를 보장한다. 속도·범위 동시 상향 뒤 열린 공간 회피, 장애물 압박, 범위 예측과 원하는 문 유도 여유는 후속 사람 플레이테스트가 필요하다.
+- 투척병의 1 cell/s 사격 anchor 이동, 0.3초 세 목표 고정 예고, 동시 3발·0.45초 비행, 0.75초 회복, 1.5초 fuse·범위 1 십자와 전용 Lanes 배치는 `Proposed`다. 자동 검증은 6개 저작 목표의 거리·동률 순서, 가장 가까운 압박점 유지와 사격 anchor별 측면 2칸 순환, 결정론적 이동, 단일 volley 제한, 발별 착탄 실패, 공용 연쇄와 자기 소유 면역을 보장한다. 단축된 세 예고와 다음 공격의 변화가 화면에서 충분히 읽히는지, 추격자와 함께 불공정한 퇴로 봉쇄가 되는지, 플레이어가 연쇄를 의도적으로 선택하는지는 사람 플레이가 필요하다.
 - commit `134dd06`의 post-commit 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0과 TextMeshPro 대형 메서드 분할 안내 경고 3건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 incremental development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 실제 asset은 체력 10·phase 임계 7/2, 추격 2/3/2, 돌진 3칸, 과열 2.0/1.5/2.25초, 비행 0.45초·투척 간격 0.4초, 자폭병 강제 점화 4.5초를 사용한다. 자동 테스트는 결정론·상한·전환·연결 정확성만 보장한다. placeholder에는 방향 몸짓·착탄 그림자·오디오가 없어 목적지 ghost 제거 뒤 가독성, 정보 중첩, 체력 10의 반복 피로와 실제 위협도는 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하지만 focus 상실 자동 pause, 설정 메뉴, UI 전용 action map과 사용자 리바인딩은 아직 없다.
-- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적·자폭병 각 한 개, 자폭 유도 anchor, 고정 벽·1회 파괴 벽을 지원한다. 자폭 유도 anchor는 AI waypoint가 아니라 레벨 의도·폭발 결과 검증용이다. Secret 문은 방별 출구 셀→연결 경계 adapter가 폭발 footprint를 소비한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 다종 환경 반응물 registry, 보상·전환 anchor와 room prefab 선택은 아직 없다.
+- 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적·자폭병·투척병 각 한 개, 자폭 유도 anchor, 투척병 사격/목표 anchor, 고정 벽·1회 파괴 벽을 지원한다. 자폭 유도 anchor는 AI waypoint가 아니라 레벨 의도·폭발 결과 검증용이고 투척병 anchor는 실제 AI 이동·목표 계약이다. Secret 문은 방별 출구 셀→연결 경계 adapter가 폭발 footprint를 소비한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 다종 환경 반응물 registry, 보상·전환 anchor와 room prefab 선택은 아직 없다.
 - 다섯 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 장착된 두 폭탄 정의·성공한 마지막 활성 슬롯·현재 체력·Recovery 소비 여부는 run 전체에서 보존되고 새 run만 슬롯 0·최대 체력·미소비 Recovery로 시작한다. `+2`와 한 번 사용은 자동 검증을 통과한 `Proposed` 값이며 사람 플레이 전에는 확정하지 않는다.
 - Core 그래프의 기본 4~5 전투방, 단일 선택 가지와 Secret 하나의 2~3 Combat 인접 후보 정책은 `Proposed`다. 제한 정보 미니맵과 미공개 Secret 숨김은 구현했지만, 길 찾기 피로 감소·금 간 단서 발견성·방 반복 체감은 아직 사람 플레이로 판정하지 않았다.
 - 그래프 기반 실제 문 전환, Unity 씬 수명, 첫 보상 정의·활성 슬롯·현재 체력의 run persistence와 완료 뒤 같은 seed의 새 run 재시작은 구현됐다. 다만 두 슬롯이 찬 뒤 교체·버린 무기 보존, 저장·불러오기, 로딩 연출과 슬롯별 쿨타임 등 room-local 세부 상태 persistence는 아직 없다.
@@ -214,6 +220,7 @@
 
 ## 최근 검증
 
+- 사용자 플레이에서 3발 volley가 매번 같은 세 칸을 반복하는 문제가 확인됐다. 목표 후보 수 3개와 volley 발수 3개가 같아 거리 정렬과 무관하게 전체 후보를 매번 다시 고르던 것이 원인이었다. 실패 회귀 `Artifacts/Verification/ConnectedTests/20260819-211852-144.json`은 새 연속 volley 테스트만 실패하는 `342/343`을 재현했다. 후보를 6개로 늘리고 가장 가까운 압박점 1개는 유지하되 사격 anchor index 순환과 직전 volley 미사용 우선으로 측면 2개를 바꾸도록 수정한 뒤 연결 Unity 6000.5.3f1 전체 EditMode `343/343`, PlayMode `134/134`, `PrototypeContentValidator`와 Unity Console Error/Warning 0을 확인했다. 연결 증거는 `Artifacts/Verification/ConnectedTests/20260819-213125-705.json`, `Artifacts/Verification/ConnectedTests/20260819-213147-343.json`, 정적 증거는 `Artifacts/Verification/20260820-063451-static/summary.json`이다. `Artifacts/Verification/20260820-063300-thrower-rotation-final-web/`의 전용 1씬 Development WebGL은 138,713,132 bytes·63.378초·오류 0·안내 경고 3건으로 성공했고 browser smoke `8/8`가 첫 `(0,0)·(-3,-2)·(3,-2)` 뒤 두 번째 `(0,0)·(0,4)·(-4,1)` 예고, 3회 launch/armed, 공용 연쇄와 Console/page error 0을 확인했다. 투척병은 표준 Build Settings와 메인 던전 카탈로그 밖이므로 표준 11씬 빌드는 이번 수정 뒤 다시 실행하지 않았다.
 - 추격자 접촉 도착 동기화와 `Pillars` 입장 배치 교정 뒤 연결 Unity 6000.5.3f1의 전체 EditMode `330/330`, PlayMode `133/133`, `PrototypeContentValidator`, 빌드 전 Console Error/Warning 0을 확인했다. 최종 StaticOnly 증거는 `Artifacts/Verification/20260820-013827-static/summary.json`이다. `Artifacts/Verification/20260820-011230-chaser-arrival-pillars-connected-web/`의 11씬 Development WebGL은 138,801,219 bytes·146.052초·오류 0, 기존 패키지·셰이더 범주 경고 351건으로 성공했다. 빌드 뒤 Unity Console Error는 0이며 현재 Warning 6건은 MMFeedbacks 선택 연동 asset 3건과 WebGL TextMeshPro IL2CPP 안내 3건이다. Chromium keyboard `46/46`은 seed-0 `Pillars` 첫 돌진형 행동이 Telegraph가 아닌 Track 이동임과 전체 던전 회귀·2,472사건 분석을, 가상 Gamepad `14/14`는 입력 회귀를 확인했고 두 실행의 Console/page error는 0이다. 기존 즉시공격 경로를 전제로 한 browser 실패 4건은 같은 artifact에 보존했다.
 - 보스 플레이테스트 상세 계측 최종 트리에서 Node fixture와 이전 2,512사건 `playtest-log@1`의 `summary@2` 재분석, 연결 Unity EditMode `329/329`·PlayMode `133/133`, StaticOnly과 Unity Console Error 0을 확인했다. `Artifacts/Verification/20260820-003200-boss-playtest-telemetry-connected-web/`의 11씬 Development WebGL은 138,800,198 bytes·102.214초·오류 0·TextMeshPro 안내 경고 3건으로 성공했다. Chromium keyboard `46/46`과 Gamepad `14/14`, 두 실행의 Console/page error 0이 통과했다. 2,473사건 `summary@2`는 보스 encounter 62.531초, 보스 피해 10건 전부 분류, phase One/Two/LastStand `4/5/1`, state Telegraph/Execute/Recovery `1/0/9`, 플레이어 폭탄/자폭병 `9/1`, area/cross/self-destruct `5/4/1`, 플레이어 폭탄 정의 교대 적중 6회를 재구성했다. 첫 `Artifacts/Verification/20260820-003000-boss-playtest-telemetry-connected-web/` 빌드에서 WebGL 전용 `BombSnapshot.BombId` 오참조 3건과 build error 1건을 발견해 실패 증거를 보존하고 실제 `Id` 계약으로 수정했다. 연결 테스트 증거는 `Artifacts/Verification/ConnectedTests/20260819-152531-257.json`, `Artifacts/Verification/ConnectedTests/20260819-152549-586.json`, 최종 정적 증거는 `Artifacts/Verification/20260820-003630-static/summary.json`이다.
 - 보스의 무적 구간과 과열당 피해 상한을 제거한 최종 트리에서 연결 Unity EditMode `329/329`·PlayMode `133/133`, StaticOnly과 Unity Console Error 0을 확인했다. `Artifacts/Verification/20260819-232513-connected-web/`의 11씬 Development WebGL은 138,798,114 bytes·74.641초·오류 0·안내 경고 3건으로 성공했다. Chromium keyboard `46/46`은 생존 중 모든 패턴의 플레이어 폭탄 피해, 1페이즈 과열 2회, 일회성 자폭병, 2페이즈 과열 2회, LastStand와 보스 처치를 포함한 전체 seed-0 경로를 통과했고 2,512개 사건 분석도 성공했다. 가상 Gamepad `14/14`와 두 브라우저 실행의 Console/page error 0을 확인했다. 연결 증거는 `Artifacts/Verification/ConnectedTests/20260819-143454-325.json`, `Artifacts/Verification/ConnectedTests/20260819-143208-224.json`, 정적 증거는 `Artifacts/Verification/20260819-233513-static/summary.json`이다.

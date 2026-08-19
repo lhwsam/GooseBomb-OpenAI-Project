@@ -32,9 +32,12 @@ namespace BombSwap
         private static readonly ActorId PrototypeArmoredActorId = new ActorId(4);
         private static readonly ActorId PrototypeBossActorId = new ActorId(5);
         private static readonly ActorId PrototypeSelfDestructActorId = new ActorId(6);
+        private static readonly ActorId PrototypeThrowerActorId = new ActorId(7);
         private static readonly IReadOnlyList<GridPosition> NoBossDangerCells =
             Array.AsReadOnly(Array.Empty<GridPosition>());
         private static readonly IReadOnlyList<GridPosition> NoSelfDestructTelegraphCells =
+            Array.AsReadOnly(Array.Empty<GridPosition>());
+        private static readonly IReadOnlyList<GridPosition> NoThrowerLockedTargets =
             Array.AsReadOnly(Array.Empty<GridPosition>());
 
         [SerializeField]
@@ -63,6 +66,9 @@ namespace BombSwap
 
         [SerializeField]
         private PrototypeSelfDestructDefinitionAsset selfDestructDefinition;
+
+        [SerializeField]
+        private PrototypeThrowerDefinitionAsset throwerDefinition;
 
         [SerializeField]
         private PrototypeBossDefinitionAsset bossDefinition;
@@ -96,6 +102,9 @@ namespace BombSwap
         private SelfDestructEnemySimulation _selfDestruct;
         private EnemyHealthSimulation _selfDestructHealth;
         private SelfDestructEnemyDefinition _coreSelfDestructDefinition;
+        private ThrowerEnemySimulation _thrower;
+        private EnemyHealthSimulation _throwerHealth;
+        private ThrowerEnemyDefinition _coreThrowerDefinition;
         private BossBattleSimulation _boss;
         private CombatRoomDefinition _runtimeRoomDefinition;
         private GridPosition? _runtimePlayerStart;
@@ -117,12 +126,15 @@ namespace BombSwap
             new List<BossDamageResult>();
         private readonly List<PendingBossBombFlight> _pendingBossBombFlights =
             new List<PendingBossBombFlight>(4);
+        private readonly List<ThrowerBombFlight> _pendingThrowerBombFlights =
+            new List<ThrowerBombFlight>(3);
         private readonly HashSet<GridPosition> _bossReservedBombCells =
             new HashSet<GridPosition>();
         private bool _roomCleared;
         private bool _hasCharger;
         private bool _hasArmored;
         private bool _hasSelfDestruct;
+        private bool _hasThrower;
         private bool _bossSummonedSelfDestruct;
         private TimeSpan _bossSelfDestructForceAt;
         private bool _isPaused;
@@ -165,6 +177,12 @@ namespace BombSwap
 
         public event Action<BombSnapshot> SelfDestructArmed;
 
+        public event Action<ThrowerEnemyAdvanceResult> ThrowerAdvanced;
+
+        public event Action<ThrowerBombFlight> ThrowerBombLaunched;
+
+        public event Action<BombSnapshot> ThrowerBombPlaced;
+
         public event Action<EnemyMovementStep> BossMoved;
 
         public event Action<EnemyDamageResult> EnemyDamaged;
@@ -205,6 +223,8 @@ namespace BombSwap
         public PrototypeSelfDestructDefinitionAsset SelfDestructDefinition =>
             selfDestructDefinition;
 
+        public PrototypeThrowerDefinitionAsset ThrowerDefinition => throwerDefinition;
+
         public PrototypeBossDefinitionAsset BossDefinition => bossDefinition;
 
         public float CellsPerSecond => cellsPerSecond;
@@ -225,6 +245,7 @@ namespace BombSwap
             (!_hasCharger || (_charger != null && _chargerHealth != null)) &&
             (!_hasArmored || _armored != null) &&
             (!_hasSelfDestruct || (_selfDestruct != null && _selfDestructHealth != null)) &&
+            (!_hasThrower || (_thrower != null && _throwerHealth != null)) &&
             (!HasBoss || _boss != null);
 
         public bool IsReady { get; private set; }
@@ -330,6 +351,29 @@ namespace BombSwap
                 ? _selfDestruct.TelegraphCells
                 : NoSelfDestructTelegraphCells;
 
+        public bool HasThrower => _hasThrower;
+
+        public ActorId ThrowerActorId => _thrower != null ? _thrower.ActorId : default;
+
+        public GridPosition CurrentThrowerGridPosition =>
+            _thrower != null ? _thrower.CurrentPosition : default;
+
+        public ThrowerEnemyState CurrentThrowerState =>
+            _thrower != null ? _thrower.State : ThrowerEnemyState.Track;
+
+        public GridPosition CurrentThrowerLockedTarget =>
+            _thrower != null ? _thrower.LockedTarget : default;
+
+        public IReadOnlyList<GridPosition> CurrentThrowerLockedTargets =>
+            _thrower != null ? _thrower.LockedTargets : NoThrowerLockedTargets;
+
+        public bool IsThrowerAlive =>
+            _hasThrower && _throwerHealth != null && !_throwerHealth.IsDead;
+
+        public bool HasPendingThrowerBombFlight => _pendingThrowerBombFlights.Count > 0;
+
+        public int PendingThrowerBombFlightCount => _pendingThrowerBombFlights.Count;
+
         public GridPosition GetCurrentArmoredPanicPathCell(int index)
         {
             if (_armored == null)
@@ -385,6 +429,10 @@ namespace BombSwap
                 {
                     count++;
                 }
+                if (_throwerHealth != null && !_throwerHealth.IsDead)
+                {
+                    count++;
+                }
                 if (_boss != null && !_boss.IsDead)
                 {
                     count++;
@@ -428,7 +476,8 @@ namespace BombSwap
             bool startingCombatEnabled = true,
             PrototypeBossDefinitionAsset startingBoss = null,
             bool startingBossEnabled = false,
-            PrototypeSelfDestructDefinitionAsset startingSelfDestruct = null)
+            PrototypeSelfDestructDefinitionAsset startingSelfDestruct = null,
+            PrototypeThrowerDefinitionAsset startingThrower = null)
         {
             if (Application.isPlaying && isActiveAndEnabled)
             {
@@ -478,6 +527,7 @@ namespace BombSwap
             chargerDefinition = startingCharger;
             armoredDefinition = startingArmored;
             selfDestructDefinition = startingSelfDestruct;
+            throwerDefinition = startingThrower;
             bossDefinition = startingBoss;
             cellsPerSecond = movementCellsPerSecond;
             chainDelaySeconds = bombChainDelaySeconds;
@@ -591,8 +641,10 @@ namespace BombSwap
                   playerStart == roomDefinition.ChargerSpawn.Value) ||
                   (roomDefinition.ArmoredSpawn.HasValue &&
                    playerStart == roomDefinition.ArmoredSpawn.Value) ||
-                  (roomDefinition.SelfDestructSpawn.HasValue &&
-                   playerStart == roomDefinition.SelfDestructSpawn.Value)))
+                   (roomDefinition.SelfDestructSpawn.HasValue &&
+                    playerStart == roomDefinition.SelfDestructSpawn.Value) ||
+                   (roomDefinition.ThrowerSpawn.HasValue &&
+                    playerStart == roomDefinition.ThrowerSpawn.Value)))
             {
                 throw new ArgumentException(
                     $"Runtime player start {playerStart} cannot overlap an enemy spawn.",
@@ -734,6 +786,12 @@ namespace BombSwap
                 definitionId.Value)
             {
                 return selfDestructDefinition.DetonationBombDefinition;
+            }
+            if (throwerDefinition != null &&
+                throwerDefinition.BombDefinition != null &&
+                throwerDefinition.BombDefinition.DefinitionId == definitionId.Value)
+            {
+                return throwerDefinition.BombDefinition;
             }
             if (_runtimeBombDefinitions != null)
             {
@@ -988,6 +1046,18 @@ namespace BombSwap
                     SelfDestructAdvanced?.Invoke(selfDestructAdvance);
                 }
             }
+            if (_hasThrower && !_throwerHealth.IsDead)
+            {
+                ThrowerEnemyAdvanceResult throwerAdvance = _thrower.Advance();
+                if (throwerAdvance.ShouldLaunch)
+                {
+                    BeginThrowerBombFlights(throwerAdvance.LockedTargets);
+                }
+                if (throwerAdvance.HasActivity)
+                {
+                    ThrowerAdvanced?.Invoke(throwerAdvance);
+                }
+            }
 
             BossPatternTransition? bossTransition = null;
             if (HasBoss && !_boss.IsDead &&
@@ -1013,6 +1083,7 @@ namespace BombSwap
             }
 
             ProcessBossBombFlights();
+            ProcessThrowerBombFlights();
 
             var explosions = _bombs.ProcessDueBombs();
             if (bossTransition.HasValue && bossTransition.Value.BossMoved)
@@ -1061,6 +1132,21 @@ namespace BombSwap
                 if (_hasSelfDestruct)
                 {
                     ApplySelfDestructExplosion(explosion);
+                }
+                if (_hasThrower)
+                {
+                    if (_thrower.IsActiveBomb(explosion.BombId))
+                    {
+                        _thrower.NotifyBombResolved(explosion.BombId);
+                    }
+                    if (explosion.OwnerId != _thrower.ActorId)
+                    {
+                        ApplyEnemyExplosionDamage(
+                            explosion,
+                            _thrower.ActorId,
+                            _throwerHealth,
+                            "thrower");
+                    }
                 }
                 if (HasBoss)
                 {
@@ -1163,6 +1249,7 @@ namespace BombSwap
             _hasCharger = HasChaser && roomDefinition.ChargerSpawn.HasValue;
             _hasArmored = HasChaser && roomDefinition.ArmoredSpawn.HasValue;
             _hasSelfDestruct = HasChaser && roomDefinition.SelfDestructSpawn.HasValue;
+            _hasThrower = HasChaser && roomDefinition.ThrowerSpawn.HasValue;
             bool bossHasSelfDestructSummon = bossEnabledForVisit &&
                 roomDefinition.SelfDestructSpawn.HasValue &&
                 roomDefinition.SelfDestructAnchors.Count >= 2;
@@ -1181,6 +1268,11 @@ namespace BombSwap
             {
                 throw new InvalidOperationException(
                     "A room with a self-destruct spawn requires a self-destruct definition reference.");
+            }
+            if (_hasThrower && throwerDefinition == null)
+            {
+                throw new InvalidOperationException(
+                    "A room with a thrower spawn requires a thrower definition reference.");
             }
 
             _grid = CreateGrid(roomDefinition);
@@ -1293,6 +1385,28 @@ namespace BombSwap
             else if (bossHasSelfDestructSummon)
             {
                 _coreSelfDestructDefinition = selfDestructDefinition.CreateCoreDefinition();
+            }
+            if (_hasThrower)
+            {
+                if (context.ThrowerSpawn == null)
+                {
+                    throw new InvalidOperationException(
+                        "A room with a thrower requires a thrower spawn Transform.");
+                }
+
+                _coreThrowerDefinition = throwerDefinition.CreateCoreDefinition();
+                _thrower = new ThrowerEnemySimulation(
+                    _grid,
+                    _clock,
+                    _coreThrowerDefinition,
+                    PrototypeThrowerActorId,
+                    _movement.ActorId,
+                    roomDefinition.ThrowerSpawn.Value,
+                    roomDefinition.ThrowerFiringAnchors,
+                    roomDefinition.ThrowerTargetAnchors);
+                _throwerHealth = new EnemyHealthSimulation(
+                    _thrower.ActorId,
+                    _coreThrowerDefinition.MaxHealth);
             }
             if (bossEnabledForVisit)
             {
@@ -1608,6 +1722,69 @@ namespace BombSwap
                 _bossReservedBombCells.Remove(pending.Flight.Target);
                 BossBombPlaced?.Invoke(snapshot);
                 _pendingBossBombFlights.RemoveAt(index);
+            }
+        }
+
+        private void BeginThrowerBombFlights(
+            IReadOnlyList<GridPosition> targets)
+        {
+            if (targets == null)
+            {
+                throw new ArgumentNullException(nameof(targets));
+            }
+            if (targets.Count != _coreThrowerDefinition.BombsPerVolley)
+            {
+                throw new InvalidOperationException(
+                    "Thrower launch targets must match its configured volley size.");
+            }
+            if (_pendingThrowerBombFlights.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "A thrower cannot launch another volley while bombs are in flight.");
+            }
+
+            TimeSpan launchedAt = _clock.Now;
+            TimeSpan landsAt = launchedAt.Add(_coreThrowerDefinition.FlightDuration);
+            for (int index = 0; index < targets.Count; index++)
+            {
+                var flight = new ThrowerBombFlight(
+                    _thrower.ActorId,
+                    _coreThrowerDefinition.BombDefinition,
+                    _thrower.CurrentPosition,
+                    targets[index],
+                    launchedAt,
+                    landsAt);
+                _pendingThrowerBombFlights.Add(flight);
+                ThrowerBombLaunched?.Invoke(flight);
+            }
+        }
+
+        private void ProcessThrowerBombFlights()
+        {
+            int index = 0;
+            while (index < _pendingThrowerBombFlights.Count)
+            {
+                ThrowerBombFlight flight = _pendingThrowerBombFlights[index];
+                if (_clock.Now < flight.LandsAt)
+                {
+                    index++;
+                    continue;
+                }
+
+                _pendingThrowerBombFlights.RemoveAt(index);
+                if (!_bombs.TryPlaceBomb(
+                        flight.Definition,
+                        flight.Target,
+                        flight.OwnerId,
+                        out BombId bombId) ||
+                    !_bombs.TryGetBomb(bombId, out BombSnapshot snapshot))
+                {
+                    _thrower.NotifyLaunchFailed();
+                    continue;
+                }
+
+                _thrower.ConfirmBombPlaced(bombId);
+                ThrowerBombPlaced?.Invoke(snapshot);
             }
         }
 

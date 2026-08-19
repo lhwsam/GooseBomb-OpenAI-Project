@@ -296,13 +296,27 @@ namespace BombSwap.Tests.EditMode
             var armored = new GridPosition(-3, -2);
             var selfDestruct = new GridPosition(3, 0);
             var selfDestructAnchor = new GridPosition(0, -2);
+            var thrower = new GridPosition(3, 2);
+            var throwerFiringAnchor = new GridPosition(2, 2);
+            var throwerTargetAnchor = new GridPosition(-2, -1);
             CombatRoomDefinition source = CreateRoom(
                 walls: new[] { wall },
                 destructibleWalls: new[] { destructible },
                 chargerSpawn: charger,
                 armoredSpawn: armored,
                 selfDestructSpawn: selfDestruct,
-                selfDestructAnchors: new[] { selfDestructAnchor });
+                selfDestructAnchors: new[] { selfDestructAnchor },
+                throwerSpawn: thrower,
+                throwerFiringAnchors: new[]
+                {
+                    thrower,
+                    throwerFiringAnchor,
+                },
+                throwerTargetAnchors: new[]
+                {
+                    throwerTargetAnchor,
+                    new GridPosition(-2, -2),
+                });
 
             CombatRoomDefinition rotated = CombatRoomRotationUtility.Rotate(
                 source,
@@ -321,6 +335,13 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 rotated.SelfDestructAnchors,
                 Does.Contain(new GridPosition(-2, 0)));
+            Assert.That(rotated.ThrowerSpawn, Is.EqualTo(new GridPosition(2, -3)));
+            Assert.That(
+                rotated.ThrowerFiringAnchors,
+                Does.Contain(new GridPosition(2, -2)));
+            Assert.That(
+                rotated.ThrowerTargetAnchors,
+                Does.Contain(new GridPosition(-1, 2)));
             Assert.That(
                 rotated.Exits[0].Direction,
                 Is.EqualTo(RoomExitDirection.East));
@@ -399,6 +420,79 @@ namespace BombSwap.Tests.EditMode
             Assert.That(room.SelfDestructAnchors, Has.Count.EqualTo(2));
         }
 
+        [Test]
+        public void Definition_StoresThrowerSpawnAndAuthoredAnchorSets()
+        {
+            var throwerSpawn = new GridPosition(3, 2);
+            GridPosition[] firingAnchors =
+            {
+                throwerSpawn,
+                new GridPosition(2, 2),
+            };
+            GridPosition[] targetAnchors =
+            {
+                new GridPosition(-2, -1),
+                new GridPosition(-2, -2),
+            };
+
+            CombatRoomDefinition room = CreateRoom(
+                throwerSpawn: throwerSpawn,
+                throwerFiringAnchors: firingAnchors,
+                throwerTargetAnchors: targetAnchors);
+
+            Assert.That(room.ThrowerSpawn, Is.EqualTo(throwerSpawn));
+            Assert.That(room.ThrowerFiringAnchors, Is.EqualTo(firingAnchors));
+            Assert.That(room.ThrowerTargetAnchors, Is.EqualTo(targetAnchors));
+        }
+
+        [Test]
+        public void Definition_RejectsIncompleteOrOverlappingThrowerAuthoring()
+        {
+            var throwerSpawn = new GridPosition(3, 2);
+            GridPosition[] firingAnchors =
+            {
+                throwerSpawn,
+                new GridPosition(2, 2),
+            };
+            GridPosition[] targetAnchors =
+            {
+                new GridPosition(-2, -1),
+                new GridPosition(-2, -2),
+            };
+
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(throwerFiringAnchors: firingAnchors));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(throwerSpawn: throwerSpawn));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    throwerSpawn: throwerSpawn,
+                    throwerFiringAnchors: new[]
+                    {
+                        new GridPosition(2, 2),
+                        new GridPosition(1, 2),
+                    },
+                    throwerTargetAnchors: targetAnchors));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    throwerSpawn: throwerSpawn,
+                    throwerFiringAnchors: firingAnchors,
+                    throwerTargetAnchors: new[]
+                    {
+                        firingAnchors[1],
+                        targetAnchors[1],
+                    }));
+            Assert.Throws<ArgumentException>(() =>
+                CreateRoom(
+                    throwerSpawn: throwerSpawn,
+                    throwerFiringAnchors: firingAnchors,
+                    throwerTargetAnchors: new[]
+                    {
+                        PlayerSpawn,
+                        targetAnchors[1],
+                    }));
+        }
+
         private static CombatRoomDefinition CreateRoom(
             int width = 11,
             GridPosition? chaserSpawn = null,
@@ -408,6 +502,9 @@ namespace BombSwap.Tests.EditMode
             GridPosition? armoredSpawn = null,
             GridPosition? selfDestructSpawn = null,
             GridPosition[] selfDestructAnchors = null,
+            GridPosition? throwerSpawn = null,
+            GridPosition[] throwerFiringAnchors = null,
+            GridPosition[] throwerTargetAnchors = null,
             GridPosition[] safeCells = null,
             GridPosition[] lureLoop = null,
             RoomExit[] exits = null)
@@ -437,7 +534,10 @@ namespace BombSwap.Tests.EditMode
                 chargerSpawn,
                 armoredSpawn,
                 selfDestructSpawn,
-                selfDestructAnchors ?? Array.Empty<GridPosition>());
+                selfDestructAnchors ?? Array.Empty<GridPosition>(),
+                throwerSpawn,
+                throwerFiringAnchors ?? Array.Empty<GridPosition>(),
+                throwerTargetAnchors ?? Array.Empty<GridPosition>());
         }
 
         private static GridPosition[] CreateLureLoop()
