@@ -275,6 +275,39 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(chaser.TryAdvance(out _), Is.False);
             Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(0, -1)));
+            Assert.That(chaser.CanDealContactDamage, Is.True);
+        }
+
+        [Test]
+        public void ContactDamage_WaitsForStepArrivalAndRequiresPersistingAdjacency()
+        {
+            var grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 0)), Is.True);
+            var chaser = new ChaserEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(),
+                ChaserActor,
+                PlayerActor,
+                new GridPosition(0, 2));
+
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+            Assert.That(chaser.TryAdvance(out EnemyMovementStep step), Is.True);
+            Assert.That(step.To, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            clock.Advance(StepInterval - TimeSpan.FromTicks(1));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, -1)), Is.True);
+            clock.Advance(TimeSpan.FromTicks(1));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 0)), Is.True);
+            Assert.That(chaser.CanDealContactDamage, Is.True);
         }
 
         [Test]
@@ -293,6 +326,10 @@ namespace BombSwap.Tests.EditMode
             clock.Now = TimeSpan.FromSeconds(1);
 
             Assert.Throws<InvalidOperationException>(() => chaser.TryAdvance(out _));
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                bool _ = chaser.CanDealContactDamage;
+            });
             Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(0, 0)));
         }
 

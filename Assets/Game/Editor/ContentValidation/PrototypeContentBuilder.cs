@@ -1470,7 +1470,7 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     new Vector2Int(2, -2),
                 },
-                new Vector2Int(0, 1));
+                new Vector2Int(-1, 1));
             EditorUtility.SetDirty(pillars);
 
             PrototypeCombatRoomDefinitionAsset armor = GetOrCreateRoomDefinition(

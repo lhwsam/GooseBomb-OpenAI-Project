@@ -39,7 +39,7 @@
 |---:|---|---|---|---|
 | 1 | `prototype-combat-loop` / `PrototypeCombatLoop.asset` | 플레이어 `(0, 0)`, 추격자 `(1, -1)` | 중앙 십자 고정 벽 4개, 파괴 벽 없음, 기존 전투 기준선 | `TestSandbox.unity` / `TestSandboxLanes` |
 | 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | 세로 고정 벽 6개, 파괴 벽 `(-1,-1)·(1,-1)`: spawn 광역은 둘을 대각선 동시 파괴, 십자는 미도달 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
-| 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(0, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: 돌진형이 남쪽 정렬 셀을 획득한 뒤 서쪽 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
+| 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(-1, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: seed-0 동쪽 입장 축과 어긋난 돌진형이 최소 한 Track 이동 뒤 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
 | 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 남쪽 통로 벽 `x=±2,z=-2..-1`, 상단 막 `x=-1..1,z=2`, 좌우 종단 `(-4,0)·(4,0)`의 T 교차점, 파괴 벽 없음: 반경 수비→첫 피격 반대편 3칸 예고·질주→두 번째 선행 설치 | `TestSandboxArmor.unity` / `TestSandboxGates` |
 | 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)`, 자폭병 `(3,0)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`, 자폭 유도 anchor `(0,-2)→(0,2)`: 플레이어가 추적형 자폭병을 어느 쪽으로 끄느냐에 따라 범위 2 자폭이 아래/위 문 한쪽만 먼저 연다. 첫 파괴 문이 해당 ray를 끝내며 `x=±3` 우회는 유지 | `TestSandboxGates.unity` / 없음 |
 
@@ -57,7 +57,7 @@
 
 유도 경로는 사람과 플레이테스트 도구가 읽는 공간 의도다. 현재 추격 AI에 waypoint를 강제하지 않으며 실제 유도 재미는 관찰 플레이테스트로 판단한다.
 
-`Pillars`의 고정 기둥은 `(-4,-2)`, `(-2,1)`, `(2,1)`, `(-3,-3)`, `(-3,3)`, `(3,-3)`, `(3,3)`이다. 파괴벽 `(2,-2)`는 동쪽 차선을 열 수 있는 종단이고, 안전 셀 `(-3,-2)·(-3,-1)·(-2,-2)`와 뒤의 두 셀을 퇴로 anchor로 사용한다. 이 정확한 셀 집합은 builder와 validator가 함께 고정하지만, 1 cell/s 획득·0.75초 예고·8 cells/s 돌진에서 실제 유도 선택이 읽히는지는 `Proposed`다.
+`Pillars`의 고정 기둥은 `(-4,-2)`, `(-2,1)`, `(2,1)`, `(-3,-3)`, `(-3,3)`, `(3,-3)`, `(3,3)`이다. 파괴벽 `(2,-2)`는 동쪽 차선을 열 수 있는 종단이고, 안전 셀 `(-3,-2)·(-3,-1)·(-2,-2)`와 뒤의 두 셀을 퇴로 anchor로 사용한다. 돌진형 spawn `(-1,1)`은 seed-0 회전 뒤 동쪽 입장 셀과 같은 축이 되지 않아 최소 한 번의 1 cell/s Track 이동을 보장한다. 이 정확한 셀 집합은 builder와 validator가 함께 고정하지만, 0.75초 예고·8 cells/s 돌진에서 실제 유도 선택이 읽히는지는 `Proposed`다.
 
 ## 던전 런 카탈로그
 

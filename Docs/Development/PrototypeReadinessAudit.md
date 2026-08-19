@@ -106,7 +106,7 @@ Gamepad 첫 post-commit 실행의 pause 재개 step timeout은 같은 폴더의 
 | 교체가 단순 쿨타임 로테이션만이 아니다 | 공간·상황별 교체 이유 미수집 | `Insufficient evidence` |
 | 약한 적 한 번 처치와 중형 적 변화가 모두 재미있다 | 장갑병 수비·3칸 예고·panic 자동 전이는 검증했지만 방향 가독성·도착점 선행 설치·반복감 미관찰 | `Insufficient evidence` |
 | 최소 세 방에서 다른 전투 구도가 발생한다 | 다섯 방을 구현했지만 방별 유도·퇴로 행동 비교 미수집 | `Insufficient evidence` |
-| 보스 퓨즈와 이동을 함께 계산한다 | 이전 정지 보스는 `Not supported`; 이동 보스의 자발적 선행 설치는 미관찰 | `Retest required` |
+| 보스 퓨즈와 이동을 함께 계산한다 | `PT-20260820-05`에서 상시 피해 변경 뒤 전반 재미는 긍정적이었지만 선행 설치·상태별 적중·두 슬롯·자폭병 유도 행동은 미수집 | `Mixed`, 정량·관찰 retest 필요 |
 | 플레이어가 사망 원인을 설명한다 | UI와 source marker는 자동 검증했지만 직후 설명 응답 미수집 | `Insufficient evidence` |
 | 성장 없이 즉시 재도전한다 | `R` 재시작 기능은 자동 검증했지만 자발적 재도전 의사 미수집 | `Insufficient evidence` |
 

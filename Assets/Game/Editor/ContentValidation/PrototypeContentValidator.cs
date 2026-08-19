@@ -801,7 +801,7 @@ namespace BombSwap.Editor.ContentValidation
             {
                 null,
                 null,
-                new GridPosition(0, 1),
+                new GridPosition(-1, 1),
                 null,
                 null,
             };
@@ -943,6 +943,7 @@ namespace BombSwap.Editor.ContentValidation
                     (Math.Abs(position.X) == 1 || Math.Abs(position.Z) == 1));
             if (room.PlayerSpawn != new GridPosition(-3, -2) ||
                 room.ChaserSpawn != new GridPosition(3, 2) ||
+                room.ChargerSpawn != new GridPosition(-1, 1) ||
                 !expectedFixedWalls.SetEquals(room.IndestructibleWalls) ||
                 room.DestructibleWalls.Count != 1 ||
                 room.DestructibleWalls[0] != new GridPosition(2, -2) ||

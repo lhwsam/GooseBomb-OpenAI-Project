@@ -1,3 +1,6 @@
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+using System.Collections.Generic;
+#endif
 using BombSwap.Core;
 using UnityEngine;
 
@@ -52,6 +55,12 @@ namespace BombSwap
         private bool _pauseReported;
         private bool _pauseEnteredReported;
         private bool _readyReported;
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+        private readonly Dictionary<BombId, string> _bombDefinitionsById =
+            new Dictionary<BombId, string>();
+        private BossBattleState _lastBossState;
+        private BossPatternKind _lastBossPattern;
+#endif
         private CardinalDirection _lastMotionDirection;
 
         public BombSwapInputReader InputReader => inputReader;
@@ -130,6 +139,9 @@ namespace BombSwap
         private void OnDisable()
         {
             _readyReported = false;
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById.Clear();
+#endif
             if (inputReader != null)
             {
                 inputReader.CommandIssued -= OnCommandIssued;
@@ -181,6 +193,13 @@ namespace BombSwap
             if (room != null)
             {
                 WebGlHarnessReporter.Report("room-ready-" + room.RoomId);
+            }
+            if (session.HasBoss)
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+                _lastBossState = session.CurrentBossState;
+                _lastBossPattern = session.CurrentBossPattern;
+#endif
             }
             if (session.HasBoss &&
                 session.CurrentBossState == BossBattleState.Telegraph)
@@ -243,6 +262,9 @@ namespace BombSwap
 
         private void OnBombPlaced(BombSnapshot snapshot)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
             WebGlHarnessReporter.Report("place-bomb-definition-" + snapshot.DefinitionId.Value);
             if (snapshot.DefinitionId.Value == "prototype-line")
             {
@@ -264,6 +286,9 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[explosion.BombId] = explosion.DefinitionId.Value;
+#endif
             WebGlHarnessReporter.Report(
                 "bomb-exploded-definition-" + explosion.DefinitionId.Value);
             if (explosion.DefinitionId.Value == "prototype-line")
@@ -284,8 +309,11 @@ namespace BombSwap
             WebGlHarnessReporter.Report("bomb-exploded");
         }
 
-        private static void OnBossBombPlaced(BombSnapshot snapshot)
+        private void OnBossBombPlaced(BombSnapshot snapshot)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
             WebGlHarnessReporter.Report(
                 "boss-bomb-armed-definition-" + snapshot.DefinitionId.Value);
         }
@@ -348,6 +376,13 @@ namespace BombSwap
                     }
                     break;
                 case PlayerDamageSourceKind.BossPattern:
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+                    WebGlHarnessReporter.Report(
+                        "boss-player-damaged-phase-" +
+                        GetBossPhaseName(session.CurrentBossPhase) +
+                        "-pattern-" + GetBossPatternName(_lastBossPattern) +
+                        "-health-" + result.CurrentHealth);
+#endif
                     if (!_playerBossPatternDamagedReported)
                     {
                         WebGlHarnessReporter.Report("player-boss-pattern-damaged");
@@ -573,6 +608,9 @@ namespace BombSwap
 
         private void OnSelfDestructArmed(BombSnapshot snapshot)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
             if (_selfDestructArmedReported)
             {
                 return;
@@ -589,6 +627,10 @@ namespace BombSwap
 
         private void OnBossPatternTransitioned(BossPatternTransition transition)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _lastBossState = transition.State;
+            _lastBossPattern = transition.Pattern;
+#endif
             ReportBossPattern(
                 transition.Phase,
                 transition.Pattern,
@@ -715,10 +757,54 @@ namespace BombSwap
         private void OnBossDamaged(BossDamageResult result)
         {
             WebGlHarnessReporter.Report("boss-damaged");
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            string definitionId = _bombDefinitionsById.TryGetValue(
+                result.ExplosionId,
+                out string recordedDefinitionId)
+                    ? recordedDefinitionId
+                    : "unknown";
+            _bombDefinitionsById.Remove(result.ExplosionId);
+            WebGlHarnessReporter.Report(
+                "boss-damaged-phase-" + GetBossPhaseName(result.Phase) +
+                "-state-" + GetBossStateName(_lastBossState) +
+                "-source-" + GetBossDamageSourceName(result.Source) +
+                "-definition-" + definitionId +
+                "-health-" + result.CurrentHealth);
+#endif
             if (!_bossDefeatedReported && result.WasFatal)
             {
                 WebGlHarnessReporter.Report("boss-defeated");
                 _bossDefeatedReported = true;
+            }
+        }
+
+        private static string GetBossStateName(BossBattleState state)
+        {
+            switch (state)
+            {
+                case BossBattleState.Telegraph:
+                    return "telegraph";
+                case BossBattleState.Execute:
+                    return "execute";
+                case BossBattleState.Recovery:
+                    return "recovery";
+                case BossBattleState.Defeated:
+                    return "defeated";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(state), state, null);
+            }
+        }
+
+        private static string GetBossDamageSourceName(BossDamageSource source)
+        {
+            switch (source)
+            {
+                case BossDamageSource.PlayerBomb:
+                    return "player-bomb";
+                case BossDamageSource.SelfDestruct:
+                    return "self-destruct";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(source), source, null);
             }
         }
 

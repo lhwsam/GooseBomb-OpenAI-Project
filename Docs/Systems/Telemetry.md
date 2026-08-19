@@ -32,6 +32,21 @@
 | BossPattern | pattern, phase, result | F |
 | RunEnded | reason, duration, progress | 전체 |
 
+## 보스 프로토콜 상세 marker
+
+Development WebGL probe는 기존 존재 확인 marker와 별도로 적용된 보스 피해와 보스 패턴 피격을 다음 이름에 담는다.
+
+```text
+boss-damaged-phase-<phase>-state-<state>-source-<source>-definition-<bomb-id>-health-<remaining>
+boss-player-damaged-phase-<phase>-pattern-<pattern>-health-<remaining>
+```
+
+- phase는 `one`, `two`, `last-stand`, state는 `telegraph`, `execute`, `recovery`다.
+- source는 `player-bomb` 또는 `self-destruct`이며 폭탄 정의는 적용된 `BombId`와 설치·폭발 사건을 연결해 기록한다.
+- 분석기는 전투 시간, phase/state/source/정의별 적중, 과열과 보스 패턴 피격을 재구성한다.
+- 폭탄 정의 교대는 성공 적중 순서만 뜻한다. 교체 의도, 실패한 설치, 자폭병 유도 의도와 parity 안전 칸 재사용은 관찰 기록이 소유한다.
+- 상세 계약과 하위 로그 호환성은 [보스 플레이테스트 계측 수직 슬라이스](../Development/BossPlaytestTelemetrySlice.md)를 따른다.
+
 ## 원칙
 
 - 이벤트 이름과 필드는 버전 관리한다.
