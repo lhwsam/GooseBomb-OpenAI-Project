@@ -78,6 +78,18 @@ namespace BombSwap
         private Vector2Int[] selfDestructAnchors = Array.Empty<Vector2Int>();
 
         [SerializeField]
+        private bool hasThrower;
+
+        [SerializeField]
+        private Vector2Int throwerSpawn;
+
+        [SerializeField]
+        private Vector2Int[] throwerFiringAnchors = Array.Empty<Vector2Int>();
+
+        [SerializeField]
+        private Vector2Int[] throwerTargetAnchors = Array.Empty<Vector2Int>();
+
+        [SerializeField]
         private Vector2Int[] indestructibleWalls = Array.Empty<Vector2Int>();
 
         [SerializeField]
@@ -123,6 +135,14 @@ namespace BombSwap
 
         public IReadOnlyList<Vector2Int> SelfDestructAnchors => selfDestructAnchors;
 
+        public bool HasThrower => hasThrower;
+
+        public Vector2Int ThrowerSpawn => throwerSpawn;
+
+        public IReadOnlyList<Vector2Int> ThrowerFiringAnchors => throwerFiringAnchors;
+
+        public IReadOnlyList<Vector2Int> ThrowerTargetAnchors => throwerTargetAnchors;
+
         public IReadOnlyList<Vector2Int> IndestructibleWalls => indestructibleWalls;
 
         public IReadOnlyList<Vector2Int> DestructibleWalls => destructibleWalls;
@@ -152,7 +172,10 @@ namespace BombSwap
             Vector2Int? authoredChargerSpawn = null,
             Vector2Int? authoredArmoredSpawn = null,
             Vector2Int? authoredSelfDestructSpawn = null,
-            Vector2Int[] authoredSelfDestructAnchors = null)
+            Vector2Int[] authoredSelfDestructAnchors = null,
+            Vector2Int? authoredThrowerSpawn = null,
+            Vector2Int[] authoredThrowerFiringAnchors = null,
+            Vector2Int[] authoredThrowerTargetAnchors = null)
         {
             ValidateFinitePositive(authoredCellSize, nameof(authoredCellSize));
             Vector2Int[] wallCopy = CloneRequired(
@@ -172,6 +195,12 @@ namespace BombSwap
             Vector2Int[] selfDestructAnchorCopy = CloneRequired(
                 authoredSelfDestructAnchors ?? Array.Empty<Vector2Int>(),
                 nameof(authoredSelfDestructAnchors));
+            Vector2Int[] throwerFiringAnchorCopy = CloneRequired(
+                authoredThrowerFiringAnchors ?? Array.Empty<Vector2Int>(),
+                nameof(authoredThrowerFiringAnchors));
+            Vector2Int[] throwerTargetAnchorCopy = CloneRequired(
+                authoredThrowerTargetAnchors ?? Array.Empty<Vector2Int>(),
+                nameof(authoredThrowerTargetAnchors));
 
             CreateCoreDefinition(
                 authoredRoomId,
@@ -189,7 +218,10 @@ namespace BombSwap
                 authoredChargerSpawn,
                 authoredArmoredSpawn,
                 authoredSelfDestructSpawn,
-                selfDestructAnchorCopy);
+                selfDestructAnchorCopy,
+                authoredThrowerSpawn,
+                throwerFiringAnchorCopy,
+                throwerTargetAnchorCopy);
 
             roomId = authoredRoomId;
             roomType = authoredRoomType;
@@ -205,6 +237,10 @@ namespace BombSwap
             hasSelfDestruct = authoredSelfDestructSpawn.HasValue;
             selfDestructSpawn = authoredSelfDestructSpawn ?? default;
             selfDestructAnchors = selfDestructAnchorCopy;
+            hasThrower = authoredThrowerSpawn.HasValue;
+            throwerSpawn = authoredThrowerSpawn ?? default;
+            throwerFiringAnchors = throwerFiringAnchorCopy;
+            throwerTargetAnchors = throwerTargetAnchorCopy;
             indestructibleWalls = wallCopy;
             destructibleWalls = destructibleWallCopy;
             safePlayerCells = safeCopy;
@@ -232,7 +268,10 @@ namespace BombSwap
                 hasCharger ? chargerSpawn : (Vector2Int?)null,
                 hasArmored ? armoredSpawn : (Vector2Int?)null,
                 hasSelfDestruct ? selfDestructSpawn : (Vector2Int?)null,
-                selfDestructAnchors);
+                selfDestructAnchors,
+                hasThrower ? throwerSpawn : (Vector2Int?)null,
+                throwerFiringAnchors,
+                throwerTargetAnchors);
         }
 
         private static CombatRoomDefinition CreateCoreDefinition(
@@ -251,7 +290,10 @@ namespace BombSwap
             Vector2Int? authoredChargerSpawn,
             Vector2Int? authoredArmoredSpawn,
             Vector2Int? authoredSelfDestructSpawn,
-            IReadOnlyList<Vector2Int> authoredSelfDestructAnchors)
+            IReadOnlyList<Vector2Int> authoredSelfDestructAnchors,
+            Vector2Int? authoredThrowerSpawn,
+            IReadOnlyList<Vector2Int> authoredThrowerFiringAnchors,
+            IReadOnlyList<Vector2Int> authoredThrowerTargetAnchors)
         {
             return new CombatRoomDefinition(
                 new RoomDefinitionId(authoredRoomId),
@@ -275,7 +317,12 @@ namespace BombSwap
                 authoredSelfDestructSpawn.HasValue
                     ? ToCorePosition(authoredSelfDestructSpawn.Value)
                     : (GridPosition?)null,
-                ToCorePositions(authoredSelfDestructAnchors));
+                ToCorePositions(authoredSelfDestructAnchors),
+                authoredThrowerSpawn.HasValue
+                    ? ToCorePosition(authoredThrowerSpawn.Value)
+                    : (GridPosition?)null,
+                ToCorePositions(authoredThrowerFiringAnchors),
+                ToCorePositions(authoredThrowerTargetAnchors));
         }
 
         private static GridPosition ToCorePosition(Vector2Int position)

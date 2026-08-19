@@ -27,6 +27,12 @@ namespace BombSwap.Editor.Playtesting
             "Bomb Swap/Playtest/Play Boss Battle Room";
         private const string RebuildBossMenuPath =
             "Bomb Swap/Playtest/Rebuild Boss Battle Room";
+        private const string OpenThrowerMenuPath =
+            "Bomb Swap/Playtest/Open Thrower Lanes Room";
+        private const string PlayThrowerMenuPath =
+            "Bomb Swap/Playtest/Play Thrower Lanes Room";
+        private const string RebuildThrowerMenuPath =
+            "Bomb Swap/Playtest/Rebuild Thrower Lanes Room";
 
         [MenuItem(OpenMenuPath, false, 100)]
         public static void OpenArmoredPanicRoom()
@@ -150,6 +156,49 @@ namespace BombSwap.Editor.Playtesting
 
         [MenuItem(RebuildBossMenuPath, true)]
         private static bool CanRebuildBossBattleRoom()
+        {
+            return CanPreparePlaytestRoom();
+        }
+
+        [MenuItem(OpenThrowerMenuPath, false, 130)]
+        public static void OpenThrowerLanesRoom()
+        {
+            TryPrepareAndOpen(
+                PrototypeContentValidator.ThrowerLanesPlaytestScenePath,
+                PrototypeContentBuilder.CreateOrUpdateThrowerLanesPlaytestScene);
+        }
+
+        [MenuItem(OpenThrowerMenuPath, true)]
+        private static bool CanOpenThrowerLanesRoom()
+        {
+            return CanPreparePlaytestRoom();
+        }
+
+        [MenuItem(PlayThrowerMenuPath, false, 131)]
+        public static void PlayThrowerLanesRoom()
+        {
+            if (TryPrepareAndOpen(
+                    PrototypeContentValidator.ThrowerLanesPlaytestScenePath,
+                    PrototypeContentBuilder.CreateOrUpdateThrowerLanesPlaytestScene))
+            {
+                EditorApplication.isPlaying = true;
+            }
+        }
+
+        [MenuItem(PlayThrowerMenuPath, true)]
+        private static bool CanPlayThrowerLanesRoom()
+        {
+            return CanPreparePlaytestRoom();
+        }
+
+        [MenuItem(RebuildThrowerMenuPath, false, 132)]
+        public static void RebuildThrowerLanesRoom()
+        {
+            Debug.Log(PrototypeContentBuilder.CreateOrUpdateThrowerLanesPlaytestScene());
+        }
+
+        [MenuItem(RebuildThrowerMenuPath, true)]
+        private static bool CanRebuildThrowerLanesRoom()
         {
             return CanPreparePlaytestRoom();
         }

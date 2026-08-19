@@ -21,8 +21,9 @@
 - 안정적인 room ID와 room type.
 - 홀수 격자 너비·깊이와 양수 셀 크기.
 - 출입구 위치와 방향.
-- 플레이어와 필수 추격자 spawn, 선택적 돌진형·갑옷 적·자폭병 spawn.
+- 플레이어와 필수 추격자 spawn, 선택적 돌진형·갑옷 적·자폭병·퇴로 차단 투척병 spawn.
 - 자폭병이 있을 때 순서가 안정적인 자폭 유도 anchor 목록. 이 목록은 AI 경로 목적지가 아니라 레벨 설계·검증·플레이테스트가 의도한 폭발 위치와 결과를 공유하는 메타데이터다.
+- 투척병이 있을 때 순서가 안정적인 사격 anchor와 퇴로 차단 목표 anchor 목록. spawn은 사격 anchor에 포함되고 사격 목록은 최소 2개, 목표 목록은 반복 volley의 측면 2칸을 바꾸기 위해 정의된 발수의 최소 두 배이며 두 목록은 서로 겹치지 않는다.
 - 고정 벽 셀.
 - 파괴 가능 벽 셀.
 - 플레이어 입장 안전 셀.
@@ -63,7 +64,7 @@
 
 `PrototypeDungeonCombatRoomCatalog.asset`은 다섯 전투방 ScriptableObject와 대응 TestSandbox 씬 이름을 명시적으로 매핑한다. 런 시작 시 `PrototypeDungeonRunSession`이 카탈로그를 Core 정의로 변환하고 결정론적 배정 결과의 room ID를 다시 Unity asset·scene으로 해석한다. 현재 방, 방문과 클리어 같은 mutable 상태는 카탈로그에 쓰지 않는다.
 
-`CombatRoomRotationUtility`는 run 배정의 0/90/180/270도 회전을 방 정의 전체에 적용한다. 90/270도에서는 너비와 깊이를 교환하고 플레이어·추격자·돌진형·갑옷 적·자폭병 spawn, 자폭 anchor, 고정·파괴 벽, 안전 셀, 퇴로 anchor, 유도 loop, 출구 셀과 방향을 같은 시계 방향으로 돌린다. 일부 목록이나 scene Transform만 따로 회전하는 것은 허용하지 않는다.
+`CombatRoomRotationUtility`는 run 배정의 0/90/180/270도 회전을 방 정의 전체에 적용한다. 90/270도에서는 너비와 깊이를 교환하고 플레이어·추격자·돌진형·갑옷 적·자폭병·투척병 spawn, 자폭 anchor, 투척병 사격/목표 anchor, 고정·파괴 벽, 안전 셀, 퇴로 anchor, 유도 loop, 출구 셀과 방향을 같은 시계 방향으로 돌린다. 일부 목록이나 scene Transform만 따로 회전하는 것은 허용하지 않는다.
 
 카탈로그의 entry는 null 방, 빈 씬 이름, 중복 room ID와 중복 씬 이름을 허용하지 않는다. 실제 씬 수명은 persistent run host·navigator·room binder가 소유하며, 카탈로그는 mutable 방문 상태를 갖지 않는 검증된 조회 경계다.
 
@@ -104,9 +105,18 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - Editor 메뉴 `Bomb Swap > Playtest > Play Self-Destruct Gates Room`이 동기화, 단일 씬 열기와 Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
 - 콘텐츠 validator는 Gates 권위 room 참조·spawn·장애물·필수 session/자폭 presenter, 빈 다음 씬, 던전 adapter 부재, MainCamera와 Build Settings 제외를 검사한다.
 
+## 투척병·Lanes 독립 플레이테스트 씬
+
+- `ThrowerLanesPlaytest.unity`는 전용 `prototype-combat-thrower` room asset과 일반 TestSandbox shell에서 생성하는 Editor 전용 실험이다. 현재 다섯 전투방과 던전 카탈로그에는 포함하지 않는다.
+- 권위 room은 플레이어 `(0,-2)`, 추격자 `(0,2)`, 투척병 `(0,3)`, 사격 anchor `(0,3)→(3,2)→(-3,2)`, 목표 후보 `(0,0)→(-3,-2)→(3,-2)→(-4,1)→(4,1)→(0,4)`와 기존 Lanes 벽·파괴 블록을 소유한다.
+- builder는 room·투척병 정의·전용 폭탄·collider 없는 적/Telegraph prefab을 동기화하고 던전 `RunHost`, room binder, 미니맵, 외곽 문 presenter와 완료 presenter를 제거한다. `PrototypeRoomAdvanceController`는 빈 다음 씬을 유지한다.
+- Editor 메뉴 `Bomb Swap > Playtest > Play Thrower Lanes Room`이 동기화, 단일 씬 열기와 Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
+- 표준 Build Settings enabled scene에는 넣지 않는다. 전용 WebGL 빌드는 연결 빌드 하네스에 이 scene 경로만 직접 전달하며 Build Settings 자체를 바꾸지 않는다.
+- 콘텐츠 validator는 정확한 room/정의/폭탄 수치, anchor, session·presenter·spawn, 빈 다음 씬, 던전 adapter 부재, MainCamera와 Build Settings 제외를 검사한다.
+
 ## 저작 불변식
 
-- 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형·갑옷 적·자폭병도 플레이어와 즉시 인접하지 않는다.
+- 플레이어와 모든 적은 서로 다른 셀에서 시작한다. 추격자는 시작 즉시 cardinal 접촉하지 않고, 선택적 돌진형·갑옷 적·자폭병·투척병도 플레이어와 즉시 인접하지 않는다.
 - 플레이어 spawn은 안전 셀에 포함된다.
 - 플레이어 spawn에서 서로 다른 첫 cardinal 이동을 사용하는 퇴로가 최소 두 개 존재한다. 경로는 spawn을 다시 통과하지 않고 퇴로 anchor에 도달해야 한다.
 - 유도 경로는 최소 4개의 서로 다른 플레이 가능 셀이 닫힌 cardinal 순환을 이룬다.
@@ -115,6 +125,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 고정 벽과 파괴 가능 벽을 제외한 초기 플레이 가능 셀은 모두 플레이어 spawn에서 연결되어 있다. 따라서 파괴는 진행 필수가 아니다.
 - 파괴 가능 벽은 고정 벽, spawn, 안전 셀, 퇴로 anchor, 유도 경로, 출구와 겹치지 않는다.
 - 자폭병이 있으면 유도 anchor가 하나 이상 있어야 하고 모두 초기 `Floor`이며 spawn·고정 벽·파괴 가능 벽·출구와 겹치지 않는다. 각 anchor의 기대 폭발 footprint는 저작 검증에서 확인하지만 Core AI는 목록을 읽어 목적지를 선택하지 않는다. 자폭병이 없으면 anchor 목록도 비어 있어야 한다.
+- 투척병이 있으면 사격 anchor가 최소 2개, 목표 anchor가 정의의 volley 발수의 두 배 이상이고 모두 초기 `Floor`여야 한다. spawn은 사격 목록에 포함되고 두 목록은 actor spawn·서로 간에 겹치지 않는다. 투척병이 없으면 두 목록도 비어 있어야 한다.
 - 씬 spawn·장애물 Transform의 XZ 셀과 논리 메타데이터가 일치한다.
 - 회전된 room 정의의 모든 셀이 교환된 경계 안에 있고, scene `GridRoot`의 같은 Y 회전 뒤 논리 셀·시각 위치가 일치한다.
 - 폭발을 끊는 벽/기둥과 향후 파괴 가능 벽은 시각적으로 구분되어야 한다.
@@ -132,7 +143,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 경계 방향이 틀린 출구, 끊긴 유도 경로, 연결되지 않은 플레이 영역, 단일 퇴로.
 - 다섯 room asset의 ID 중복 또는 각 TestSandbox 씬이 순서에 맞지 않는 room asset을 참조하는 상태.
 - 던전 전투방 카탈로그 누락, 잘못된 entry 수, room asset·씬 매핑 순서 불일치 또는 Core 변환 실패.
-- 필수 추격자 또는 선택적 돌진형·갑옷 적·자폭병 spawn Transform이 저작 셀과 다르거나 방 전환 controller의 session·다음 씬·지연이 잘못된 상태.
+- 필수 추격자 또는 선택적 돌진형·갑옷 적·자폭병·투척병 spawn Transform이 저작 셀과 다르거나 방 전환 controller의 session·다음 씬·지연이 잘못된 상태.
 - 논리 고정 벽과 `Environment/InteriorObstacles` 표현 셀의 누락·중복·추가.
 - 논리 파괴 벽과 `Environment/DestructibleObstacles`의 황갈색 4분할 표현 셀·재질·Collider·presenter 참조 불일치.
 - 돌진형 정의·collider 없는 prefab, 방별 선택적 spawn, session·presenter 참조 또는 적 수 구성이 권위 방 데이터와 다른 상태.
@@ -140,6 +151,8 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - Armor 방의 T 교차점 고정 벽 9셀이 정확한 좌표와 다르거나 panic 좌우 종단·안전 셀·퇴로·외곽 유도 loop의 연결성이 깨진 상태.
 - 자폭병 정의·범위 2 적 폭탄·collider 없는 적/Telegraph prefab, 방별 spawn·anchor, session·presenter 참조가 권위 방 데이터와 다른 상태.
 - Gates 방의 자폭병 `(3,0)`, 유도 anchor `(0,-2)·(0,2)`, 중앙 파괴문 `(0,-1)·(0,1)`과 고정 장벽 8셀이 정확한 계약과 다르거나, 실제 Core 범위 2 폭발 해석에서 각 anchor가 정확히 가까운 문 하나만 파괴하지 않는 상태.
+- 투척병 정의·범위 1 적 폭탄·collider 없는 적/Telegraph prefab, 전용 room의 spawn·사격/목표 anchor, session·presenter 참조가 권위 데이터와 다른 상태.
+- `ThrowerLanesPlaytest`에 던전 adapter가 남아 있거나 다음 씬이 비어 있지 않거나 MainCamera가 없거나 표준 enabled Build Settings에 포함된 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
 - Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.

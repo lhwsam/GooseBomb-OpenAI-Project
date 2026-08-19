@@ -23,6 +23,8 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _armoredPanicTelegraphCellPrefab;
         private GameObject _selfDestructPrefab;
         private GameObject _selfDestructTelegraphCellPrefab;
+        private GameObject _throwerPrefab;
+        private GameObject _throwerTelegraphCellPrefab;
         private GameObject _bossPrefab;
         private GameObject _bossDangerCellPrefab;
         private PrototypeBombDefinitionAsset _definition;
@@ -34,6 +36,8 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeArmoredDefinitionAsset _armoredDefinition;
         private PrototypeBombDefinitionAsset _selfDestructBombDefinition;
         private PrototypeSelfDestructDefinitionAsset _selfDestructDefinition;
+        private PrototypeBombDefinitionAsset _throwerBombDefinition;
+        private PrototypeThrowerDefinitionAsset _throwerDefinition;
         private PrototypeBombDefinitionAsset _bossThrowBombDefinition;
         private PrototypeBombDefinitionAsset _bossChainBombDefinition;
         private PrototypeBossDefinitionAsset _bossDefinition;
@@ -46,6 +50,8 @@ namespace BombSwap.Tests.PlayMode
         private Material _armoredPanicTelegraphCellMaterial;
         private Material _selfDestructMaterial;
         private Material _selfDestructTelegraphCellMaterial;
+        private Material _throwerMaterial;
+        private Material _throwerTelegraphCellMaterial;
         private Material _bossMaterial;
         private Material _bossDangerCellMaterial;
         private PrototypeGameSession _session;
@@ -59,6 +65,7 @@ namespace BombSwap.Tests.PlayMode
         private PrototypeChargerPresenter _chargerPresenter;
         private PrototypeArmoredPresenter _armoredPresenter;
         private PrototypeSelfDestructPresenter _selfDestructPresenter;
+        private PrototypeThrowerPresenter _throwerPresenter;
         private PrototypeBossPresenter _bossPresenter;
         private PrototypeWeaponHud _weaponHud;
         private PrototypeHealthHud _healthHud;
@@ -108,6 +115,14 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.DestroyImmediate(_selfDestructTelegraphCellPrefab);
             }
+            if (_throwerPrefab != null)
+            {
+                Object.DestroyImmediate(_throwerPrefab);
+            }
+            if (_throwerTelegraphCellPrefab != null)
+            {
+                Object.DestroyImmediate(_throwerTelegraphCellPrefab);
+            }
             if (_bossPrefab != null)
             {
                 Object.DestroyImmediate(_bossPrefab);
@@ -151,6 +166,14 @@ namespace BombSwap.Tests.PlayMode
             if (_selfDestructDefinition != null)
             {
                 Object.DestroyImmediate(_selfDestructDefinition);
+            }
+            if (_throwerBombDefinition != null)
+            {
+                Object.DestroyImmediate(_throwerBombDefinition);
+            }
+            if (_throwerDefinition != null)
+            {
+                Object.DestroyImmediate(_throwerDefinition);
             }
             if (_bossDefinition != null)
             {
@@ -199,6 +222,14 @@ namespace BombSwap.Tests.PlayMode
             if (_selfDestructTelegraphCellMaterial != null)
             {
                 Object.DestroyImmediate(_selfDestructTelegraphCellMaterial);
+            }
+            if (_throwerMaterial != null)
+            {
+                Object.DestroyImmediate(_throwerMaterial);
+            }
+            if (_throwerTelegraphCellMaterial != null)
+            {
+                Object.DestroyImmediate(_throwerTelegraphCellMaterial);
             }
             if (_bossMaterial != null)
             {
@@ -1907,6 +1938,121 @@ namespace BombSwap.Tests.PlayMode
                 Is.LessThan(0.001f));
         }
 
+        [UnityTest]
+        public IEnumerator ThrowerEnemy_TelegraphsFlightsAndUsesSharedChainScheduler()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includePresenter: true,
+                fuseSeconds: 0.12f,
+                maxHealth: 5,
+                invulnerabilitySeconds: 0.01f,
+                chaserCellsPerSecond: 0.1f,
+                chaserSpawnPosition: new Vector2Int(-2, -2),
+                retreatAnchors: new[]
+                {
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(1, 0),
+                },
+                throwerSpawnPosition: new Vector2Int(2, 1),
+                throwerFiringAnchors: new[]
+                {
+                    new Vector2Int(2, 1),
+                    new Vector2Int(2, -1),
+                },
+                throwerTargetAnchors: new[]
+                {
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(1, 0),
+                    new Vector2Int(0, 2),
+                    new Vector2Int(-2, 2),
+                    new Vector2Int(2, 2),
+                    new Vector2Int(0, -2),
+                },
+                includeThrowerPresenter: true,
+                throwerMoveCellsPerSecond: 20f,
+                throwerTelegraphSeconds: 0.04f,
+                throwerFlightSeconds: 0.04f,
+                throwerRecoverySeconds: 0.04f,
+                throwerBombFuseSeconds: 1f);
+            int telegraphCount = 0;
+            int visibleTelegraphCellCount = 0;
+            int launchCount = 0;
+            int placedCount = 0;
+            var thrownBombIds = new List<BombId>();
+            var thrownCauses = new Dictionary<BombId, BombDetonationCause>();
+            _session.ThrowerAdvanced += result =>
+            {
+                if (result.State == ThrowerEnemyState.Telegraph &&
+                    result.HasStateTransition)
+                {
+                    telegraphCount++;
+                    visibleTelegraphCellCount =
+                        _throwerPresenter.ActiveTelegraphCellCount;
+                }
+            };
+            _session.ThrowerBombLaunched += _ => launchCount++;
+            _session.ThrowerBombPlaced += snapshot =>
+            {
+                placedCount++;
+                thrownBombIds.Add(snapshot.Id);
+            };
+            _session.BombExploded += explosion =>
+            {
+                if (thrownBombIds.Contains(explosion.BombId))
+                {
+                    thrownCauses[explosion.BombId] = explosion.Cause;
+                }
+            };
+
+            int frameGuard = 0;
+            while (placedCount < 3 && frameGuard++ < 120)
+            {
+                yield return null;
+            }
+
+            Assert.That(_session.HasThrower, Is.True);
+            Assert.That(_session.CurrentThrowerLockedTarget, Is.EqualTo(new GridPosition(-1, 0)));
+            Assert.That(
+                _session.CurrentThrowerLockedTargets,
+                Is.EqualTo(new[]
+                {
+                    new GridPosition(-1, 0),
+                    new GridPosition(1, 0),
+                    new GridPosition(0, 2),
+                }));
+            Assert.That(telegraphCount, Is.EqualTo(1));
+            Assert.That(visibleTelegraphCellCount, Is.EqualTo(3));
+            Assert.That(launchCount, Is.EqualTo(3));
+            Assert.That(placedCount, Is.EqualTo(3));
+            Assert.That(thrownBombIds, Has.All.Matches<BombId>(id => id.IsValid));
+            Assert.That(
+                thrownBombIds,
+                Has.All.Matches<BombId>(id => _presenter.HasBombVisual(id)));
+            Assert.That(_throwerPresenter.TelegraphCount, Is.EqualTo(1));
+            Assert.That(_throwerPresenter.IsTelegraphVisible, Is.False);
+            Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
+
+            Assert.That(_session.TryPlaceBomb(), Is.True);
+            frameGuard = 0;
+            while (thrownCauses.Count < 3 && frameGuard++ < 240)
+            {
+                yield return null;
+            }
+
+            Assert.That(
+                thrownCauses.Values,
+                Has.Exactly(2).EqualTo(BombDetonationCause.Chain));
+            Assert.That(
+                thrownCauses.Values,
+                Has.Exactly(1).EqualTo(BombDetonationCause.Fuse));
+            Assert.That(_session.HasPendingThrowerBombFlight, Is.False);
+            Assert.That(
+                thrownBombIds,
+                Has.None.Matches<BombId>(id => _presenter.HasBombVisual(id)));
+        }
+
         private void CreateRuntime(
             Vector2Int blocker,
             bool includeBlocker,
@@ -1975,7 +2121,18 @@ namespace BombSwap.Tests.PlayMode
             int selfDestructWarningDistance = 3,
             int selfDestructPrimeDistance = 1,
             float selfDestructFuseSeconds = 0.08f,
-            int selfDestructExplosionRange = 2)
+            int selfDestructExplosionRange = 2,
+            Vector2Int? throwerSpawnPosition = null,
+            Vector2Int[] throwerFiringAnchors = null,
+            Vector2Int[] throwerTargetAnchors = null,
+            bool includeThrowerPresenter = false,
+            float throwerMoveCellsPerSecond = 1f,
+            float throwerTelegraphSeconds = 0.3f,
+            float throwerFlightSeconds = 0.45f,
+            float throwerRecoverySeconds = 0.75f,
+            int throwerBombsPerVolley = 3,
+            float throwerBombFuseSeconds = 1.5f,
+            int throwerBombRange = 1)
         {
             if (bossEnabled && retreatAnchors == null)
             {
@@ -2228,6 +2385,66 @@ namespace BombSwap.Tests.PlayMode
                     0.45f,
                     0.12f);
             }
+            Transform throwerSpawn = null;
+            if (throwerSpawnPosition.HasValue)
+            {
+                Vector2Int authoredThrowerSpawn = throwerSpawnPosition.Value;
+                throwerSpawn = new GameObject("ThrowerSpawn").transform;
+                throwerSpawn.SetParent(gridRoot, false);
+                throwerSpawn.localPosition = new Vector3(
+                    authoredThrowerSpawn.x,
+                    0f,
+                    authoredThrowerSpawn.y);
+
+                _throwerPrefab = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                _throwerPrefab.name = "ThrowerVisualPrefab";
+                Object.DestroyImmediate(_throwerPrefab.GetComponent<Collider>());
+                _throwerMaterial = new Material(playerShader);
+                _throwerMaterial.color = new Color(0.55f, 0.14f, 0.78f, 1f);
+                _throwerPrefab.GetComponent<Renderer>().sharedMaterial = _throwerMaterial;
+                _throwerPrefab.SetActive(false);
+
+                _throwerTelegraphCellPrefab =
+                    GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _throwerTelegraphCellPrefab.name = "ThrowerTelegraphCellVisualPrefab";
+                Object.DestroyImmediate(
+                    _throwerTelegraphCellPrefab.GetComponent<Collider>());
+                _throwerTelegraphCellMaterial = new Material(playerShader);
+                _throwerTelegraphCellMaterial.color =
+                    new Color(1f, 0.12f, 0.85f, 1f);
+                _throwerTelegraphCellPrefab.GetComponent<Renderer>().sharedMaterial =
+                    _throwerTelegraphCellMaterial;
+                _throwerTelegraphCellPrefab.transform.localScale =
+                    new Vector3(0.88f, 0.05f, 0.88f);
+                _throwerTelegraphCellPrefab.SetActive(false);
+
+                _throwerBombDefinition =
+                    ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+                _throwerBombDefinition.Configure(
+                    "test-thrower-blocker",
+                    throwerBombFuseSeconds,
+                    throwerBombRange,
+                    _bombPrefab,
+                    _explosionPrefab,
+                    explosionVisualSeconds,
+                    1f,
+                    BombExplosionShape.Cross);
+                _throwerDefinition =
+                    ScriptableObject.CreateInstance<PrototypeThrowerDefinitionAsset>();
+                _throwerDefinition.Configure(
+                    "test-thrower",
+                    throwerMoveCellsPerSecond,
+                    throwerTelegraphSeconds,
+                    throwerFlightSeconds,
+                    throwerRecoverySeconds,
+                    1,
+                    throwerBombsPerVolley,
+                    _throwerBombDefinition,
+                    _throwerPrefab,
+                    _throwerTelegraphCellPrefab,
+                    0.5f,
+                    0.12f);
+            }
             if (bossEnabled)
             {
                 _bossThrowBombDefinition =
@@ -2352,7 +2569,10 @@ namespace BombSwap.Tests.PlayMode
                 chargerSpawnPosition,
                 armoredSpawnPosition,
                 selfDestructSpawnPosition,
-                selfDestructAnchors);
+                selfDestructAnchors,
+                throwerSpawnPosition,
+                throwerFiringAnchors,
+                throwerTargetAnchors);
 
             _reader = _root.AddComponent<BombSwapInputReader>();
             _reader.Configure(_inputActions);
@@ -2366,7 +2586,8 @@ namespace BombSwap.Tests.PlayMode
                 _roomDefinition,
                 chargerSpawn,
                 armoredSpawn,
-                selfDestructSpawn);
+                selfDestructSpawn,
+                throwerSpawn);
 
             _session = _root.AddComponent<PrototypeGameSession>();
             _session.Configure(
@@ -2382,7 +2603,8 @@ namespace BombSwap.Tests.PlayMode
                 combatEnabled,
                 _bossDefinition,
                 bossEnabled,
-                _selfDestructDefinition);
+                _selfDestructDefinition,
+                _throwerDefinition);
             if (runtimePlayerStart.HasValue || runtimeCombatEnabled.HasValue)
             {
                 CombatRoomDefinition runtimeRoom =
@@ -2452,6 +2674,11 @@ namespace BombSwap.Tests.PlayMode
                 _selfDestructPresenter =
                     _root.AddComponent<PrototypeSelfDestructPresenter>();
                 _selfDestructPresenter.Configure(_session, presentationRoot);
+            }
+            if (includeThrowerPresenter)
+            {
+                _throwerPresenter = _root.AddComponent<PrototypeThrowerPresenter>();
+                _throwerPresenter.Configure(_session, presentationRoot);
             }
             if (includeBossPresenter)
             {

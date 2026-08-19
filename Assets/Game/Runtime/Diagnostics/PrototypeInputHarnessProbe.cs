@@ -46,6 +46,8 @@ namespace BombSwap
         private bool _selfDestructArmedReported;
         private bool _selfDestructDetonatedReported;
         private bool _selfDestructDiedReported;
+        private bool _throwerMovedReported;
+        private bool _throwerDiedReported;
         private bool _enemyDiedReported;
         private bool _bossPhaseTwoReported;
         private bool _bossLastStandReported;
@@ -123,6 +125,9 @@ namespace BombSwap
             session.SelfDestructAdvanced += OnSelfDestructAdvanced;
             session.SelfDestructArmed += OnSelfDestructArmed;
             session.SelfDestructSpawned += OnSelfDestructSpawned;
+            session.ThrowerAdvanced += OnThrowerAdvanced;
+            session.ThrowerBombLaunched += OnThrowerBombLaunched;
+            session.ThrowerBombPlaced += OnThrowerBombPlaced;
             session.EnemyDied += OnEnemyDied;
             session.BossMoved += OnBossMoved;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
@@ -166,6 +171,9 @@ namespace BombSwap
                 session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
                 session.SelfDestructArmed -= OnSelfDestructArmed;
                 session.SelfDestructSpawned -= OnSelfDestructSpawned;
+                session.ThrowerAdvanced -= OnThrowerAdvanced;
+                session.ThrowerBombLaunched -= OnThrowerBombLaunched;
+                session.ThrowerBombPlaced -= OnThrowerBombPlaced;
                 session.EnemyDied -= OnEnemyDied;
                 session.BossMoved -= OnBossMoved;
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
@@ -225,6 +233,10 @@ namespace BombSwap
                 {
                     ReportSelfDestructWarning();
                 }
+            }
+            if (session.HasThrower)
+            {
+                ReportThrowerCell(session.CurrentThrowerGridPosition);
             }
             _readyReported = true;
         }
@@ -299,6 +311,15 @@ namespace BombSwap
                 explosion.Cause == BombDetonationCause.Chain)
             {
                 WebGlHarnessReporter.Report("boss-chain-bomb-detonated-by-chain");
+            }
+            if (explosion.DefinitionId.Value == "prototype-thrower-blocker")
+            {
+                WebGlHarnessReporter.Report("thrower-bomb-detonated");
+                if (explosion.Cause == BombDetonationCause.Chain)
+                {
+                    WebGlHarnessReporter.Report(
+                        "thrower-bomb-detonated-by-chain");
+                }
             }
             if (!_destructibleWallDestroyedReported && explosion.DestroyedWalls.Count > 0)
             {
@@ -555,6 +576,12 @@ namespace BombSwap
                 WebGlHarnessReporter.Report("self-destruct-died");
                 _selfDestructDiedReported = true;
             }
+            if (!_throwerDiedReported && session.HasThrower &&
+                result.ActorId == session.ThrowerActorId)
+            {
+                WebGlHarnessReporter.Report("thrower-died");
+                _throwerDiedReported = true;
+            }
             if (_enemyDiedReported)
             {
                 return;
@@ -623,6 +650,51 @@ namespace BombSwap
         private static void OnSelfDestructSpawned(ActorId actorId)
         {
             WebGlHarnessReporter.Report("boss-self-destruct-spawned");
+        }
+
+        private void OnThrowerAdvanced(ThrowerEnemyAdvanceResult result)
+        {
+            if (result.HasMovement)
+            {
+                ReportThrowerCell(result.Movement.To);
+                if (!_throwerMovedReported)
+                {
+                    WebGlHarnessReporter.Report("thrower-track-moved");
+                    _throwerMovedReported = true;
+                }
+            }
+            if (result.HasStateTransition &&
+                result.State == ThrowerEnemyState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("thrower-telegraph");
+                for (int index = 0; index < result.LockedTargets.Count; index++)
+                {
+                    GridPosition target = result.LockedTargets[index];
+                    WebGlHarnessReporter.Report(
+                        "thrower-telegraph-x-" + target.X +
+                        "-z-" + target.Z);
+                }
+            }
+        }
+
+        private void OnThrowerBombLaunched(ThrowerBombFlight flight)
+        {
+            WebGlHarnessReporter.Report("thrower-bomb-launched");
+        }
+
+        private void OnThrowerBombPlaced(BombSnapshot snapshot)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
+            WebGlHarnessReporter.Report(
+                "thrower-bomb-armed-definition-" + snapshot.DefinitionId.Value);
+        }
+
+        private static void ReportThrowerCell(GridPosition position)
+        {
+            WebGlHarnessReporter.Report(
+                "thrower-cell-x-" + position.X + "-z-" + position.Z);
         }
 
         private void OnBossPatternTransitioned(BossPatternTransition transition)
