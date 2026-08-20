@@ -197,6 +197,12 @@ namespace BombSwap
         public GridSubcellPosition CurrentMovementPosition =>
             _movement != null ? _movement.Position : default;
 
+        public CardinalDirection FacingDirection =>
+            _movement != null ? _movement.FacingDirection : CardinalDirection.North;
+
+        public bool IsPlayerMoving =>
+            _movement != null && _movement.MoveDirection != CardinalDirection.None;
+
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
 
         public int ActiveBombSlotIndex => _weapons != null ? _weapons.ActiveSlotIndex : 0;

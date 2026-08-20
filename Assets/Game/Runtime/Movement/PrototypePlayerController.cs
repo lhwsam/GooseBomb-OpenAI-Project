@@ -7,17 +7,24 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypePlayerController : MonoBehaviour
     {
+        private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
+
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform playerTransform;
 
+        [SerializeField]
+        private Animator animator;
+
         private GridSpace _gridSpace;
         private float _presentationHeight;
         public PrototypeGameSession Session => session;
 
         public Transform PlayerTransform => playerTransform;
+
+        public Animator Animator => animator;
 
         public float CellsPerSecond => session != null ? session.CellsPerSecond : 0f;
 
@@ -90,6 +97,7 @@ namespace BombSwap
             _gridSpace = session.GridSpace;
             _presentationHeight = playerTransform.position.y - _gridSpace.Origin.y;
             playerTransform.position = ToPresentationPosition(session.CurrentMovementPosition);
+            playerTransform.rotation = ToPresentationRotation(session.FacingDirection);
             IsInitialized = true;
         }
 
@@ -105,9 +113,45 @@ namespace BombSwap
             playerTransform.position = ToPresentationPosition(position);
         }
 
+        private void Update()
+        {
+            if (!IsInitialized || session.IsPaused)
+            {
+                return;
+            }
+
+            playerTransform.rotation = ToPresentationRotation(session.FacingDirection);
+            if (animator != null)
+            {
+                animator.SetBool(IsMovingParameterId, session.IsPlayerMoving);
+            }
+        }
+
         private Vector3 ToPresentationPosition(GridSubcellPosition position)
         {
             return _gridSpace.GridToWorld(position) + (Vector3.up * _presentationHeight);
+        }
+
+        private static Quaternion ToPresentationRotation(CardinalDirection facingDirection)
+        {
+            return Quaternion.LookRotation(DirectionToForward(facingDirection), Vector3.up);
+        }
+
+        private static Vector3 DirectionToForward(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return Vector3.forward;
+                case CardinalDirection.East:
+                    return Vector3.right;
+                case CardinalDirection.South:
+                    return Vector3.back;
+                case CardinalDirection.West:
+                    return Vector3.left;
+                default:
+                    return Vector3.forward;
+            }
         }
     }
 }
