@@ -25,6 +25,7 @@ sequenceDiagram
 
 현재 구현된 입력 경계는 다음과 같다.
 
+- 첫 enabled 씬 `DungeonLobby`에는 run host와 gameplay input reader가 없다. 씬에 배치된 TMP Canvas와 Input System UI EventSystem을 `PrototypeLobbyPresenter`의 직렬화 참조로 연결하고, presenter가 `게임 시작` Submit을 받으면 `DungeonStart`를 단일 로드한다. 기존 dungeon bootstrap은 그때 처음 persistent run host를 만든다.
 - Core의 `PlayerCommand`는 장치 타입을 포함하지 않고 명령 종류와 네 방향 이동 의도만 보존한다.
 - `BombSwapInputReader`는 게임 전용 `Gameplay` action map을 enable/disable 생명주기에 맞춰 대칭으로 구독한다.
 - focus 또는 application pause 상실 시 활성 이동을 `Move(None)`으로 해제하고 action map과 바인딩 장치 상태를 초기화한다.
@@ -34,7 +35,7 @@ sequenceDiagram
 - `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정/파괴 가능 벽·플레이어/필수 추격자/선택적 돌진형·갑옷 적 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
 - `PrototypePlayerController`는 Core 플레이어 연속 위치를 직접 표시한다. `PrototypeChaserPresenter`, `PrototypeChargerPresenter`, `PrototypeArmoredPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 확정된 적 상태·이동, 정의별 설치·폭발, 피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. `PrototypeBossPresenter`도 Core의 다음 목적지를 Telegraph ghost로 표시하고 확정 `BossMoved` step만 Execute 동안 보간하며 pause 중 멈춘다. 각 presenter는 자신의 규칙을 다시 계산하지 않는다. `PrototypeWeaponHud`는 Core 슬롯 snapshot을 표시하고, `PrototypeHealthHud`는 세션의 확정된 플레이어·보스 체력/phase snapshot을 사건 기반으로 표시한다. 두 HUD 모두 규칙이나 입력을 소유하지 않는다. `PrototypeGameSession`은 실제 pause 상태를 소유하고 입력 재샘플링과 논리 시계 진행 전에 simulation을 차단하며, `PrototypePausePresenter`는 확정 상태를 받아 UI만 표현한다.
 - `PrototypeDungeonMinimapPresenter`는 `DungeonRunState.CreateMinimapSnapshot()`의 현재·방문·직접 인접 방과 확인된 연결만 표현한다. 미공개 Secret 방·연결은 제외하고 실제 출구벽 파괴로 해당 연결이 공개되면 binder 사건에서 즉시 다시 그린다. 시작 scene은 초기화 때 한 번, 이후 scene은 `PrototypeDungeonRunHost.RoomCommitted`의 실제 Core commit 뒤 다시 그리며 `Update` polling이나 별도 persistent 지도 상태를 만들지 않는다. X/Z graph 방향을 UI 오른쪽/위쪽으로 그대로 보존한다.
-- Core `DungeonRunState`는 `InProgress → Completed | Failed` 단방향 결과를 소유한다. room binder는 `PlayerDied`의 정확한 치명 피해 결과를 `FailureDamage`로 보존하며 실패로, 보스방 `RoomCleared`를 완료로 반영한다. `PrototypeRunCompletionPresenter`는 다음 frame에 결과 snapshot을 읽어 방 세션을 멈추고 `FLOOR CLEARED` 또는 `RUN FAILED`와 source 기반 사망 원인을 표시한다. terminal 상태의 `RestartRun`만 persistent host가 소비하며, host는 기존 상태를 부분 초기화하지 않고 같은 seed와 catalog에서 새 session·navigator를 구성해 시작 씬을 다시 로드한다.
+- Core `DungeonRunState`는 `InProgress → Completed | Failed` 단방향 결과를 소유한다. room binder는 `PlayerDied`의 정확한 치명 피해 결과를 `FailureDamage`로 보존하며 실패로, 보스방 `RoomCleared`를 완료로 반영한다. `PrototypeRunCompletionPresenter`는 다음 frame에 결과 snapshot을 읽어 방 세션을 멈추고 `FLOOR CLEARED` 또는 `RUN FAILED`와 source 기반 사망 원인을 표시한다. terminal 상태의 `RestartRun`은 같은 seed와 catalog의 새 session·navigator로 시작 씬을 다시 로드하고, `로비로 돌아가기`는 persistent host를 제거한 뒤 run 없는 `DungeonLobby`를 로드한다.
 - 플레이테스트 전용 `PrototypeRoomAdvanceController`는 `RoomCleared`를 한 번 받은 뒤 1.25초 realtime 지연으로 다음 TestSandbox 씬을 단일 로드한다. 중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험 순서이며 마지막 씬은 다음 이름이 비어 있어 머문다. 이 Unity 어댑터는 Core 규칙이나 room asset의 mutable 상태가 아니며, 보상·방 그래프가 생기면 그 흐름으로 대체한다.
 
 binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.

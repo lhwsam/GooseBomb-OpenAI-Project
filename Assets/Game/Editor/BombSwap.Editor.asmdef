@@ -4,7 +4,9 @@
   "references": [
     "BombSwap.Core",
     "BombSwap.Unity",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

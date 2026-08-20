@@ -162,6 +162,36 @@ namespace BombSwap
             }
         }
 
+        public void ExitFinishedRunToScene(string sceneName)
+        {
+            RequirePrimary();
+            if (_navigator.HasPendingTransition)
+            {
+                throw new InvalidOperationException(
+                    "A dungeon run cannot exit during a pending room transition.");
+            }
+            if (!RunSession.IsFinished)
+            {
+                throw new InvalidOperationException(
+                    "Only a completed or failed dungeon run can exit to the lobby.");
+            }
+            if (string.IsNullOrWhiteSpace(sceneName))
+            {
+                throw new ArgumentException(
+                    "Exit scene name cannot be empty.",
+                    nameof(sceneName));
+            }
+            if (!Application.CanStreamedLevelBeLoaded(sceneName))
+            {
+                throw new InvalidOperationException(
+                    $"Exit scene '{sceneName}' is not loadable.");
+            }
+
+            WebGlHarnessReporter.Report("run-lobby-requested");
+            SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+            Destroy(gameObject);
+        }
+
         private void Awake()
         {
             if (!Application.isPlaying)

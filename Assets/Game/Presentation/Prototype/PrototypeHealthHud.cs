@@ -1,5 +1,6 @@
 using System;
 using BombSwap.Core;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -22,9 +23,9 @@ namespace BombSwap
         private GameObject _bossPanelObject;
         private Image _playerHealthFill;
         private Image _bossHealthFill;
-        private Text _playerHealthLabel;
-        private Text _bossHealthLabel;
-        private Text _combatRewardLabel;
+        private TextMeshProUGUI _playerHealthLabel;
+        private TextMeshProUGUI _bossHealthLabel;
+        private TextMeshProUGUI _combatRewardLabel;
         private PrototypeDungeonRoomBinder _roomBinder;
         private bool _isSubscribed;
 
@@ -232,9 +233,9 @@ namespace BombSwap
             DisplayedBossPhase = phase;
             _bossHealthFill.fillAmount = GetFraction(currentHealth, maxHealth);
             _bossHealthLabel.text = currentHealth > 0
-                ? "BOSS  ·  PHASE " + GetPhaseNumber(phase) +
-                  "  ·  " + currentHealth + " / " + maxHealth
-                : "BOSS DEFEATED  ·  0 / " + maxHealth;
+                ? "BOSS  |  PHASE " + GetPhaseNumber(phase) +
+                  "  |  " + currentHealth + " / " + maxHealth
+                : "BOSS DEFEATED  |  0 / " + maxHealth;
             _bossHealthLabel.color = Color.white;
         }
 
@@ -251,13 +252,6 @@ namespace BombSwap
 
         private void CreateUi()
         {
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
-            {
-                throw new InvalidOperationException(
-                    "Unity built-in runtime font was not found.");
-            }
-
             _canvasObject = new GameObject(
                 "PrototypeHealthHudCanvas",
                 typeof(RectTransform),
@@ -281,7 +275,7 @@ namespace BombSwap
                 new Vector2(0f, 1f),
                 new Vector2(24f, -24f),
                 new Vector2(310f, 78f));
-            _playerHealthLabel = CreateLabel(playerPanel, font, 21);
+            _playerHealthLabel = CreateLabel(playerPanel, 21f);
             _playerHealthFill = CreateBar(playerPanel, PlayerHealthColor);
 
             RectTransform rewardPanel = CreatePanel(
@@ -292,7 +286,7 @@ namespace BombSwap
                 new Vector2(1f, 1f),
                 new Vector2(-24f, -24f),
                 new Vector2(250f, 58f));
-            _combatRewardLabel = CreateLabel(rewardPanel, font, 21);
+            _combatRewardLabel = CreateLabel(rewardPanel, 21f);
 
             RectTransform bossPanel = CreatePanel(
                 "BossHealthPanel",
@@ -303,7 +297,7 @@ namespace BombSwap
                 new Vector2(0f, -24f),
                 new Vector2(560f, 82f));
             _bossPanelObject = bossPanel.gameObject;
-            _bossHealthLabel = CreateLabel(bossPanel, font, 22);
+            _bossHealthLabel = CreateLabel(bossPanel, 22f);
             _bossHealthFill = CreateBar(bossPanel, BossHealthColor);
         }
 
@@ -328,25 +322,21 @@ namespace BombSwap
             return panel;
         }
 
-        private static Text CreateLabel(
+        private static TextMeshProUGUI CreateLabel(
             RectTransform panel,
-            Font font,
-            int fontSize)
+            float fontSize)
         {
-            RectTransform rect = CreateRect("Label", panel);
+            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
+                "Label",
+                panel,
+                fontSize,
+                TextAlignmentOptions.MidlineLeft,
+                FontStyles.Bold);
+            RectTransform rect = label.rectTransform;
             rect.anchorMin = new Vector2(0f, 0.38f);
             rect.anchorMax = Vector2.one;
             rect.offsetMin = new Vector2(14f, 0f);
             rect.offsetMax = new Vector2(-14f, -2f);
-            Text label = rect.gameObject.AddComponent<Text>();
-            label.font = font;
-            label.fontSize = fontSize;
-            label.fontStyle = FontStyle.Bold;
-            label.alignment = TextAnchor.MiddleLeft;
-            label.color = Color.white;
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.verticalOverflow = VerticalWrapMode.Overflow;
-            label.raycastTarget = false;
             return label;
         }
 

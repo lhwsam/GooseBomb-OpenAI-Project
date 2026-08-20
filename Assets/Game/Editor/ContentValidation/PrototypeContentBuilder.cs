@@ -4,12 +4,16 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using BombSwap.Core;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace BombSwap.Editor.ContentValidation
 {
@@ -42,6 +46,25 @@ namespace BombSwap.Editor.ContentValidation
             public GameObject[] SecretCrackRoots { get; }
         }
 
+        private sealed class LobbyUiBindings
+        {
+            public Canvas Canvas { get; set; }
+
+            public EventSystem EventSystem { get; set; }
+
+            public GameObject ControlsPanel { get; set; }
+
+            public TextMeshProUGUI TitleLabel { get; set; }
+
+            public TextMeshProUGUI StatusLabel { get; set; }
+
+            public Button StartButton { get; set; }
+
+            public Button ControlsButton { get; set; }
+
+            public Button BackButton { get; set; }
+        }
+
         [MenuItem("Bomb Swap/Prototype/Create Missing Prototype Content")]
         public static void CreateMissingPrototypeContentMenu()
         {
@@ -68,8 +91,27 @@ namespace BombSwap.Editor.ContentValidation
                 "Refreshed prototype thrower definition, bomb, room, and presentation content.");
         }
 
+        [MenuItem("Bomb Swap/Prototype/Apply Game UI Font")]
+        public static void ApplyGameUiFontMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before applying the game UI font.");
+            }
+
+            TMP_FontAsset font = ConfigureGameDefaultFont();
+            int changedLabelCount = ApplyGameFontToLobbyScene(font);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                $"Applied {PrototypeUiFactory.GameFontAssetName} as the TMP default and updated {changedLabelCount} lobby labels.");
+        }
+
         public static string CreateMissingPrototypeContent()
         {
+            TMP_FontAsset gameFont = ConfigureGameDefaultFont();
+            bool lobbySceneCreated = EnsureLobbyScene();
+            ApplyGameFontToLobbyScene(gameFont);
             InputActionAsset inputActions = CreateInputActionsIfMissing();
             PrototypeBombDefinitionAsset bombDefinition =
                 CreatePrototypeBombContentIfMissing();
@@ -330,7 +372,8 @@ namespace BombSwap.Editor.ContentValidation
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
-            return sceneCreated || lanesSceneCreated || throwerDungeonSceneCreated ||
+            return lobbySceneCreated || sceneCreated || lanesSceneCreated ||
+                throwerDungeonSceneCreated ||
                 pillarsSceneCreated ||
                 armorSceneCreated || gatesSceneCreated || armoredPlaytestSceneCreated ||
                 selfDestructPlaytestSceneCreated || bossPlaytestSceneCreated ||
@@ -339,8 +382,310 @@ namespace BombSwap.Editor.ContentValidation
                 rewardSceneCreated ||
                 bossAnteSceneCreated || recoverySceneCreated || secretSceneCreated ||
                 bossSceneCreated
-                ? "Created BombSwap prototype dungeon content, eleven graph room scenes, and standalone enemy playtest scenes."
-                : "BombSwap prototype content exists; synchronized dungeon rooms, standalone enemy playtests, graph bindings, references, and Build Settings.";
+                ? "Created BombSwap lobby, prototype dungeon content, eleven graph room scenes, and standalone enemy playtest scenes."
+                : $"BombSwap prototype content exists; synchronized lobby, dungeon rooms, standalone enemy playtests, graph bindings, references, {PrototypeUiFactory.GameFontAssetName}, and Build Settings.";
+        }
+
+        private static TMP_FontAsset ConfigureGameDefaultFont()
+        {
+            TMP_FontAsset font = LoadRequiredAsset<TMP_FontAsset>(
+                PrototypeContentValidator.GameFontAssetPath);
+            TMP_Settings settings = LoadRequiredAsset<TMP_Settings>(
+                PrototypeContentValidator.TmpSettingsAssetPath);
+            if (!font.HasCharacters(
+                    PrototypeLobbyPresenter.GameTitle,
+                    out List<char> missingCharacters))
+            {
+                throw new InvalidOperationException(
+                    $"{PrototypeUiFactory.GameFontAssetName} is missing required title characters: {string.Join(", ", missingCharacters)}");
+            }
+
+            var serializedSettings = new SerializedObject(settings);
+            SerializedProperty defaultFontProperty =
+                serializedSettings.FindProperty("m_defaultFontAsset");
+            if (defaultFontProperty == null)
+            {
+                throw new InvalidOperationException(
+                    "TMP Settings is missing m_defaultFontAsset.");
+            }
+            if (defaultFontProperty.objectReferenceValue == font)
+            {
+                return font;
+            }
+
+            Undo.RecordObject(settings, "Set Bomb Swap TMP Default Font");
+            defaultFontProperty.objectReferenceValue = font;
+            serializedSettings.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(settings);
+            return font;
+        }
+
+        private static int ApplyGameFontToLobbyScene(TMP_FontAsset font)
+        {
+            string scenePath = PrototypeContentValidator.LobbyScenePath;
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                throw new InvalidOperationException(
+                    $"Lobby scene '{scenePath}' does not exist.");
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForMigration = !scene.IsValid() || !scene.isLoaded;
+            if (openedForMigration)
+            {
+                scene = EditorSceneManager.OpenScene(
+                    scenePath,
+                    OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                TextMeshProUGUI[] labels = scene.GetRootGameObjects()
+                    .SelectMany(root =>
+                        root.GetComponentsInChildren<TextMeshProUGUI>(true))
+                    .ToArray();
+                TextMeshProUGUI[] changedLabels = labels
+                    .Where(label => label.font != font)
+                    .ToArray();
+                if (changedLabels.Length == 0)
+                {
+                    return 0;
+                }
+
+                Undo.RecordObjects(changedLabels, "Apply Bomb Swap UI Font");
+                for (int index = 0; index < changedLabels.Length; index++)
+                {
+                    changedLabels[index].font = font;
+                    EditorUtility.SetDirty(changedLabels[index]);
+                }
+
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save lobby scene '{scenePath}' after applying the game UI font.");
+                }
+                return changedLabels.Length;
+            }
+            finally
+            {
+                if (openedForMigration && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static bool EnsureLobbyScene()
+        {
+            EnsureAssetFolder("Assets/Game/Scenes/Lobby");
+            EnsureAssetFolder(MaterialsPath);
+
+            string scenePath = PrototypeContentValidator.LobbyScenePath;
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool created = AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null;
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = created
+                    ? EditorSceneManager.NewScene(
+                        NewSceneSetup.EmptyScene,
+                        NewSceneMode.Additive)
+                    : EditorSceneManager.OpenScene(
+                        scenePath,
+                        OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                if (created || LobbySceneNeedsAuthoredUi(scene))
+                {
+                    SynchronizeLobbyScene(scene);
+                    EditorSceneManager.MarkSceneDirty(scene);
+                    bool saved = created
+                        ? EditorSceneManager.SaveScene(scene, scenePath)
+                        : EditorSceneManager.SaveScene(scene);
+                    if (!saved)
+                    {
+                        throw new InvalidOperationException(
+                            $"Unity failed to save lobby scene '{scenePath}'.");
+                    }
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+
+            return created;
+        }
+
+        private static bool LobbySceneNeedsAuthoredUi(Scene scene)
+        {
+            PrototypeLobbyPresenter[] presenters = scene.GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<PrototypeLobbyPresenter>(true))
+                .ToArray();
+            return presenters.Length != 1 ||
+                   !presenters[0].HasAuthoredViewReferences;
+        }
+
+        private static void SynchronizeLobbyScene(Scene scene)
+        {
+            foreach (GameObject existingRoot in scene.GetRootGameObjects())
+            {
+                UnityEngine.Object.DestroyImmediate(existingRoot);
+            }
+
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException(
+                    "Required URP Lit shader was not found for the lobby.");
+            }
+
+            Material floorMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/LobbyFloor.mat",
+                shader,
+                new Color(0.055f, 0.085f, 0.13f, 1f));
+            Material gooseMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/LobbyGoose.mat",
+                shader,
+                new Color(0.92f, 0.92f, 0.84f, 1f));
+            Material orangeMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/LobbyOrange.mat",
+                shader,
+                new Color(1f, 0.48f, 0.08f, 1f));
+            Material darkMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/LobbyDark.mat",
+                shader,
+                new Color(0.035f, 0.045f, 0.06f, 1f));
+
+            var root = new GameObject("DungeonLobby");
+            SceneManager.MoveGameObjectToScene(root, scene);
+
+            var systems = new GameObject("LobbySystems");
+            systems.transform.SetParent(root.transform, false);
+            PrototypeLobbyPresenter presenter =
+                systems.AddComponent<PrototypeLobbyPresenter>();
+            presenter.Configure(PrototypeLobbyPresenter.DefaultStartSceneName);
+
+            Transform stage = CreateChild("LobbyStage", root.transform);
+            CreatePrimitive(
+                "Floor",
+                PrimitiveType.Cube,
+                stage,
+                new Vector3(3.2f, -0.2f, 0.4f),
+                new Vector3(15f, 0.35f, 10f),
+                floorMaterial,
+                false);
+
+            Transform goose = CreateChild("BombLayingGoose", stage);
+            goose.localPosition = new Vector3(3.5f, 0.2f, 0.7f);
+            CreatePrimitive(
+                "Body",
+                PrimitiveType.Sphere,
+                goose,
+                new Vector3(0f, 0.78f, 0.25f),
+                new Vector3(2.2f, 1.35f, 2.55f),
+                gooseMaterial,
+                false);
+            CreatePrimitive(
+                "LeftWing",
+                PrimitiveType.Sphere,
+                goose,
+                new Vector3(-1f, 0.9f, 0.25f),
+                new Vector3(0.5f, 0.86f, 1.55f),
+                gooseMaterial,
+                false);
+            CreatePrimitive(
+                "RightWing",
+                PrimitiveType.Sphere,
+                goose,
+                new Vector3(1f, 0.9f, 0.25f),
+                new Vector3(0.5f, 0.86f, 1.55f),
+                gooseMaterial,
+                false);
+            CreatePrimitive(
+                "Neck",
+                PrimitiveType.Capsule,
+                goose,
+                new Vector3(0f, 1.7f, -0.45f),
+                new Vector3(0.65f, 1.05f, 0.65f),
+                gooseMaterial,
+                false);
+            CreatePrimitive(
+                "Head",
+                PrimitiveType.Sphere,
+                goose,
+                new Vector3(0f, 2.75f, -0.55f),
+                new Vector3(1.08f, 0.95f, 1.05f),
+                gooseMaterial,
+                false);
+            CreatePrimitive(
+                "Beak",
+                PrimitiveType.Cube,
+                goose,
+                new Vector3(0f, 2.62f, -1.18f),
+                new Vector3(0.92f, 0.25f, 0.8f),
+                orangeMaterial,
+                false);
+            CreatePrimitive(
+                "LeftEye",
+                PrimitiveType.Sphere,
+                goose,
+                new Vector3(-0.29f, 2.92f, -1.02f),
+                new Vector3(0.16f, 0.16f, 0.14f),
+                darkMaterial,
+                false);
+            CreatePrimitive(
+                "RightEye",
+                PrimitiveType.Sphere,
+                goose,
+                new Vector3(0.29f, 2.92f, -1.02f),
+                new Vector3(0.16f, 0.16f, 0.14f),
+                darkMaterial,
+                false);
+
+            Transform bomb = CreateChild("LaidBomb", stage);
+            bomb.localPosition = new Vector3(6.1f, 0.22f, -0.25f);
+            CreatePrimitive(
+                "BombBody",
+                PrimitiveType.Sphere,
+                bomb,
+                new Vector3(0f, 0.62f, 0f),
+                new Vector3(1.35f, 1.35f, 1.35f),
+                darkMaterial,
+                false);
+            GameObject fuse = CreatePrimitive(
+                "Fuse",
+                PrimitiveType.Cylinder,
+                bomb,
+                new Vector3(0.18f, 1.45f, 0f),
+                new Vector3(0.12f, 0.34f, 0.12f),
+                orangeMaterial,
+                false);
+            fuse.transform.localRotation = Quaternion.Euler(0f, 0f, -22f);
+
+            LobbyUiBindings ui = CreateLobbyUi(root.transform);
+            presenter.BindAuthoredView(
+                ui.Canvas,
+                ui.EventSystem,
+                ui.ControlsPanel,
+                ui.TitleLabel,
+                ui.StatusLabel,
+                ui.StartButton,
+                ui.ControlsButton,
+                ui.BackButton);
+            EditorUtility.SetDirty(presenter);
+
+            CreateLobbyCamera(root.transform);
+            CreateDirectionalLight(root.transform);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.32f, 0.36f, 0.43f, 1f);
         }
 
         public static string CreateOrUpdateArmoredPanicPlaytestScene()
@@ -3677,6 +4022,9 @@ namespace BombSwap.Editor.ContentValidation
             var scenes = new List<EditorBuildSettingsScene>
             {
                 new EditorBuildSettingsScene(
+                    PrototypeContentValidator.LobbyScenePath,
+                    true),
+                new EditorBuildSettingsScene(
                     PrototypeContentValidator.DungeonStartScenePath,
                     true),
                 new EditorBuildSettingsScene(
@@ -3933,6 +4281,216 @@ namespace BombSwap.Editor.ContentValidation
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 50f;
             cameraObject.AddComponent<AudioListener>();
+        }
+
+        private static void CreateLobbyCamera(Transform parent)
+        {
+            var cameraObject = new GameObject("Main Camera");
+            cameraObject.transform.SetParent(parent, false);
+            cameraObject.tag = "MainCamera";
+            cameraObject.transform.localPosition = new Vector3(5.2f, 4.4f, -10.5f);
+            cameraObject.transform.LookAt(new Vector3(3.8f, 1.3f, 0.2f));
+
+            Camera camera = cameraObject.AddComponent<Camera>();
+            camera.orthographic = false;
+            camera.fieldOfView = 42f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.015f, 0.025f, 0.045f, 1f);
+            camera.nearClipPlane = 0.1f;
+            camera.farClipPlane = 50f;
+            cameraObject.AddComponent<AudioListener>();
+        }
+
+        private static LobbyUiBindings CreateLobbyUi(Transform parent)
+        {
+            var canvasObject = new GameObject(
+                "LobbyCanvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+            canvasObject.transform.SetParent(parent, false);
+
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 300;
+
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1280f, 720f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            RectTransform shade = PrototypeUiFactory.CreateRect(
+                "BackgroundShade",
+                canvasObject.transform);
+            SetRectAnchors(shade, Vector2.zero, Vector2.one);
+            Image shadeImage = shade.gameObject.AddComponent<Image>();
+            shadeImage.color = new Color(0.01f, 0.018f, 0.03f, 0.48f);
+            shadeImage.raycastTarget = false;
+
+            RectTransform menuPanel = PrototypeUiFactory.CreateRect(
+                "MainMenuPanel",
+                shade);
+            SetRectAnchors(
+                menuPanel,
+                new Vector2(0.06f, 0.1f),
+                new Vector2(0.56f, 0.9f));
+            Image menuPanelImage = menuPanel.gameObject.AddComponent<Image>();
+            menuPanelImage.color = new Color(0.025f, 0.035f, 0.055f, 0.94f);
+            menuPanelImage.raycastTarget = true;
+
+            TextMeshProUGUI titleLabel = PrototypeUiFactory.CreateText(
+                "GameTitleText",
+                menuPanel,
+                58f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold,
+                TextWrappingModes.NoWrap);
+            SetRectAnchors(
+                titleLabel.rectTransform,
+                new Vector2(0.06f, 0.68f),
+                new Vector2(0.94f, 0.94f));
+            titleLabel.text = PrototypeLobbyPresenter.GameTitle;
+            titleLabel.color = new Color(1f, 0.78f, 0.26f, 1f);
+
+            TextMeshProUGUI subtitle = PrototypeUiFactory.CreateText(
+                "SubtitleText",
+                menuPanel,
+                24f,
+                TextAlignmentOptions.Center,
+                FontStyles.Normal,
+                TextWrappingModes.Normal);
+            SetRectAnchors(
+                subtitle.rectTransform,
+                new Vector2(0.08f, 0.58f),
+                new Vector2(0.92f, 0.7f));
+            subtitle.text = "미래의 폭발을 설계하는 룸 액션 로그라이트";
+            subtitle.color = new Color(0.76f, 0.84f, 0.93f, 1f);
+
+            Button startButton = PrototypeUiFactory.CreateButton(
+                "StartRunButton",
+                menuPanel,
+                "게임 시작",
+                34f,
+                new Color(0.94f, 0.55f, 0.12f, 1f),
+                new Color(1f, 0.72f, 0.22f, 1f));
+            SetRectAnchors(
+                startButton.GetComponent<RectTransform>(),
+                new Vector2(0.17f, 0.39f),
+                new Vector2(0.83f, 0.51f));
+
+            Button controlsButton = PrototypeUiFactory.CreateButton(
+                "ControlsButton",
+                menuPanel,
+                "조작 방법",
+                29f,
+                new Color(0.12f, 0.2f, 0.3f, 1f),
+                new Color(0.2f, 0.42f, 0.58f, 1f));
+            SetRectAnchors(
+                controlsButton.GetComponent<RectTransform>(),
+                new Vector2(0.17f, 0.23f),
+                new Vector2(0.83f, 0.35f));
+
+            TextMeshProUGUI statusLabel = PrototypeUiFactory.CreateText(
+                "StatusText",
+                menuPanel,
+                19f,
+                TextAlignmentOptions.Center,
+                FontStyles.Normal,
+                TextWrappingModes.Normal);
+            SetRectAnchors(
+                statusLabel.rectTransform,
+                new Vector2(0.08f, 0.08f),
+                new Vector2(0.92f, 0.19f));
+            statusLabel.text = "키보드 / 게임패드 / 마우스 지원";
+            statusLabel.color = new Color(0.62f, 0.7f, 0.8f, 1f);
+
+            RectTransform controlsPanel = PrototypeUiFactory.CreateRect(
+                "ControlsPanel",
+                shade);
+            SetRectAnchors(
+                controlsPanel,
+                new Vector2(0.2f, 0.14f),
+                new Vector2(0.8f, 0.86f));
+            Image controlsPanelImage =
+                controlsPanel.gameObject.AddComponent<Image>();
+            controlsPanelImage.color = new Color(0.018f, 0.028f, 0.045f, 0.98f);
+
+            TextMeshProUGUI heading = PrototypeUiFactory.CreateText(
+                "HeadingText",
+                controlsPanel,
+                44f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold);
+            SetRectAnchors(
+                heading.rectTransform,
+                new Vector2(0.08f, 0.78f),
+                new Vector2(0.92f, 0.94f));
+            heading.text = "조작 방법";
+            heading.color = new Color(1f, 0.78f, 0.26f, 1f);
+
+            TextMeshProUGUI instructions = PrototypeUiFactory.CreateText(
+                "InstructionsText",
+                controlsPanel,
+                25f,
+                TextAlignmentOptions.Left,
+                FontStyles.Normal,
+                TextWrappingModes.Normal);
+            SetRectAnchors(
+                instructions.rectTransform,
+                new Vector2(0.12f, 0.29f),
+                new Vector2(0.88f, 0.77f));
+            instructions.text =
+                "이동   WASD / 방향키 / 왼쪽 스틱\n" +
+                "폭탄 설치   Z / 게임패드 South\n" +
+                "폭탄 교체   X / 게임패드 West\n" +
+                "일시정지   ESC / 게임패드 Start\n\n" +
+                "폭탄이 터질 위치를 미리 설계하고,\n" +
+                "두 폭탄을 번갈아 사용해 적을 유인하세요.";
+            instructions.color = new Color(0.86f, 0.9f, 0.96f, 1f);
+
+            Button backButton = PrototypeUiFactory.CreateButton(
+                "BackButton",
+                controlsPanel,
+                "돌아가기",
+                28f,
+                new Color(0.12f, 0.2f, 0.3f, 1f),
+                new Color(0.2f, 0.42f, 0.58f, 1f));
+            SetRectAnchors(
+                backButton.GetComponent<RectTransform>(),
+                new Vector2(0.3f, 0.1f),
+                new Vector2(0.7f, 0.23f));
+            controlsPanel.gameObject.SetActive(false);
+
+            var eventSystemObject = new GameObject(
+                "LobbyEventSystem",
+                typeof(EventSystem),
+                typeof(InputSystemUIInputModule));
+            eventSystemObject.transform.SetParent(parent, false);
+
+            return new LobbyUiBindings
+            {
+                Canvas = canvas,
+                EventSystem = eventSystemObject.GetComponent<EventSystem>(),
+                ControlsPanel = controlsPanel.gameObject,
+                TitleLabel = titleLabel,
+                StatusLabel = statusLabel,
+                StartButton = startButton,
+                ControlsButton = controlsButton,
+                BackButton = backButton,
+            };
+        }
+
+        private static void SetRectAnchors(
+            RectTransform rect,
+            Vector2 anchorMin,
+            Vector2 anchorMax)
+        {
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private static void CreateDirectionalLight(Transform parent)
