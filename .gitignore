@@ -21,6 +21,10 @@
 *.log
 /[Aa]rtifacts/
 
+# Local vendor downloads. Import approved assets into Assets/ThirdParty instead.
+/ExternalAssets/UI-Packages/*
+!/ExternalAssets/UI-Packages/README.md
+
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be committed to version control.
 *.blend1
 *.blend1.meta

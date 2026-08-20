@@ -1,5 +1,6 @@
 using System;
 using BombSwap.Core;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -26,7 +27,7 @@ namespace BombSwap
         private Material pickupMaterial;
 
         private GameObject _pickupVisual;
-        private Text _instructionLabel;
+        private TextMeshProUGUI _instructionLabel;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
@@ -196,7 +197,7 @@ namespace BombSwap
                     }
                     _instructionLabel.text =
                         "RECOVERED +" + result.RestoredHealth +
-                        "  ·  HP " + result.CurrentHealth + " / " +
+                        "  |  HP " + result.CurrentHealth + " / " +
                         roomBinder.RoomSession.MaxHealth;
                     return true;
                 case DungeonRecoveryUseStatus.AtFullHealth:
@@ -242,13 +243,6 @@ namespace BombSwap
 
         private void CreateInstructionUi()
         {
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
-            {
-                throw new InvalidOperationException(
-                    "Unity built-in runtime font was not found.");
-            }
-
             GameObject canvasObject = new GameObject(
                 "RecoveryPickupCanvas",
                 typeof(RectTransform),
@@ -262,24 +256,19 @@ namespace BombSwap
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280f, 720f);
 
-            GameObject labelObject = new GameObject(
+            _instructionLabel = PrototypeUiFactory.CreateText(
                 "RecoveryPickupInstruction",
-                typeof(RectTransform),
-                typeof(Text));
-            labelObject.transform.SetParent(canvasObject.transform, false);
-            RectTransform rect = labelObject.GetComponent<RectTransform>();
+                canvasObject.transform,
+                22f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold);
+            RectTransform rect = _instructionLabel.rectTransform;
             rect.anchorMin = new Vector2(0.5f, 1f);
             rect.anchorMax = new Vector2(0.5f, 1f);
             rect.pivot = new Vector2(0.5f, 1f);
             rect.anchoredPosition = new Vector2(0f, -110f);
             rect.sizeDelta = new Vector2(1100f, 58f);
-            _instructionLabel = labelObject.GetComponent<Text>();
-            _instructionLabel.font = font;
-            _instructionLabel.fontSize = 22;
-            _instructionLabel.fontStyle = FontStyle.Bold;
-            _instructionLabel.alignment = TextAnchor.MiddleCenter;
             _instructionLabel.color = PickupColor;
-            _instructionLabel.raycastTarget = false;
         }
 
         private static GridPosition ToCorePosition(Vector2Int cell)
