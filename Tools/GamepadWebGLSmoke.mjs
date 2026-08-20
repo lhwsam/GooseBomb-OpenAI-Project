@@ -245,6 +245,12 @@ async function main() {
     }, undefined, { timeout: 120_000 });
     const canvas = page.locator("canvas").first();
     await canvas.click({ position: { x: 20, y: 20 } });
+    await waitForEvent(page, "lobby-ready", { timeout: 120_000 });
+    await page.evaluate(() => globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__.connect());
+    await page.waitForTimeout(250);
+    await setButton(page, StandardButton.South, 1);
+    await waitForEvent(page, "lobby-start-requested", { timeout: 5_000 });
+    await setButton(page, StandardButton.South, 0);
     await waitForEvent(page, "probe-ready", { timeout: 120_000 });
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", { timeout: 120_000 });
     await waitForEvent(page, "minimap-current-room-1", { timeout: 120_000 });
@@ -252,15 +258,16 @@ async function main() {
     await waitForEvent(page, "minimap-visible-connections-1", {
       timeout: 120_000,
     });
-    checks.push({ name: "load-and-focus", status: "passed" });
+    checks.push({
+      name: "load-focus-and-lobby-start",
+      status: "passed",
+      detail: "Standard button 0 submitted the selected lobby start button.",
+    });
     checks.push({
       name: "minimap-initial-knowledge",
       status: "passed",
       detail: "The gamepad path loaded the same limited start-room minimap snapshot.",
     });
-
-    await page.evaluate(() => globalThis.__BOMBSWAP_VIRTUAL_GAMEPAD__.connect());
-    await page.waitForTimeout(250);
 
     const virtualGamepad = await page.evaluate(() => {
       const pads = navigator.getGamepads();

@@ -2,16 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BombSwap.Core;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace BombSwap.Editor.ContentValidation
 {
     public static class PrototypeContentValidator
     {
+        public const string LobbyScenePath =
+            "Assets/Game/Scenes/Lobby/DungeonLobby.unity";
+        public const string GameFontAssetPath =
+            "Assets/TextMesh Pro/Fonts/DungGeunMo SDF.asset";
+        public const string TmpSettingsAssetPath =
+            "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
         public const string TestSandboxLanesScenePath =
@@ -152,6 +162,8 @@ namespace BombSwap.Editor.ContentValidation
                 throw new ArgumentNullException(nameof(errors));
             }
 
+            ValidateGameFont(errors);
+            ValidateLobbyScene(errors);
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);
@@ -174,6 +186,184 @@ namespace BombSwap.Editor.ContentValidation
             ValidateStandaloneBossPlaytestScene(errors);
             ValidateStandaloneThrowerPlaytestScene(errors);
             ValidateBuildSettings(errors);
+        }
+
+        private static void ValidateGameFont(ICollection<string> errors)
+        {
+            TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                GameFontAssetPath);
+            if (font == null)
+            {
+                errors.Add($"Missing game TMP font asset: {GameFontAssetPath}");
+                return;
+            }
+            if (!font.HasCharacters(
+                    PrototypeLobbyPresenter.GameTitle,
+                    out List<char> missingCharacters))
+            {
+                errors.Add(
+                    $"{PrototypeUiFactory.GameFontAssetName} is missing title characters: {string.Join(", ", missingCharacters)}");
+            }
+
+            TMP_Settings settings = AssetDatabase.LoadAssetAtPath<TMP_Settings>(
+                TmpSettingsAssetPath);
+            if (settings == null)
+            {
+                errors.Add($"Missing TMP Settings asset: {TmpSettingsAssetPath}");
+                return;
+            }
+
+            var serializedSettings = new SerializedObject(settings);
+            SerializedProperty defaultFontProperty =
+                serializedSettings.FindProperty("m_defaultFontAsset");
+            if (defaultFontProperty == null ||
+                defaultFontProperty.objectReferenceValue != font)
+            {
+                errors.Add(
+                    $"TMP Settings default font must be {PrototypeUiFactory.GameFontAssetName}.");
+            }
+        }
+
+        private static void ValidateLobbyScene(ICollection<string> errors)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(LobbyScenePath) == null)
+            {
+                errors.Add($"Missing prototype lobby scene: {LobbyScenePath}");
+                return;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(LobbyScenePath);
+            bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
+            if (openedForValidation)
+            {
+                scene = EditorSceneManager.OpenScene(
+                    LobbyScenePath,
+                    OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                PrototypeLobbyPresenter[] presenters =
+                    FindComponents<PrototypeLobbyPresenter>(scene);
+                if (presenters.Length != 1)
+                {
+                    errors.Add(
+                        $"Lobby must contain exactly one PrototypeLobbyPresenter, found {presenters.Length}.");
+                }
+                else
+                {
+                    PrototypeLobbyPresenter presenter = presenters[0];
+                    if (!string.Equals(
+                            presenter.StartSceneName,
+                            PrototypeLobbyPresenter.DefaultStartSceneName,
+                            StringComparison.Ordinal))
+                    {
+                        errors.Add(
+                            $"Lobby start scene must be '{PrototypeLobbyPresenter.DefaultStartSceneName}'.");
+                    }
+                    if (!presenter.HasAuthoredViewReferences)
+                    {
+                        errors.Add(
+                            "Lobby presenter must reference its scene-authored Canvas, EventSystem, controls panel, labels, and buttons.");
+                    }
+                    else
+                    {
+                        if (presenter.LobbyCanvas.gameObject.scene != scene ||
+                            presenter.LobbyEventSystem.gameObject.scene != scene ||
+                            presenter.ControlsPanel.scene != scene)
+                        {
+                            errors.Add(
+                                "Lobby presenter view references must belong to the lobby scene.");
+                        }
+                        if (!string.Equals(
+                                presenter.TitleText,
+                                PrototypeLobbyPresenter.GameTitle,
+                                StringComparison.Ordinal))
+                        {
+                            errors.Add(
+                                $"Lobby title must be '{PrototypeLobbyPresenter.GameTitle}'.");
+                        }
+                        if (presenter.ControlsPanel.activeSelf)
+                        {
+                            errors.Add(
+                                "Lobby controls panel must be inactive in the authored scene.");
+                        }
+                    }
+                }
+
+                Canvas[] canvases = FindComponents<Canvas>(scene);
+                if (canvases.Length != 1 || canvases[0].renderMode != RenderMode.ScreenSpaceOverlay)
+                {
+                    errors.Add(
+                        "Lobby must contain exactly one scene-authored Screen Space Overlay Canvas.");
+                }
+                if (FindComponents<CanvasScaler>(scene).Length != 1 ||
+                    FindComponents<GraphicRaycaster>(scene).Length != 1)
+                {
+                    errors.Add(
+                        "Lobby Canvas must contain exactly one CanvasScaler and GraphicRaycaster.");
+                }
+
+                EventSystem[] eventSystems = FindComponents<EventSystem>(scene);
+                InputSystemUIInputModule[] inputModules =
+                    FindComponents<InputSystemUIInputModule>(scene);
+                if (eventSystems.Length != 1 || inputModules.Length != 1 ||
+                    inputModules[0].gameObject != eventSystems[0].gameObject)
+                {
+                    errors.Add(
+                        "Lobby must contain one scene-authored EventSystem with InputSystemUIInputModule.");
+                }
+
+                TMP_FontAsset gameFont =
+                    AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(GameFontAssetPath);
+                TextMeshProUGUI[] labels = FindComponents<TextMeshProUGUI>(scene);
+                if (labels.Length == 0)
+                {
+                    errors.Add("Lobby scene must contain authored TextMeshProUGUI labels.");
+                }
+                else if (gameFont != null)
+                {
+                    for (int index = 0; index < labels.Length; index++)
+                    {
+                        if (labels[index].font != gameFont)
+                        {
+                            errors.Add(
+                                $"Lobby label '{labels[index].name}' must use {PrototypeUiFactory.GameFontAssetName}.");
+                        }
+                    }
+                }
+
+                if (FindComponents<PrototypeDungeonRunHost>(scene).Length != 0 ||
+                    FindComponents<PrototypeDungeonRoomBinder>(scene).Length != 0 ||
+                    FindComponents<PrototypeGameSession>(scene).Length != 0 ||
+                    FindComponents<BombSwapInputReader>(scene).Length != 0)
+                {
+                    errors.Add(
+                        "Lobby must not contain dungeon run, room, game-session, or gameplay-input components.");
+                }
+
+                Camera[] cameras = FindComponents<Camera>(scene);
+                if (cameras.Length != 1 || !cameras[0].CompareTag("MainCamera"))
+                {
+                    errors.Add(
+                        "Lobby must contain exactly one camera tagged MainCamera.");
+                }
+                if (FindComponents<AudioListener>(scene).Length != 1)
+                {
+                    errors.Add("Lobby must contain exactly one AudioListener.");
+                }
+                if (FindComponents<Light>(scene).Length < 1)
+                {
+                    errors.Add("Lobby must contain at least one light.");
+                }
+            }
+            finally
+            {
+                if (openedForValidation && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
         }
 
         private static void ValidateDestructibleWallMaterial(ICollection<string> errors)
@@ -2866,6 +3056,7 @@ namespace BombSwap.Editor.ContentValidation
         {
             string[] expectedScenePaths =
             {
+                LobbyScenePath,
                 DungeonStartScenePath,
                 DungeonRewardScenePath,
                 DungeonBossAnteScenePath,
@@ -2884,7 +3075,7 @@ namespace BombSwap.Editor.ContentValidation
             if (enabledScenes.Length < expectedScenePaths.Length)
             {
                 errors.Add(
-                    "Build Settings must enable the Start placeholder first, followed by every dungeon room scene.");
+                    "Build Settings must enable the Lobby first, followed by the Start placeholder and every dungeon room scene.");
                 return;
             }
 

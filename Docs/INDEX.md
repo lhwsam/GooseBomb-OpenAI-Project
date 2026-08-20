@@ -54,6 +54,7 @@
 | 일반 전투방 클리어 보상 | `Development/CombatClearRewardSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RunCompletion.md` |
 | seed-0 전체 던전 WebGL 탐색 | `Development/DungeonFullPathSmokeSlice.md`, `Systems/DungeonGeneration.md`, `Testing/VerificationHarness.md` |
 | 완료·사망 결과와 즉시 재시작 | `Systems/RunCompletion.md`, `Systems/DungeonGeneration.md`, `Systems/DamageAndInvulnerability.md`, `Systems/InputAndCommands.md` |
+| 로비·런 시작/복귀·TMP UI | `Development/LobbySlice.md`, `Systems/RunCompletion.md`, ADR-0008, `WebGL/BrowserTestMatrix.md` |
 | 플레이어 피해·런 체력·회복방 | `Systems/DamageAndInvulnerability.md`, `Development/RecoveryRoomSlice.md`, `Systems/DungeonGeneration.md` |
 | 최소 미니맵·탐색 정보 | `Development/MinimalMinimapSlice.md`, `Systems/DungeonGeneration.md`, ADR-0007 |
 | 금이 간 벽 비밀방 | `Development/SecretRoomSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |

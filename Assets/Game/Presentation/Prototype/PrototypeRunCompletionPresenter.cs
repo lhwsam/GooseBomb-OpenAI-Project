@@ -1,6 +1,8 @@
 using System;
 using BombSwap.Core;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace BombSwap
@@ -115,8 +117,10 @@ namespace BombSwap
         [SerializeField]
         private BombSwapInputReader inputReader;
 
-        private Text _statusLabel;
-        private Text _failureCauseLabel;
+        private TextMeshProUGUI _statusLabel;
+        private TextMeshProUGUI _failureCauseLabel;
+        private Button _restartButton;
+        private Button _lobbyButton;
         private bool _checkResultNextFrame;
         private bool _restartRequested;
 
@@ -131,6 +135,12 @@ namespace BombSwap
         public int FailureCount { get; private set; }
 
         public int RestartRequestCount { get; private set; }
+
+        public int LobbyRequestCount { get; private set; }
+
+        public Button RestartButton => _restartButton;
+
+        public Button LobbyButton => _lobbyButton;
 
         public PrototypePlayerDeathCause? FailureCause { get; private set; }
 
@@ -171,6 +181,7 @@ namespace BombSwap
 
             _restartRequested = true;
             RestartRequestCount++;
+            SetButtonsInteractable(false);
             _statusLabel.text = "RESTARTING...";
             WebGlHarnessReporter.Report("run-restart-requested");
             try
@@ -180,7 +191,40 @@ namespace BombSwap
             catch
             {
                 _restartRequested = false;
+                SetButtonsInteractable(true);
                 _statusLabel.text = "RESTART FAILED - PRESS R TO RETRY";
+                throw;
+            }
+        }
+
+        public void RequestReturnToLobby()
+        {
+            if (!IsVisible || _restartRequested)
+            {
+                return;
+            }
+
+            PrototypeDungeonRunHost host = roomBinder.RunHost;
+            if (host == null || host.RunSession == null || !host.RunSession.IsFinished)
+            {
+                throw new InvalidOperationException(
+                    "Lobby return requires a completed or failed primary dungeon run.");
+            }
+
+            _restartRequested = true;
+            LobbyRequestCount++;
+            SetButtonsInteractable(false);
+            _statusLabel.text = "RETURNING TO LOBBY...";
+            try
+            {
+                host.ExitFinishedRunToScene(
+                    PrototypeLobbyPresenter.DefaultLobbySceneName);
+            }
+            catch
+            {
+                _restartRequested = false;
+                SetButtonsInteractable(true);
+                _statusLabel.text = "LOBBY RETURN FAILED";
                 throw;
             }
         }
@@ -329,17 +373,12 @@ namespace BombSwap
 
         private void CreateUi(bool failed)
         {
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
-            {
-                throw new InvalidOperationException("Unity built-in runtime font was not found.");
-            }
-
             GameObject canvasObject = new GameObject(
                 "PrototypeRunCompletionCanvas",
                 typeof(RectTransform),
                 typeof(Canvas),
-                typeof(CanvasScaler));
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
             canvasObject.transform.SetParent(transform, false);
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -350,7 +389,9 @@ namespace BombSwap
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
-            RectTransform backdrop = CreateRect("Backdrop", canvasObject.transform);
+            RectTransform backdrop = PrototypeUiFactory.CreateRect(
+                "Backdrop",
+                canvasObject.transform);
             backdrop.anchorMin = Vector2.zero;
             backdrop.anchorMax = Vector2.one;
             backdrop.offsetMin = Vector2.zero;
@@ -359,7 +400,13 @@ namespace BombSwap
             backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 0.82f);
             backdropImage.raycastTarget = false;
 
-            Text title = CreateText("Title", backdrop, font, 52, FontStyle.Bold);
+            TextMeshProUGUI title = PrototypeUiFactory.CreateText(
+                "Title",
+                backdrop,
+                52f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold,
+                TextWrappingModes.Normal);
             title.rectTransform.anchorMin = new Vector2(0.1f, 0.48f);
             title.rectTransform.anchorMax = new Vector2(0.9f, 0.68f);
             title.rectTransform.offsetMin = Vector2.zero;
@@ -374,9 +421,8 @@ namespace BombSwap
                 _failureCauseLabel = CreateText(
                     "FailureCause",
                     backdrop,
-                    font,
-                    24,
-                    FontStyle.Bold);
+                    24f,
+                    FontStyles.Bold);
                 _failureCauseLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.42f);
                 _failureCauseLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.53f);
                 _failureCauseLabel.rectTransform.offsetMin = Vector2.zero;
@@ -387,43 +433,85 @@ namespace BombSwap
                 _failureCauseLabel.color = new Color(1f, 0.72f, 0.42f, 1f);
             }
 
-            _statusLabel = CreateText("Restart", backdrop, font, 26, FontStyle.Normal);
-            _statusLabel.rectTransform.anchorMin = failed
-                ? new Vector2(0.1f, 0.29f)
-                : new Vector2(0.1f, 0.34f);
-            _statusLabel.rectTransform.anchorMax = failed
-                ? new Vector2(0.9f, 0.41f)
-                : new Vector2(0.9f, 0.48f);
+            _restartButton = PrototypeUiFactory.CreateButton(
+                "RestartButton",
+                backdrop,
+                "다시 시작",
+                27f,
+                new Color(0.12f, 0.42f, 0.68f, 1f),
+                new Color(0.2f, 0.66f, 0.92f, 1f));
+            ConfigureButtonRect(
+                _restartButton,
+                new Vector2(0.27f, failed ? 0.27f : 0.31f),
+                new Vector2(0.49f, failed ? 0.38f : 0.42f));
+            _restartButton.onClick.AddListener(RequestRestart);
+
+            _lobbyButton = PrototypeUiFactory.CreateButton(
+                "LobbyButton",
+                backdrop,
+                "로비로 돌아가기",
+                27f,
+                new Color(0.18f, 0.21f, 0.28f, 1f),
+                new Color(0.34f, 0.4f, 0.52f, 1f));
+            ConfigureButtonRect(
+                _lobbyButton,
+                new Vector2(0.51f, failed ? 0.27f : 0.31f),
+                new Vector2(0.73f, failed ? 0.38f : 0.42f));
+            _lobbyButton.onClick.AddListener(RequestReturnToLobby);
+
+            _statusLabel = CreateText(
+                "Status",
+                backdrop,
+                19f,
+                FontStyles.Normal);
+            _statusLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.15f);
+            _statusLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.25f);
             _statusLabel.rectTransform.offsetMin = Vector2.zero;
             _statusLabel.rectTransform.offsetMax = Vector2.zero;
-            _statusLabel.text = "R / GAMEPAD SELECT - RESTART RUN";
-            _statusLabel.color = Color.white;
+            _statusLabel.text = "R / 게임패드 Select로 즉시 다시 시작";
+            _statusLabel.color = new Color(0.78f, 0.84f, 0.92f, 1f);
+
+            EventSystem eventSystem = PrototypeUiFactory.EnsureEventSystem();
+            eventSystem.SetSelectedGameObject(_restartButton.gameObject);
         }
 
-        private static RectTransform CreateRect(string objectName, Transform parent)
-        {
-            var child = new GameObject(objectName, typeof(RectTransform));
-            child.transform.SetParent(parent, false);
-            return child.GetComponent<RectTransform>();
-        }
-
-        private static Text CreateText(
+        private static TextMeshProUGUI CreateText(
             string objectName,
             Transform parent,
-            Font font,
-            int fontSize,
-            FontStyle fontStyle)
+            float fontSize,
+            FontStyles fontStyle)
         {
-            RectTransform rect = CreateRect(objectName, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.fontStyle = fontStyle;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.raycastTarget = false;
-            return text;
+            return PrototypeUiFactory.CreateText(
+                objectName,
+                parent,
+                fontSize,
+                TextAlignmentOptions.Center,
+                fontStyle,
+                TextWrappingModes.Normal);
+        }
+
+        private static void ConfigureButtonRect(
+            Button button,
+            Vector2 anchorMin,
+            Vector2 anchorMax)
+        {
+            RectTransform rect = button.GetComponent<RectTransform>();
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        private void SetButtonsInteractable(bool interactable)
+        {
+            if (_restartButton != null)
+            {
+                _restartButton.interactable = interactable;
+            }
+            if (_lobbyButton != null)
+            {
+                _lobbyButton.interactable = interactable;
+            }
         }
     }
 }

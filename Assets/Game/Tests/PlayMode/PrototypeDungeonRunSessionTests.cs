@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BombSwap.Core;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -1922,6 +1923,113 @@ namespace BombSwap.Tests.PlayMode
                 if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
                 {
                     SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RunHost_ExitsFinishedRunToLobbyAndLobbyStartsCleanRun()
+        {
+            Scene loadedScene = default;
+            try
+            {
+                GameObject hostRoot = CreateGameObject("LobbyExitDungeonRunHost");
+                hostRoot.SetActive(false);
+                PrototypeDungeonRunHost host =
+                    hostRoot.AddComponent<PrototypeDungeonRunHost>();
+                host.Configure(
+                    31,
+                    CreateCatalog(),
+                    CreateSpecialCatalog(),
+                    CreateBombRewardCatalog(),
+                    CreatePlayerVitals(),
+                    false);
+                hostRoot.SetActive(true);
+                yield return null;
+
+                Assert.That(
+                    host.TryFailCurrentRun(CreateFatalContactDamage()),
+                    Is.True);
+                host.ExitFinishedRunToScene(
+                    PrototypeLobbyPresenter.DefaultLobbySceneName);
+                yield return null;
+
+                loadedScene = SceneManager.GetActiveScene();
+                Assert.That(
+                    loadedScene.name,
+                    Is.EqualTo(PrototypeLobbyPresenter.DefaultLobbySceneName));
+                Assert.That(
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include),
+                    Is.Empty);
+
+                PrototypeLobbyPresenter lobby =
+                    UnityEngine.Object.FindObjectsByType<PrototypeLobbyPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Assert.That(lobby.TitleText, Is.EqualTo(PrototypeLobbyPresenter.GameTitle));
+                Assert.That(lobby.HasAuthoredViewReferences, Is.True);
+                Assert.That(lobby.LobbyCanvas.gameObject.scene, Is.EqualTo(loadedScene));
+                Assert.That(lobby.LobbyCanvas.name, Is.EqualTo("LobbyCanvas"));
+                Assert.That(lobby.LobbyEventSystem.gameObject.scene, Is.EqualTo(loadedScene));
+                Assert.That(lobby.StartButton, Is.Not.Null);
+                Assert.That(lobby.ControlsButton, Is.Not.Null);
+                Assert.That(lobby.BackButton, Is.Not.Null);
+                Assert.That(lobby.IsControlsVisible, Is.False);
+
+                lobby.ShowControls();
+                Assert.That(lobby.IsControlsVisible, Is.True);
+                lobby.HideControls();
+                Assert.That(lobby.IsControlsVisible, Is.False);
+
+                TextMeshProUGUI[] labels =
+                    UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(
+                        FindObjectsInactive.Include);
+                Assert.That(labels, Is.Not.Empty);
+                Assert.That(
+                    labels.All(label =>
+                        label.font != null &&
+                        label.font.name == PrototypeUiFactory.GameFontAssetName),
+                    Is.True);
+
+                lobby.StartNewRun();
+                yield return null;
+
+                loadedScene = SceneManager.GetActiveScene();
+                Assert.That(
+                    loadedScene.name,
+                    Is.EqualTo(PrototypeLobbyPresenter.DefaultStartSceneName));
+                PrototypeDungeonRunHost startedHost =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                Assert.That(startedHost.RunSession, Is.Not.Null);
+                Assert.That(startedHost.RunSession.IsFinished, Is.False);
+                Assert.That(
+                    startedHost.RunSession.CurrentRoomId,
+                    Is.EqualTo(startedHost.RunSession.Graph.StartRoomId));
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedScene.IsValid())
+                {
+                    loadedScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene("LobbyFlowPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedScene.IsValid() && loadedScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedScene);
                 }
             }
 

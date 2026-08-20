@@ -1,5 +1,6 @@
 using System;
 using BombSwap.Core;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,7 +34,6 @@ namespace BombSwap
 
         private GameObject _canvasObject;
         private RectTransform _mapRoot;
-        private Font _font;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
@@ -142,13 +142,6 @@ namespace BombSwap
 
         private void CreateUi()
         {
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (_font == null)
-            {
-                throw new InvalidOperationException(
-                    "Unity built-in runtime font was not found.");
-            }
-
             _canvasObject = new GameObject(
                 "PrototypeDungeonMinimapCanvas",
                 typeof(RectTransform),
@@ -174,24 +167,31 @@ namespace BombSwap
             background.color = PanelColor;
             background.raycastTarget = false;
 
-            Text title = CreateText("Title", panel, 18, FontStyle.Bold);
+            TextMeshProUGUI title = PrototypeUiFactory.CreateText(
+                "Title",
+                panel,
+                18f,
+                TextAlignmentOptions.MidlineLeft,
+                FontStyles.Bold);
             RectTransform titleRect = title.rectTransform;
             titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = Vector2.one;
             titleRect.pivot = new Vector2(0.5f, 1f);
             titleRect.offsetMin = new Vector2(12f, -38f);
             titleRect.offsetMax = new Vector2(-12f, -8f);
-            title.alignment = TextAnchor.MiddleLeft;
             title.text = "DUNGEON MAP";
 
-            Text legend = CreateText("Legend", panel, 13, FontStyle.Normal);
+            TextMeshProUGUI legend = PrototypeUiFactory.CreateText(
+                "Legend",
+                panel,
+                13f,
+                TextAlignmentOptions.Center);
             RectTransform legendRect = legend.rectTransform;
             legendRect.anchorMin = Vector2.zero;
             legendRect.anchorMax = new Vector2(1f, 0f);
             legendRect.pivot = new Vector2(0.5f, 0f);
             legendRect.offsetMin = new Vector2(12f, 8f);
             legendRect.offsetMax = new Vector2(-12f, 34f);
-            legend.alignment = TextAnchor.MiddleCenter;
             legend.text = "C CURRENT   V VISITED   ? DISCOVERED";
             legend.color = new Color(0.78f, 0.82f, 0.9f, 1f);
 
@@ -282,33 +282,19 @@ namespace BombSwap
             image.color = GetRoomColor(room.State);
             image.raycastTarget = false;
 
-            Text label = CreateText("State", rect, 12, FontStyle.Bold);
+            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
+                "State",
+                rect,
+                12f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold);
             RectTransform labelRect = label.rectTransform;
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = Vector2.zero;
             labelRect.offsetMax = Vector2.zero;
-            label.alignment = TextAnchor.MiddleCenter;
             label.color = room.IsCurrent ? Color.black : Color.white;
             label.text = GetRoomLabel(room.State);
-        }
-
-        private Text CreateText(
-            string objectName,
-            Transform parent,
-            int fontSize,
-            FontStyle fontStyle)
-        {
-            RectTransform rect = CreateRect(objectName, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = fontSize;
-            text.fontStyle = fontStyle;
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            return text;
         }
 
         private static RectTransform CreateRect(string objectName, Transform parent)

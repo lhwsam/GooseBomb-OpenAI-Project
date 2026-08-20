@@ -1,5 +1,6 @@
 using System;
 using BombSwap.Core;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,9 +19,9 @@ namespace BombSwap
 
         private Image[] _slotBackgrounds;
         private Image[] _slotCooldownFills;
-        private Text[] _slotLabels;
-        private Text[] _slotCooldownLabels;
-        private Text _swapLabel;
+        private TextMeshProUGUI[] _slotLabels;
+        private TextMeshProUGUI[] _slotCooldownLabels;
+        private TextMeshProUGUI _swapLabel;
         private int _lastActiveSlot = -1;
         private int _lastFirstCooldownDeciseconds = -1;
         private int _lastSecondCooldownDeciseconds = -1;
@@ -97,12 +98,6 @@ namespace BombSwap
                 return;
             }
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
-            {
-                throw new InvalidOperationException("Unity built-in runtime font was not found.");
-            }
-
             GameObject canvasObject = new GameObject(
                 "PrototypeWeaponHudCanvas",
                 typeof(RectTransform),
@@ -129,14 +124,19 @@ namespace BombSwap
 
             _slotBackgrounds = new Image[BombWeaponLoadout.SlotCount];
             _slotCooldownFills = new Image[BombWeaponLoadout.SlotCount];
-            _slotLabels = new Text[BombWeaponLoadout.SlotCount];
-            _slotCooldownLabels = new Text[BombWeaponLoadout.SlotCount];
+            _slotLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
+            _slotCooldownLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
             for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
             {
-                CreateSlot(panel, font, slotIndex);
+                CreateSlot(panel, slotIndex);
             }
 
-            _swapLabel = CreateText("SwapStatus", panel, font, 18, TextAnchor.MiddleCenter);
+            _swapLabel = PrototypeUiFactory.CreateText(
+                "SwapStatus",
+                panel,
+                18f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold);
             RectTransform swapRect = _swapLabel.rectTransform;
             swapRect.anchorMin = new Vector2(0f, 0f);
             swapRect.anchorMax = new Vector2(1f, 0f);
@@ -149,7 +149,7 @@ namespace BombSwap
             RefreshDisplay();
         }
 
-        private void CreateSlot(RectTransform panel, Font font, int slotIndex)
+        private void CreateSlot(RectTransform panel, int slotIndex)
         {
             RectTransform slot = CreateRect("Slot" + (slotIndex + 1), panel);
             slot.anchorMin = new Vector2(slotIndex * 0.5f, 1f);
@@ -185,7 +185,11 @@ namespace BombSwap
             fillImage.fillAmount = 1f;
             _slotCooldownFills[slotIndex] = fillImage;
 
-            Text slotLabel = CreateText("Definition", slot, font, 18, TextAnchor.MiddleLeft);
+            TextMeshProUGUI slotLabel = PrototypeUiFactory.CreateText(
+                "Definition",
+                slot,
+                18f,
+                TextAlignmentOptions.MidlineLeft);
             slotLabel.rectTransform.anchorMin = new Vector2(0f, 0.45f);
             slotLabel.rectTransform.anchorMax = new Vector2(1f, 1f);
             slotLabel.rectTransform.offsetMin = new Vector2(10f, 0f);
@@ -194,7 +198,11 @@ namespace BombSwap
             slotLabel.color = Color.white;
             _slotLabels[slotIndex] = slotLabel;
 
-            Text cooldownLabel = CreateText("Cooldown", slot, font, 16, TextAnchor.MiddleLeft);
+            TextMeshProUGUI cooldownLabel = PrototypeUiFactory.CreateText(
+                "Cooldown",
+                slot,
+                16f,
+                TextAlignmentOptions.MidlineLeft);
             cooldownLabel.rectTransform.anchorMin = new Vector2(0f, 0.14f);
             cooldownLabel.rectTransform.anchorMax = new Vector2(1f, 0.46f);
             cooldownLabel.rectTransform.offsetMin = new Vector2(10f, 0f);
@@ -214,7 +222,7 @@ namespace BombSwap
                     _slotBackgrounds[slotIndex].color =
                         isActive ? ActiveSlotColor : InactiveSlotColor;
                     _slotLabels[slotIndex].fontStyle =
-                        isActive ? FontStyle.Bold : FontStyle.Normal;
+                        isActive ? FontStyles.Bold : FontStyles.Normal;
                 }
 
                 _lastActiveSlot = activeSlot;
@@ -244,7 +252,7 @@ namespace BombSwap
             if (!slot.HasDefinition)
             {
                 _slotLabels[slotIndex].text = (slotIndex + 1) + "  EMPTY — FIND A BOMB";
-                _slotLabels[slotIndex].fontStyle = FontStyle.Normal;
+                _slotLabels[slotIndex].fontStyle = FontStyles.Normal;
                 _slotCooldownFills[slotIndex].fillAmount = 0f;
                 _slotCooldownFills[slotIndex].color = CoolingColor;
                 _slotCooldownLabels[slotIndex].text = "LOCKED";
@@ -274,24 +282,6 @@ namespace BombSwap
             var child = new GameObject(objectName, typeof(RectTransform));
             child.transform.SetParent(parent, false);
             return child.GetComponent<RectTransform>();
-        }
-
-        private static Text CreateText(
-            string objectName,
-            Transform parent,
-            Font font,
-            int fontSize,
-            TextAnchor alignment)
-        {
-            RectTransform rect = CreateRect(objectName, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.alignment = alignment;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.raycastTarget = false;
-            return text;
         }
 
         private static int ToRemainingDeciseconds(TimeSpan remaining)

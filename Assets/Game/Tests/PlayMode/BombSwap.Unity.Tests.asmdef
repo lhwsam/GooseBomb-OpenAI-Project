@@ -4,7 +4,8 @@
   "references": [
     "BombSwap.Core",
     "BombSwap.Unity",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.TextMeshPro"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"

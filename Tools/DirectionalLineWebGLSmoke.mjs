@@ -210,8 +210,11 @@ async function main() {
     }, undefined, { timeout: 120_000 });
     const canvas = page.locator("canvas").first();
     await canvas.click({ position: { x: 20, y: 20 } });
+    await waitForEvent(page, "lobby-ready", { timeout: 120_000 });
+    await page.keyboard.press("Enter");
+    await waitForEvent(page, "lobby-start-requested", { timeout: 5_000 });
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", { timeout: 120_000 });
-    checks.push({ name: "load-and-focus", status: "passed" });
+    checks.push({ name: "load-focus-and-lobby-start", status: "passed" });
 
     await moveSteps(page, "ArrowUp", "north", 1);
     await moveSteps(page, "ArrowLeft", "west", 2);
