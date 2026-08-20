@@ -17,6 +17,12 @@ MonoBehaviour:
   armoredCellsPerSecond: 1
   brokenCellsPerSecond: 3
   directionCommitmentSteps: 2
+  guardRadius: 1
+  panicTelegraphSeconds: 0.6
+  panicCellsPerSecond: 6
+  panicRunDistance: 3
+  panicRecoverSeconds: 0.5
   armoredPrefab: {fileID: 7729024633598081477, guid: 462df6d8182b2604f818c511015c5cd8, type: 3}
+  panicTelegraphCellPrefab: {fileID: 4374252742078789544, guid: 836a7d66ac9170e488dd36acf9bd7bb6, type: 3}
   visualHeight: 0.5
   deathVisualSeconds: 0.12

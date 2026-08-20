@@ -13,11 +13,55 @@ namespace BombSwap.Editor.Verification
     {
         private static string _scheduledArtifactsDirectory;
         private static string _scheduledBuildPath;
+        private static string _scheduledScenePath;
         private static string _scheduledStatusPath;
+
+        [MenuItem("Bomb Swap/Verification/Build Development WebGL Connected")]
+        private static void ScheduleDevelopmentMenu()
+        {
+            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string artifactsDirectory = Path.Combine(
+                "Artifacts",
+                "Verification",
+                timestamp + "-connected-web");
+            string buildPath = Path.Combine(artifactsDirectory, "WebGLBuild");
+            string statusPath = ScheduleDevelopment(artifactsDirectory, buildPath);
+            Debug.Log(
+                "BOMBSWAP_CONNECTED_WEBGL_BUILD SCHEDULED " + statusPath);
+        }
 
         public static string ScheduleDevelopment(
             string artifactsDirectory,
             string buildPath)
+        {
+            return ScheduleDevelopmentInternal(
+                artifactsDirectory,
+                buildPath,
+                scenePath: null);
+        }
+
+        public static string ScheduleDevelopmentScene(
+            string artifactsDirectory,
+            string buildPath,
+            string scenePath)
+        {
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                throw new ArgumentException(
+                    "Scene path is required.",
+                    nameof(scenePath));
+            }
+
+            return ScheduleDevelopmentInternal(
+                artifactsDirectory,
+                buildPath,
+                scenePath);
+        }
+
+        private static string ScheduleDevelopmentInternal(
+            string artifactsDirectory,
+            string buildPath,
+            string scenePath)
         {
             if (string.IsNullOrWhiteSpace(artifactsDirectory))
             {
@@ -41,6 +85,7 @@ namespace BombSwap.Editor.Verification
             Directory.CreateDirectory(absoluteArtifacts);
             _scheduledArtifactsDirectory = artifactsDirectory;
             _scheduledBuildPath = buildPath;
+            _scheduledScenePath = scenePath;
             _scheduledStatusPath = Path.Combine(
                 absoluteArtifacts,
                 "webgl-build-status.txt");
@@ -54,6 +99,40 @@ namespace BombSwap.Editor.Verification
         public static string BuildDevelopment(
             string artifactsDirectory,
             string buildPath)
+        {
+            return BuildDevelopmentInternal(
+                artifactsDirectory,
+                buildPath,
+                scenes: null);
+        }
+
+        public static string BuildDevelopmentScene(
+            string artifactsDirectory,
+            string buildPath,
+            string scenePath)
+        {
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                throw new ArgumentException(
+                    "Scene path is required.",
+                    nameof(scenePath));
+            }
+            if (!File.Exists(scenePath))
+            {
+                throw new InvalidOperationException(
+                    $"WebGL scene does not exist: '{scenePath}'.");
+            }
+
+            return BuildDevelopmentInternal(
+                artifactsDirectory,
+                buildPath,
+                new[] { scenePath });
+        }
+
+        private static string BuildDevelopmentInternal(
+            string artifactsDirectory,
+            string buildPath,
+            string[] scenes)
         {
             if (string.IsNullOrWhiteSpace(artifactsDirectory))
             {
@@ -94,7 +173,7 @@ namespace BombSwap.Editor.Verification
                     string.Join(" | ", validationErrors));
             }
 
-            string[] scenes = EditorBuildSettings.scenes
+            scenes ??= EditorBuildSettings.scenes
                 .Where(scene => scene.enabled && File.Exists(scene.path))
                 .Select(scene => scene.path)
                 .ToArray();
@@ -149,13 +228,17 @@ namespace BombSwap.Editor.Verification
             EditorApplication.update -= ExecuteScheduledBuild;
             string artifactsDirectory = _scheduledArtifactsDirectory;
             string buildPath = _scheduledBuildPath;
+            string scenePath = _scheduledScenePath;
             string statusPath = _scheduledStatusPath;
             try
             {
                 File.WriteAllText(statusPath, "Running");
-                string reportPath = BuildDevelopment(
-                    artifactsDirectory,
-                    buildPath);
+                string reportPath = string.IsNullOrEmpty(scenePath)
+                    ? BuildDevelopment(artifactsDirectory, buildPath)
+                    : BuildDevelopmentScene(
+                        artifactsDirectory,
+                        buildPath,
+                        scenePath);
                 File.WriteAllText(
                     statusPath,
                     "Passed" + Environment.NewLine + reportPath);
@@ -173,6 +256,7 @@ namespace BombSwap.Editor.Verification
             {
                 _scheduledArtifactsDirectory = null;
                 _scheduledBuildPath = null;
+                _scheduledScenePath = null;
                 _scheduledStatusPath = null;
             }
         }

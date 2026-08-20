@@ -7,6 +7,7 @@ namespace BombSwap.Core
             ChargerEnemyState previousState,
             ChargerEnemyState state,
             CardinalDirection direction,
+            int lockedChargeDistance,
             bool hasStateTransition,
             EnemyMovementStep movement,
             bool hasMovement,
@@ -16,6 +17,7 @@ namespace BombSwap.Core
             PreviousState = previousState;
             State = state;
             Direction = direction;
+            LockedChargeDistance = lockedChargeDistance;
             HasStateTransition = hasStateTransition;
             Movement = movement;
             HasMovement = hasMovement;
@@ -29,6 +31,8 @@ namespace BombSwap.Core
         public ChargerEnemyState State { get; }
 
         public CardinalDirection Direction { get; }
+
+        public int LockedChargeDistance { get; }
 
         public bool HasStateTransition { get; }
 

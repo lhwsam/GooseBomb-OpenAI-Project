@@ -178,6 +178,93 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void BfsPathfinding_AvoidsDeadEndAndStopsCommitmentBeforeOvershoot()
+        {
+            var grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            GridPosition[] deadEndWalls =
+            {
+                new GridPosition(1, 0),
+                new GridPosition(1, 1),
+                new GridPosition(2, 2),
+                new GridPosition(3, 1),
+            };
+            foreach (GridPosition wall in deadEndWalls)
+            {
+                Assert.That(
+                    grid.TrySetTerrain(wall, GridTerrain.IndestructibleWall),
+                    Is.True);
+            }
+
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 0)), Is.True);
+            var chaser = new ChaserEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(),
+                ChaserActor,
+                PlayerActor,
+                new GridPosition(2, 0));
+
+            Assert.That(chaser.TryAdvance(out EnemyMovementStep first), Is.True);
+            Assert.That(first.Direction, Is.EqualTo(CardinalDirection.South));
+            Assert.That(first.To, Is.EqualTo(new GridPosition(2, -1)));
+            Assert.That(chaser.RemainingCommittedSteps, Is.EqualTo(1));
+
+            clock.Advance(StepInterval);
+            Assert.That(chaser.TryAdvance(out EnemyMovementStep second), Is.True);
+            Assert.That(
+                second.Direction,
+                Is.EqualTo(CardinalDirection.West),
+                "A commitment must end before it leaves the planned shortest route.");
+            Assert.That(second.To, Is.EqualTo(new GridPosition(1, -1)));
+
+            clock.Advance(StepInterval);
+            Assert.That(chaser.TryAdvance(out EnemyMovementStep third), Is.True);
+            Assert.That(third.Direction, Is.EqualTo(CardinalDirection.West));
+            Assert.That(third.To, Is.EqualTo(new GridPosition(0, -1)));
+
+            clock.Advance(StepInterval);
+            Assert.That(
+                chaser.TryAdvance(out _),
+                Is.False,
+                "The chaser must reach adjacency instead of returning to the dead-end loop.");
+        }
+
+        [Test]
+        public void BfsPathfinding_WaitsWhenTargetHasNoReachableRoute()
+        {
+            var grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            GridPosition[] targetWalls =
+            {
+                new GridPosition(0, 1),
+                new GridPosition(1, 0),
+                new GridPosition(0, -1),
+                new GridPosition(-1, 0),
+            };
+            foreach (GridPosition wall in targetWalls)
+            {
+                Assert.That(
+                    grid.TrySetTerrain(wall, GridTerrain.IndestructibleWall),
+                    Is.True);
+            }
+
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 0)), Is.True);
+            var chaser = new ChaserEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(),
+                ChaserActor,
+                PlayerActor,
+                new GridPosition(2, 2));
+
+            Assert.That(chaser.TryAdvance(out _), Is.False);
+            Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(2, 2)));
+            Assert.That(chaser.CurrentDirection, Is.EqualTo(CardinalDirection.None));
+            Assert.That(chaser.RemainingCommittedSteps, Is.Zero);
+        }
+
+        [Test]
         public void CardinalAdjacency_StopsWithoutEnteringPlayerCell()
         {
             var clock = new ManualGameClock();
@@ -188,6 +275,39 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(chaser.TryAdvance(out _), Is.False);
             Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(0, -1)));
+            Assert.That(chaser.CanDealContactDamage, Is.True);
+        }
+
+        [Test]
+        public void ContactDamage_WaitsForStepArrivalAndRequiresPersistingAdjacency()
+        {
+            var grid = CreateFloorGrid();
+            var clock = new ManualGameClock();
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 0)), Is.True);
+            var chaser = new ChaserEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(),
+                ChaserActor,
+                PlayerActor,
+                new GridPosition(0, 2));
+
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+            Assert.That(chaser.TryAdvance(out EnemyMovementStep step), Is.True);
+            Assert.That(step.To, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            clock.Advance(StepInterval - TimeSpan.FromTicks(1));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, -1)), Is.True);
+            clock.Advance(TimeSpan.FromTicks(1));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, 0)), Is.True);
+            Assert.That(chaser.CanDealContactDamage, Is.True);
         }
 
         [Test]
@@ -206,6 +326,10 @@ namespace BombSwap.Tests.EditMode
             clock.Now = TimeSpan.FromSeconds(1);
 
             Assert.Throws<InvalidOperationException>(() => chaser.TryAdvance(out _));
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                bool _ = chaser.CanDealContactDamage;
+            });
             Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(0, 0)));
         }
 

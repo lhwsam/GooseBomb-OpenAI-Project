@@ -11,7 +11,7 @@ Core `DungeonCombatRoomLayout`의 room definition ID를 Unity의 실제 `Prototy
 ## 저작 계약
 
 - `PrototypeDungeonCombatRoomCatalogAsset`은 전투방 asset과 씬 이름의 명시적 entry 목록을 소유한다.
-- 현재 프로토타입 카탈로그는 중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험선→중앙 게이트 자산을 각각 `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor`, `TestSandboxGates`에 매핑한다.
+- 현재 프로토타입 카탈로그는 중앙 루프→평행 통로→엇갈린 기둥→장갑병 T 교차점→중앙 게이트 자산을 각각 `TestSandbox`, `TestSandboxLanes`, `TestSandboxPillars`, `TestSandboxArmor`, `TestSandboxGates`에 매핑한다.
 - null 방, 빈 씬 이름, 중복 room ID와 중복 씬 이름을 저장·런 생성 경계에서 거부한다.
 - `Configure`는 호출자 배열을 복사하고 Core 정의 생성으로 모든 entry를 즉시 검증한다.
 

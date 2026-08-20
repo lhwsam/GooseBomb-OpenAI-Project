@@ -26,20 +26,20 @@
 
 ## 채택할 최소 계약
 
-- 접촉은 플레이어와 살아 있는 추격자의 논리 XZ 셀이 Manhattan 거리 1인 cardinal 인접 상태일 때만 성립한다. 대각선, 같은 셀, Transform·Collider 겹침은 접촉이 아니다.
+- 접촉은 플레이어와 살아 있는 추격자의 논리 XZ 셀이 Manhattan 거리 1인 cardinal 인접 상태일 때만 성립한다. 대각선, 같은 셀, Transform·Collider 겹침은 접촉이 아니다. 한 칸 이동으로 새 인접이 만들어졌다면 같은 `StepInterval`의 시각 도착 경계까지 기다리고 그때도 인접해야 한다. 이미 제자리에서 인접한 경우는 즉시 후보가 된다.
 - 접촉 피해 수치 1은 `PrototypeChaserDefinitionAsset`이 소유하고 양수로 검증한다. 플레이테스트 전까지 `Proposed`다.
 - 접촉 피해는 기존 `PlayerHealthSimulation`의 체력·주입 시계·0.75초 무적·사망 계약을 그대로 사용한다.
-- 인접 상태가 유지되는 동안 매 simulation update에 접촉 후보를 평가한다. 무적 중 후보는 즉시 무시하고 저장하거나 지연하지 않으며, 무적 종료 경계부터 같은 적의 지속 접촉도 다시 피해를 줄 수 있다.
+- 접촉 가능 시각에 도달한 뒤 인접 상태가 유지되는 동안 매 simulation update에 접촉 후보를 평가한다. 도착 전 플레이어가 이탈하면 예약 피해 없이 취소된다. 무적 중 후보는 즉시 무시하고 저장하거나 지연하지 않으며, 무적 종료 경계부터 같은 적의 지속 접촉도 다시 피해를 줄 수 있다.
 - 피해 결과는 `Explosion` 또는 `EnemyContact` 원인과 해당 `BombId` 또는 적 `ActorId`를 보존한다. 잘못된 원본 ID와 플레이어 자신의 actor ID를 접촉 원인으로 사용하는 요청은 거부한다.
-- 프레임 순서는 플레이어·추격자 이동, 만료 폭탄과 폭발 피해·적 사망, 살아 있는 추격자 접촉 피해, 표현 이벤트 발행 순이다.
+- 프레임 순서는 플레이어·추격자 이동, 만료 폭탄과 폭발 피해·적 사망, 살아 있고 이동 도착 시각을 충족한 추격자 접촉 피해, 표현 이벤트 발행 순이다.
 - 같은 프레임 폭발로 추격자가 사망하면 actor 점유를 제거한 뒤 접촉을 평가하므로 접촉 피해를 주지 않는다.
 - 같은 프레임 플레이어가 폭발 피해를 먼저 받으면 공유 무적 때문에 뒤의 접촉 피해는 적용되지 않는다.
 - 적용된 접촉 피해만 기존 `PlayerDamaged`·`PlayerDied`와 health presenter에 전달한다. 별도 물리 이벤트나 별도 체력 소유자를 만들지 않는다.
 
 ## 완료 조건
 
-- EditMode에서 cardinal/대각선/극단 좌표 인접 판정, 피해 원인 보존, 지속 접촉의 무적 경계 재피해, 폭발과 접촉의 공유 무적, 잘못된 source 거부를 검증한다.
-- PlayMode에서 추격자 접근이 접촉 피해 1을 주고, 무적 중 중복 피해를 막으며, 이탈 뒤 무적 종료 후 재접촉이 다시 피해를 주는 흐름을 검증한다.
+- EditMode에서 cardinal/대각선/극단 좌표 인접 판정, 이동 직후 접촉 보류·정확한 도착 경계·도착 전 이탈 취소, 피해 원인 보존, 지속 접촉의 무적 경계 재피해, 폭발과 접촉의 공유 무적, 잘못된 source 거부를 검증한다.
+- PlayMode에서 추격자 접근 뒤 보이는 한 칸 이동이 끝나기 전에는 피해가 없고 도착 뒤 접촉 피해 1을 주며, 무적 중 중복 피해를 막고 이탈 뒤 무적 종료 후 재접촉이 다시 피해를 주는 흐름을 검증한다.
 - PlayMode에서 같은 프레임 폭발 사망 추격자가 접촉 피해를 남기지 않는 순서를 검증한다.
 - health presenter는 기존 property block 피격 표시를 접촉 피해에도 재사용하고 shared material을 변경하지 않는다.
 - 콘텐츠 validator가 접촉 피해가 양수인 추격자 정의를 다시 읽어 검증한다.
@@ -56,7 +56,9 @@
 
 - `GridPosition.IsCardinallyAdjacentTo`, `PlayerDamageSourceKind`, `ApplyContactDamage`와 추격자 저작 `contactDamage`를 추가했다.
 - 세션은 폭발 피해·적 사망을 먼저 확정한 뒤 살아 있는 추격자의 접촉 피해를 평가하고, 기존 health presenter와 `PlayerDamaged`/`PlayerDied` 경로를 재사용한다.
+- 2026-08-20 플레이에서 초록 추격자의 접촉 사거리가 길게 느껴진다는 관찰이 나왔다. 기존 사건 로그는 `chaser-cell` 확정과 `player-contact-damaged`가 같은 millisecond에 발생하고 presenter는 그 뒤 0.5초 보간하는 구조였음을 보여줬다. Core가 이동 도착 시각을 소유하고 세션이 `CanDealContactDamage`를 확인하도록 바꿔 Transform이나 frame rate를 권위로 만들지 않고 시각 위치와 피해 시점을 맞췄다.
 - EditMode `BombSwap.Core.Tests` 139/139, PlayMode `BombSwap.Unity.Tests` 46/46, 콘텐츠 validator 오류 0, Unity Console 오류 0을 확인했다.
 - Development WebGL 증분 빌드는 140,471,653 bytes, 47.113초, 오류 0으로 성공했다. 기존 TextMeshPro 경고 3개가 남았다.
 - 실제 Edge headless smoke에서 접촉 피해→논리 이탈→자기 폭발 피해→두 번째 폭탄 유도 처치→방 클리어와 browser Console/page 오류 0을 확인했다.
 - 검증 증거는 `Artifacts/Verification/20260814-095831-static/`과 `Artifacts/Verification/20260814-095200-web-connected/`에 있으며 Git에서 제외된다.
+- 2026-08-20 도착 동기화 교정 뒤 연결 Unity 전체 EditMode `330/330`, PlayMode `133/133`, 콘텐츠 validator와 빌드 전 Console 오류·경고 0이 통과했다. 11씬 Development WebGL과 Chromium keyboard `46/46`, 가상 Gamepad `14/14`도 통과했고 브라우저 Console/page error는 0이다. WebGL 빌드 뒤 Unity Console은 오류 0, 기존 MMFeedbacks 선택 연동·TextMeshPro IL2CPP 안내 경고 6건이다. 자동 검증은 도착 시각 계약을 증명하지만 접촉 거리의 최종 체감 판정은 사람 재플레이가 맡는다.

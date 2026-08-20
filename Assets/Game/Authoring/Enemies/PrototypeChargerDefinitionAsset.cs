@@ -19,6 +19,9 @@ namespace BombSwap
         private int contactDamage = 1;
 
         [SerializeField]
+        private float laneAcquireCellsPerSecond = 1f;
+
+        [SerializeField]
         private float telegraphSeconds = 0.75f;
 
         [SerializeField]
@@ -29,6 +32,9 @@ namespace BombSwap
 
         [SerializeField]
         private GameObject chargerPrefab;
+
+        [SerializeField]
+        private GameObject telegraphCellPrefab;
 
         [SerializeField]
         private float visualHeight = 0.45f;
@@ -42,6 +48,8 @@ namespace BombSwap
 
         public int ContactDamage => contactDamage;
 
+        public float LaneAcquireCellsPerSecond => laneAcquireCellsPerSecond;
+
         public float TelegraphSeconds => telegraphSeconds;
 
         public float ChargeCellsPerSecond => chargeCellsPerSecond;
@@ -49,6 +57,8 @@ namespace BombSwap
         public float RecoverSeconds => recoverSeconds;
 
         public GameObject ChargerPrefab => chargerPrefab;
+
+        public GameObject TelegraphCellPrefab => telegraphCellPrefab;
 
         public float VisualHeight => visualHeight;
 
@@ -58,16 +68,21 @@ namespace BombSwap
             string authoredDefinitionId,
             int authoredMaxHealth,
             int authoredContactDamage,
+            float authoredLaneAcquireCellsPerSecond,
             float authoredTelegraphSeconds,
             float authoredChargeCellsPerSecond,
             float authoredRecoverSeconds,
             GameObject authoredChargerPrefab,
+            GameObject authoredTelegraphCellPrefab,
             float authoredVisualHeight,
             float authoredDeathVisualSeconds)
         {
             var id = new EnemyDefinitionId(authoredDefinitionId);
             ValidatePositive(authoredMaxHealth, nameof(authoredMaxHealth));
             ValidatePositive(authoredContactDamage, nameof(authoredContactDamage));
+            ValidateFinitePositive(
+                authoredLaneAcquireCellsPerSecond,
+                nameof(authoredLaneAcquireCellsPerSecond));
             ValidateFinitePositive(authoredTelegraphSeconds, nameof(authoredTelegraphSeconds));
             ValidateFinitePositive(
                 authoredChargeCellsPerSecond,
@@ -77,6 +92,10 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(authoredChargerPrefab));
             }
+            if (authoredTelegraphCellPrefab == null)
+            {
+                throw new ArgumentNullException(nameof(authoredTelegraphCellPrefab));
+            }
             ValidateFiniteNonNegative(authoredVisualHeight, nameof(authoredVisualHeight));
             ValidateFinitePositive(
                 authoredDeathVisualSeconds,
@@ -85,10 +104,12 @@ namespace BombSwap
             definitionId = id.Value;
             maxHealth = authoredMaxHealth;
             contactDamage = authoredContactDamage;
+            laneAcquireCellsPerSecond = authoredLaneAcquireCellsPerSecond;
             telegraphSeconds = authoredTelegraphSeconds;
             chargeCellsPerSecond = authoredChargeCellsPerSecond;
             recoverSeconds = authoredRecoverSeconds;
             chargerPrefab = authoredChargerPrefab;
+            telegraphCellPrefab = authoredTelegraphCellPrefab;
             visualHeight = authoredVisualHeight;
             deathVisualSeconds = authoredDeathVisualSeconds;
         }
@@ -98,6 +119,9 @@ namespace BombSwap
             var id = new EnemyDefinitionId(definitionId);
             ValidatePositive(maxHealth, nameof(maxHealth));
             ValidatePositive(contactDamage, nameof(contactDamage));
+            ValidateFinitePositive(
+                laneAcquireCellsPerSecond,
+                nameof(laneAcquireCellsPerSecond));
             ValidateFinitePositive(telegraphSeconds, nameof(telegraphSeconds));
             ValidateFinitePositive(chargeCellsPerSecond, nameof(chargeCellsPerSecond));
             ValidateFinitePositive(recoverSeconds, nameof(recoverSeconds));
@@ -106,6 +130,7 @@ namespace BombSwap
                 id,
                 maxHealth,
                 contactDamage,
+                TimeSpan.FromSeconds(1f / laneAcquireCellsPerSecond),
                 TimeSpan.FromSeconds(telegraphSeconds),
                 TimeSpan.FromSeconds(1f / chargeCellsPerSecond),
                 TimeSpan.FromSeconds(recoverSeconds));
@@ -117,6 +142,11 @@ namespace BombSwap
             {
                 throw new InvalidOperationException("Charger prefab is required.");
             }
+            if (telegraphCellPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    "Charger telegraph-cell prefab is required.");
+            }
             if (chargerPrefab.GetComponentInChildren<Renderer>(true) == null)
             {
                 throw new InvalidOperationException("Charger prefab requires a renderer.");
@@ -125,6 +155,16 @@ namespace BombSwap
             {
                 throw new InvalidOperationException(
                     "Charger prefab must not own logical colliders.");
+            }
+            if (telegraphCellPrefab.GetComponentInChildren<Renderer>(true) == null)
+            {
+                throw new InvalidOperationException(
+                    "Charger telegraph-cell prefab requires a renderer.");
+            }
+            if (telegraphCellPrefab.GetComponentInChildren<Collider>(true) != null)
+            {
+                throw new InvalidOperationException(
+                    "Charger telegraph-cell prefab must not own logical colliders.");
             }
             ValidateFiniteNonNegative(visualHeight, nameof(visualHeight));
             ValidateFinitePositive(deathVisualSeconds, nameof(deathVisualSeconds));

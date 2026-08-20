@@ -34,12 +34,13 @@
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
 - 호환성은 회전된 잠재 출구가 노드의 모든 연결 방향을 포함하는지로 판단한다. 후보 중 사용 횟수가 가장 적은 정의를 우선해 다섯 방을 한 번씩 쓰기 전 불필요한 중복을 막는다. 전투 노드가 다섯 개인 그래프에서는 현재 다섯 정의를 각각 정확히 한 번 사용한다.
 - Unity `PrototypeDungeonRunSession`은 검증된 전투방 카탈로그를 Core 정의로 변환해 그래프·배정·탐색 상태를 조합하고, 전투 노드의 definition ID를 실제 room asset·씬 이름으로 해석한다.
+- 현재 메인 카탈로그는 `Loop`, `Thrower`, `Pillars`, `Armor`, `Gates` 다섯 정의다. 기존 `Lanes`는 삭제하지 않고 독립 테스트 자산으로 보존하지만 배정 후보와 enabled Build Settings에서는 제외한다. 따라서 run당 전투방 4~5개와 카탈로그 크기 5 계약은 변하지 않는다.
 - `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·회복·비밀·보스 타입의 서로 다른 씬 이름을 제공하며, 실제 catalog asset과 여섯 특수방 씬을 통해 run session이 모든 노드를 씬으로 해석한다.
 - `PrototypeDungeonRunNavigator`는 씬 이름과 로드 가능성을 검증한 pending 전환을 소유하고, 기대한 씬 완료 뒤에만 `DungeonRunState.TryTravel`을 호출한다. `PrototypeDungeonRunHost`는 이 상태만 방 씬 밖에 유지한다.
 - `DungeonBombLoadoutState`는 한 종류로 시작하는 run loadout, 첫 보상 후보·선택과 현재 활성 슬롯을 소유한다. Unity host와 room binder는 이 상태를 방 로컬 `PrototypeGameSession`에 주입하고 성공한 교체 사건을 다시 Core 상태에 반영해 scene 전환 뒤에도 장착 정의와 활성 슬롯을 유지한다.
 - `DungeonPlayerHealthState`는 run의 최대·현재 체력을 소유한다. persistent host가 검증된 player-vitals 데이터로 새 상태를 만들고 room binder가 새 방 session을 현재 체력으로 초기화하며, 적용된 피해를 즉시 되돌려 기록한다. 이동과 scene load는 체력을 바꾸지 않고 새 run만 최대 체력으로 시작한다.
 - `DungeonRunState`는 정확히 한 개인 Recovery 노드의 소비 여부를 run 수명으로 소유한다. 현재 Recovery 노드에서 최대 체력이 아닐 때만 회복과 소비를 함께 확정하며 재입장이나 scene 재로드로 다시 생성하지 않는다.
-- `DungeonRunState`는 Secret 연결별 공개와 Secret 노드의 cache 소비를 run 수명으로 소유한다. 실제 폭발 결과에 runtime boundary wall이 포함됐을 때만 해당 연결을 공개하고, 현재 Secret 방에서만 양수 cache 토큰을 한 번 지급한다.
+- `DungeonRunState`는 Secret 연결별 공개와 Secret 노드의 cache 소비를 run 수명으로 소유한다. Unity binder가 매핑한 문 앞 출구 셀이 실제 폭발 `AffectedCells`에 포함됐을 때만 해당 연결을 공개하고, 현재 Secret 방에서만 양수 cache 토큰을 한 번 지급한다.
 - Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 우상단 `ROOM TOKENS` snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
 - `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
 
@@ -70,7 +71,7 @@ Secret post-pass:             Combat ─┐
 10. 전투 노드별 활성 출구와 호환되는 수제 방 정의·회전을 결정적으로 배정한다.
 11. Unity 런 카탈로그가 배정된 definition ID와 특수 타입을 실제 room asset·씬 이름으로 해석한다.
 12. Core 탐색 상태가 그래프 연결·클리어·Secret 공개 여부에서 네 방향 문의 `Inactive`·`SecretWall`·`Locked`·`Open` snapshot을 계산한다.
-13. Unity binder가 미공개 Secret 출구 셀을 runtime 파괴벽으로 준비하고 실제 `BombExplosion.DestroyedWalls`에서 해당 연결만 공개한다.
+13. Unity binder가 미공개 Secret 연결의 문 앞 출구 `Floor` 셀을 방향에 매핑하고 실제 `BombExplosion.AffectedCells`가 그 셀에 닿으면 해당 연결만 공개한다. `DestroyedWalls`와 일반 파괴벽 전파 규칙은 사용하지 않는다.
 14. Unity navigator가 대상 콘텐츠·씬을 검증하고 실제 로드 완료 뒤 Core 이동을 단일 commit한다.
 15. room commit 또는 Secret 공개 뒤 미니맵 presenter가 Core snapshot을 읽어 현재·방문·직접 인접 공개 방과 확인된 연결만 우측 상단에 다시 그린다.
 16. Unity room binder와 door presenter가 배정 결과와 문 상태에 맞춰 회전된 room geometry, 금 간 벽과 활성·비활성 문을 표현한다.
@@ -106,7 +107,7 @@ Secret post-pass:             Combat ─┐
 - Recovery는 정확히 하나이며 보스 주 경로 마지막 일반 전투방의 leaf다. 안전방이므로 잠금·클리어·전투 보상 토큰을 만들지 않는다.
 - Recovery 소비는 실제 체력이 증가한 한 번에만 기록되고 최대 체력·사망·terminal·다른 방의 요청은 상태를 바꾸지 않는다.
 - Secret은 존재하면 정확히 하나이고 Combat 2~3개에만 연결되며 보스·안전방과 직접 연결되지 않는다. 안전방이므로 전투 잠금과 클리어를 만들지 않는다.
-- Secret 연결은 실제 runtime 벽 파괴 결과로 하나씩만 공개되고 미공개 연결 이동은 `BlockedBySecretWall`이다. cache `+3`은 현재 Secret 방에서 한 번만 지급되며 terminal·다른 방·재입장 요청은 합계를 바꾸지 않는다.
+- Secret 연결은 실제 폭발 footprint가 방별 문 앞 출구 셀에 도달한 결과로 하나씩만 공개되고 미공개 연결 이동은 `BlockedBySecretWall`이다. 출구 셀은 `Floor`로 유지되며 비밀문은 파괴벽 결과에 포함되지 않는다. cache `+3`은 현재 Secret 방에서 한 번만 지급되며 terminal·다른 방·재입장 요청은 합계를 바꾸지 않는다.
 
 ## 자동 테스트
 
@@ -122,6 +123,6 @@ Secret post-pass:             Combat ─┐
 - 첫 전투 잠금, 안전방 비잠금, 클리어 중복, 일반 전투 최초 토큰 지급과 안전·보스·terminal 비지급, 클리어 전 퇴실 차단, 클리어 뒤 양방향 재방문과 전체 트리 왕복.
 - 카탈로그 순서 무관 배정 재현, 128개 seed 다양성, 사용 횟수 균형, 5전투 노드·5정의의 각 1회 사용, 회전 방향과 활성 출구 호환, 부족한 카탈로그의 명시 실패.
 - Recovery의 상한 회복·최대 체력 비소비·단일 소비·재입장 유지와 다른 방·사망·terminal 거부.
-- Secret 연결별 숨김·공개·이동 차단/허용, minimap 제외/추가, cache `+3` 단일 소비·재입장 유지·다른 방·terminal 거부와 새 run 초기화.
+- Secret 연결별 숨김·공개·이동 차단/허용, 문 앞 `Floor` 접근, 실제 폭발 영향과 파괴벽 비포함, minimap 제외/추가, cache `+3` 단일 소비·재입장 유지·다른 방·terminal 거부와 새 run 초기화.
 
 실제 문 GameObject, room 회전·씬 로드·탐색, 첫 폭탄 보상, Recovery, 비밀방과 제한 정보 미니맵은 Unity runtime/PlayMode에 연결됐다. seed-0 WebGL 경로는 2번 전투방의 금 간 서쪽 벽을 실제 폭발로 열고 미니맵 `4방/3연결`, 10번 비밀방 cache `ROOM TOKENS +3`, 양방향 복귀를 확인했다. 이후 선택한 loadout과 체력을 유지한 채 Recovery에서 `1→3` 회복하고, 미니맵이 보스 전실 `10방/9연결`까지 확장된 뒤 2페이즈 보스 격파·한 층 완료·새 run 초기 지도로 재시작했다. 다음 범위는 금 간 단서가 무작위 벽 폭파를 유발하지 않는지, cache 가치와 기존 탐색 피로를 함께 보는 사람 플레이테스트다.

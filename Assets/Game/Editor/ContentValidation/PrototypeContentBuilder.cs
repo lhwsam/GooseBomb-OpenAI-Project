@@ -15,6 +15,7 @@ namespace BombSwap.Editor.ContentValidation
 {
     public static class PrototypeContentBuilder
     {
+        // Serialized prototype content is synchronized through these Editor-only entry points.
         private const string MaterialsPath = "Assets/Game/Content/Materials/Prototype";
         private const string PrototypePrefabsPath = "Assets/Game/Content/Prefabs/Prototype";
         private static readonly string[] LegacyQuickBombAssetPaths =
@@ -48,6 +49,25 @@ namespace BombSwap.Editor.ContentValidation
             Debug.Log(summary);
         }
 
+        [MenuItem("Bomb Swap/Prototype/Refresh Self-Destruct Content")]
+        public static void RefreshSelfDestructContentMenu()
+        {
+            CreatePrototypeSelfDestructContentIfMissing();
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Refreshed prototype self-destruct definition, blast, and presentation content.");
+        }
+
+        [MenuItem("Bomb Swap/Prototype/Refresh Thrower Content")]
+        public static void RefreshThrowerContentMenu()
+        {
+            CreatePrototypeThrowerContentIfMissing();
+            CreatePrototypeThrowerRoomContentIfMissing();
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Refreshed prototype thrower definition, bomb, room, and presentation content.");
+        }
+
         public static string CreateMissingPrototypeContent()
         {
             InputActionAsset inputActions = CreateInputActionsIfMissing();
@@ -72,14 +92,26 @@ namespace BombSwap.Editor.ContentValidation
                 CreatePrototypeChargerContentIfMissing();
             PrototypeArmoredDefinitionAsset armoredDefinition =
                 CreatePrototypeArmoredContentIfMissing();
+            CreatePrototypeSelfDestructContentIfMissing();
+            CreatePrototypeThrowerContentIfMissing();
+            PrototypeBombDefinitionAsset[] bossBombDefinitions =
+                CreatePrototypeBossBombContentIfMissing();
             PrototypeBossDefinitionAsset bossDefinition =
-                CreatePrototypeBossContentIfMissing();
+                CreatePrototypeBossContentIfMissing(
+                    bossBombDefinitions[0],
+                    bossBombDefinitions[1]);
             CreatePrototypeRecoveryMaterialIfMissing();
             CreatePrototypeSecretMaterialsIfMissing();
             PrototypeCombatRoomDefinitionAsset[] roomDefinitions =
                 CreatePrototypeCombatRoomContentIfMissing();
+            PrototypeCombatRoomDefinitionAsset bossRoomDefinition =
+                CreatePrototypeBossRoomContentIfMissing();
+            PrototypeCombatRoomDefinitionAsset throwerRoomDefinition =
+                CreatePrototypeThrowerRoomContentIfMissing();
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog =
-                CreatePrototypeDungeonCombatRoomCatalog(roomDefinitions);
+                CreatePrototypeDungeonCombatRoomCatalog(
+                    roomDefinitions,
+                    throwerRoomDefinition);
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog =
                 CreatePrototypeDungeonSpecialRoomCatalog();
             bool sceneCreated = EnsureTestSandbox(
@@ -91,7 +123,7 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinitions[0],
-                "TestSandboxLanes");
+                "TestSandboxThrower");
             bool lanesSceneCreated = EnsurePlaytestRoomVariant(
                 PrototypeContentValidator.TestSandboxLanesScenePath,
                 bombLoadout,
@@ -101,6 +133,18 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinitions[1],
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.TestSandboxLanesScenePath);
+            bool throwerDungeonSceneCreated = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.TestSandboxThrowerScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                throwerRoomDefinition,
                 "TestSandboxPillars");
             bool pillarsSceneCreated = EnsurePlaytestRoomVariant(
                 PrototypeContentValidator.TestSandboxPillarsScenePath,
@@ -132,6 +176,38 @@ namespace BombSwap.Editor.ContentValidation
                 bossDefinition,
                 roomDefinitions[4],
                 string.Empty);
+            bool armoredPlaytestSceneCreated = EnsureArmoredPanicPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[3]);
+            bool selfDestructPlaytestSceneCreated = EnsureSelfDestructGatesPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinitions[4]);
+            bool bossPlaytestSceneCreated = EnsureBossBattlePlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                bossRoomDefinition);
+            bool throwerPlaytestSceneCreated = EnsureThrowerLanesPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                throwerRoomDefinition);
             EnsureDungeonRoomBinding(
                 PrototypeContentValidator.TestSandboxScenePath,
                 combatRoomCatalog,
@@ -140,7 +216,7 @@ namespace BombSwap.Editor.ContentValidation
                 playerVitals,
                 true);
             EnsureDungeonRoomBinding(
-                PrototypeContentValidator.TestSandboxLanesScenePath,
+                PrototypeContentValidator.TestSandboxThrowerScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
@@ -245,7 +321,7 @@ namespace BombSwap.Editor.ContentValidation
                 chargerDefinition,
                 armoredDefinition,
                 bossDefinition,
-                roomDefinitions[0],
+                bossRoomDefinition,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
@@ -254,13 +330,142 @@ namespace BombSwap.Editor.ContentValidation
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
-            return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
-                armorSceneCreated || gatesSceneCreated || startSceneCreated ||
+            return sceneCreated || lanesSceneCreated || throwerDungeonSceneCreated ||
+                pillarsSceneCreated ||
+                armorSceneCreated || gatesSceneCreated || armoredPlaytestSceneCreated ||
+                selfDestructPlaytestSceneCreated || bossPlaytestSceneCreated ||
+                throwerPlaytestSceneCreated ||
+                startSceneCreated ||
                 rewardSceneCreated ||
                 bossAnteSceneCreated || recoverySceneCreated || secretSceneCreated ||
                 bossSceneCreated
-                ? "Created BombSwap prototype dungeon content and eleven graph room scenes."
-                : "BombSwap prototype dungeon content exists; synchronized room scenes, graph bindings, references, and Build Settings.";
+                ? "Created BombSwap prototype dungeon content, eleven graph room scenes, and standalone enemy playtest scenes."
+                : "BombSwap prototype content exists; synchronized dungeon rooms, standalone enemy playtests, graph bindings, references, and Build Settings.";
+        }
+
+        public static string CreateOrUpdateArmoredPanicPlaytestScene()
+        {
+            PrototypeBombLoadoutAsset bombLoadout = LoadRequiredAsset<
+                PrototypeBombLoadoutAsset>(PrototypeContentValidator.PrototypeBombLoadoutPath);
+            PrototypePlayerVitalsAsset playerVitals = LoadRequiredAsset<
+                PrototypePlayerVitalsAsset>(PrototypeContentValidator.PrototypePlayerVitalsPath);
+            PrototypeChaserDefinitionAsset chaserDefinition = LoadRequiredAsset<
+                PrototypeChaserDefinitionAsset>(PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            PrototypeChargerDefinitionAsset chargerDefinition = LoadRequiredAsset<
+                PrototypeChargerDefinitionAsset>(PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            PrototypeArmoredDefinitionAsset armoredDefinition = LoadRequiredAsset<
+                PrototypeArmoredDefinitionAsset>(PrototypeContentValidator.PrototypeArmoredDefinitionPath);
+            PrototypeBossDefinitionAsset bossDefinition = LoadRequiredAsset<
+                PrototypeBossDefinitionAsset>(PrototypeContentValidator.PrototypeBossDefinitionPath);
+            PrototypeCombatRoomDefinitionAsset roomDefinition = LoadRequiredAsset<
+                PrototypeCombatRoomDefinitionAsset>(PrototypeContentValidator.PrototypeCombatArmorDefinitionPath);
+
+            bool created = EnsureArmoredPanicPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition);
+            AssetDatabase.SaveAssets();
+            return created
+                ? $"Created standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'."
+                : $"Synchronized standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'.";
+        }
+
+        public static string CreateOrUpdateSelfDestructGatesPlaytestScene()
+        {
+            PrototypeBombLoadoutAsset bombLoadout = LoadRequiredAsset<
+                PrototypeBombLoadoutAsset>(PrototypeContentValidator.PrototypeBombLoadoutPath);
+            PrototypePlayerVitalsAsset playerVitals = LoadRequiredAsset<
+                PrototypePlayerVitalsAsset>(PrototypeContentValidator.PrototypePlayerVitalsPath);
+            PrototypeChaserDefinitionAsset chaserDefinition = LoadRequiredAsset<
+                PrototypeChaserDefinitionAsset>(PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            PrototypeChargerDefinitionAsset chargerDefinition = LoadRequiredAsset<
+                PrototypeChargerDefinitionAsset>(PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            PrototypeArmoredDefinitionAsset armoredDefinition = LoadRequiredAsset<
+                PrototypeArmoredDefinitionAsset>(PrototypeContentValidator.PrototypeArmoredDefinitionPath);
+            PrototypeBossDefinitionAsset bossDefinition = LoadRequiredAsset<
+                PrototypeBossDefinitionAsset>(PrototypeContentValidator.PrototypeBossDefinitionPath);
+            PrototypeCombatRoomDefinitionAsset roomDefinition = LoadRequiredAsset<
+                PrototypeCombatRoomDefinitionAsset>(PrototypeContentValidator.PrototypeCombatGatesDefinitionPath);
+
+            bool created = EnsureSelfDestructGatesPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition);
+            AssetDatabase.SaveAssets();
+            return created
+                ? $"Created standalone Self-Destruct Gates playtest scene at '{PrototypeContentValidator.SelfDestructGatesPlaytestScenePath}'."
+                : $"Synchronized standalone Self-Destruct Gates playtest scene at '{PrototypeContentValidator.SelfDestructGatesPlaytestScenePath}'.";
+        }
+
+        public static string CreateOrUpdateBossBattlePlaytestScene()
+        {
+            PrototypeBombLoadoutAsset bombLoadout = LoadRequiredAsset<
+                PrototypeBombLoadoutAsset>(PrototypeContentValidator.PrototypeBombLoadoutPath);
+            PrototypePlayerVitalsAsset playerVitals = LoadRequiredAsset<
+                PrototypePlayerVitalsAsset>(PrototypeContentValidator.PrototypePlayerVitalsPath);
+            PrototypeChaserDefinitionAsset chaserDefinition = LoadRequiredAsset<
+                PrototypeChaserDefinitionAsset>(PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            PrototypeChargerDefinitionAsset chargerDefinition = LoadRequiredAsset<
+                PrototypeChargerDefinitionAsset>(PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            PrototypeArmoredDefinitionAsset armoredDefinition = LoadRequiredAsset<
+                PrototypeArmoredDefinitionAsset>(PrototypeContentValidator.PrototypeArmoredDefinitionPath);
+            PrototypeBossDefinitionAsset bossDefinition = LoadRequiredAsset<
+                PrototypeBossDefinitionAsset>(PrototypeContentValidator.PrototypeBossDefinitionPath);
+            PrototypeCombatRoomDefinitionAsset roomDefinition = LoadRequiredAsset<
+                PrototypeCombatRoomDefinitionAsset>(PrototypeContentValidator.PrototypeBossArenaDefinitionPath);
+
+            bool created = EnsureBossBattlePlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition);
+            AssetDatabase.SaveAssets();
+            return created
+                ? $"Created standalone Boss Battle playtest scene at '{PrototypeContentValidator.BossBattlePlaytestScenePath}'."
+                : $"Synchronized standalone Boss Battle playtest scene at '{PrototypeContentValidator.BossBattlePlaytestScenePath}'.";
+        }
+
+        public static string CreateOrUpdateThrowerLanesPlaytestScene()
+        {
+            CreatePrototypeThrowerContentIfMissing();
+            PrototypeCombatRoomDefinitionAsset roomDefinition =
+                CreatePrototypeThrowerRoomContentIfMissing();
+            PrototypeBombLoadoutAsset bombLoadout = LoadRequiredAsset<
+                PrototypeBombLoadoutAsset>(PrototypeContentValidator.PrototypeBombLoadoutPath);
+            PrototypePlayerVitalsAsset playerVitals = LoadRequiredAsset<
+                PrototypePlayerVitalsAsset>(PrototypeContentValidator.PrototypePlayerVitalsPath);
+            PrototypeChaserDefinitionAsset chaserDefinition = LoadRequiredAsset<
+                PrototypeChaserDefinitionAsset>(PrototypeContentValidator.PrototypeChaserDefinitionPath);
+            PrototypeChargerDefinitionAsset chargerDefinition = LoadRequiredAsset<
+                PrototypeChargerDefinitionAsset>(PrototypeContentValidator.PrototypeChargerDefinitionPath);
+            PrototypeArmoredDefinitionAsset armoredDefinition = LoadRequiredAsset<
+                PrototypeArmoredDefinitionAsset>(PrototypeContentValidator.PrototypeArmoredDefinitionPath);
+            PrototypeBossDefinitionAsset bossDefinition = LoadRequiredAsset<
+                PrototypeBossDefinitionAsset>(PrototypeContentValidator.PrototypeBossDefinitionPath);
+
+            bool created = EnsureThrowerLanesPlaytestScene(
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition);
+            AssetDatabase.SaveAssets();
+            return created
+                ? $"Created standalone Thrower Lanes playtest scene at '{PrototypeContentValidator.ThrowerLanesPlaytestScenePath}'."
+                : $"Synchronized standalone Thrower Lanes playtest scene at '{PrototypeContentValidator.ThrowerLanesPlaytestScenePath}'.";
         }
 
         private static InputActionAsset CreateInputActionsIfMissing()
@@ -836,6 +1041,17 @@ namespace BombSwap.Editor.ContentValidation
                 Vector3.zero,
                 new Vector3(0.7f, 0.7f, 0.7f),
                 chargerMaterial);
+            Material chargerTelegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/ChargerTelegraph.mat",
+                shader,
+                new Color(1f, 0.72f, 0.05f, 1f));
+            GameObject chargerTelegraphCellPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ChargerTelegraphCellPrefabPath,
+                "ChargerTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.82f, 0.04f, 0.82f),
+                chargerTelegraphMaterial);
 
             PrototypeChargerDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeChargerDefinitionAsset>(
@@ -853,10 +1069,12 @@ namespace BombSwap.Editor.ContentValidation
                 "prototype-charger",
                 1,
                 1,
+                1f,
                 0.75f,
                 8f,
-                0.75f,
+                1f,
                 chargerPrefab,
+                chargerTelegraphCellPrefab,
                 0.45f,
                 0.12f);
             EditorUtility.SetDirty(definition);
@@ -884,6 +1102,17 @@ namespace BombSwap.Editor.ContentValidation
                 Vector3.zero,
                 new Vector3(0.82f, 0.82f, 0.82f),
                 armoredMaterial);
+            Material panicTelegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/ArmoredPanicTelegraph.mat",
+                shader,
+                new Color(1f, 0.22f, 0.05f, 1f));
+            GameObject panicTelegraphCellPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ArmoredPanicTelegraphCellPrefabPath,
+                "ArmoredPanicTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.86f, 0.05f, 0.86f),
+                panicTelegraphMaterial);
 
             PrototypeArmoredDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeArmoredDefinitionAsset>(
@@ -903,14 +1132,307 @@ namespace BombSwap.Editor.ContentValidation
                 1f,
                 3f,
                 2,
+                1,
+                0.6f,
+                6f,
+                3,
+                0.5f,
                 armoredPrefab,
+                panicTelegraphCellPrefab,
                 0.5f,
                 0.12f);
             EditorUtility.SetDirty(definition);
             return definition;
         }
 
-        private static PrototypeBossDefinitionAsset CreatePrototypeBossContentIfMissing()
+        private static PrototypeSelfDestructDefinitionAsset
+            CreatePrototypeSelfDestructContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Enemies");
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+            Material enemyMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/SelfDestruct.mat",
+                shader,
+                new Color(0.92f, 0.18f, 0.08f, 1f));
+            Material telegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/SelfDestructTelegraph.mat",
+                shader,
+                new Color(1f, 0.38f, 0.04f, 1f));
+            GameObject enemyPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.SelfDestructPrefabPath,
+                "SelfDestructPlaceholder",
+                PrimitiveType.Sphere,
+                Vector3.zero,
+                new Vector3(0.72f, 0.72f, 0.72f),
+                enemyMaterial);
+            GameObject telegraphPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.SelfDestructTelegraphCellPrefabPath,
+                "SelfDestructTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.86f, 0.05f, 0.86f),
+                telegraphMaterial);
+            GameObject bombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BombPrefabPath);
+            GameObject explosionPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.ExplosionCellPrefabPath);
+
+            PrototypeBombDefinitionAsset blastDefinition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructBombDefinitionPath);
+            if (blastDefinition == null)
+            {
+                blastDefinition = ScriptableObject.CreateInstance<
+                    PrototypeBombDefinitionAsset>();
+                blastDefinition.name = "PrototypeSelfDestructBlast";
+                AssetDatabase.CreateAsset(
+                    blastDefinition,
+                    PrototypeContentValidator.PrototypeSelfDestructBombDefinitionPath);
+            }
+            blastDefinition.Configure(
+                "prototype-self-destruct-blast",
+                0.75f,
+                2,
+                bombPrefab,
+                explosionPrefab,
+                0.25f,
+                1f,
+                BombExplosionShape.Cross);
+            EditorUtility.SetDirty(blastDefinition);
+
+            PrototypeSelfDestructDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<
+                    PrototypeSelfDestructDefinitionAsset>();
+                definition.name = "PrototypeSelfDestruct";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
+            }
+            definition.Configure(
+                "prototype-self-destruct",
+                2f,
+                5f,
+                1.5f,
+                3,
+                1,
+                blastDefinition,
+                enemyPrefab,
+                telegraphPrefab,
+                0.45f,
+                0.12f);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
+        private static PrototypeBombDefinitionAsset[] CreatePrototypeBossBombContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+            Material throwBombMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/BossThrowBomb.mat",
+                shader,
+                new Color(0.95f, 0.22f, 0.04f, 1f));
+            Material throwExplosionMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/BossThrowExplosion.mat",
+                shader,
+                new Color(1f, 0.46f, 0.03f, 1f));
+            Material chainBombMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/BossChainBomb.mat",
+                shader,
+                new Color(0.78f, 0.06f, 0.68f, 1f));
+            Material chainExplosionMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/BossChainExplosion.mat",
+                shader,
+                new Color(1f, 0.08f, 0.72f, 1f));
+
+            GameObject throwBombPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BossThrowBombPrefabPath,
+                "BossThrowBombPlaceholder",
+                PrimitiveType.Sphere,
+                new Vector3(0f, 0.34f, 0f),
+                new Vector3(0.7f, 0.7f, 0.7f),
+                throwBombMaterial);
+            GameObject throwExplosionPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BossThrowExplosionCellPrefabPath,
+                "BossThrowExplosionCellPlaceholder",
+                PrimitiveType.Cube,
+                new Vector3(0f, 0.09f, 0f),
+                new Vector3(0.92f, 0.18f, 0.92f),
+                throwExplosionMaterial);
+            GameObject chainBombPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BossChainBombPrefabPath,
+                "BossChainBombPlaceholder",
+                PrimitiveType.Cylinder,
+                new Vector3(0f, 0.2f, 0f),
+                new Vector3(0.58f, 0.2f, 0.58f),
+                chainBombMaterial);
+            GameObject chainExplosionPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.BossChainExplosionCellPrefabPath,
+                "BossChainExplosionCellPlaceholder",
+                PrimitiveType.Cube,
+                new Vector3(0f, 0.1f, 0f),
+                new Vector3(0.94f, 0.2f, 0.94f),
+                chainExplosionMaterial);
+
+            PrototypeBombDefinitionAsset throwDefinition =
+                GetOrCreateBossBombDefinition(
+                    PrototypeContentValidator.PrototypeBossThrowBombDefinitionPath,
+                    "PrototypeBossThrowBomb",
+                    "prototype-boss-throw",
+                    1.25f,
+                    throwBombPrefab,
+                    throwExplosionPrefab);
+            PrototypeBombDefinitionAsset chainDefinition =
+                GetOrCreateBossBombDefinition(
+                    PrototypeContentValidator.PrototypeBossChainBombDefinitionPath,
+                    "PrototypeBossChainBomb",
+                    "prototype-boss-chain",
+                    2.25f,
+                    chainBombPrefab,
+                    chainExplosionPrefab);
+            return new[] { throwDefinition, chainDefinition };
+        }
+
+        private static PrototypeThrowerDefinitionAsset CreatePrototypeThrowerContentIfMissing()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException("Required URP Lit shader was not found.");
+            }
+
+            EnsureAssetFolder(PrototypePrefabsPath);
+            EnsureAssetFolder("Assets/Game/Content/Enemies");
+            EnsureAssetFolder("Assets/Game/Content/Bombs");
+            Material enemyMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/Thrower.mat",
+                shader,
+                new Color(0.55f, 0.14f, 0.78f, 1f));
+            Material telegraphMaterial = GetOrCreateMaterial(
+                MaterialsPath + "/ThrowerTelegraph.mat",
+                shader,
+                new Color(1f, 0.12f, 0.85f, 1f));
+            GameObject enemyPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ThrowerPrefabPath,
+                "ThrowerPlaceholder",
+                PrimitiveType.Cylinder,
+                Vector3.zero,
+                new Vector3(0.68f, 0.48f, 0.68f),
+                enemyMaterial);
+            GameObject telegraphPrefab = CreateVisualPrefabIfMissing(
+                PrototypeContentValidator.ThrowerTelegraphCellPrefabPath,
+                "ThrowerTelegraphCellPlaceholder",
+                PrimitiveType.Cube,
+                Vector3.zero,
+                new Vector3(0.88f, 0.05f, 0.88f),
+                telegraphMaterial);
+            GameObject bombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BombPrefabPath);
+            GameObject explosionPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.ExplosionCellPrefabPath);
+
+            PrototypeBombDefinitionAsset bombDefinition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeThrowerBombDefinitionPath);
+            if (bombDefinition == null)
+            {
+                bombDefinition = ScriptableObject.CreateInstance<
+                    PrototypeBombDefinitionAsset>();
+                bombDefinition.name = "PrototypeThrowerBlocker";
+                AssetDatabase.CreateAsset(
+                    bombDefinition,
+                    PrototypeContentValidator.PrototypeThrowerBombDefinitionPath);
+            }
+            bombDefinition.Configure(
+                "prototype-thrower-blocker",
+                1.5f,
+                1,
+                bombPrefab,
+                explosionPrefab,
+                0.25f,
+                1f,
+                BombExplosionShape.Cross);
+            EditorUtility.SetDirty(bombDefinition);
+
+            PrototypeThrowerDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeThrowerDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeThrowerDefinitionPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<
+                    PrototypeThrowerDefinitionAsset>();
+                definition.name = "PrototypeThrower";
+                AssetDatabase.CreateAsset(
+                    definition,
+                    PrototypeContentValidator.PrototypeThrowerDefinitionPath);
+            }
+            definition.Configure(
+                "prototype-thrower",
+                1f,
+                0.3f,
+                0.45f,
+                0.75f,
+                1,
+                3,
+                bombDefinition,
+                enemyPrefab,
+                telegraphPrefab,
+                0.5f,
+                0.12f);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
+        private static PrototypeBombDefinitionAsset GetOrCreateBossBombDefinition(
+            string assetPath,
+            string assetName,
+            string definitionId,
+            float fuseSeconds,
+            GameObject bombPrefab,
+            GameObject explosionPrefab)
+        {
+            PrototypeBombDefinitionAsset definition =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombDefinitionAsset>(assetPath);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<PrototypeBombDefinitionAsset>();
+                AssetDatabase.CreateAsset(definition, assetPath);
+            }
+
+            definition.name = assetName;
+            definition.Configure(
+                definitionId,
+                fuseSeconds,
+                2,
+                bombPrefab,
+                explosionPrefab,
+                0.25f,
+                1.5f,
+                BombExplosionShape.Cross);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
+        private static PrototypeBossDefinitionAsset CreatePrototypeBossContentIfMissing(
+            PrototypeBombDefinitionAsset throwBombDefinition,
+            PrototypeBombDefinitionAsset chainBombDefinition)
         {
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -957,18 +1479,16 @@ namespace BombSwap.Editor.ContentValidation
 
             definition.Configure(
                 "prototype-boss",
-                4,
+                10,
+                7,
                 2,
                 1,
-                1f,
-                0.25f,
-                2.75f,
-                0.75f,
-                0.25f,
-                2.75f,
+                2,
                 new Vector2Int(0, 1),
                 bossPrefab,
                 dangerCellPrefab,
+                throwBombDefinition,
+                chainBombDefinition,
                 0.6f,
                 0.03f,
                 0.2f);
@@ -1085,11 +1605,13 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector2Int(3, 2),
                 new[]
                 {
-                    new Vector2Int(-1, -2),
-                    new Vector2Int(1, -1),
-                    new Vector2Int(-1, 0),
-                    new Vector2Int(1, 1),
-                    new Vector2Int(-1, 2),
+                    new Vector2Int(-4, -2),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(2, 1),
+                    new Vector2Int(-3, -3),
+                    new Vector2Int(-3, 3),
+                    new Vector2Int(3, -3),
+                    new Vector2Int(3, 3),
                 },
                 new[]
                 {
@@ -1099,16 +1621,16 @@ namespace BombSwap.Editor.ContentValidation
                 },
                 new[]
                 {
-                    new Vector2Int(-4, 1),
-                    new Vector2Int(0, -3),
+                    new Vector2Int(-3, -1),
+                    new Vector2Int(-2, -2),
                 },
-                CreateRectangleLoop(-2, 2, -3, 3),
+                CreateRectangleLoop(-1, 1, -1, 1),
                 CreateCardinalRoomExits(5, 4),
                 new[]
                 {
-                    Vector2Int.zero,
+                    new Vector2Int(2, -2),
                 },
-                new Vector2Int(-3, 2));
+                new Vector2Int(-1, 1));
             EditorUtility.SetDirty(pillars);
 
             PrototypeCombatRoomDefinitionAsset armor = GetOrCreateRoomDefinition(
@@ -1124,10 +1646,15 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector2Int(4, 4),
                 new[]
                 {
+                    new Vector2Int(-2, -2),
+                    new Vector2Int(2, -2),
                     new Vector2Int(-2, -1),
                     new Vector2Int(2, -1),
-                    new Vector2Int(-2, 1),
-                    new Vector2Int(2, 1),
+                    new Vector2Int(-1, 2),
+                    new Vector2Int(0, 2),
+                    new Vector2Int(1, 2),
+                    new Vector2Int(-4, 0),
+                    new Vector2Int(4, 0),
                 },
                 new[]
                 {
@@ -1186,10 +1713,142 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     new Vector2Int(0, -1),
                     new Vector2Int(0, 1),
+                },
+                null,
+                null,
+                new Vector2Int(3, 0),
+                new[]
+                {
+                    new Vector2Int(0, -2),
+                    new Vector2Int(0, 2),
                 });
             EditorUtility.SetDirty(gates);
 
             return new[] { loop, lanes, pillars, armor, gates };
+        }
+
+        private static PrototypeCombatRoomDefinitionAsset
+            CreatePrototypeBossRoomContentIfMissing()
+        {
+            PrototypeCombatRoomDefinitionAsset arena = GetOrCreateRoomDefinition(
+                PrototypeContentValidator.PrototypeBossArenaDefinitionPath,
+                "PrototypeBossArena");
+            arena.Configure(
+                "prototype-boss-arena",
+                RoomType.Combat,
+                11,
+                9,
+                1f,
+                new Vector2Int(0, -3),
+                new Vector2Int(4, 3),
+                new[]
+                {
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(2, -1),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(2, 1),
+                },
+                new[]
+                {
+                    new Vector2Int(0, -3),
+                    new Vector2Int(-1, -3),
+                    new Vector2Int(1, -3),
+                },
+                new[]
+                {
+                    new Vector2Int(-4, -2),
+                    new Vector2Int(-3, 3),
+                    new Vector2Int(0, -3),
+                    new Vector2Int(0, 3),
+                    new Vector2Int(3, 3),
+                    new Vector2Int(4, -2),
+                },
+                new[]
+                {
+                    new Vector2Int(-1, -1),
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(-1, 1),
+                    new Vector2Int(0, 1),
+                    new Vector2Int(1, 1),
+                    new Vector2Int(1, 0),
+                    new Vector2Int(1, -1),
+                    new Vector2Int(0, -1),
+                },
+                CreateCardinalRoomExits(5, 4),
+                Array.Empty<Vector2Int>(),
+                null,
+                null,
+                new Vector2Int(-4, 3),
+                new[]
+                {
+                    new Vector2Int(-3, 3),
+                    new Vector2Int(0, 3),
+                    new Vector2Int(3, 3),
+                });
+            EditorUtility.SetDirty(arena);
+            return arena;
+        }
+
+        private static PrototypeCombatRoomDefinitionAsset
+            CreatePrototypeThrowerRoomContentIfMissing()
+        {
+            EnsureAssetFolder("Assets/Game/Content/Rooms");
+            PrototypeCombatRoomDefinitionAsset room = GetOrCreateRoomDefinition(
+                PrototypeContentValidator.PrototypeCombatThrowerDefinitionPath,
+                "PrototypeCombatThrower");
+            room.Configure(
+                "prototype-combat-thrower",
+                RoomType.Combat,
+                11,
+                9,
+                1f,
+                new Vector2Int(0, -2),
+                new Vector2Int(-2, 2),
+                new[]
+                {
+                    new Vector2Int(-2, -1),
+                    new Vector2Int(-2, 0),
+                    new Vector2Int(-2, 1),
+                    new Vector2Int(2, -1),
+                    new Vector2Int(2, 0),
+                    new Vector2Int(2, 1),
+                },
+                new[]
+                {
+                    new Vector2Int(0, -2),
+                    new Vector2Int(-1, -2),
+                    new Vector2Int(1, -2),
+                },
+                new[]
+                {
+                    new Vector2Int(-3, -2),
+                    new Vector2Int(3, -2),
+                },
+                CreateRectangleLoop(-3, 3, -2, 2),
+                CreateCardinalRoomExits(5, 4),
+                new[]
+                {
+                    new Vector2Int(-1, -1),
+                    new Vector2Int(1, -1),
+                },
+                authoredThrowerSpawn: new Vector2Int(3, 2),
+                authoredThrowerFiringAnchors: new[]
+                {
+                    new Vector2Int(0, 3),
+                    new Vector2Int(-3, 2),
+                    new Vector2Int(3, -2),
+                },
+                authoredThrowerTargetAnchors: new[]
+                {
+                    new Vector2Int(0, 0),
+                    new Vector2Int(-3, -2),
+                    new Vector2Int(2, -3),
+                    new Vector2Int(-4, 1),
+                    new Vector2Int(4, 1),
+                    new Vector2Int(0, 2),
+                });
+            EditorUtility.SetDirty(room);
+            return room;
         }
 
         private static PrototypeCombatRoomDefinitionAsset GetOrCreateRoomDefinition(
@@ -1211,13 +1870,18 @@ namespace BombSwap.Editor.ContentValidation
 
         private static PrototypeDungeonCombatRoomCatalogAsset
             CreatePrototypeDungeonCombatRoomCatalog(
-                IReadOnlyList<PrototypeCombatRoomDefinitionAsset> roomDefinitions)
+                IReadOnlyList<PrototypeCombatRoomDefinitionAsset> roomDefinitions,
+                PrototypeCombatRoomDefinitionAsset throwerRoomDefinition)
         {
             if (roomDefinitions == null || roomDefinitions.Count != 5)
             {
                 throw new ArgumentException(
                     "Prototype dungeon combat room catalog requires five definitions.",
                     nameof(roomDefinitions));
+            }
+            if (throwerRoomDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(throwerRoomDefinition));
             }
 
             PrototypeDungeonCombatRoomCatalogAsset catalog =
@@ -1236,7 +1900,9 @@ namespace BombSwap.Editor.ContentValidation
             catalog.Configure(new[]
             {
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[0], "TestSandbox"),
-                new PrototypeDungeonCombatRoomEntry(roomDefinitions[1], "TestSandboxLanes"),
+                new PrototypeDungeonCombatRoomEntry(
+                    throwerRoomDefinition,
+                    "TestSandboxThrower"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[2], "TestSandboxPillars"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[3], "TestSandboxArmor"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[4], "TestSandboxGates"),
@@ -1402,7 +2068,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeArmoredDefinitionAsset armoredDefinition,
             PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
-            string nextSceneName)
+            string nextSceneName,
+            bool bossEnabled = false)
         {
             bool created = false;
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
@@ -1436,7 +2103,8 @@ namespace BombSwap.Editor.ContentValidation
                     armoredDefinition,
                     bossDefinition,
                     roomDefinition,
-                    nextSceneName);
+                    nextSceneName,
+                    bossEnabled);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene))
                 {
@@ -1453,6 +2121,146 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             return created;
+        }
+
+        private static bool EnsureArmoredPanicPlaytestScene(
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
+        {
+            bool created = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.ArmoredPanicPlaytestScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition,
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.ArmoredPanicPlaytestScenePath);
+            return created;
+        }
+
+        private static bool EnsureSelfDestructGatesPlaytestScene(
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
+        {
+            bool created = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.SelfDestructGatesPlaytestScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition,
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.SelfDestructGatesPlaytestScenePath);
+            return created;
+        }
+
+        private static bool EnsureBossBattlePlaytestScene(
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
+        {
+            bool created = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.BossBattlePlaytestScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition,
+                string.Empty,
+                true);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.BossBattlePlaytestScenePath);
+            return created;
+        }
+
+        private static bool EnsureThrowerLanesPlaytestScene(
+            PrototypeBombLoadoutAsset bombLoadout,
+            PrototypePlayerVitalsAsset playerVitals,
+            PrototypeChaserDefinitionAsset chaserDefinition,
+            PrototypeChargerDefinitionAsset chargerDefinition,
+            PrototypeArmoredDefinitionAsset armoredDefinition,
+            PrototypeBossDefinitionAsset bossDefinition,
+            PrototypeCombatRoomDefinitionAsset roomDefinition)
+        {
+            bool created = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.ThrowerLanesPlaytestScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                roomDefinition,
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.ThrowerLanesPlaytestScenePath);
+            return created;
+        }
+
+        private static void StripDungeonAdaptersFromStandalonePlaytest(
+            string scenePath)
+        {
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForUpgrade = !scene.IsValid() || !scene.isLoaded;
+            if (openedForUpgrade)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                foreach (PrototypeDungeonRunHost host in
+                    FindAllInScene<PrototypeDungeonRunHost>(scene))
+                {
+                    UnityEngine.Object.DestroyImmediate(host.gameObject);
+                }
+                DestroyAllInScene<PrototypeDungeonRoomBinder>(scene);
+                DestroyAllInScene<PrototypeDungeonMinimapPresenter>(scene);
+                DestroyAllInScene<PrototypeDungeonDoorPresenter>(scene);
+                DestroyAllInScene<PrototypeRunCompletionPresenter>(scene);
+
+                PrototypeGameSession session = FindExactlyOne<PrototypeGameSession>(scene);
+                PrototypeRoomAdvanceController advance =
+                    FindExactlyOne<PrototypeRoomAdvanceController>(scene);
+                advance.Configure(session, string.Empty);
+                EditorUtility.SetDirty(advance);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save standalone playtest scene '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForUpgrade && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
         }
 
         private static void EnsureDungeonRoomBinding(
@@ -1613,6 +2421,9 @@ namespace BombSwap.Editor.ContentValidation
             bool combatEnabled,
             bool bossEnabled)
         {
+            PrototypeSelfDestructDefinitionAsset selfDestructDefinition =
+                LoadRequiredAsset<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
             PrototypeGameSession gameSession = FindExactlyOne<PrototypeGameSession>(scene);
@@ -1626,7 +2437,8 @@ namespace BombSwap.Editor.ContentValidation
                 startingArmored: armoredDefinition,
                 startingCombatEnabled: combatEnabled,
                 startingBoss: bossDefinition,
-                startingBossEnabled: bossEnabled);
+                startingBossEnabled: bossEnabled,
+                startingSelfDestruct: selfDestructDefinition);
             EditorUtility.SetDirty(gameSession);
         }
 
@@ -1952,6 +2764,13 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeContentValidator.SecretCrackMaterialPath,
                 shader,
                 new Color(0.08f, 0.045f, 0.025f, 1f));
+            Material destructibleWallMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeContentValidator.DestructibleWallMaterialPath);
+            if (destructibleWallMaterial == null)
+            {
+                throw new InvalidOperationException(
+                    "Prototype destructible-wall material is missing.");
+            }
 
             EnsureBoundaryPrimitive(
                 boundary, "NorthWallWest",
@@ -2008,6 +2827,7 @@ namespace BombSwap.Editor.ContentValidation
                 north.transform.localPosition,
                 true,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             GameObject eastCracks = EnsureSecretCrackRoot(
                 boundary,
@@ -2015,6 +2835,7 @@ namespace BombSwap.Editor.ContentValidation
                 east.transform.localPosition,
                 false,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             GameObject southCracks = EnsureSecretCrackRoot(
                 boundary,
@@ -2022,6 +2843,7 @@ namespace BombSwap.Editor.ContentValidation
                 south.transform.localPosition,
                 true,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             GameObject westCracks = EnsureSecretCrackRoot(
                 boundary,
@@ -2029,6 +2851,7 @@ namespace BombSwap.Editor.ContentValidation
                 west.transform.localPosition,
                 false,
                 cellSize,
+                destructibleWallMaterial,
                 crackMaterial);
             return new DungeonBoundaryPresentation(
                 new[] { north, east, south, west },
@@ -2038,22 +2861,27 @@ namespace BombSwap.Editor.ContentValidation
         private static GameObject EnsureSecretCrackRoot(
             Transform boundary,
             string rootName,
-            Vector3 doorLocalPosition,
+            Vector3 secretDoorLocalPosition,
             bool northSouthDoor,
             float cellSize,
-            Material material)
+            Material wallMaterial,
+            Material crackMaterial)
         {
             Transform root = boundary.Find(rootName);
             if (root == null)
             {
                 root = CreateChild(rootName, boundary);
             }
-            root.localPosition = doorLocalPosition;
+            root.localPosition = secretDoorLocalPosition;
             root.localRotation = Quaternion.identity;
             root.localScale = Vector3.one;
 
+            const string surfaceName = "SecretWallSurface";
             string[] barNames = { "CrackA", "CrackB", "CrackC" };
-            var expected = new HashSet<string>(barNames, StringComparer.Ordinal);
+            var expected = new HashSet<string>(barNames, StringComparer.Ordinal)
+            {
+                surfaceName,
+            };
             for (int index = root.childCount - 1; index >= 0; index--)
             {
                 if (!expected.Contains(root.GetChild(index).name))
@@ -2061,6 +2889,17 @@ namespace BombSwap.Editor.ContentValidation
                     UnityEngine.Object.DestroyImmediate(root.GetChild(index).gameObject);
                 }
             }
+
+            Vector3 surfaceScale = northSouthDoor
+                ? new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize)
+                : new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize);
+            EnsureBoundaryPrimitive(
+                root,
+                surfaceName,
+                new Vector3(0f, 0.45f, 0f),
+                surfaceScale,
+                wallMaterial,
+                false);
 
             float[] offsets = { -0.2f, 0f, 0.2f };
             float[] angles = northSouthDoor
@@ -2079,7 +2918,7 @@ namespace BombSwap.Editor.ContentValidation
                     barNames[index],
                     position,
                     scale,
-                    material,
+                    crackMaterial,
                     false);
                 bar.transform.localRotation = Quaternion.Euler(0f, angles[index], 0f);
             }
@@ -2145,6 +2984,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeCombatRoomDefinitionAsset roomDefinition,
             string nextSceneName)
         {
+            PrototypeSelfDestructDefinitionAsset selfDestructDefinition =
+                LoadRequiredAsset<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
             {
@@ -2196,6 +3038,8 @@ namespace BombSwap.Editor.ContentValidation
                 systems.AddComponent<PrototypeChargerPresenter>();
             PrototypeArmoredPresenter armoredPresenter =
                 systems.AddComponent<PrototypeArmoredPresenter>();
+            PrototypeSelfDestructPresenter selfDestructPresenter =
+                systems.AddComponent<PrototypeSelfDestructPresenter>();
             PrototypeBossPresenter bossPresenter =
                 systems.AddComponent<PrototypeBossPresenter>();
             PrototypeWeaponHud weaponHud = systems.AddComponent<PrototypeWeaponHud>();
@@ -2304,6 +3148,16 @@ namespace BombSwap.Editor.ContentValidation
                     0f,
                     armoredCell.Z * cellSize);
             }
+            Transform selfDestructSpawn = null;
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                GridPosition selfDestructCell = room.SelfDestructSpawn.Value;
+                selfDestructSpawn = CreateChild("SelfDestructSpawn", gridRoot.transform);
+                selfDestructSpawn.localPosition = new Vector3(
+                    selfDestructCell.X * cellSize,
+                    0f,
+                    selfDestructCell.Z * cellSize);
+            }
             GameObject player = CreatePrimitive(
                 "PlayerPlaceholder",
                 PrimitiveType.Capsule,
@@ -2333,7 +3187,8 @@ namespace BombSwap.Editor.ContentValidation
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
-                armoredSpawn);
+                armoredSpawn,
+                selfDestructSpawn);
             gameSession.Configure(
                 context,
                 inputReader,
@@ -2342,7 +3197,8 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 startingCharger: chargerDefinition,
                 startingArmored: armoredDefinition,
-                startingBoss: bossDefinition);
+                startingBoss: bossDefinition,
+                startingSelfDestruct: selfDestructDefinition);
             playerController.Configure(gameSession, player.transform);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -2350,6 +3206,7 @@ namespace BombSwap.Editor.ContentValidation
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
             armoredPresenter.Configure(gameSession, runtimePresentation);
+            selfDestructPresenter.Configure(gameSession, runtimePresentation);
             bossPresenter.Configure(gameSession, runtimePresentation);
             SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
@@ -2375,8 +3232,15 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeArmoredDefinitionAsset armoredDefinition,
             PrototypeBossDefinitionAsset bossDefinition,
             PrototypeCombatRoomDefinitionAsset roomDefinition,
-            string nextSceneName)
+            string nextSceneName,
+            bool bossEnabled = false)
         {
+            PrototypeSelfDestructDefinitionAsset selfDestructDefinition =
+                LoadRequiredAsset<PrototypeSelfDestructDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeSelfDestructDefinitionPath);
+            PrototypeThrowerDefinitionAsset throwerDefinition =
+                LoadRequiredAsset<PrototypeThrowerDefinitionAsset>(
+                    PrototypeContentValidator.PrototypeThrowerDefinitionPath);
             TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
             BombSwapInputReader inputReader = FindExactlyOne<BombSwapInputReader>(scene);
             PrototypePlayerController playerController = FindExactlyOne<PrototypePlayerController>(scene);
@@ -2423,6 +3287,24 @@ namespace BombSwap.Editor.ContentValidation
             if (armoredPresenter == null)
             {
                 armoredPresenter = systems.AddComponent<PrototypeArmoredPresenter>();
+            }
+            PrototypeSelfDestructPresenter selfDestructPresenter =
+                systems.GetComponent<PrototypeSelfDestructPresenter>();
+            if (selfDestructPresenter == null)
+            {
+                selfDestructPresenter =
+                    systems.AddComponent<PrototypeSelfDestructPresenter>();
+            }
+            PrototypeThrowerPresenter throwerPresenter =
+                systems.GetComponent<PrototypeThrowerPresenter>();
+            if (roomDefinition.HasThrower && throwerPresenter == null)
+            {
+                throwerPresenter = systems.AddComponent<PrototypeThrowerPresenter>();
+            }
+            else if (!roomDefinition.HasThrower && throwerPresenter != null)
+            {
+                UnityEngine.Object.DestroyImmediate(throwerPresenter);
+                throwerPresenter = null;
             }
             PrototypeBossPresenter bossPresenter =
                 systems.GetComponent<PrototypeBossPresenter>();
@@ -2484,6 +3366,34 @@ namespace BombSwap.Editor.ContentValidation
                 UnityEngine.Object.DestroyImmediate(armoredSpawn.gameObject);
                 armoredSpawn = null;
             }
+            Transform selfDestructSpawn = context.GridRoot.Find("SelfDestructSpawn");
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                if (selfDestructSpawn == null)
+                {
+                    selfDestructSpawn = CreateChild(
+                        "SelfDestructSpawn",
+                        context.GridRoot);
+                }
+            }
+            else if (selfDestructSpawn != null)
+            {
+                UnityEngine.Object.DestroyImmediate(selfDestructSpawn.gameObject);
+                selfDestructSpawn = null;
+            }
+            Transform throwerSpawn = context.GridRoot.Find("ThrowerSpawn");
+            if (room.ThrowerSpawn.HasValue)
+            {
+                if (throwerSpawn == null)
+                {
+                    throwerSpawn = CreateChild("ThrowerSpawn", context.GridRoot);
+                }
+            }
+            else if (throwerSpawn != null)
+            {
+                UnityEngine.Object.DestroyImmediate(throwerSpawn.gameObject);
+                throwerSpawn = null;
+            }
             SynchronizeInteriorObstacles(context.GridRoot, roomDefinition, room);
             Transform destructibleObstacles = SynchronizeDestructibleObstacles(
                 context.GridRoot,
@@ -2503,6 +3413,15 @@ namespace BombSwap.Editor.ContentValidation
             {
                 armoredSpawn.position = gridSpace.GridToWorld(room.ArmoredSpawn.Value);
             }
+            if (room.SelfDestructSpawn.HasValue)
+            {
+                selfDestructSpawn.position =
+                    gridSpace.GridToWorld(room.SelfDestructSpawn.Value);
+            }
+            if (room.ThrowerSpawn.HasValue)
+            {
+                throwerSpawn.position = gridSpace.GridToWorld(room.ThrowerSpawn.Value);
+            }
 
             Renderer playerRenderer =
                 context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
@@ -2520,7 +3439,9 @@ namespace BombSwap.Editor.ContentValidation
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
-                armoredSpawn);
+                armoredSpawn,
+                selfDestructSpawn,
+                throwerSpawn);
             gameSession.Configure(
                 context,
                 inputReader,
@@ -2529,7 +3450,10 @@ namespace BombSwap.Editor.ContentValidation
                 chaserDefinition,
                 startingCharger: chargerDefinition,
                 startingArmored: armoredDefinition,
-                startingBoss: bossDefinition);
+                startingBossEnabled: bossEnabled,
+                startingBoss: bossDefinition,
+                startingSelfDestruct: selfDestructDefinition,
+                startingThrower: throwerDefinition);
             playerController.Configure(gameSession, context.PlayerPlaceholder);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -2537,6 +3461,11 @@ namespace BombSwap.Editor.ContentValidation
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
             armoredPresenter.Configure(gameSession, runtimePresentation);
+            selfDestructPresenter.Configure(gameSession, runtimePresentation);
+            if (throwerPresenter != null)
+            {
+                throwerPresenter.Configure(gameSession, runtimePresentation);
+            }
             bossPresenter.Configure(gameSession, runtimePresentation);
             SetSerializedObjectName(bossPresenter, nameof(PrototypeBossPresenter));
             weaponHud.Configure(gameSession);
@@ -2552,6 +3481,11 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(chaserPresenter);
             EditorUtility.SetDirty(chargerPresenter);
             EditorUtility.SetDirty(armoredPresenter);
+            EditorUtility.SetDirty(selfDestructPresenter);
+            if (throwerPresenter != null)
+            {
+                EditorUtility.SetDirty(throwerPresenter);
+            }
             EditorUtility.SetDirty(bossPresenter);
             EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);
@@ -2762,7 +3696,7 @@ namespace BombSwap.Editor.ContentValidation
                     true),
                 new EditorBuildSettingsScene(PrototypeContentValidator.TestSandboxScenePath, true),
                 new EditorBuildSettingsScene(
-                    PrototypeContentValidator.TestSandboxLanesScenePath,
+                    PrototypeContentValidator.TestSandboxThrowerScenePath,
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.TestSandboxPillarsScenePath,
@@ -2773,6 +3707,9 @@ namespace BombSwap.Editor.ContentValidation
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.TestSandboxGatesScenePath,
                     true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.TestSandboxLanesScenePath,
+                    false),
             };
 
             foreach (EditorBuildSettingsScene existing in EditorBuildSettings.scenes)
@@ -2886,6 +3823,19 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static T LoadRequiredAsset<T>(string assetPath)
+            where T : UnityEngine.Object
+        {
+            T asset = AssetDatabase.LoadAssetAtPath<T>(assetPath);
+            if (asset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Required prototype asset is missing: {assetPath}");
+            }
+
+            return asset;
+        }
+
         private static T FindExactlyOne<T>(Scene scene) where T : Component
         {
             T found = null;
@@ -2911,6 +3861,14 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             return found;
+        }
+
+        private static void DestroyAllInScene<T>(Scene scene) where T : Component
+        {
+            foreach (T component in FindAllInScene<T>(scene))
+            {
+                UnityEngine.Object.DestroyImmediate(component);
+            }
         }
 
         private static T[] FindAllInScene<T>(Scene scene) where T : Component
