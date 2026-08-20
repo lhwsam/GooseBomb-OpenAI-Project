@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,7 +10,7 @@ namespace BombSwap
     {
         private PrototypeGameSession _session;
         private GameObject _canvasObject;
-        private Text _statusLabel;
+        private TextMeshProUGUI _statusLabel;
         private bool _isSubscribed;
 
         public PrototypeGameSession Session => _session;
@@ -126,13 +127,6 @@ namespace BombSwap
                 return;
             }
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null)
-            {
-                throw new InvalidOperationException(
-                    "Unity built-in runtime font was not found.");
-            }
-
             _canvasObject = new GameObject(
                 "PrototypePauseCanvas",
                 typeof(RectTransform),
@@ -157,7 +151,13 @@ namespace BombSwap
             backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 0.72f);
             backdropImage.raycastTarget = false;
 
-            Text title = CreateText("Title", backdrop, font, 56, FontStyle.Bold);
+            TextMeshProUGUI title = PrototypeUiFactory.CreateText(
+                "Title",
+                backdrop,
+                56f,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold,
+                TextWrappingModes.Normal);
             title.rectTransform.anchorMin = new Vector2(0.1f, 0.48f);
             title.rectTransform.anchorMax = new Vector2(0.9f, 0.68f);
             title.rectTransform.offsetMin = Vector2.zero;
@@ -165,12 +165,13 @@ namespace BombSwap
             title.text = "PAUSED";
             title.color = new Color(0.35f, 0.82f, 1f, 1f);
 
-            _statusLabel = CreateText(
+            _statusLabel = PrototypeUiFactory.CreateText(
                 "Resume",
                 backdrop,
-                font,
-                26,
-                FontStyle.Normal);
+                26f,
+                TextAlignmentOptions.Center,
+                FontStyles.Normal,
+                TextWrappingModes.Normal);
             _statusLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.34f);
             _statusLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.48f);
             _statusLabel.rectTransform.offsetMin = Vector2.zero;
@@ -186,23 +187,5 @@ namespace BombSwap
             return child.GetComponent<RectTransform>();
         }
 
-        private static Text CreateText(
-            string objectName,
-            Transform parent,
-            Font font,
-            int fontSize,
-            FontStyle fontStyle)
-        {
-            RectTransform rect = CreateRect(objectName, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = fontSize;
-            text.fontStyle = fontStyle;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.raycastTarget = false;
-            return text;
-        }
     }
 }

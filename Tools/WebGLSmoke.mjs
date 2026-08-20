@@ -621,6 +621,10 @@ async function main() {
   const screenshotPath = path.resolve(
     args.screenshotPath ?? path.join(path.dirname(reportPath), "webgl-dungeon.png"),
   );
+  const lobbyScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-lobby.png`,
+  );
   const bossTelegraphScreenshotPath = path.join(
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-boss-telegraph.png`,
@@ -707,6 +711,17 @@ async function main() {
       name: "canvas-focus",
       status: focusedTag === "CANVAS" ? "passed" : "failed",
       detail: focusedTag,
+    });
+
+    await waitForEvent(page, "lobby-ready", { timeout: 120_000 });
+    fs.mkdirSync(path.dirname(lobbyScreenshotPath), { recursive: true });
+    await page.screenshot({ path: lobbyScreenshotPath });
+    await page.keyboard.press("Enter");
+    await waitForEvent(page, "lobby-start-requested", { timeout: 5_000 });
+    checks.push({
+      name: "lobby-start",
+      status: "passed",
+      detail: "The DungGeunMo lobby loaded first and started a clean run through keyboard UI submit.",
     });
 
     await waitForEvent(page, "probe-ready", { timeout: 120_000 });
@@ -1832,9 +1847,33 @@ async function main() {
       page,
       "player-health-current-5",
     );
-    await page.keyboard.press("KeyR");
-    await waitForEvent(page, "run-restart-requested", { timeout: 5_000 });
-    await waitForEvent(page, "dungeon-run-restarted", { timeout: 5_000 });
+    const lobbyReadyBeforeCompletedReturn = await eventCount(page, "lobby-ready");
+    const lobbyStartRequestsBeforeCompletedReturn = await eventCount(
+      page,
+      "lobby-start-requested",
+    );
+    const lobbyRequestsBeforeCompletedReturn = await eventCount(
+      page,
+      "run-lobby-requested",
+    );
+    await page.keyboard.down("ArrowRight");
+    await page.waitForTimeout(100);
+    await page.keyboard.up("ArrowRight");
+    await page.waitForTimeout(100);
+    await page.keyboard.press("Enter");
+    await waitForEvent(page, "run-lobby-requested", {
+      count: lobbyRequestsBeforeCompletedReturn + 1,
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "lobby-ready", {
+      count: lobbyReadyBeforeCompletedReturn + 1,
+      timeout: 20_000,
+    });
+    await page.keyboard.press("Enter");
+    await waitForEvent(page, "lobby-start-requested", {
+      count: lobbyStartRequestsBeforeCompletedReturn + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(page, "dungeon-room-ready-1-start-safe", {
       count: restartedStartReadyBefore + 1,
       timeout: 20_000,
@@ -1860,9 +1899,9 @@ async function main() {
       timeout: 5_000,
     });
     checks.push({
-      name: "completed-run-restart",
+      name: "completed-run-lobby-roundtrip",
       status: "passed",
-      detail: "R restarted the completed seed-0 run at full health in a fresh start room without reloading the browser page.",
+      detail: "The result UI returned to the lobby, then started a full-health seed-0 run without reloading the browser page.",
     });
 
     for (let hit = 0; hit < 5; hit++) {
@@ -1955,6 +1994,9 @@ async function main() {
     });
 
     const requiredEvents = [
+      "lobby-ready",
+      "lobby-start-requested",
+      "run-lobby-requested",
       "probe-ready",
       "room-ready-prototype-combat-loop",
       "dungeon-room-ready-1-start-safe",
@@ -2090,6 +2132,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      lobbyScreenshotPath,
       gatesRoomScreenshotPath,
       recoveryRoomScreenshotPath,
       secretWallScreenshotPath,
@@ -2126,6 +2169,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      lobbyScreenshotPath,
       gatesRoomScreenshotPath,
       secretWallScreenshotPath,
       secretRoomScreenshotPath,

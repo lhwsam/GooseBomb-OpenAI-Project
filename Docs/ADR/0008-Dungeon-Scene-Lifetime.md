@@ -21,7 +21,8 @@ Core 이동을 `SceneManager.LoadScene`보다 먼저 확정하면 대상 씬 이
 - 대상 씬 binder는 session보다 빠른 실행 순서의 `Awake`에서 pending 입장 방향과 회전된 room 정의를 읽어 플레이어 spawn과 런타임 room 구성을 준비한다.
 - `SceneManager.sceneLoaded`에서 실제 씬 이름과 pending 대상이 일치한 뒤에만 같은 방향으로 Core `TryTravel`을 호출한다. 성공하면 pending을 비우고 새 room binder에 문 상태 갱신을 요청한다.
 - 동기 로드 요청이 거부되거나 예상과 다른 씬이 로드되면 Core 현재 방을 변경하지 않고 명시적 오류로 중단한다. 한 번에 하나의 pending 전환만 허용한다.
-- 첫 enabled 씬은 `Start` placeholder이며 새 host의 Core 시작방과 일치한다. 시작방·폭탄 보상방·보스 전실·보스방을 자동으로 건너뛰지 않는다.
+- 첫 enabled 씬은 run 상태가 없는 `DungeonLobby`다. `게임 시작`이 `DungeonStart`를 로드한 뒤에만 그 씬 bootstrap이 새 host를 만들며 Core 시작방과 일치해야 한다. 시작방·폭탄 보상방·보스 전실·보스방을 자동으로 건너뛰지 않는다.
+- terminal run은 결과 화면에서 즉시 새 `DungeonStart` run으로 재시작하거나 persistent host를 파기하고 `DungeonLobby`로 복귀할 수 있다. 진행 중 run과 pending 전환에서는 로비 복귀를 거부한다.
 - 브라우저 새로고침과 앱 재시작을 넘는 저장은 이 프로토타입 host의 책임이 아니다.
 
 ## 결과
@@ -31,6 +32,7 @@ Core 이동을 `SceneManager.LoadScene`보다 먼저 확정하면 대상 씬 이
 - 입장 spawn은 전투 simulation 생성 전에 정해지고, 실패한 로드 요청은 Core 진행을 앞당기지 않는다.
 - 실제 씬 로드는 Unity Runtime에 남지만 이동 가능 여부와 방문·클리어는 계속 Core가 소유한다.
 - 모든 던전 씬에 bootstrap과 binder 참조를 저작·검증해야 한다.
+- 로비는 dungeon bootstrap·binder·game session·gameplay input을 포함하지 않아 런 수명 밖에 머문다.
 - 프로토타입은 `LoadSceneMode.Single` 전환 비용을 수용한다. 로딩 화면, 비동기 preload와 additive streaming은 실제 측정 뒤 별도 결정한다.
 
 ## 대안

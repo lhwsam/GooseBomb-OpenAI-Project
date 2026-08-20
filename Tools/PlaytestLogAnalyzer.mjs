@@ -33,7 +33,7 @@ function maxOrZero(values) {
 }
 
 function isSignificantEvent(name) {
-  return /^(?:dungeon-room-ready-|dungeon-run-restarted$|secret-wall-revealed-|secret-reward-collected-|bomb-reward-selected-|player-health-recovered-|recovery-consumed-|boss-pattern-|boss-move-target-|boss-moved$|boss-phase-|boss-damaged(?:-|$)|boss-player-damaged-|boss-defeated$|run-completed$|run-failed(?:-|$))/.test(name);
+  return /^(?:lobby-ready$|lobby-start-requested$|run-lobby-requested$|dungeon-room-ready-|dungeon-run-restarted$|secret-wall-revealed-|secret-reward-collected-|bomb-reward-selected-|player-health-recovered-|recovery-consumed-|boss-pattern-|boss-move-target-|boss-moved$|boss-phase-|boss-damaged(?:-|$)|boss-player-damaged-|boss-defeated$|run-completed$|run-failed(?:-|$))/.test(name);
 }
 
 function countValues(items, selector, expectedValues = []) {
@@ -342,7 +342,10 @@ export function analyzePlaytestLog(payload) {
       durationMilliseconds: lastTimestamp - firstTimestamp,
     },
     runs: {
-      detectedRuns: 1 + countExact(events, "dungeon-run-restarted"),
+      detectedRuns: Math.max(
+        1,
+        countExact(events, "lobby-start-requested"),
+      ) + countExact(events, "dungeon-run-restarted"),
       startRoomReadyEvents: countExact(
         events,
         "dungeon-room-ready-1-start-safe",
