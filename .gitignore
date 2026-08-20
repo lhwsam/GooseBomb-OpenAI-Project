@@ -43,6 +43,9 @@
 # Visual Studio cache directory
 .vs/
 
+# Visual Studio auto-generated workload recommendation config
+.vsconfig
+
 # Gradle cache directory
 .gradle/
 
@@ -106,3 +109,18 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# CodeGraph local index (machine-local SQLite index, not shared via git)
+/.codegraph/
+
+# Local AI agent tooling
+/.claude/
+/.codex/
+/.agents/skills/unity-codegraph-analyze/
+/.agents/skills/unity-screenshot-capture/
+/.agents/skills/unity-test-runner/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
