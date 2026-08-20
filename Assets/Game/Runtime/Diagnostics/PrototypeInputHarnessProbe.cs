@@ -1,3 +1,6 @@
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+using System.Collections.Generic;
+#endif
 using BombSwap.Core;
 using UnityEngine;
 
@@ -27,17 +30,39 @@ namespace BombSwap
         private bool _chargerTelegraphReported;
         private bool _chargerChargeReported;
         private bool _chargerMovedReported;
+        private bool _chargerTrackMovedReported;
+        private bool _chargerChargeMovedReported;
+        private bool _chargerRecoverReported;
         private bool _armoredMovedReported;
         private bool _armoredBrokenReported;
+        private bool _armoredPanicTelegraphReported;
+        private bool _armoredPanicRunReported;
+        private bool _armoredPanicRecoverReported;
+        private bool _armoredChaseReported;
         private bool _armoredDiedReported;
+        private bool _selfDestructMovedReported;
+        private bool _selfDestructWarningReported;
+        private bool _selfDestructTelegraphReported;
+        private bool _selfDestructArmedReported;
+        private bool _selfDestructDetonatedReported;
+        private bool _selfDestructDiedReported;
+        private bool _throwerMovedReported;
+        private bool _throwerDiedReported;
         private bool _enemyDiedReported;
         private bool _bossPhaseTwoReported;
+        private bool _bossLastStandReported;
         private bool _bossDefeatedReported;
         private bool _roomClearedReported;
         private bool _swapBombReported;
         private bool _pauseReported;
         private bool _pauseEnteredReported;
         private bool _readyReported;
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+        private readonly Dictionary<BombId, string> _bombDefinitionsById =
+            new Dictionary<BombId, string>();
+        private BossBattleState _lastBossState;
+        private BossPatternKind _lastBossPattern;
+#endif
         private CardinalDirection _lastMotionDirection;
 
         public BombSwapInputReader InputReader => inputReader;
@@ -85,6 +110,8 @@ namespace BombSwap
             session.PlayerMoved += OnPlayerMoved;
             session.PlayerPositionChanged += OnPlayerPositionChanged;
             session.BombPlaced += OnBombPlaced;
+            session.BossBombLaunched += OnBossBombLaunched;
+            session.BossBombPlaced += OnBossBombPlaced;
             session.BombExploded += OnBombExploded;
             session.ActiveBombSlotChanged += OnActiveBombSlotChanged;
             session.PlayerDamaged += OnPlayerDamaged;
@@ -92,8 +119,15 @@ namespace BombSwap
             session.PlayerRecovered += OnPlayerRecovered;
             session.ChaserMoved += OnChaserMoved;
             session.ChargerAdvanced += OnChargerAdvanced;
+            session.ArmoredAdvanced += OnArmoredAdvanced;
             session.ArmoredMoved += OnArmoredMoved;
             session.ArmoredStateChanged += OnArmoredStateChanged;
+            session.SelfDestructAdvanced += OnSelfDestructAdvanced;
+            session.SelfDestructArmed += OnSelfDestructArmed;
+            session.SelfDestructSpawned += OnSelfDestructSpawned;
+            session.ThrowerAdvanced += OnThrowerAdvanced;
+            session.ThrowerBombLaunched += OnThrowerBombLaunched;
+            session.ThrowerBombPlaced += OnThrowerBombPlaced;
             session.EnemyDied += OnEnemyDied;
             session.BossMoved += OnBossMoved;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
@@ -110,6 +144,9 @@ namespace BombSwap
         private void OnDisable()
         {
             _readyReported = false;
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById.Clear();
+#endif
             if (inputReader != null)
             {
                 inputReader.CommandIssued -= OnCommandIssued;
@@ -119,6 +156,8 @@ namespace BombSwap
                 session.PlayerMoved -= OnPlayerMoved;
                 session.PlayerPositionChanged -= OnPlayerPositionChanged;
                 session.BombPlaced -= OnBombPlaced;
+                session.BossBombLaunched -= OnBossBombLaunched;
+                session.BossBombPlaced -= OnBossBombPlaced;
                 session.BombExploded -= OnBombExploded;
                 session.ActiveBombSlotChanged -= OnActiveBombSlotChanged;
                 session.PlayerDamaged -= OnPlayerDamaged;
@@ -126,8 +165,15 @@ namespace BombSwap
                 session.PlayerRecovered -= OnPlayerRecovered;
                 session.ChaserMoved -= OnChaserMoved;
                 session.ChargerAdvanced -= OnChargerAdvanced;
+                session.ArmoredAdvanced -= OnArmoredAdvanced;
                 session.ArmoredMoved -= OnArmoredMoved;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
+                session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
+                session.SelfDestructArmed -= OnSelfDestructArmed;
+                session.SelfDestructSpawned -= OnSelfDestructSpawned;
+                session.ThrowerAdvanced -= OnThrowerAdvanced;
+                session.ThrowerBombLaunched -= OnThrowerBombLaunched;
+                session.ThrowerBombPlaced -= OnThrowerBombPlaced;
                 session.EnemyDied -= OnEnemyDied;
                 session.BossMoved -= OnBossMoved;
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
@@ -156,10 +202,22 @@ namespace BombSwap
             {
                 WebGlHarnessReporter.Report("room-ready-" + room.RoomId);
             }
+            if (session.HasBoss)
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+                _lastBossState = session.CurrentBossState;
+                _lastBossPattern = session.CurrentBossPattern;
+#endif
+            }
             if (session.HasBoss &&
                 session.CurrentBossState == BossBattleState.Telegraph)
             {
                 WebGlHarnessReporter.Report("boss-pattern-telegraph");
+                ReportBossPattern(
+                    session.CurrentBossPhase,
+                    session.CurrentBossPattern,
+                    session.CurrentBossState,
+                    session.CurrentBossDangerCells);
                 WebGlHarnessReporter.ReportBossCell(
                     session.CurrentBossGridPosition);
                 WebGlHarnessReporter.ReportBossMoveTarget(
@@ -167,6 +225,19 @@ namespace BombSwap
             }
             ReportPlayerHealth(session.CurrentHealth);
             WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
+            if (session.HasSelfDestruct)
+            {
+                ReportSelfDestructCell(session.CurrentSelfDestructGridPosition);
+                if (session.CurrentSelfDestructState ==
+                    SelfDestructEnemyState.WarningChase)
+                {
+                    ReportSelfDestructWarning();
+                }
+            }
+            if (session.HasThrower)
+            {
+                ReportThrowerCell(session.CurrentThrowerGridPosition);
+            }
             _readyReported = true;
         }
 
@@ -203,6 +274,9 @@ namespace BombSwap
 
         private void OnBombPlaced(BombSnapshot snapshot)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
             WebGlHarnessReporter.Report("place-bomb-definition-" + snapshot.DefinitionId.Value);
             if (snapshot.DefinitionId.Value == "prototype-line")
             {
@@ -224,11 +298,28 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[explosion.BombId] = explosion.DefinitionId.Value;
+#endif
             WebGlHarnessReporter.Report(
                 "bomb-exploded-definition-" + explosion.DefinitionId.Value);
             if (explosion.DefinitionId.Value == "prototype-line")
             {
                 ReportLineBombDirection("line-bomb-exploded", explosion.PlacementDirection);
+            }
+            if (explosion.DefinitionId.Value == "prototype-boss-chain" &&
+                explosion.Cause == BombDetonationCause.Chain)
+            {
+                WebGlHarnessReporter.Report("boss-chain-bomb-detonated-by-chain");
+            }
+            if (explosion.DefinitionId.Value == "prototype-thrower-blocker")
+            {
+                WebGlHarnessReporter.Report("thrower-bomb-detonated");
+                if (explosion.Cause == BombDetonationCause.Chain)
+                {
+                    WebGlHarnessReporter.Report(
+                        "thrower-bomb-detonated-by-chain");
+                }
             }
             if (!_destructibleWallDestroyedReported && explosion.DestroyedWalls.Count > 0)
             {
@@ -237,6 +328,21 @@ namespace BombSwap
             }
 
             WebGlHarnessReporter.Report("bomb-exploded");
+        }
+
+        private void OnBossBombPlaced(BombSnapshot snapshot)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
+            WebGlHarnessReporter.Report(
+                "boss-bomb-armed-definition-" + snapshot.DefinitionId.Value);
+        }
+
+        private static void OnBossBombLaunched(BossBombFlight flight)
+        {
+            WebGlHarnessReporter.Report(
+                "boss-bomb-launched-definition-" + flight.Definition.Id.Value);
         }
 
         private static void ReportLineBombDirection(
@@ -291,6 +397,13 @@ namespace BombSwap
                     }
                     break;
                 case PlayerDamageSourceKind.BossPattern:
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+                    WebGlHarnessReporter.Report(
+                        "boss-player-damaged-phase-" +
+                        GetBossPhaseName(session.CurrentBossPhase) +
+                        "-pattern-" + GetBossPatternName(_lastBossPattern) +
+                        "-health-" + result.CurrentHealth);
+#endif
                     if (!_playerBossPatternDamagedReported)
                     {
                         WebGlHarnessReporter.Report("player-boss-pattern-damaged");
@@ -338,6 +451,11 @@ namespace BombSwap
                 result.State == ChargerEnemyState.Telegraph)
             {
                 WebGlHarnessReporter.Report("charger-telegraph");
+                WebGlHarnessReporter.Report(
+                    "charger-telegraph-" +
+                    ToMarkerDirection(result.Direction) +
+                    "-distance-" +
+                    result.LockedChargeDistance);
                 _chargerTelegraphReported = true;
             }
             if (!_chargerChargeReported && result.HasStateTransition &&
@@ -350,6 +468,45 @@ namespace BombSwap
             {
                 WebGlHarnessReporter.Report("charger-moved");
                 _chargerMovedReported = true;
+            }
+            if (!_chargerTrackMovedReported && result.HasMovement &&
+                result.State == ChargerEnemyState.Track)
+            {
+                WebGlHarnessReporter.Report("charger-track-moved");
+                _chargerTrackMovedReported = true;
+            }
+            if (!_chargerChargeMovedReported && result.HasMovement &&
+                result.State == ChargerEnemyState.Charge)
+            {
+                WebGlHarnessReporter.Report("charger-charge-moved");
+                _chargerChargeMovedReported = true;
+            }
+            if (!_chargerRecoverReported && result.HasStateTransition &&
+                result.State == ChargerEnemyState.Recover)
+            {
+                WebGlHarnessReporter.Report("charger-recover");
+                WebGlHarnessReporter.Report(
+                    result.ImpactedTarget
+                        ? "charger-recover-target"
+                        : "charger-recover-obstacle-or-limit");
+                _chargerRecoverReported = true;
+            }
+        }
+
+        private static string ToMarkerDirection(CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return "north";
+                case CardinalDirection.East:
+                    return "east";
+                case CardinalDirection.South:
+                    return "south";
+                case CardinalDirection.West:
+                    return "west";
+                default:
+                    return "none";
             }
         }
 
@@ -364,12 +521,45 @@ namespace BombSwap
             _armoredMovedReported = true;
         }
 
+        private void OnArmoredAdvanced(ArmoredEnemyAdvanceResult result)
+        {
+            if (!_armoredPanicRunReported &&
+                result.HasMovement &&
+                result.PreviousState == ArmoredEnemyBehaviorState.PanicRun)
+            {
+                WebGlHarnessReporter.Report("armored-panic-run-moved");
+                _armoredPanicRunReported = true;
+            }
+            if (!_armoredPanicRecoverReported &&
+                result.State == ArmoredEnemyBehaviorState.PanicRecover)
+            {
+                WebGlHarnessReporter.Report("armored-panic-recover");
+                _armoredPanicRecoverReported = true;
+            }
+            if (!_armoredChaseReported &&
+                result.State == ArmoredEnemyBehaviorState.Chase)
+            {
+                WebGlHarnessReporter.Report("armored-chase");
+                _armoredChaseReported = true;
+            }
+        }
+
         private void OnArmoredStateChanged(ArmoredEnemyDamageResult result)
         {
             if (!_armoredBrokenReported && result.ArmorWasBroken)
             {
                 WebGlHarnessReporter.Report("armored-broken");
                 _armoredBrokenReported = true;
+            }
+            if (!_armoredPanicTelegraphReported &&
+                result.ArmorWasBroken &&
+                result.CurrentBehaviorState == ArmoredEnemyBehaviorState.PanicTelegraph)
+            {
+                WebGlHarnessReporter.Report(
+                    "armored-panic-telegraph-" +
+                    ToMarkerDirection(session.CurrentArmoredPanicDirection) +
+                    "-distance-" + session.CurrentArmoredPanicPathCellCount);
+                _armoredPanicTelegraphReported = true;
             }
             if (!_armoredDiedReported && result.WasFatal)
             {
@@ -380,6 +570,18 @@ namespace BombSwap
 
         private void OnEnemyDied(EnemyDamageResult result)
         {
+            if (!_selfDestructDiedReported && session.HasSelfDestruct &&
+                result.ActorId == session.SelfDestructActorId)
+            {
+                WebGlHarnessReporter.Report("self-destruct-died");
+                _selfDestructDiedReported = true;
+            }
+            if (!_throwerDiedReported && session.HasThrower &&
+                result.ActorId == session.ThrowerActorId)
+            {
+                WebGlHarnessReporter.Report("thrower-died");
+                _throwerDiedReported = true;
+            }
             if (_enemyDiedReported)
             {
                 return;
@@ -389,8 +591,123 @@ namespace BombSwap
             _enemyDiedReported = true;
         }
 
+        private void OnSelfDestructAdvanced(SelfDestructEnemyAdvanceResult result)
+        {
+            if (result.HasMovement)
+            {
+                ReportSelfDestructCell(result.Movement.To);
+                if (!_selfDestructMovedReported)
+                {
+                    WebGlHarnessReporter.Report("self-destruct-moved");
+                    _selfDestructMovedReported = true;
+                }
+            }
+            if (!_selfDestructWarningReported && result.HasStateTransition &&
+                result.State == SelfDestructEnemyState.WarningChase)
+            {
+                ReportSelfDestructWarning();
+            }
+            if (!_selfDestructTelegraphReported && result.HasStateTransition &&
+                result.State == SelfDestructEnemyState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("self-destruct-telegraph");
+                _selfDestructTelegraphReported = true;
+            }
+            if (!_selfDestructDetonatedReported && result.HasStateTransition &&
+                result.State == SelfDestructEnemyState.Detonated)
+            {
+                WebGlHarnessReporter.Report("self-destruct-detonated");
+                _selfDestructDetonatedReported = true;
+            }
+        }
+
+        private void ReportSelfDestructWarning()
+        {
+            WebGlHarnessReporter.Report("self-destruct-warning-chase");
+            _selfDestructWarningReported = true;
+        }
+
+        private static void ReportSelfDestructCell(GridPosition position)
+        {
+            WebGlHarnessReporter.Report(
+                "self-destruct-cell-x-" + position.X + "-z-" + position.Z);
+        }
+
+        private void OnSelfDestructArmed(BombSnapshot snapshot)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
+            if (_selfDestructArmedReported)
+            {
+                return;
+            }
+
+            WebGlHarnessReporter.Report("self-destruct-armed");
+            _selfDestructArmedReported = true;
+        }
+
+        private static void OnSelfDestructSpawned(ActorId actorId)
+        {
+            WebGlHarnessReporter.Report("boss-self-destruct-spawned");
+        }
+
+        private void OnThrowerAdvanced(ThrowerEnemyAdvanceResult result)
+        {
+            if (result.HasMovement)
+            {
+                ReportThrowerCell(result.Movement.To);
+                if (!_throwerMovedReported)
+                {
+                    WebGlHarnessReporter.Report("thrower-track-moved");
+                    _throwerMovedReported = true;
+                }
+            }
+            if (result.HasStateTransition &&
+                result.State == ThrowerEnemyState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("thrower-telegraph");
+                for (int index = 0; index < result.LockedTargets.Count; index++)
+                {
+                    GridPosition target = result.LockedTargets[index];
+                    WebGlHarnessReporter.Report(
+                        "thrower-telegraph-x-" + target.X +
+                        "-z-" + target.Z);
+                }
+            }
+        }
+
+        private void OnThrowerBombLaunched(ThrowerBombFlight flight)
+        {
+            WebGlHarnessReporter.Report("thrower-bomb-launched");
+        }
+
+        private void OnThrowerBombPlaced(BombSnapshot snapshot)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _bombDefinitionsById[snapshot.Id] = snapshot.DefinitionId.Value;
+#endif
+            WebGlHarnessReporter.Report(
+                "thrower-bomb-armed-definition-" + snapshot.DefinitionId.Value);
+        }
+
+        private static void ReportThrowerCell(GridPosition position)
+        {
+            WebGlHarnessReporter.Report(
+                "thrower-cell-x-" + position.X + "-z-" + position.Z);
+        }
+
         private void OnBossPatternTransitioned(BossPatternTransition transition)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            _lastBossState = transition.State;
+            _lastBossPattern = transition.Pattern;
+#endif
+            ReportBossPattern(
+                transition.Phase,
+                transition.Pattern,
+                transition.State,
+                transition.DangerCells);
             switch (transition.State)
             {
                 case BossBattleState.Telegraph:
@@ -423,6 +740,84 @@ namespace BombSwap
                 WebGlHarnessReporter.Report("boss-phase-two");
                 _bossPhaseTwoReported = true;
             }
+            if (!_bossLastStandReported && transition.Phase == BossPhase.LastStand)
+            {
+                WebGlHarnessReporter.Report("boss-phase-last-stand");
+                _bossLastStandReported = true;
+            }
+        }
+
+        private static void ReportBossPattern(
+            BossPhase phase,
+            BossPatternKind pattern,
+            BossBattleState state,
+            System.Collections.Generic.IReadOnlyList<GridPosition> dangerCells)
+        {
+            string patternName = GetBossPatternName(pattern);
+            string stateName = state.ToString().ToLowerInvariant();
+            WebGlHarnessReporter.Report(
+                "boss-pattern-" + patternName + "-" + stateName);
+
+            if (state != BossBattleState.Telegraph || dangerCells.Count == 0)
+            {
+                return;
+            }
+            if (pattern == BossPatternKind.ParityWave)
+            {
+                WebGlHarnessReporter.Report(
+                    "boss-parity-telegraph-phase-" + GetBossPhaseName(phase) +
+                    "-row-" + dangerCells[0].Z);
+            }
+            else if (pattern == BossPatternKind.SummonSelfDestruct)
+            {
+                GridPosition target = dangerCells[0];
+                WebGlHarnessReporter.Report(
+                    "boss-summon-target-x-" + target.X + "-z-" + target.Z);
+            }
+        }
+
+        private static string GetBossPatternName(BossPatternKind pattern)
+        {
+            switch (pattern)
+            {
+                case BossPatternKind.LimitedChase:
+                    return "limited-chase";
+                case BossPatternKind.FixedCharge:
+                    return "fixed-charge";
+                case BossPatternKind.ReturnToCenter:
+                    return "return-to-center";
+                case BossPatternKind.PhaseTransition:
+                    return "phase-transition";
+                case BossPatternKind.SummonSelfDestruct:
+                    return "summon-self-destruct";
+                case BossPatternKind.WaitForSelfDestruct:
+                    return "wait-for-self-destruct";
+                case BossPatternKind.BombVolley:
+                    return "bomb-volley";
+                case BossPatternKind.ParityWave:
+                    return "parity-wave";
+                case BossPatternKind.Overheat:
+                    return "overheat";
+                case BossPatternKind.LastStandBombChain:
+                    return "last-stand-bomb-chain";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(pattern), pattern, null);
+            }
+        }
+
+        private static string GetBossPhaseName(BossPhase phase)
+        {
+            switch (phase)
+            {
+                case BossPhase.One:
+                    return "one";
+                case BossPhase.Two:
+                    return "two";
+                case BossPhase.LastStand:
+                    return "last-stand";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(phase), phase, null);
+            }
         }
 
         private static void OnBossMoved(EnemyMovementStep step)
@@ -434,10 +829,54 @@ namespace BombSwap
         private void OnBossDamaged(BossDamageResult result)
         {
             WebGlHarnessReporter.Report("boss-damaged");
+#if UNITY_WEBGL && !UNITY_EDITOR && DEVELOPMENT_BUILD
+            string definitionId = _bombDefinitionsById.TryGetValue(
+                result.ExplosionId,
+                out string recordedDefinitionId)
+                    ? recordedDefinitionId
+                    : "unknown";
+            _bombDefinitionsById.Remove(result.ExplosionId);
+            WebGlHarnessReporter.Report(
+                "boss-damaged-phase-" + GetBossPhaseName(result.Phase) +
+                "-state-" + GetBossStateName(_lastBossState) +
+                "-source-" + GetBossDamageSourceName(result.Source) +
+                "-definition-" + definitionId +
+                "-health-" + result.CurrentHealth);
+#endif
             if (!_bossDefeatedReported && result.WasFatal)
             {
                 WebGlHarnessReporter.Report("boss-defeated");
                 _bossDefeatedReported = true;
+            }
+        }
+
+        private static string GetBossStateName(BossBattleState state)
+        {
+            switch (state)
+            {
+                case BossBattleState.Telegraph:
+                    return "telegraph";
+                case BossBattleState.Execute:
+                    return "execute";
+                case BossBattleState.Recovery:
+                    return "recovery";
+                case BossBattleState.Defeated:
+                    return "defeated";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(state), state, null);
+            }
+        }
+
+        private static string GetBossDamageSourceName(BossDamageSource source)
+        {
+            switch (source)
+            {
+                case BossDamageSource.PlayerBomb:
+                    return "player-bomb";
+                case BossDamageSource.SelfDestruct:
+                    return "self-destruct";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(source), source, null);
             }
         }
 

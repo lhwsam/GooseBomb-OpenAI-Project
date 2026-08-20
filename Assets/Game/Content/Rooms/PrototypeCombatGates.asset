@@ -23,6 +23,15 @@ MonoBehaviour:
   chargerSpawn: {x: 0, y: 0}
   hasArmored: 0
   armoredSpawn: {x: 0, y: 0}
+  hasSelfDestruct: 1
+  selfDestructSpawn: {x: 3, y: 0}
+  selfDestructAnchors:
+  - {x: 0, y: -2}
+  - {x: 0, y: 2}
+  hasThrower: 0
+  throwerSpawn: {x: 0, y: 0}
+  throwerFiringAnchors: []
+  throwerTargetAnchors: []
   indestructibleWalls:
   - {x: -2, y: -1}
   - {x: -1, y: -1}

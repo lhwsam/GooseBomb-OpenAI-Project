@@ -14,9 +14,10 @@ namespace BombSwap.Core
             int patternSequence,
             TimeSpan scheduledAt,
             IReadOnlyList<GridPosition> dangerCells,
+            BossBombAttackPlan attackPlan,
             GridPosition bossPosition,
             GridPosition nextBossPosition,
-            EnemyMovementStep movement,
+            IReadOnlyList<EnemyMovementStep> movements,
             bool movementBlocked)
         {
             ActorId = actorId;
@@ -27,9 +28,10 @@ namespace BombSwap.Core
             PatternSequence = patternSequence;
             ScheduledAt = scheduledAt;
             DangerCells = dangerCells;
+            AttackPlan = attackPlan;
             BossPosition = bossPosition;
             NextBossPosition = nextBossPosition;
-            Movement = movement;
+            Movements = movements ?? throw new ArgumentNullException(nameof(movements));
             MovementBlocked = movementBlocked;
         }
 
@@ -49,19 +51,25 @@ namespace BombSwap.Core
 
         public IReadOnlyList<GridPosition> DangerCells { get; }
 
+        public BossBombAttackPlan AttackPlan { get; }
+
         public GridPosition BossPosition { get; }
 
         public GridPosition NextBossPosition { get; }
 
-        public EnemyMovementStep Movement { get; }
+        public IReadOnlyList<EnemyMovementStep> Movements { get; }
 
-        public bool BossMoved => Movement.ActorId.IsValid;
+        public EnemyMovementStep Movement =>
+            Movements.Count > 0 ? Movements[Movements.Count - 1] : default;
+
+        public bool BossMoved => Movements.Count > 0;
 
         public bool MovementBlocked { get; }
 
         public bool AttackResolved =>
             PreviousState == BossBattleState.Telegraph && State == BossBattleState.Execute;
 
-        public bool BecameVulnerable => State == BossBattleState.Recovery;
+        public bool BeganTelegraph =>
+            PreviousState == BossBattleState.Recovery && State == BossBattleState.Telegraph;
     }
 }

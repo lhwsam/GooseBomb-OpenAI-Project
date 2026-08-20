@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
 
@@ -35,6 +36,7 @@ namespace BombSwap
         private float _deathEndsAt;
         private bool _isInterpolating;
         private bool _isShowingDeath;
+        private readonly List<GameObject> _panicTelegraphCells = new List<GameObject>();
 
         public PrototypeGameSession Session => session;
 
@@ -46,13 +48,19 @@ namespace BombSwap
 
         public int StateChangeCount { get; private set; }
 
+        public int BehaviorChangeCount { get; private set; }
+
         public int DeathCount { get; private set; }
 
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
 
+        public int ActivePanicTelegraphCellCount { get; private set; }
+
         public ArmoredEnemyState CurrentState { get; private set; }
+
+        public ArmoredEnemyBehaviorState CurrentBehaviorState { get; private set; }
 
         public Color CurrentColor { get; private set; }
 
@@ -88,7 +96,7 @@ namespace BombSwap
                     "PrototypeArmoredPresenter requires session and presentation-root references.");
             }
 
-            session.ArmoredMoved += OnArmoredMoved;
+            session.ArmoredAdvanced += OnArmoredAdvanced;
             session.ArmoredStateChanged += OnArmoredStateChanged;
             session.EnemyDied += OnEnemyDied;
             session.Ready += OnSessionReady;
@@ -102,7 +110,7 @@ namespace BombSwap
         {
             if (session != null)
             {
-                session.ArmoredMoved -= OnArmoredMoved;
+                session.ArmoredAdvanced -= OnArmoredAdvanced;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
                 session.EnemyDied -= OnEnemyDied;
                 session.Ready -= OnSessionReady;
@@ -111,9 +119,18 @@ namespace BombSwap
             {
                 Destroy(_instance);
             }
+            foreach (GameObject telegraphCell in _panicTelegraphCells)
+            {
+                if (telegraphCell != null)
+                {
+                    Destroy(telegraphCell);
+                }
+            }
 
             _instance = null;
             _renderer = null;
+            _panicTelegraphCells.Clear();
+            ActivePanicTelegraphCellCount = 0;
             IsInitialized = false;
             _isInterpolating = false;
             _isShowingDeath = false;
@@ -158,6 +175,7 @@ namespace BombSwap
             {
                 IsInitialized = true;
                 CurrentState = ArmoredEnemyState.Armored;
+                CurrentBehaviorState = ArmoredEnemyBehaviorState.Guard;
                 return;
             }
 
@@ -173,28 +191,49 @@ namespace BombSwap
             _instance.transform.position = _visualTarget;
             _instance.SetActive(session.IsArmoredAlive);
             CurrentState = session.CurrentArmoredState;
+            CurrentBehaviorState = session.CurrentArmoredBehaviorState;
             ApplyState(CurrentState);
+            if (CurrentBehaviorState == ArmoredEnemyBehaviorState.PanicTelegraph)
+            {
+                ShowPanicTelegraph();
+            }
             IsInitialized = true;
         }
 
-        private void OnArmoredMoved(EnemyMovementStep step)
+        private void OnArmoredAdvanced(ArmoredEnemyAdvanceResult result)
         {
             if (!IsInitialized)
             {
                 InitializePresentation();
             }
-            if (step.ActorId != session.ArmoredActorId)
+            if (result.ActorId != session.ArmoredActorId)
             {
                 throw new InvalidOperationException(
-                    "Prototype armored presenter received another actor's movement.");
+                    "Prototype armored presenter received another actor's update.");
             }
 
-            MoveCount++;
-            SetMovementDuration(CurrentState);
-            _visualStart = _instance.transform.position;
-            _visualTarget = ToPresentationPosition(step.To);
-            _visualElapsed = 0f;
-            _isInterpolating = true;
+            if (result.HasStateTransition)
+            {
+                BehaviorChangeCount++;
+                CurrentBehaviorState = result.State;
+                if (CurrentBehaviorState == ArmoredEnemyBehaviorState.PanicTelegraph)
+                {
+                    ShowPanicTelegraph();
+                }
+                else
+                {
+                    HidePanicTelegraph();
+                }
+            }
+            if (result.HasMovement)
+            {
+                MoveCount++;
+                SetMovementDuration(result.PreviousState);
+                _visualStart = _instance.transform.position;
+                _visualTarget = ToPresentationPosition(result.Movement.To);
+                _visualElapsed = 0f;
+                _isInterpolating = true;
+            }
         }
 
         private void OnArmoredStateChanged(ArmoredEnemyDamageResult result)
@@ -214,8 +253,22 @@ namespace BombSwap
             }
 
             StateChangeCount++;
+            if (result.HasBehaviorTransition)
+            {
+                BehaviorChangeCount++;
+            }
             CurrentState = result.CurrentState;
             ApplyState(CurrentState);
+            CurrentBehaviorState = result.CurrentBehaviorState;
+            if (result.ArmorWasBroken &&
+                CurrentBehaviorState == ArmoredEnemyBehaviorState.PanicTelegraph)
+            {
+                ShowPanicTelegraph();
+            }
+            else if (CurrentBehaviorState != ArmoredEnemyBehaviorState.PanicTelegraph)
+            {
+                HidePanicTelegraph();
+            }
         }
 
         private void OnEnemyDied(EnemyDamageResult damage)
@@ -231,6 +284,7 @@ namespace BombSwap
 
             DeathCount++;
             _isInterpolating = false;
+            HidePanicTelegraph();
             ApplyColor(deathColor);
             _deathEndsAt = Time.unscaledTime + session.ArmoredDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
@@ -296,6 +350,74 @@ namespace BombSwap
                 ? session.ArmoredDefinition.BrokenCellsPerSecond
                 : session.ArmoredDefinition.ArmoredCellsPerSecond;
             _visualDuration = 1f / cellsPerSecond;
+        }
+
+        private void SetMovementDuration(ArmoredEnemyBehaviorState behaviorState)
+        {
+            float cellsPerSecond;
+            switch (behaviorState)
+            {
+                case ArmoredEnemyBehaviorState.Guard:
+                    cellsPerSecond = session.ArmoredDefinition.ArmoredCellsPerSecond;
+                    break;
+                case ArmoredEnemyBehaviorState.PanicRun:
+                    cellsPerSecond = session.ArmoredDefinition.PanicCellsPerSecond;
+                    break;
+                default:
+                    cellsPerSecond = session.ArmoredDefinition.BrokenCellsPerSecond;
+                    break;
+            }
+
+            _visualDuration = 1f / cellsPerSecond;
+        }
+
+        private void ShowPanicTelegraph()
+        {
+            HidePanicTelegraph();
+            int cellCount = session.CurrentArmoredPanicPathCellCount;
+            if (cellCount <= 0)
+            {
+                return;
+            }
+
+            EnsurePanicTelegraphCapacity(cellCount);
+            for (int index = 0; index < cellCount; index++)
+            {
+                GameObject visual = _panicTelegraphCells[index];
+                GridPosition cell = session.GetCurrentArmoredPanicPathCell(index);
+                visual.transform.position = session.GridSpace.GridToWorld(cell) +
+                    (Vector3.up * 0.04f);
+                visual.SetActive(true);
+            }
+
+            ActivePanicTelegraphCellCount = cellCount;
+        }
+
+        private void HidePanicTelegraph()
+        {
+            for (int index = 0; index < ActivePanicTelegraphCellCount; index++)
+            {
+                if (_panicTelegraphCells[index] != null)
+                {
+                    _panicTelegraphCells[index].SetActive(false);
+                }
+            }
+
+            ActivePanicTelegraphCellCount = 0;
+        }
+
+        private void EnsurePanicTelegraphCapacity(int required)
+        {
+            PrototypeArmoredDefinitionAsset definition = session.ArmoredDefinition;
+            while (_panicTelegraphCells.Count < required)
+            {
+                GameObject visual = Instantiate(
+                    definition.PanicTelegraphCellPrefab,
+                    presentationRoot);
+                visual.name = $"PrototypeArmoredPanicTelegraphCell{_panicTelegraphCells.Count}";
+                visual.SetActive(false);
+                _panicTelegraphCells.Add(visual);
+            }
         }
 
         private void ApplyColor(Color color)

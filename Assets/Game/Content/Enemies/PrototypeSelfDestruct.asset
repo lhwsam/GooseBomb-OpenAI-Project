@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 116cd33d15671ed49a54f9d37492f76f, type: 3}
+  m_Name: PrototypeSelfDestruct
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeSelfDestructDefinitionAsset
+  definitionId: prototype-self-destruct
+  chaseCellsPerSecond: 2
+  warningMaxCellsPerSecond: 5
+  warningEscalationSeconds: 1.5
+  warningDistance: 3
+  primeDistance: 1
+  detonationBombDefinition: {fileID: 11400000, guid: 93b309c0b23b46849834446b8b7f7fa8, type: 2}
+  enemyPrefab: {fileID: 2595045374024366570, guid: 5121d797d6b05264782db7870c1f3f16, type: 3}
+  telegraphCellPrefab: {fileID: 5347778065953228880, guid: 4fa8697dd5702124b8329c151437568a, type: 3}
+  visualHeight: 0.45
+  deathVisualSeconds: 0.12

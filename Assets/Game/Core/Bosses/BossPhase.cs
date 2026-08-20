@@ -4,5 +4,6 @@ namespace BombSwap.Core
     {
         One = 0,
         Two = 1,
+        LastStand = 2,
     }
 }

@@ -13,18 +13,50 @@ MonoBehaviour:
   m_Name: PrototypeBoss
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossDefinitionAsset
   definitionId: prototype-boss
-  maxHealth: 4
-  phaseTwoHealthThreshold: 2
+  maxHealth: 10
+  phaseTwoHealthThreshold: 7
+  lastStandHealthThreshold: 2
   patternDamage: 1
-  phaseOneTelegraphSeconds: 1
-  phaseOneExecuteSeconds: 0.25
-  phaseOneRecoverySeconds: 2.75
-  phaseTwoTelegraphSeconds: 0.75
-  phaseTwoExecuteSeconds: 0.25
-  phaseTwoRecoverySeconds: 2.75
+  maxOverheatDamage: 2
+  chaseTelegraphSeconds: 0.12
+  chaseExecuteSeconds: 0.22
+  chaseRecoverySeconds: 0.08
+  lastStandChaseTelegraphSeconds: 0.08
+  lastStandChaseExecuteSeconds: 0.18
+  lastStandChaseRecoverySeconds: 0.04
+  chargeTelegraphSeconds: 0.7
+  chargeExecuteSeconds: 0.3
+  chargeRecoverySeconds: 0.5
+  phaseOneChaseCount: 2
+  phaseTwoChaseCount: 3
+  lastStandChaseCount: 2
+  chargeDistance: 3
+  returnTelegraphSeconds: 0.2
+  returnExecuteSeconds: 0.7
+  returnRecoverySeconds: 0.1
+  transitionTelegraphSeconds: 1.1
+  transitionExecuteSeconds: 0.1
+  transitionRecoverySeconds: 0.1
+  summonTelegraphSeconds: 0.8
+  summonExecuteSeconds: 0.2
+  summonRecoverySeconds: 0.2
+  volleyTelegraphSeconds: 0.35
+  volleyExecuteSeconds: 1.8
+  volleyRecoverySeconds: 0.1
+  parityTelegraphSeconds: 0.12
+  parityExecuteSeconds: 0.08
+  parityRecoverySeconds: 0.08
+  phaseOneOverheatSeconds: 2
+  phaseTwoOverheatSeconds: 1.5
+  lastStandOverheatSeconds: 2.25
+  bombFlightSeconds: 0.45
+  bombThrowIntervalSeconds: 0.4
+  selfDestructForceSeconds: 4.5
   bossSpawn: {x: 0, y: 1}
   bossPrefab: {fileID: 3692990424253940051, guid: 3b792cdab45b3e444b030bdd9798b725, type: 3}
   dangerCellPrefab: {fileID: 2260241691694644187, guid: 1f2bdbdb9e127864daf1bf754f6cc360, type: 3}
+  throwBombDefinition: {fileID: 11400000, guid: 7dc274bce4780a3428df3fc86d14c2d2, type: 2}
+  chainBombDefinition: {fileID: 11400000, guid: 79f727dc0204225489a1bc51d12b6f42, type: 2}
   visualHeight: 0.6
   dangerCellVisualHeight: 0.03
   deathVisualSeconds: 0.2

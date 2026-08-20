@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
 
@@ -40,6 +41,7 @@ namespace BombSwap
         private float _deathEndsAt;
         private bool _isInterpolating;
         private bool _isShowingDeath;
+        private readonly List<GameObject> _telegraphCells = new List<GameObject>();
 
         public PrototypeGameSession Session => session;
 
@@ -56,6 +58,8 @@ namespace BombSwap
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
+
+        public int ActiveTelegraphCellCount { get; private set; }
 
         public ChargerEnemyState CurrentState { get; private set; }
 
@@ -114,9 +118,18 @@ namespace BombSwap
             {
                 Destroy(_instance);
             }
+            foreach (GameObject telegraphCell in _telegraphCells)
+            {
+                if (telegraphCell != null)
+                {
+                    Destroy(telegraphCell);
+                }
+            }
 
             _instance = null;
             _renderer = null;
+            _telegraphCells.Clear();
+            ActiveTelegraphCellCount = 0;
             IsInitialized = false;
             _isInterpolating = false;
             _isShowingDeath = false;
@@ -177,6 +190,13 @@ namespace BombSwap
             _instance.SetActive(session.IsChargerAlive);
             CurrentState = session.CurrentChargerState;
             ApplyStateColor(CurrentState);
+            if (CurrentState == ChargerEnemyState.Telegraph)
+            {
+                ShowTelegraphLane(
+                    session.CurrentChargerGridPosition,
+                    session.CurrentChargerLockedDirection,
+                    session.CurrentChargerLockedChargeDistance);
+            }
             IsInitialized = true;
         }
 
@@ -197,10 +217,24 @@ namespace BombSwap
                 StateChangeCount++;
                 CurrentState = result.State;
                 ApplyStateColor(CurrentState);
+                if (CurrentState == ChargerEnemyState.Telegraph)
+                {
+                    ShowTelegraphLane(
+                        session.CurrentChargerGridPosition,
+                        result.Direction,
+                        result.LockedChargeDistance);
+                }
+                else
+                {
+                    HideTelegraphLane();
+                }
             }
             if (result.HasMovement)
             {
                 MoveCount++;
+                _visualDuration = result.State == ChargerEnemyState.Track
+                    ? 1f / session.ChargerDefinition.LaneAcquireCellsPerSecond
+                    : 1f / session.ChargerDefinition.ChargeCellsPerSecond;
                 _visualStart = _instance.transform.position;
                 _visualTarget = ToPresentationPosition(result.Movement.To);
                 _visualElapsed = 0f;
@@ -221,6 +255,7 @@ namespace BombSwap
 
             DeathCount++;
             _isInterpolating = false;
+            HideTelegraphLane();
             ApplyColor(deathColor);
             _deathEndsAt = Time.unscaledTime + session.ChargerDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
@@ -283,6 +318,80 @@ namespace BombSwap
             _propertyBlock.SetColor(_colorPropertyId, color);
             _renderer.SetPropertyBlock(_propertyBlock);
             CurrentColor = color;
+        }
+
+        private void ShowTelegraphLane(
+            GridPosition origin,
+            CardinalDirection direction,
+            int distance)
+        {
+            HideTelegraphLane();
+            if (direction == CardinalDirection.None || distance <= 0)
+            {
+                return;
+            }
+
+            EnsureTelegraphCapacity(distance);
+            GridPosition cell = origin;
+            for (int index = 0; index < distance; index++)
+            {
+                cell = Offset(cell, direction);
+                GameObject visual = _telegraphCells[index];
+                visual.transform.position = session.GridSpace.GridToWorld(cell) +
+                    (Vector3.up * 0.03f);
+                visual.SetActive(true);
+            }
+
+            ActiveTelegraphCellCount = distance;
+        }
+
+        private void HideTelegraphLane()
+        {
+            for (int index = 0; index < ActiveTelegraphCellCount; index++)
+            {
+                if (_telegraphCells[index] != null)
+                {
+                    _telegraphCells[index].SetActive(false);
+                }
+            }
+
+            ActiveTelegraphCellCount = 0;
+        }
+
+        private void EnsureTelegraphCapacity(int required)
+        {
+            PrototypeChargerDefinitionAsset definition = session.ChargerDefinition;
+            while (_telegraphCells.Count < required)
+            {
+                GameObject visual = Instantiate(
+                    definition.TelegraphCellPrefab,
+                    presentationRoot);
+                visual.name = $"PrototypeChargerTelegraphCell{_telegraphCells.Count}";
+                visual.SetActive(false);
+                _telegraphCells.Add(visual);
+            }
+        }
+
+        private static GridPosition Offset(
+            GridPosition current,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return current.Offset(0, 1);
+                case CardinalDirection.East:
+                    return current.Offset(1, 0);
+                case CardinalDirection.South:
+                    return current.Offset(0, -1);
+                case CardinalDirection.West:
+                    return current.Offset(-1, 0);
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Telegraph lane requires a cardinal direction.");
+            }
         }
 
         private Vector3 ToPresentationPosition(GridPosition position)

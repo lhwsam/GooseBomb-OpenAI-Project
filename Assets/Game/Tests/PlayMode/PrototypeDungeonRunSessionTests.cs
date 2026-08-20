@@ -741,7 +741,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.IsRoomCleared, Is.False);
                 Assert.That(presenter.IsInitialized, Is.True);
                 Assert.That(presenter.IsBossVisible, Is.True);
-                Assert.That(presenter.VisibleDangerCellCount, Is.GreaterThan(0));
+                Assert.That(session.CurrentBossPattern, Is.EqualTo(BossPatternKind.LimitedChase));
+                Assert.That(presenter.VisibleDangerCellCount, Is.EqualTo(0));
+                Assert.That(presenter.IsMoveTargetVisible, Is.False);
                 Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
                 Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
                 Assert.That(completionPresenter.IsVisible, Is.False);
@@ -1053,11 +1055,14 @@ namespace BombSwap.Tests.PlayMode
                         .Single();
                 Assert.That(entranceBinder.RuntimeRoomId, Is.EqualTo(entranceCombat));
                 Assert.That(entranceSession.EnemyActiveCount, Is.Zero);
-                Assert.That(entranceSession.RuntimeDestructibleWalls, Has.Count.EqualTo(1));
-                GridPosition secretWall = entranceSession.RuntimeDestructibleWalls[0];
                 Assert.That(
-                    entranceSession.GetCell(secretWall).Terrain,
-                    Is.EqualTo(GridTerrain.DestructibleWall));
+                    entranceBinder.RuntimeSecretDoorImpactCells,
+                    Has.Count.EqualTo(1));
+                GridPosition secretDoorImpactCell =
+                    entranceBinder.RuntimeSecretDoorImpactCells[0];
+                Assert.That(
+                    entranceSession.GetCell(secretDoorImpactCell).Terrain,
+                    Is.EqualTo(GridTerrain.Floor));
                 Assert.That(entranceMinimap.DisplayedSnapshot.ContainsRoom(secretRoom), Is.False);
                 Assert.That(
                     CountDisplayedDoorStatuses(
@@ -1067,11 +1072,41 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     CountVisibleSecretCracks(entranceBinder.DoorPresenter),
                     Is.EqualTo(1));
+                GameObject visibleSecretWall = new[]
+                    {
+                        entranceBinder.DoorPresenter.NorthSecretCracks,
+                        entranceBinder.DoorPresenter.EastSecretCracks,
+                        entranceBinder.DoorPresenter.SouthSecretCracks,
+                        entranceBinder.DoorPresenter.WestSecretCracks,
+                    }
+                    .Single(root => root.activeSelf);
+                Renderer hiddenSecretDoor = new[]
+                    {
+                        entranceBinder.DoorPresenter.NorthDoor,
+                        entranceBinder.DoorPresenter.EastDoor,
+                        entranceBinder.DoorPresenter.SouthDoor,
+                        entranceBinder.DoorPresenter.WestDoor,
+                    }
+                    .Single(renderer => !renderer.enabled);
+                Assert.That(
+                    Vector3.Distance(
+                        visibleSecretWall.transform.position,
+                        hiddenSecretDoor.transform.position),
+                    Is.LessThan(0.001f),
+                    "The cracked secret door must occupy the normal door position.");
 
-                GridPosition bombCell = FindWalkableNeighbor(entranceSession, secretWall);
                 keyboard = InputSystem.AddDevice<Keyboard>();
-                yield return MoveSessionTo(entranceSession, keyboard, bombCell);
-                Assert.That(entranceSession.CurrentGridPosition, Is.EqualTo(bombCell));
+                yield return MoveSessionTo(
+                    entranceSession,
+                    keyboard,
+                    secretDoorImpactCell);
+                Assert.That(
+                    entranceSession.CurrentGridPosition,
+                    Is.EqualTo(secretDoorImpactCell));
+                Assert.That(run.CurrentRoomId, Is.EqualTo(entranceCombat));
+                Assert.That(
+                    run.TryTravelTo(secretRoom).Status,
+                    Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 bool explosionObserved = false;
                 BombExplosion observedExplosion = default;
                 entranceSession.BombExploded += explosion =>
@@ -1080,6 +1115,10 @@ namespace BombSwap.Tests.PlayMode
                     observedExplosion = explosion;
                 };
                 Assert.That(entranceSession.TryPlaceBomb(), Is.True);
+                GridPosition evadeCell = FindWalkableNeighbor(
+                    entranceSession,
+                    secretDoorImpactCell);
+                yield return MoveSessionTo(entranceSession, keyboard, evadeCell);
 
                 float revealDeadline = Time.realtimeSinceStartup + 5f;
                 while (!explosionObserved &&
@@ -1093,17 +1132,20 @@ namespace BombSwap.Tests.PlayMode
                     Is.True,
                     $"Bomb did not explode; active={entranceSession.ActiveBombCount}.");
                 Assert.That(
-                    observedExplosion.AffectedCells,
-                    Does.Contain(secretWall),
+                    observedExplosion.Affects(secretDoorImpactCell),
+                    Is.True,
                     $"Bomb {observedExplosion.DefinitionId} at {observedExplosion.Origin} " +
-                    $"did not affect adjacent secret wall {secretWall}.");
+                    $"did not reach secret-door impact cell {secretDoorImpactCell}.");
                 Assert.That(
                     observedExplosion.DestroyedWalls,
-                    Does.Contain(secretWall));
+                    Has.No.Member(secretDoorImpactCell));
 
                 Assert.That(
-                    entranceSession.GetCell(secretWall).Terrain,
+                    entranceSession.GetCell(secretDoorImpactCell).Terrain,
                     Is.EqualTo(GridTerrain.Floor));
+                Assert.That(
+                    entranceBinder.RuntimeSecretDoorImpactCells,
+                    Is.Empty);
                 Assert.That(
                     run.RunState.CreateMinimapSnapshot().ContainsRoom(secretRoom),
                     Is.True);
@@ -1141,7 +1183,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(secretBinder.RuntimeRoomType, Is.EqualTo(RoomType.Secret));
                 Assert.That(secretSession.EnemyActiveCount, Is.Zero);
                 Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
-                Assert.That(secretSession.RuntimeDestructibleWalls, Has.Count.EqualTo(1));
+                Assert.That(
+                    secretBinder.RuntimeSecretDoorImpactCells,
+                    Has.Count.EqualTo(1));
                 Assert.That(
                     CountDisplayedDoorStatuses(
                         secretBinder.DoorPresenter,
@@ -2149,23 +2193,28 @@ namespace BombSwap.Tests.PlayMode
             Keyboard keyboard,
             GridPosition destination)
         {
-            IReadOnlyList<CardinalDirection> path = FindWalkablePath(
-                session,
-                session.CurrentGridPosition,
-                destination);
-            for (int index = 0; index < path.Count; index++)
+            int movementGuard = 0;
+            while (session.CurrentGridPosition != destination &&
+                   movementGuard++ < 256)
             {
-                CardinalDirection direction = path[index];
-                GridPosition expected = Offset(
+                IReadOnlyList<CardinalDirection> path = FindWalkablePath(
+                    session,
                     session.CurrentGridPosition,
-                    direction);
+                    destination);
+                Assert.That(
+                    path.Count,
+                    Is.GreaterThan(0),
+                    $"No walkable path remains toward {destination}.");
+                CardinalDirection direction = path[0];
+                GridPosition start = session.CurrentGridPosition;
+                session.InputReader.SetInputFocus(true);
                 InputSystem.QueueStateEvent(
                     keyboard,
                     new KeyboardState(ToKey(direction)));
                 InputSystem.Update();
 
                 float deadline = Time.realtimeSinceStartup + 1.5f;
-                while (session.CurrentGridPosition != expected &&
+                while (session.CurrentGridPosition == start &&
                        Time.realtimeSinceStartup < deadline)
                 {
                     yield return null;
@@ -2175,10 +2224,15 @@ namespace BombSwap.Tests.PlayMode
                 InputSystem.Update();
                 Assert.That(
                     session.CurrentGridPosition,
-                    Is.EqualTo(expected),
+                    Is.Not.EqualTo(start),
                     $"Timed out moving {direction} toward {destination}.");
                 yield return null;
             }
+
+            Assert.That(
+                session.CurrentGridPosition,
+                Is.EqualTo(destination),
+                $"Movement guard exhausted before reaching {destination}.");
         }
 
         private static IReadOnlyList<CardinalDirection> FindWalkablePath(
@@ -2307,6 +2361,10 @@ namespace BombSwap.Tests.PlayMode
                     presenter.GetDisplayedStatus(localDirections[index]),
                     Is.EqualTo(graphState.Status),
                     $"Authored {localDirections[index]} maps to graph {graphDirection}.");
+                Assert.That(
+                    presenter.IsDoorPanelVisible(localDirections[index]),
+                    Is.EqualTo(graphState.Status != DungeonRoomExitStatus.SecretWall),
+                    $"Authored {localDirections[index]} door visibility must match {graphState.Status}.");
                 if (graphState.IsConnected)
                 {
                     connectedCount++;

@@ -235,6 +235,7 @@ namespace BombSwap
                 ? "BOSS  ·  PHASE " + GetPhaseNumber(phase) +
                   "  ·  " + currentHealth + " / " + maxHealth
                 : "BOSS DEFEATED  ·  0 / " + maxHealth;
+            _bossHealthLabel.color = Color.white;
         }
 
         private void RefreshCombatRewardTokens(int tokenCount)
@@ -397,6 +398,8 @@ namespace BombSwap
                     return 1;
                 case BossPhase.Two:
                     return 2;
+                case BossPhase.LastStand:
+                    return 3;
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(phase),

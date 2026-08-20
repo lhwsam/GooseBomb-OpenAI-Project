@@ -77,6 +77,10 @@ async function main() {
   const screenshotPath = path.resolve(
     args.screenshotPath ?? path.join(path.dirname(reportPath), "armored-webgl.png"),
   );
+  const finalScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-final${path.extname(screenshotPath) || ".png"}`,
+  );
   const { chromium } = await loadPlaywright();
   const { server, url } = await startStaticServer(buildPath);
   const consoleErrors = [];
@@ -111,30 +115,57 @@ async function main() {
 
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "armored-broken", { timeout: 15_000 });
-    await waitForEvent(page, "armored-moved", { timeout: 15_000 });
+    await waitForEvent(page, "armored-panic-telegraph-east-distance-3", {
+      timeout: 5_000,
+    });
+    fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+    await page.screenshot({ path: screenshotPath });
     checks.push({
-      name: "first-explosion-breaks-armor",
+      name: "first-explosion-locks-panic-branch",
       status: "passed",
-      detail: "The first cross-bomb explosion changed Armored to Broken and the enemy moved on the logical grid.",
+      detail: "The first cross-bomb explosion changed Armored to Broken and locked the three-cell east panic branch.",
     });
 
+    await page.keyboard.down("KeyS");
+    try {
+      await waitForEvent(page, "player-cell-x-0-z--3", { timeout: 5_000 });
+    } finally {
+      await page.keyboard.up("KeyS");
+    }
+    await page.keyboard.down("KeyD");
+    try {
+      await waitForEvent(page, "player-cell-x-3-z--3", { timeout: 5_000 });
+    } finally {
+      await page.keyboard.up("KeyD");
+    }
+    await page.keyboard.down("KeyW");
+    try {
+      await waitForEvent(page, "player-cell-x-3-z--2", { timeout: 5_000 });
+    } finally {
+      await page.keyboard.up("KeyW");
+    }
     await page.keyboard.press("KeyZ");
+    await waitForEvent(page, "armored-panic-run-moved", { timeout: 5_000 });
+    await waitForEvent(page, "armored-panic-recover", { timeout: 5_000 });
+    await waitForEvent(page, "armored-chase", { timeout: 5_000 });
     await waitForEvent(page, "armored-died", { timeout: 15_000 });
     await waitForEvent(page, "place-bomb-definition-prototype-cross", {
       count: 2,
       timeout: 5_000,
     });
-    await waitForEvent(page, "room-cleared", { timeout: 5_000 });
     checks.push({
       name: "second-explosion-kills-broken-enemy",
       status: "passed",
-      detail: "A second distinct cross-bomb explosion changed Broken to Dead, removed the final enemy, and cleared the room.",
+      detail: "After moving to the predicted east branch, a second cross bomb hit the recovered chase position and killed the armored enemy.",
     });
 
-    fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.waitForTimeout(150);
-    await page.screenshot({ path: screenshotPath });
-    checks.push({ name: "screenshot", status: "passed", detail: screenshotPath });
+    await page.screenshot({ path: finalScreenshotPath });
+    checks.push({
+      name: "screenshots",
+      status: "passed",
+      detail: { panicTelegraph: screenshotPath, final: finalScreenshotPath },
+    });
 
     checks.push({
       name: "browser-console",
@@ -148,15 +179,27 @@ async function main() {
       ? harnessEvents.map((event) => typeof event === "string" ? event : event?.name)
       : [];
     const brokenIndex = eventNames.indexOf("armored-broken");
+    const telegraphIndex = eventNames.indexOf("armored-panic-telegraph-east-distance-3");
+    const panicRunIndex = eventNames.indexOf("armored-panic-run-moved");
+    const panicRecoverIndex = eventNames.indexOf("armored-panic-recover");
+    const chaseIndex = eventNames.indexOf("armored-chase");
+    const secondPlacementIndex = eventNames.indexOf(
+      "place-bomb-definition-prototype-cross",
+      eventNames.indexOf("place-bomb-definition-prototype-cross") + 1,
+    );
     const diedIndex = eventNames.indexOf("armored-died");
-    const clearedIndex = eventNames.indexOf("room-cleared");
     const armoredOrderPassed = brokenIndex >= 0 &&
-      diedIndex > brokenIndex &&
-      clearedIndex > diedIndex;
+      telegraphIndex > brokenIndex &&
+      panicRunIndex > telegraphIndex &&
+      panicRecoverIndex > panicRunIndex &&
+      chaseIndex > panicRecoverIndex &&
+      secondPlacementIndex > telegraphIndex &&
+      diedIndex > chaseIndex &&
+      diedIndex > secondPlacementIndex;
     checks.push({
-      name: "armored-state-and-clear-order",
+      name: "armored-state-and-bomb-order",
       status: armoredOrderPassed ? "passed" : "failed",
-      detail: "Expected armored-broken before armored-died before room-cleared after two cross-bomb placements.",
+      detail: "Expected Broken → east Telegraph → PanicRun → Recover → Chase and a repositioned second bomb before armored Dead.",
     });
     const failedChecks = checks.filter((check) => check.status !== "passed");
     const report = {
@@ -168,6 +211,7 @@ async function main() {
       pageErrors,
       harnessEvents,
       screenshotPath,
+      finalScreenshotPath,
       generatedAt: new Date().toISOString(),
     };
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });

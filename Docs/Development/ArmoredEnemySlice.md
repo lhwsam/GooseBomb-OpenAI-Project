@@ -1,5 +1,7 @@
 # 작업: 갑옷 적 횟수제 수직 슬라이스
 
+> 이 문서는 최초 `Armored → Broken → Dead` 수직 슬라이스의 역사적 계약이다. 현재 장갑병 행동과 Armor 방 계약은 [장갑병 수비와 panic run](ArmoredPanicRunSlice.md)이 대체한다.
+
 - 상태: `Implemented`; 자동 검증 완료, 사람 플레이테스트 판정 대기
 - 기준일: 2026-08-14
 - 기준선 commit: `c831a02`
