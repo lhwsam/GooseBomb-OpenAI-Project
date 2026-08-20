@@ -16,6 +16,8 @@ namespace BombSwap.Editor.ContentValidation
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
         public const string TestSandboxLanesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity";
+        public const string TestSandboxThrowerScenePath =
+            "Assets/Game/Scenes/TestSandbox/TestSandboxThrower.unity";
         public const string TestSandboxPillarsScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity";
         public const string TestSandboxArmorScenePath =
@@ -166,6 +168,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidatePrototypeDungeonSpecialRoomCatalog(errors);
             ValidateDestructibleWallMaterial(errors);
             ValidateTestSandboxes(errors);
+            ValidateStandaloneLegacyLanesPlaytestScene(errors);
             ValidateStandaloneArmoredPlaytestScene(errors);
             ValidateStandaloneSelfDestructPlaytestScene(errors);
             ValidateStandaloneBossPlaytestScene(errors);
@@ -830,26 +833,38 @@ namespace BombSwap.Editor.ContentValidation
                     bomb.FuseDuration != TimeSpan.FromSeconds(1.5) ||
                     bomb.Range != 1 ||
                     room.Id != new RoomDefinitionId("prototype-combat-thrower") ||
-                    room.ThrowerSpawn != new GridPosition(0, 3) ||
+                    room.ChaserSpawn != new GridPosition(-2, 2) ||
+                    room.ThrowerSpawn != new GridPosition(3, 2) ||
                     !room.ThrowerFiringAnchors.SequenceEqual(new[]
                     {
                         new GridPosition(0, 3),
-                        new GridPosition(3, 2),
                         new GridPosition(-3, 2),
+                        new GridPosition(3, -2),
                     }) ||
                     !room.ThrowerTargetAnchors.SequenceEqual(new[]
                     {
                         new GridPosition(0, 0),
                         new GridPosition(-3, -2),
-                        new GridPosition(3, -2),
+                        new GridPosition(2, -3),
                         new GridPosition(-4, 1),
                         new GridPosition(4, 1),
-                        new GridPosition(0, 4),
-                    }))
+                        new GridPosition(0, 2),
+                    }) ||
+                    !HasMinimumExitDistance(room.ThrowerSpawn.Value, room.Exits, 4) ||
+                    !HasMinimumExitDistance(room.ChaserSpawn, room.Exits, 4) ||
+                    ManhattanDistance(
+                        room.ThrowerSpawn.Value,
+                        room.ThrowerFiringAnchors[0]) < 4 ||
+                    !HasMinimumAnchorDistance(
+                        room.ChaserSpawn,
+                        room.ThrowerTargetAnchors,
+                        bomb.Range + 1) ||
+                    HasExitAnchorOverlap(room.ThrowerTargetAnchors, room.Exits))
                 {
                     errors.Add(
                         "Prototype thrower content does not match the Proposed timing, bomb, " +
-                        "or dedicated Lanes anchor contract.");
+                        "staging-route, dedicated Lanes anchor, entry-clearance, or initial " +
+                        "friendly-fire safety contract.");
                 }
             }
             catch (Exception exception)
@@ -873,6 +888,64 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype thrower definition has inconsistent bomb or presentation references.");
             }
+        }
+
+        private static bool HasMinimumExitDistance(
+            GridPosition position,
+            IReadOnlyList<RoomExit> exits,
+            int minimumDistance)
+        {
+            for (int index = 0; index < exits.Count; index++)
+            {
+                GridPosition exit = exits[index].Cell;
+                int distance = Math.Abs(position.X - exit.X) +
+                    Math.Abs(position.Z - exit.Z);
+                if (distance < minimumDistance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool HasMinimumAnchorDistance(
+            GridPosition position,
+            IReadOnlyList<GridPosition> anchors,
+            int minimumDistance)
+        {
+            for (int index = 0; index < anchors.Count; index++)
+            {
+                if (ManhattanDistance(position, anchors[index]) < minimumDistance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool HasExitAnchorOverlap(
+            IReadOnlyList<GridPosition> anchors,
+            IReadOnlyList<RoomExit> exits)
+        {
+            for (int anchorIndex = 0; anchorIndex < anchors.Count; anchorIndex++)
+            {
+                for (int exitIndex = 0; exitIndex < exits.Count; exitIndex++)
+                {
+                    if (anchors[anchorIndex] == exits[exitIndex].Cell)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static int ManhattanDistance(GridPosition first, GridPosition second)
+        {
+            return Math.Abs(first.X - second.X) + Math.Abs(first.Z - second.Z);
         }
 
         private static void ValidatePrototypeCombatRoomDefinitions(ICollection<string> errors)
@@ -1241,7 +1314,7 @@ namespace BombSwap.Editor.ContentValidation
             string[] expectedRoomPaths =
             {
                 PrototypeCombatRoomDefinitionPath,
-                PrototypeCombatLanesDefinitionPath,
+                PrototypeCombatThrowerDefinitionPath,
                 PrototypeCombatPillarsDefinitionPath,
                 PrototypeCombatArmorDefinitionPath,
                 PrototypeCombatGatesDefinitionPath,
@@ -1249,7 +1322,7 @@ namespace BombSwap.Editor.ContentValidation
             string[] expectedSceneNames =
             {
                 "TestSandbox",
-                "TestSandboxLanes",
+                "TestSandboxThrower",
                 "TestSandboxPillars",
                 "TestSandboxArmor",
                 "TestSandboxGates",
@@ -1596,8 +1669,8 @@ namespace BombSwap.Editor.ContentValidation
                 false,
                 errors);
             ValidateTestSandboxScene(
-                TestSandboxLanesScenePath,
-                PrototypeCombatLanesDefinitionPath,
+                TestSandboxThrowerScenePath,
+                PrototypeCombatThrowerDefinitionPath,
                 true,
                 false,
                 errors);
@@ -1654,6 +1727,18 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeBossArenaDefinitionPath,
                 true,
                 true,
+                errors);
+        }
+
+        private static void ValidateStandaloneLegacyLanesPlaytestScene(
+            ICollection<string> errors)
+        {
+            ValidateStandaloneCombatPlaytestScene(
+                TestSandboxLanesScenePath,
+                PrototypeCombatLanesDefinitionPath,
+                typeof(PrototypeChaserPresenter),
+                "Legacy Lanes",
+                false,
                 errors);
         }
 
@@ -1874,6 +1959,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeArmoredPresenter>(scene);
                 PrototypeSelfDestructPresenter[] selfDestructPresenters =
                     FindComponents<PrototypeSelfDestructPresenter>(scene);
+                PrototypeThrowerPresenter[] throwerPresenters =
+                    FindComponents<PrototypeThrowerPresenter>(scene);
                 PrototypeBossPresenter[] bossPresenters =
                     FindComponents<PrototypeBossPresenter>(scene);
                 PrototypeWeaponHud[] weaponHuds = FindComponents<PrototypeWeaponHud>(scene);
@@ -1954,6 +2041,17 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         "TestSandbox must contain exactly one PrototypeSelfDestructPresenter; " +
                         $"found {selfDestructPresenters.Length}.");
+                }
+                int expectedThrowerPresenterCount = string.Equals(
+                    expectedRoomPath,
+                    PrototypeCombatThrowerDefinitionPath,
+                    StringComparison.Ordinal) ? 1 : 0;
+                if (throwerPresenters.Length != expectedThrowerPresenterCount)
+                {
+                    errors.Add(
+                        $"TestSandbox must contain {expectedThrowerPresenterCount} " +
+                        "PrototypeThrowerPresenter component(s); found " +
+                        $"{throwerPresenters.Length}.");
                 }
                 if (bossPresenters.Length != 1)
                 {
@@ -2223,6 +2321,20 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add(
                             "TestSandbox self-destruct presenter has inconsistent scene references.");
+                    }
+                }
+
+                if (throwerPresenters.Length == 1 && sessions.Length == 1 &&
+                    contexts.Length == 1)
+                {
+                    PrototypeThrowerPresenter presenter = throwerPresenters[0];
+                    Transform runtimePresentation =
+                        contexts[0].GridRoot.Find("RuntimePresentation");
+                    if (presenter.Session != sessions[0] ||
+                        presenter.PresentationRoot != runtimePresentation)
+                    {
+                        errors.Add(
+                            "TestSandbox thrower presenter has inconsistent scene references.");
                     }
                 }
 
@@ -2761,7 +2873,7 @@ namespace BombSwap.Editor.ContentValidation
                 DungeonSecretScenePath,
                 DungeonBossScenePath,
                 TestSandboxScenePath,
-                TestSandboxLanesScenePath,
+                TestSandboxThrowerScenePath,
                 TestSandboxPillarsScenePath,
                 TestSandboxArmorScenePath,
                 TestSandboxGatesScenePath,

@@ -78,13 +78,13 @@ namespace BombSwap.Core
                     "so repeated volleys can rotate their side targets.",
                     nameof(authoredTargetAnchors));
             }
-            firingAnchorIndex = Array.IndexOf(firingAnchors, startPosition);
-            if (firingAnchorIndex < 0)
+            if (Array.IndexOf(firingAnchors, startPosition) >= 0)
             {
                 throw new ArgumentException(
-                    "Thrower start position must be one of its firing anchors.",
+                    "Thrower start position must be a distinct staging cell outside its firing anchors.",
                     nameof(startPosition));
             }
+            firingAnchorIndex = 0;
             if (!grid.TryAddActor(actorId, startPosition))
             {
                 throw new InvalidOperationException(

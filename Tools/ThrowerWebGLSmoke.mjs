@@ -115,7 +115,7 @@ async function main() {
     });
     await waitForEvent(page, "thrower-telegraph-x-0-z-0", { timeout: 10_000 });
     await waitForEvent(page, "thrower-telegraph-x--3-z--2", { timeout: 10_000 });
-    await waitForEvent(page, "thrower-telegraph-x-3-z--2", { timeout: 10_000 });
+    await waitForEvent(page, "thrower-telegraph-x-2-z--3", { timeout: 10_000 });
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-cross", {
       timeout: 5_000,
@@ -144,7 +144,7 @@ async function main() {
       count: 2,
       timeout: 15_000,
     });
-    await waitForEvent(page, "thrower-telegraph-x-0-z-4", {
+    await waitForEvent(page, "thrower-telegraph-x-0-z-2", {
       timeout: 5_000,
     });
     await waitForEvent(page, "thrower-telegraph-x--4-z-1", {
@@ -168,6 +168,14 @@ async function main() {
       ? harnessEvents.map((event) => typeof event === "string" ? event : event?.name)
       : [];
     const telegraphIndex = eventNames.indexOf("thrower-telegraph-x-0-z-0");
+    const stagingIndex = eventNames.indexOf("thrower-cell-x-3-z-2");
+    const trackMarkerIndex = eventNames.indexOf("thrower-track-moved");
+    const firstFiringAnchorIndex = eventNames.indexOf("thrower-cell-x-0-z-3");
+    const preTelegraphThrowerCells = new Set(
+      eventNames
+        .slice(0, telegraphIndex)
+        .filter((name) => /^thrower-cell-x-(-?\d+)-z-(-?\d+)$/.test(name ?? "")),
+    );
     const launchIndices = eventNames
       .map((name, index) => name === "thrower-bomb-launched" ? index : -1)
       .filter((index) => index >= 0);
@@ -180,8 +188,19 @@ async function main() {
     const playerBombIndex = eventNames.indexOf("place-bomb-definition-prototype-cross");
     const chainIndex = eventNames.indexOf("thrower-bomb-detonated-by-chain");
     const secondCenterIndex = eventNames.lastIndexOf("thrower-telegraph-x-0-z-0");
-    const secondTopIndex = eventNames.indexOf("thrower-telegraph-x-0-z-4");
+    const secondTopIndex = eventNames.indexOf("thrower-telegraph-x-0-z-2");
     const secondLeftIndex = eventNames.indexOf("thrower-telegraph-x--4-z-1");
+    checks.push({
+      name: "staging-track-before-fire",
+      status: stagingIndex >= 0 &&
+        trackMarkerIndex > stagingIndex &&
+        firstFiringAnchorIndex > trackMarkerIndex &&
+        firstFiringAnchorIndex < telegraphIndex &&
+        preTelegraphThrowerCells.size >= 5
+        ? "passed"
+        : "failed",
+      detail: "Expected four Track cell transitions from the distinct staging spawn to the first firing anchor before Telegraph.",
+    });
     checks.push({
       name: "three-route-volley",
       status: launchIndices.length >= 3 && armedIndices.length >= 3 ? "passed" : "failed",
@@ -208,7 +227,7 @@ async function main() {
         secondLeftIndex > chainIndex
         ? "passed"
         : "failed",
-      detail: "Expected the second volley to keep (0,0) and replace both side targets with (0,4) and (-4,1).",
+      detail: "Expected the second volley to keep (0,0) and replace both side targets with (0,2) and (-4,1).",
     });
     checks.push({
       name: "browser-console",

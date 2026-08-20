@@ -14,7 +14,7 @@ Unity 상단 메뉴에서 `Bomb Swap > Playtest > Play Thrower Lanes Room`을 �
 - 다시 시도하려면 Play Mode를 정지하고 같은 메뉴를 다시 선택한다.
 - 씬만 열려면 `Open Thrower Lanes Room`, 권위 데이터에서 다시 만들려면 `Rebuild Thrower Lanes Room`을 사용한다.
 
-전용 씬은 `Assets/Game/Scenes/TestSandbox/ThrowerLanesPlaytest.unity`다. 던전 진행 host·binder·미니맵·문 전환·완료 화면이 없고 표준 Build Settings에도 포함하지 않는다. 현재 다섯 전투방과 메인 던전 배정은 바뀌지 않는다.
+전용 씬은 `Assets/Game/Scenes/TestSandbox/ThrowerLanesPlaytest.unity`다. 던전 진행 host·binder·미니맵·문 전환·완료 화면이 없고 표준 Build Settings에도 포함하지 않는다. 같은 권위 room의 던전 미러 `TestSandboxThrower`는 메인 다섯 전투방 카탈로그에 포함된다.
 
 ## 이번 세션이 답할 질문
 
@@ -29,8 +29,8 @@ Unity 상단 메뉴에서 `Bomb Swap > Playtest > Play Thrower Lanes Room`을 �
 
 ## 고정 조건
 
-- 플레이어 `(0,-2)`, 추격자 `(0,2)`, 투척병 `(0,3)`.
-- 사격 anchor `(0,3) → (3,2) → (-3,2)`, 목표 후보 `(0,0) → (-3,-2) → (3,-2) → (-4,1) → (4,1) → (0,4)`. 플레이어가 시작 위치에 있으면 첫 volley는 `(0,0)·(-3,-2)·(3,-2)`, 두 번째는 `(0,0)·(0,4)·(-4,1)`이다.
+- 플레이어 `(0,-2)`, 추격자 `(-2,2)`, 투척병 staging `(3,2)`.
+- 사격 anchor `(0,3) → (-3,2) → (3,-2)`, 목표 후보 `(0,0) → (-3,-2) → (2,-3) → (-4,1) → (4,1) → (0,2)`. staging에서 첫 anchor까지 4칸 Track한 뒤 첫 volley가 시작된다. 플레이어가 시작 위치에 있으면 첫 volley는 `(0,0)·(-3,-2)·(2,-3)`, 두 번째는 `(0,0)·(0,2)·(-4,1)`이다. 던전 seed 0의 회전 입장은 플레이어 `(4,0)`, 추격자 `(2,2)`, 투척병 `(2,-3)`, 첫 사격 anchor `(3,0)`이다.
 - 투척병: 체력 1, 이동 1 cell/s, Telegraph 0.3초, 비행 0.45초, Recover 0.75초, 공격당 서로 다른 목표 3발.
 - `prototype-thrower-blocker`: fuse 1.5초, `Cross`, 범위 1. 투척병은 자기 폭발만 무시한다.
 - 추격자: 체력 1, 접촉 피해 1, 2 cells/s, 방향 유지 2칸.

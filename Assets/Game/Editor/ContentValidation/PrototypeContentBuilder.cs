@@ -109,7 +109,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeCombatRoomDefinitionAsset throwerRoomDefinition =
                 CreatePrototypeThrowerRoomContentIfMissing();
             PrototypeDungeonCombatRoomCatalogAsset combatRoomCatalog =
-                CreatePrototypeDungeonCombatRoomCatalog(roomDefinitions);
+                CreatePrototypeDungeonCombatRoomCatalog(
+                    roomDefinitions,
+                    throwerRoomDefinition);
             PrototypeDungeonSpecialRoomCatalogAsset specialRoomCatalog =
                 CreatePrototypeDungeonSpecialRoomCatalog();
             bool sceneCreated = EnsureTestSandbox(
@@ -121,7 +123,7 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinitions[0],
-                "TestSandboxLanes");
+                "TestSandboxThrower");
             bool lanesSceneCreated = EnsurePlaytestRoomVariant(
                 PrototypeContentValidator.TestSandboxLanesScenePath,
                 bombLoadout,
@@ -131,6 +133,18 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinitions[1],
+                string.Empty);
+            StripDungeonAdaptersFromStandalonePlaytest(
+                PrototypeContentValidator.TestSandboxLanesScenePath);
+            bool throwerDungeonSceneCreated = EnsurePlaytestRoomVariant(
+                PrototypeContentValidator.TestSandboxThrowerScenePath,
+                bombLoadout,
+                playerVitals,
+                chaserDefinition,
+                chargerDefinition,
+                armoredDefinition,
+                bossDefinition,
+                throwerRoomDefinition,
                 "TestSandboxPillars");
             bool pillarsSceneCreated = EnsurePlaytestRoomVariant(
                 PrototypeContentValidator.TestSandboxPillarsScenePath,
@@ -202,7 +216,7 @@ namespace BombSwap.Editor.ContentValidation
                 playerVitals,
                 true);
             EnsureDungeonRoomBinding(
-                PrototypeContentValidator.TestSandboxLanesScenePath,
+                PrototypeContentValidator.TestSandboxThrowerScenePath,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
@@ -316,7 +330,8 @@ namespace BombSwap.Editor.ContentValidation
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
-            return sceneCreated || lanesSceneCreated || pillarsSceneCreated ||
+            return sceneCreated || lanesSceneCreated || throwerDungeonSceneCreated ||
+                pillarsSceneCreated ||
                 armorSceneCreated || gatesSceneCreated || armoredPlaytestSceneCreated ||
                 selfDestructPlaytestSceneCreated || bossPlaytestSceneCreated ||
                 throwerPlaytestSceneCreated ||
@@ -1788,7 +1803,7 @@ namespace BombSwap.Editor.ContentValidation
                 9,
                 1f,
                 new Vector2Int(0, -2),
-                new Vector2Int(0, 2),
+                new Vector2Int(-2, 2),
                 new[]
                 {
                     new Vector2Int(-2, -1),
@@ -1816,21 +1831,21 @@ namespace BombSwap.Editor.ContentValidation
                     new Vector2Int(-1, -1),
                     new Vector2Int(1, -1),
                 },
-                authoredThrowerSpawn: new Vector2Int(0, 3),
+                authoredThrowerSpawn: new Vector2Int(3, 2),
                 authoredThrowerFiringAnchors: new[]
                 {
                     new Vector2Int(0, 3),
-                    new Vector2Int(3, 2),
                     new Vector2Int(-3, 2),
+                    new Vector2Int(3, -2),
                 },
                 authoredThrowerTargetAnchors: new[]
                 {
                     new Vector2Int(0, 0),
                     new Vector2Int(-3, -2),
-                    new Vector2Int(3, -2),
+                    new Vector2Int(2, -3),
                     new Vector2Int(-4, 1),
                     new Vector2Int(4, 1),
-                    new Vector2Int(0, 4),
+                    new Vector2Int(0, 2),
                 });
             EditorUtility.SetDirty(room);
             return room;
@@ -1855,13 +1870,18 @@ namespace BombSwap.Editor.ContentValidation
 
         private static PrototypeDungeonCombatRoomCatalogAsset
             CreatePrototypeDungeonCombatRoomCatalog(
-                IReadOnlyList<PrototypeCombatRoomDefinitionAsset> roomDefinitions)
+                IReadOnlyList<PrototypeCombatRoomDefinitionAsset> roomDefinitions,
+                PrototypeCombatRoomDefinitionAsset throwerRoomDefinition)
         {
             if (roomDefinitions == null || roomDefinitions.Count != 5)
             {
                 throw new ArgumentException(
                     "Prototype dungeon combat room catalog requires five definitions.",
                     nameof(roomDefinitions));
+            }
+            if (throwerRoomDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(throwerRoomDefinition));
             }
 
             PrototypeDungeonCombatRoomCatalogAsset catalog =
@@ -1880,7 +1900,9 @@ namespace BombSwap.Editor.ContentValidation
             catalog.Configure(new[]
             {
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[0], "TestSandbox"),
-                new PrototypeDungeonCombatRoomEntry(roomDefinitions[1], "TestSandboxLanes"),
+                new PrototypeDungeonCombatRoomEntry(
+                    throwerRoomDefinition,
+                    "TestSandboxThrower"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[2], "TestSandboxPillars"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[3], "TestSandboxArmor"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[4], "TestSandboxGates"),
@@ -3674,7 +3696,7 @@ namespace BombSwap.Editor.ContentValidation
                     true),
                 new EditorBuildSettingsScene(PrototypeContentValidator.TestSandboxScenePath, true),
                 new EditorBuildSettingsScene(
-                    PrototypeContentValidator.TestSandboxLanesScenePath,
+                    PrototypeContentValidator.TestSandboxThrowerScenePath,
                     true),
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.TestSandboxPillarsScenePath,
@@ -3685,6 +3707,9 @@ namespace BombSwap.Editor.ContentValidation
                 new EditorBuildSettingsScene(
                     PrototypeContentValidator.TestSandboxGatesScenePath,
                     true),
+                new EditorBuildSettingsScene(
+                    PrototypeContentValidator.TestSandboxLanesScenePath,
+                    false),
             };
 
             foreach (EditorBuildSettingsScene existing in EditorBuildSettings.scenes)

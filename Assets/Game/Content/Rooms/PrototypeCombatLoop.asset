@@ -26,6 +26,10 @@ MonoBehaviour:
   hasSelfDestruct: 0
   selfDestructSpawn: {x: 0, y: 0}
   selfDestructAnchors: []
+  hasThrower: 0
+  throwerSpawn: {x: 0, y: 0}
+  throwerFiringAnchors: []
+  throwerTargetAnchors: []
   indestructibleWalls:
   - {x: -2, y: 0}
   - {x: 2, y: 0}

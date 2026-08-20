@@ -75,13 +75,13 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 ## 구현된 퇴로 차단 투척병
 
 - `ThrowerEnemyDefinition`은 안정적인 적 정의 ID, 이동 cadence, Telegraph·비행·회복 시간, 체력, volley당 발수와 전용 폭탄 정의를 소유한다. `prototype-thrower`는 1 cell/s, 예고 0.3초, 비행 0.45초, 회복 0.75초, 체력 1, volley 3발이며 `prototype-thrower-blocker`는 fuse 1.5초·`Cross`·범위 1을 사용한다. 수치는 사람 플레이 전까지 `Proposed`다.
-- `ThrowerEnemySimulation`은 전용 테스트에서 `ActorId(7)`로 공유 `GridState`를 점유한다. `Track`에서 저작 사격 anchor로 BFS 이동하고 도착하면 저작 퇴로 차단 anchor를 현재 플레이어 셀과의 맨해튼 거리 오름차순으로 정렬한다. 가장 가까운 셀 1개는 압박 목표로 유지하고 나머지 2개는 현재 사격 anchor index에 따라 정렬된 잔여 후보를 순환하되 직전 volley에서 쓰지 않은 셀을 우선한다. 동률은 저작 순서를 유지하며 후보는 volley 발수의 두 배 이상이어야 한다.
+- `ThrowerEnemySimulation`은 전용 테스트에서 `ActorId(7)`로 공유 `GridState`를 점유한다. 시작점은 사격 anchor와 겹치지 않는 staging 셀이며 `Track`에서 첫 저작 사격 anchor까지 BFS 이동한다. 따라서 방 초기화 직후 현재 셀에서 Telegraph하지 않는다. anchor에 도착하면 저작 퇴로 차단 anchor를 현재 플레이어 셀과의 맨해튼 거리 오름차순으로 정렬한다. 가장 가까운 셀 1개는 압박 목표로 유지하고 나머지 2개는 현재 사격 anchor index에 따라 정렬된 잔여 후보를 순환하되 직전 volley에서 쓰지 않은 셀을 우선한다. 동률은 저작 순서를 유지하며 후보는 volley 발수의 두 배 이상이어야 한다.
 - `Track → Telegraph` 경계에서 세 목표 셀을 잠근다. 0.3초 예고 중 플레이어가 움직여도 다시 조준하지 않으며, 현재 플레이어 위치 자체를 직접 목표로 계산하지 않는다.
 - Telegraph 종료 뒤 서로 다른 세 목표로 0.45초 표현 비행을 동시에 시작한다. 비행 중에는 아직 격자를 점유하는 폭탄이 아니며, 각 착탄 순간 같은 `BombSimulation`에 `ActorId(7)` 소유 폭탄으로 설치해 fuse·벽 차단·0.15초 연쇄 지연을 기존 폭탄과 공유한다.
 - 착탄 셀을 다른 폭탄이 먼저 점유하면 재조준하거나 중복 생성하지 않고 해당 발만 실패한다. 같은 volley의 나머지 발은 독립적으로 착탄한다. 비행 대기 수와 모든 활성 BombId가 해제될 때까지 다음 volley를 만들지 않으며, 이후 다음 저작 사격 anchor를 순환한다.
 - 투척병은 자기 폭탄 피해를 무시하지만 플레이어·다른 적 소유 폭발에는 체력 1 규칙으로 사망한다. 사망과 actor 점유 제거는 한 번만 처리되고 마지막 적이면 기존 단일 방 클리어를 사용한다.
 - `PrototypeThrowerPresenter`는 collider 없는 보라색 placeholder를 확정 Core 이동 cadence로 보간하고, 재사용하는 자홍색 셀 3개로 잠긴 목표를 표시한다. `PrototypeBombPresenter`는 세 포물선 비행을 각각 풀링 표현한 뒤 성공 착탄 시 대응 폭탄 표현으로 넘긴다.
-- `prototype-combat-thrower`와 `ThrowerLanesPlaytest.unity`는 메인 던전 카탈로그 밖의 독립 실험이다. 플레이어 `(0,-2)`, 추격자 `(0,2)`, 투척병 `(0,3)`, 사격 anchor `(0,3)·(3,2)·(-3,2)`, 목표 후보 `(0,0)·(-3,-2)·(3,-2)·(-4,1)·(4,1)·(0,4)`를 사용한다. 첫 공격은 기존 중앙·하단 좌우 3칸을 유지하고 다음 사격 위치에서는 중앙 압박점과 다른 측면 2칸을 조합한다. 현재 다섯 전투방의 밸런스와 배정은 바꾸지 않는다.
+- `prototype-combat-thrower`는 메인 던전의 `TestSandboxThrower`와 독립 `ThrowerLanesPlaytest.unity`가 함께 사용하는 권위 room이다. 플레이어 `(0,-2)`, 추격자 `(-2,2)`, 투척병 staging `(3,2)`, 사격 anchor `(0,3)·(-3,2)·(3,-2)`, 목표 후보 `(0,0)·(-3,-2)·(2,-3)·(-4,1)·(4,1)·(0,2)`를 사용한다. 첫 공격은 중앙·하단 양측 3칸을 사용하고 다음 사격 위치에서는 중앙 압박점과 다른 측면 2칸을 조합한다. staging→첫 사격 anchor는 4칸이며 두 적은 모든 잠재 출구에서 4칸 이상 떨어진다. 추격자 시작점은 모든 초기 목표 폭발 반경 밖이므로 입장 직후 첫 적 폭탄이 일반병을 자동 처치하지 않는다.
 
 ## 불변식
 
@@ -117,7 +117,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 자폭병 소유 폭탄의 arm·연쇄·detonation ID, 자기 폭발 사망·단일 점유 제거와 Gates 한쪽 파괴문 개방.
 - PlayMode의 자폭병 경고 추적 상태와 색·scale pulse, 이동 중 플레이어 폭발 trigger 시 권위 셀 고정, 기존 폭탄 스케줄러의 실제 자폭과 파괴벽 변경·단일 사망 사건.
 - Development WebGL의 `self-destruct-cell-x-<x>-z-<z>`와 `self-destruct-warning-chase` marker로 실제 확정 셀·경고 진입을 관측한다. 이 marker는 자동 경로 동기화용이며 점멸의 가독성이나 행동의 재미를 통과 판정하지 않는다.
-- 투척병 정의 경계, 현재 셀 대신 저작 후보의 거리·동률 순서, 가장 가까운 압박점과 사격 anchor별 측면 2칸 순환, 직전 volley 측면 재사용 회피, Telegraph 다중 목표 고정, 사격 anchor BFS·순환, 정확한 시간 경계, 시계 역행, 경로 없음, 3발 대기/활성 추적, 발별 착탄 실패와 폭탄 해결 통지.
+- 투척병 정의 경계, 사격 anchor 밖 staging에서 첫 anchor까지 선행 Track, 현재 셀 대신 저작 후보의 거리·동률 순서, 가장 가까운 압박점과 사격 anchor별 측면 2칸 순환, 직전 volley 측면 재사용 회피, Telegraph 다중 목표 고정, 사격 anchor BFS·순환, 정확한 시간 경계, 시계 역행, 경로 없음, 3발 대기/활성 추적, 발별 착탄 실패와 폭탄 해결 통지.
 - 방 정의의 투척 spawn·사격/목표 anchor 완전성·비중첩과 방 회전 시 세 목록의 원자적 회전.
 - PlayMode의 이동·예고·비행·착탄 표현, 공유 폭탄 스케줄러와 플레이어 폭탄 연쇄, 다른 소유자 폭발 사망.
 - 전용 Development WebGL에서 서로 다른 `thrower-telegraph-x-*` 3개 뒤 `thrower-bomb-launched`와 `thrower-bomb-armed-definition-prototype-thrower-blocker`가 각각 3번 발생하고 하나 이상 `thrower-bomb-detonated-by-chain`으로 이어지는 순서를 검증한다. 이 표식은 규칙 연결을 증명하지만 예고 가독성·압박·재미를 판정하지 않는다.

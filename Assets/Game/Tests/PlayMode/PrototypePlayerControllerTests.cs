@@ -1958,8 +1958,8 @@ namespace BombSwap.Tests.PlayMode
                 throwerSpawnPosition: new Vector2Int(2, 1),
                 throwerFiringAnchors: new[]
                 {
-                    new Vector2Int(2, 1),
                     new Vector2Int(2, -1),
+                    new Vector2Int(-2, 1),
                 },
                 throwerTargetAnchors: new[]
                 {

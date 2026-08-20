@@ -44,6 +44,8 @@ namespace BombSwap
 
         public PrototypeGameSession Session => session;
 
+        public Transform PresentationRoot => presentationRoot;
+
         public GameObject Instance => instance;
 
         public bool IsInitialized { get; private set; }
