@@ -229,6 +229,61 @@ async function getLastPlayerCell(page) {
   });
 }
 
+async function waitForThrowerRoomEntryCells(page, startIndex, timeout = 5_000) {
+  await page.waitForFunction((minimumIndex) => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return false;
+    let roomReadyIndex = -1;
+    for (let index = minimumIndex; index < events.length; index++) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (name === "room-ready-prototype-combat-thrower") {
+        roomReadyIndex = index;
+        break;
+      }
+    }
+    if (roomReadyIndex < 0) return false;
+
+    let hasPlayer = false;
+    let hasThrower = false;
+    for (let index = roomReadyIndex + 1; index < events.length; index++) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      hasPlayer ||= /^player-cell-x-(-?\d+)-z-(-?\d+)$/.test(name ?? "");
+      hasThrower ||= /^thrower-cell-x-(-?\d+)-z-(-?\d+)$/.test(name ?? "");
+      if (hasPlayer && hasThrower) return true;
+    }
+    return false;
+  }, startIndex, { timeout });
+
+  return page.evaluate((minimumIndex) => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    let roomReadyIndex = -1;
+    for (let index = minimumIndex; index < events.length; index++) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (name === "room-ready-prototype-combat-thrower") {
+        roomReadyIndex = index;
+        break;
+      }
+    }
+
+    let player = null;
+    let thrower = null;
+    for (let index = roomReadyIndex + 1;
+      index < events.length && (!player || !thrower);
+      index++) {
+      const name = typeof events[index] === "string" ? events[index] : events[index]?.name;
+      if (!player) {
+        const match = /^player-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+        if (match) player = { x: Number(match[1]), z: Number(match[2]) };
+      }
+      if (!thrower) {
+        const match = /^thrower-cell-x-(-?\d+)-z-(-?\d+)$/.exec(name ?? "");
+        if (match) thrower = { x: Number(match[1]), z: Number(match[2]) };
+      }
+    }
+    return { player, thrower };
+  }, startIndex);
+}
+
 async function getLastChaserCell(page) {
   return page.evaluate(() => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -735,6 +790,21 @@ async function main() {
       detail: "The PAUSED state blocked movement and bomb placement, then resumed from Escape without advancing the player cell.",
     });
 
+    await verifyHeldDiagonalLatestAxis(page);
+    checks.push({
+      name: "held-diagonal-latest-axis",
+      status: "passed",
+      detail: "North changed to west immediately, stayed west while both keys were held, then resumed north on west release.",
+    });
+
+    await verifyRapidCardinalTurns(page);
+    checks.push({
+      name: "frame-responsive-cardinal-turns",
+      status: "passed",
+      detail: "Six alternating west/north press-release taps each produced motion for one frame and then stopped.",
+    });
+    await moveToCell(page, 0, 0);
+
     const startHealthFourBefore = await eventCount(
       page,
       "player-health-current-4",
@@ -774,9 +844,13 @@ async function main() {
       detail: "Moved around the authored blockers to the deterministic west Start exit.",
     });
 
-    const healthProbeChargerTrackBefore = await eventCount(
+    const healthProbeThrowerTelegraphBefore = await eventCount(
       page,
-      "charger-track-moved",
+      "thrower-telegraph",
+    );
+    const healthProbeThrowerLaunchBefore = await eventCount(
+      page,
+      "thrower-bomb-launched",
     );
     const healthProbeEntryEventStart = await page.evaluate(() =>
       globalThis.__BOMBSWAP_HARNESS_EVENTS__.length);
@@ -785,7 +859,7 @@ async function main() {
       "ArrowLeft",
       "dungeon-room-ready-2-combat-active",
     );
-    await waitForEvent(page, "room-ready-prototype-combat-pillars", {
+    await waitForEvent(page, "room-ready-prototype-combat-thrower", {
       timeout: 60_000,
     });
     await waitForEvent(page, "probe-ready", { count: 2, timeout: 60_000 });
@@ -796,12 +870,37 @@ async function main() {
     checks.push({
       name: "graph-scene-transition",
       status: "passed",
-      detail: "The seed-0 Start exit loaded and committed the assigned pillars combat scene.",
+      detail: "The seed-0 Start exit loaded and committed the assigned thrower combat scene.",
     });
     checks.push({
       name: "run-health-room-persistence",
       status: "passed",
       detail: "The next room initialized at 4 health instead of healing on scene transition.",
+    });
+
+    const throwerEntryCells = await waitForThrowerRoomEntryCells(
+      page,
+      healthProbeEntryEventStart,
+    );
+    const throwerEntryDistance = throwerEntryCells.player && throwerEntryCells.thrower
+      ? Math.abs(throwerEntryCells.player.x - throwerEntryCells.thrower.x) +
+        Math.abs(throwerEntryCells.player.z - throwerEntryCells.thrower.z)
+      : -1;
+    if (throwerEntryCells.player?.x !== 4 ||
+        throwerEntryCells.player?.z !== 0 ||
+        throwerEntryCells.thrower?.x !== 2 ||
+        throwerEntryCells.thrower?.z !== -3 ||
+        throwerEntryDistance < 4) {
+      throw new Error(
+        `Expected the seed-0 thrower entry at player (4, 0), thrower (2, -3) ` +
+        `with at least four cells of clearance, got ` +
+        `${JSON.stringify(throwerEntryCells)} at distance ${throwerEntryDistance}.`,
+      );
+    }
+    checks.push({
+      name: "thrower-entry-clearance",
+      status: "passed",
+      detail: `The rotated thrower starts ${throwerEntryDistance} Manhattan cells from the east entry instead of adjacent to it.`,
     });
 
     const healthProbeRestartRequestsBefore = await eventCount(
@@ -820,26 +919,54 @@ async function main() {
       page,
       "player-health-current-5",
     );
-    await waitForEvent(page, "charger-track-moved", {
-      count: healthProbeChargerTrackBefore + 1,
-      timeout: 5_000,
+    await waitForEvent(page, "thrower-telegraph", {
+      count: healthProbeThrowerTelegraphBefore + 1,
+      timeout: 10_000,
     });
-    const firstEntryChargerAction = await page.evaluate((startIndex) =>
+    await waitForEvent(page, "thrower-bomb-launched", {
+      count: healthProbeThrowerLaunchBefore + 3,
+      timeout: 10_000,
+    });
+    const firstEntryThrowerEvents = await page.evaluate((startIndex) =>
       globalThis.__BOMBSWAP_HARNESS_EVENTS__
         .slice(startIndex)
         .map((event) => typeof event === "string" ? event : event?.name)
-        .find((name) =>
-          name === "charger-track-moved" || name === "charger-telegraph"),
-    healthProbeEntryEventStart);
-    if (firstEntryChargerAction !== "charger-track-moved") {
+        .filter((name) => /^thrower-cell-x-(-?\d+)-z-(-?\d+)$/.test(name ?? "") ||
+          name === "thrower-track-moved" ||
+          name === "thrower-telegraph" ||
+          name === "thrower-bomb-launched"), healthProbeEntryEventStart);
+    const firstEntryTelegraphIndex = firstEntryThrowerEvents.indexOf(
+      "thrower-telegraph",
+    );
+    const entryTrackCellsBeforeTelegraph = firstEntryThrowerEvents
+      .slice(0, firstEntryTelegraphIndex)
+      .filter((name) => /^thrower-cell-x-(-?\d+)-z-(-?\d+)$/.test(name ?? ""));
+    const uniqueEntryTrackCells = new Set(entryTrackCellsBeforeTelegraph);
+    const entryStagingIndex = firstEntryThrowerEvents.indexOf(
+      "thrower-cell-x-2-z--3",
+    );
+    const firstFiringAnchorIndex = firstEntryThrowerEvents.indexOf(
+      "thrower-cell-x-3-z-0",
+    );
+    const firstTrackMarkerIndex = firstEntryThrowerEvents.indexOf(
+      "thrower-track-moved",
+    );
+    if (entryStagingIndex < 0 ||
+        firstTrackMarkerIndex <= entryStagingIndex ||
+        firstFiringAnchorIndex <= firstTrackMarkerIndex ||
+        firstFiringAnchorIndex >= firstEntryTelegraphIndex ||
+        firstEntryTelegraphIndex < 0 ||
+        uniqueEntryTrackCells.size < 5 ||
+        firstEntryThrowerEvents.filter((name) => name === "thrower-bomb-launched").length < 3) {
       throw new Error(
-        `Expected the first Pillars charger action to be Track movement, got ${firstEntryChargerAction ?? "<none>"}.`,
+        `Expected four staging Track cell transitions before the integrated thrower room ` +
+        `Telegraph and three launches, got ${firstEntryThrowerEvents.join(", ")}.`,
       );
     }
     checks.push({
-      name: "charger-safe-entry-track-first",
+      name: "thrower-main-dungeon-entry",
       status: "passed",
-      detail: "The rotated seed-0 Pillars spawn produced Track movement before any Telegraph instead of attacking immediately on entry.",
+      detail: `The main dungeon thrower crossed ${uniqueEntryTrackCells.size - 1} staging-to-anchor cells before its first Telegraph and authored three-bomb volley.`,
     });
     await waitForEvent(page, "player-died", { timeout: 15_000 });
     await waitForEvent(page, "run-failed", { timeout: 5_000 });
@@ -878,7 +1005,7 @@ async function main() {
     );
     const fullRunRoomReadyBefore = await eventCount(
       page,
-      "room-ready-prototype-combat-pillars",
+      "room-ready-prototype-combat-thrower",
     );
     const fullRunProbeReadyBefore = await eventCount(page, "probe-ready");
     const fullRunHealthReadyBefore = await eventCount(
@@ -891,7 +1018,7 @@ async function main() {
       "dungeon-room-ready-2-combat-active",
       fullRunCombatReadyBefore + 1,
     );
-    await waitForEvent(page, "room-ready-prototype-combat-pillars", {
+    await waitForEvent(page, "room-ready-prototype-combat-thrower", {
       count: fullRunRoomReadyBefore + 1,
       timeout: 60_000,
     });
@@ -904,55 +1031,39 @@ async function main() {
       timeout: 60_000,
     });
 
-    await verifyHeldDiagonalLatestAxis(page);
-    checks.push({
-      name: "held-diagonal-latest-axis",
-      status: "passed",
-      detail: "North changed to west immediately, stayed west while both keys were held, then resumed north on west release.",
-    });
-
-    await verifyRapidCardinalTurns(page);
-    checks.push({
-      name: "frame-responsive-cardinal-turns",
-      status: "passed",
-      detail: "Six alternating west/north press-release taps each produced motion for one frame and then stopped.",
-    });
-
     let combatPlacementsBefore = await eventCount(
       page,
       "place-bomb-definition-prototype-cross",
     );
     let combatExplosionsBefore = await eventCount(page, "bomb-exploded");
     const combatRoomClearsBefore = await eventCount(page, "room-cleared");
-    await page.keyboard.press("KeyZ");
-    await waitForEvent(page, "place-bomb-definition-prototype-cross", {
-      count: combatPlacementsBefore + 1,
-      timeout: 5_000,
-    });
-    await moveToCell(page, 3, 2);
-    await waitForEvent(page, "bomb-exploded", {
-      count: combatExplosionsBefore + 1,
-      timeout: 15_000,
-    });
-    combatPlacementsBefore = await eventCount(
+    const combatEnemyDeathsBefore = await eventCount(page, "enemy-died");
+    const combatThrowerDeathsBefore = await eventCount(page, "thrower-died");
+    const combatThrowerTelegraphsBefore = await eventCount(
       page,
-      "place-bomb-definition-prototype-cross",
+      "thrower-telegraph",
     );
-    combatExplosionsBefore = await eventCount(page, "bomb-exploded");
+    await waitForChaserAdjacent(page);
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-cross", {
       count: combatPlacementsBefore + 1,
       timeout: 5_000,
     });
-    await moveToCell(page, 3, 0);
-    await moveToCell(page, 3, -1);
-    await moveToCell(page, 0, -1);
-    await moveToCell(page, -1, -1);
+    await moveToCell(page, 4, -2);
     await waitForEvent(page, "bomb-exploded", {
       count: combatExplosionsBefore + 1,
       timeout: 15_000,
     });
-    if (await eventCount(page, "room-cleared") < combatRoomClearsBefore + 1) {
+    await waitForEvent(page, "enemy-died", {
+      count: combatEnemyDeathsBefore + 1,
+      timeout: 5_000,
+    });
+    const throwerDiedWithLure = await eventCount(page, "thrower-died") >
+      combatThrowerDeathsBefore;
+    const roomClearedWithLure = await eventCount(page, "room-cleared") >
+      combatRoomClearsBefore;
+    if (throwerDiedWithLure && !roomClearedWithLure) {
+      await waitForChaserAdjacent(page);
       combatPlacementsBefore = await eventCount(
         page,
         "place-bomb-definition-prototype-cross",
@@ -963,12 +1074,37 @@ async function main() {
         count: combatPlacementsBefore + 1,
         timeout: 5_000,
       });
-      await moveToCell(page, 0, -3);
+      await moveToCell(page, 3, -1);
+      await waitForEvent(page, "bomb-exploded", {
+        count: combatExplosionsBefore + 1,
+        timeout: 15_000,
+      });
+    } else if (!throwerDiedWithLure) {
+      await moveToCell(page, 4, 0);
+      await waitForEvent(page, "thrower-telegraph", {
+        count: combatThrowerTelegraphsBefore + 1,
+        timeout: 10_000,
+      });
+      combatPlacementsBefore = await eventCount(
+        page,
+        "place-bomb-definition-prototype-cross",
+      );
+      combatExplosionsBefore = await eventCount(page, "bomb-exploded");
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+        count: combatPlacementsBefore + 1,
+        timeout: 5_000,
+      });
+      await moveToCell(page, 3, -2, "zx");
       await waitForEvent(page, "bomb-exploded", {
         count: combatExplosionsBefore + 1,
         timeout: 15_000,
       });
     }
+    await waitForEvent(page, "thrower-died", {
+      count: combatThrowerDeathsBefore + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(page, "room-cleared", {
       count: combatRoomClearsBefore + 1,
       timeout: 5_000,
@@ -977,7 +1113,9 @@ async function main() {
     checks.push({
       name: "bomb-input",
       status: "passed",
-      detail: "Cleared the first combat room with the single starting cross-bomb slot.",
+      detail: throwerDiedWithLure
+        ? "Cleared the first combat room by intercepting the staged thrower with the first lure bomb and trapping the surviving chaser with a follow-up when required."
+        : "Cleared the first combat room with a deliberate chaser lure followed by a post-Telegraph interception of the staged thrower.",
     });
 
     await moveToCell(page, -3, 0, "zx");
@@ -1010,7 +1148,7 @@ async function main() {
       detail: "A real cross-bomb explosion destroyed room 2's cracked west exit and revealed the hidden room on the minimap.",
     });
 
-    await moveToCell(page, -3, 0);
+    await moveToCell(page, -3, 0, "zx");
     const secretReadyBefore = await eventCount(
       page,
       "dungeon-room-ready-10-secret-safe",
@@ -1066,7 +1204,8 @@ async function main() {
     });
 
     await moveToCell(page, -3, 0);
-    await moveToCell(page, 0, 0);
+    await moveToCell(page, 3, 0);
+    await moveToCell(page, 3, 4);
     await moveToCell(page, 0, 4);
     const rewardReadyBefore = await eventCount(
       page,
@@ -1134,17 +1273,48 @@ async function main() {
     await moveToCell(page, -1, -3);
     await moveToCell(page, -1, 4);
     await moveToCell(page, 0, 4);
+    const room4EntryEventStart = await page.evaluate(() =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__.length);
+    const room4ChargerTrackBefore = await eventCount(page, "charger-track-moved");
     await triggerBoundaryTransition(
       page,
       "ArrowUp",
       "dungeon-room-ready-4-combat-active",
     );
+    await waitForEvent(page, "room-ready-prototype-combat-pillars", {
+      timeout: 60_000,
+    });
+    await waitForEvent(page, "charger-track-moved", {
+      count: room4ChargerTrackBefore + 1,
+      timeout: 5_000,
+    });
+    const firstRoom4ChargerAction = await page.evaluate((startIndex) =>
+      globalThis.__BOMBSWAP_HARNESS_EVENTS__
+        .slice(startIndex)
+        .map((event) => typeof event === "string" ? event : event?.name)
+        .find((name) =>
+          name === "charger-track-moved" || name === "charger-telegraph"),
+    room4EntryEventStart);
+    if (firstRoom4ChargerAction !== "charger-track-moved") {
+      throw new Error(
+        `Expected the first Pillars charger action to be Track movement, got ${firstRoom4ChargerAction ?? "<none>"}.`,
+      );
+    }
     checks.push({
       name: "reward-to-next-combat",
       status: "passed",
       detail: "The reward room north exit committed the next uncleared combat room 4.",
     });
+    checks.push({
+      name: "charger-safe-entry-track-first",
+      status: "passed",
+      detail: "The seed-0 Pillars spawn produced Track movement before any Telegraph instead of attacking immediately on entry.",
+    });
 
+    const room4ExplosionsBefore = await eventCount(page, "bomb-exploded");
+    const room4ClearsBefore = await eventCount(page, "room-cleared");
+    await moveToCell(page, 0, -4);
+    await waitForChaserAdjacent(page);
     await page.keyboard.press("KeyZ");
     await waitForEvent(page, "place-bomb-definition-prototype-area", {
       timeout: 5_000,
@@ -1154,16 +1324,33 @@ async function main() {
       status: "passed",
       detail: "The area bomb selected before backtracking remained active and placed in room 4 without another swap input.",
     });
-
-    const room4ExplosionsBefore = await eventCount(page, "bomb-exploded");
-    const room4ClearsBefore = await eventCount(page, "room-cleared");
-    await moveToCell(page, 0, -4);
-    await waitForChaserAdjacent(page);
-    await moveToCell(page, 3, -4);
+    await moveToCell(page, -3, -4);
     await waitForEvent(page, "bomb-exploded", {
       count: room4ExplosionsBefore + 1,
       timeout: 15_000,
     });
+    if (await eventCount(page, "room-cleared") < room4ClearsBefore + 1) {
+      const room4ChargerTelegraphsBefore = await eventCount(
+        page,
+        "charger-telegraph",
+      );
+      await waitForEvent(page, "charger-telegraph", {
+        count: room4ChargerTelegraphsBefore + 1,
+        timeout: 10_000,
+      });
+      const room4CrossExplosionsBefore = await eventCount(page, "bomb-exploded");
+      await page.keyboard.press("KeyX");
+      await waitForEvent(page, "active-bomb-slot-0", { timeout: 5_000 });
+      await page.keyboard.press("KeyZ");
+      await waitForEvent(page, "place-bomb-definition-prototype-cross", {
+        timeout: 5_000,
+      });
+      await moveToCell(page, 0, -4);
+      await waitForEvent(page, "bomb-exploded", {
+        count: room4CrossExplosionsBefore + 1,
+        timeout: 15_000,
+      });
+    }
     await waitForEvent(page, "room-cleared", {
       count: room4ClearsBefore + 1,
       timeout: 5_000,
@@ -1172,7 +1359,7 @@ async function main() {
     checks.push({
       name: "second-main-path-combat-clear",
       status: "passed",
-      detail: "The BFS chaser entered the selected area bomb footprint before the player escaped east, clearing rotated loop room 4.",
+      detail: "The room-4 enemies entered the selected area bomb footprint before the player escaped east, clearing the Pillars encounter.",
     });
 
     await moveToCell(page, -3, -4);
@@ -1778,6 +1965,9 @@ async function main() {
       "dungeon-transition-started",
       "dungeon-room-committed",
       "dungeon-room-ready-2-combat-active",
+      "room-ready-prototype-combat-thrower",
+      "thrower-telegraph",
+      "thrower-bomb-launched",
       "room-ready-prototype-combat-pillars",
       "charger-track-moved",
       "move-motion-direction-west",

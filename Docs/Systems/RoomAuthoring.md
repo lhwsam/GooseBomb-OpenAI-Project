@@ -23,7 +23,7 @@
 - 출입구 위치와 방향.
 - 플레이어와 필수 추격자 spawn, 선택적 돌진형·갑옷 적·자폭병·퇴로 차단 투척병 spawn.
 - 자폭병이 있을 때 순서가 안정적인 자폭 유도 anchor 목록. 이 목록은 AI 경로 목적지가 아니라 레벨 설계·검증·플레이테스트가 의도한 폭발 위치와 결과를 공유하는 메타데이터다.
-- 투척병이 있을 때 순서가 안정적인 사격 anchor와 퇴로 차단 목표 anchor 목록. spawn은 사격 anchor에 포함되고 사격 목록은 최소 2개, 목표 목록은 반복 volley의 측면 2칸을 바꾸기 위해 정의된 발수의 최소 두 배이며 두 목록은 서로 겹치지 않는다.
+- 투척병이 있을 때 순서가 안정적인 사격 anchor와 퇴로 차단 목표 anchor 목록. spawn은 첫 사격 전 이동하는 별도 staging 셀로서 사격 anchor에 포함되지 않고, 사격 목록은 최소 2개, 목표 목록은 반복 volley의 측면 2칸을 바꾸기 위해 정의된 발수의 최소 두 배이며 두 목록은 서로 겹치지 않는다.
 - 고정 벽 셀.
 - 파괴 가능 벽 셀.
 - 플레이어 입장 안전 셀.
@@ -34,17 +34,19 @@
 
 ## 현재 수제 전투방 세트
 
-다섯 방 모두 11×9, 셀 크기 1의 `Combat` 방이며 추격자를 사용한다. 세 번째 방은 선택적 돌진형, 네 번째 방은 선택적 갑옷 적, 다섯 번째 방은 선택적 자폭병을 함께 사용한다. 네 번째 방은 장갑병의 반경 수비와 좌우 panic run을 읽기 위한 T 교차점이고, 다섯 번째 방은 자폭 위치에 따라 중앙 문 중 한쪽만 먼저 열리는 비대칭 경로 선택을 검증한다.
+메인 던전 카탈로그의 다섯 방은 모두 11×9, 셀 크기 1의 `Combat` 방이며 추격자를 사용한다. 두 번째 방은 선택적 투척병, 세 번째 방은 선택적 돌진형, 네 번째 방은 선택적 갑옷 적, 다섯 번째 방은 선택적 자폭병을 함께 사용한다. 기존 `prototype-combat-lanes` 자산과 `TestSandboxLanes` 씬은 삭제하지 않고 메인 편성 밖 Legacy 독립 테스트로 보존한다.
 
 | 순서 | ID / 자산 | spawn | 공간 의도 | 씬 / 다음 씬 |
 |---:|---|---|---|---|
-| 1 | `prototype-combat-loop` / `PrototypeCombatLoop.asset` | 플레이어 `(0, 0)`, 추격자 `(1, -1)` | 중앙 십자 고정 벽 4개, 파괴 벽 없음, 기존 전투 기준선 | `TestSandbox.unity` / `TestSandboxLanes` |
-| 2 | `prototype-combat-lanes` / `PrototypeCombatLanes.asset` | 플레이어 `(0, -2)`, 추격자 `(0, 2)` | 세로 고정 벽 6개, 파괴 벽 `(-1,-1)·(1,-1)`: spawn 광역은 둘을 대각선 동시 파괴, 십자는 미도달 | `TestSandboxLanes.unity` / `TestSandboxPillars` |
+| 1 | `prototype-combat-loop` / `PrototypeCombatLoop.asset` | 플레이어 `(0, 0)`, 추격자 `(1, -1)` | 중앙 십자 고정 벽 4개, 파괴 벽 없음, 기존 전투 기준선 | `TestSandbox.unity` / `TestSandboxThrower` |
+| 2 | `prototype-combat-thrower` / `PrototypeCombatThrower.asset` | 플레이어 `(0,-2)`, 추격자 `(-2,2)`, 투척병 staging `(3,2)` | 기존 Lanes 벽과 파괴 블록, 모든 잠재 출구에서 Manhattan 4칸 이상 떨어진 두 적, staging에서 첫 사격 anchor까지 4칸 Track, 3개 사격 anchor·6개 목표 anchor: 가장 가까운 압박점 1개와 바뀌는 측면 2개를 동시에 예고하고 공용 폭탄/연쇄를 사용 | `TestSandboxThrower.unity` / `TestSandboxPillars` |
 | 3 | `prototype-combat-pillars` / `PrototypeCombatPillars.asset` | 플레이어 `(-3, -2)`, 추격자 `(3, 2)`, 돌진형 `(-1, 1)` | 차선 종단 기둥 7개, 동쪽 파괴 종단 `(2,-2)`, 중앙 3×3 외곽 loop: seed-0 동쪽 입장 축과 어긋난 돌진형이 최소 한 Track 이동 뒤 짧은 차선을 예고하며 플레이어는 북/동 포켓으로 이탈 | `TestSandboxPillars.unity` / `TestSandboxArmor` |
 | 4 | `prototype-combat-armor` / `PrototypeCombatArmor.asset` | 플레이어 `(0, -2)`, 추격자 `(4, 4)`, 갑옷 적 `(0, 1)` | 남쪽 통로 벽 `x=±2,z=-2..-1`, 상단 막 `x=-1..1,z=2`, 좌우 종단 `(-4,0)·(4,0)`의 T 교차점, 파괴 벽 없음: 반경 수비→첫 피격 반대편 3칸 예고·질주→두 번째 선행 설치 | `TestSandboxArmor.unity` / `TestSandboxGates` |
 | 5 | `prototype-combat-gates` / `PrototypeCombatGates.asset` | 플레이어 `(0, -3)`, 추격자 `(0, 3)`, 자폭병 `(3,0)` | `z=-1·1`의 `x=-2,-1,1,2` 고정 장벽 8개와 중앙 파괴 문 `(0,-1)·(0,1)`, 자폭 유도 anchor `(0,-2)→(0,2)`: 플레이어가 추적형 자폭병을 어느 쪽으로 끄느냐에 따라 범위 2 자폭이 아래/위 문 한쪽만 먼저 연다. 첫 파괴 문이 해당 ray를 끝내며 `x=±3` 우회는 유지 | `TestSandboxGates.unity` / 없음 |
 
 다섯 방은 모두 북 `(0,4)`, 동 `(5,0)`, 남 `(0,-4)`, 서 `(-5,0)` 중앙 경계의 잠재 출구를 갖는다. 잠재 출구는 항상 열린 문이 아니라 room geometry가 지원하는 후보이며, run 그래프가 필요한 방향만 활성 문으로 선택한다. 각 방은 서로 다른 첫 cardinal 이동을 쓰는 퇴로 anchor 두 개와 닫힌 cardinal 유도 순환 경로를 소유한다. 실제 문 GameObject는 [ADR-0007](../ADR/0007-Potential-Room-Exits.md)에 따라 run 활성 부분집합을 `Inactive`·`Locked`·`Open`·`SecretWall`로 표현한다.
+
+Legacy `prototype-combat-lanes` / `PrototypeCombatLanes.asset`은 플레이어 `(0,-2)`, 추격자 `(0,2)`, 세로 고정 벽 6개와 파괴 벽 `(-1,-1)·(1,-1)`을 유지한다. `TestSandboxLanes.unity`는 던전 host·binder·미니맵·문·완료 presenter가 없고 다음 씬이 빈 독립 테스트 씬이며 enabled Build Settings와 메인 카탈로그에는 포함하지 않는다.
 
 ## 전용 보스 arena
 
@@ -62,7 +64,7 @@
 
 ## 던전 런 카탈로그
 
-`PrototypeDungeonCombatRoomCatalog.asset`은 다섯 전투방 ScriptableObject와 대응 TestSandbox 씬 이름을 명시적으로 매핑한다. 런 시작 시 `PrototypeDungeonRunSession`이 카탈로그를 Core 정의로 변환하고 결정론적 배정 결과의 room ID를 다시 Unity asset·scene으로 해석한다. 현재 방, 방문과 클리어 같은 mutable 상태는 카탈로그에 쓰지 않는다.
+`PrototypeDungeonCombatRoomCatalog.asset`은 `Loop → Thrower → Pillars → Armor → Gates` 다섯 ScriptableObject를 각각 `TestSandbox → TestSandboxThrower → TestSandboxPillars → TestSandboxArmor → TestSandboxGates`로 명시적으로 매핑한다. 런 시작 시 `PrototypeDungeonRunSession`이 카탈로그를 Core 정의로 변환하고 결정론적 배정 결과의 room ID를 다시 Unity asset·scene으로 해석한다. 현재 방, 방문과 클리어 같은 mutable 상태는 카탈로그에 쓰지 않는다.
 
 `CombatRoomRotationUtility`는 run 배정의 0/90/180/270도 회전을 방 정의 전체에 적용한다. 90/270도에서는 너비와 깊이를 교환하고 플레이어·추격자·돌진형·갑옷 적·자폭병·투척병 spawn, 자폭 anchor, 투척병 사격/목표 anchor, 고정·파괴 벽, 안전 셀, 퇴로 anchor, 유도 loop, 출구 셀과 방향을 같은 시계 방향으로 돌린다. 일부 목록이나 scene Transform만 따로 회전하는 것은 허용하지 않는다.
 
@@ -105,14 +107,15 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - Editor 메뉴 `Bomb Swap > Playtest > Play Self-Destruct Gates Room`이 동기화, 단일 씬 열기와 Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
 - 콘텐츠 validator는 Gates 권위 room 참조·spawn·장애물·필수 session/자폭 presenter, 빈 다음 씬, 던전 adapter 부재, MainCamera와 Build Settings 제외를 검사한다.
 
-## 투척병·Lanes 독립 플레이테스트 씬
+## 투척병·Lanes 독립 플레이테스트 씬과 던전 미러
 
-- `ThrowerLanesPlaytest.unity`는 전용 `prototype-combat-thrower` room asset과 일반 TestSandbox shell에서 생성하는 Editor 전용 실험이다. 현재 다섯 전투방과 던전 카탈로그에는 포함하지 않는다.
-- 권위 room은 플레이어 `(0,-2)`, 추격자 `(0,2)`, 투척병 `(0,3)`, 사격 anchor `(0,3)→(3,2)→(-3,2)`, 목표 후보 `(0,0)→(-3,-2)→(3,-2)→(-4,1)→(4,1)→(0,4)`와 기존 Lanes 벽·파괴 블록을 소유한다.
-- builder는 room·투척병 정의·전용 폭탄·collider 없는 적/Telegraph prefab을 동기화하고 던전 `RunHost`, room binder, 미니맵, 외곽 문 presenter와 완료 presenter를 제거한다. `PrototypeRoomAdvanceController`는 빈 다음 씬을 유지한다.
+- `ThrowerLanesPlaytest.unity`는 `prototype-combat-thrower` room asset과 일반 TestSandbox shell에서 생성하는 Editor 전용 실험이며 표준 enabled Build Settings에는 포함하지 않는다.
+- `TestSandboxThrower.unity`는 같은 권위 room asset을 사용하는 던전용 미러다. persistent run host·binder·미니맵·문·완료 presenter를 포함하고 메인 5개 카탈로그의 두 번째 entry와 표준 11씬 Build Settings에 들어간다.
+- 권위 room은 플레이어 `(0,-2)`, 추격자 `(-2,2)`, 투척병 staging `(3,2)`, 사격 anchor `(0,3)→(-3,2)→(3,-2)`, 목표 후보 `(0,0)→(-3,-2)→(2,-3)→(-4,1)→(4,1)→(0,2)`와 기존 Lanes 벽·파괴 블록을 소유한다. 투척병은 staging에서 4칸 떨어진 첫 anchor까지 이동한 뒤에만 첫 Telegraph를 시작한다. 두 적은 네 잠재 출구에서 모두 Manhattan 4칸 이상 떨어지고 목표 후보는 추격자 시작점의 범위 1 폭발 footprint 및 출구 셀과 겹치지 않는다. seed 0의 Clockwise90 서쪽 진입에서는 플레이어 `(4,0)`, 추격자 `(2,2)`, 투척병 `(2,-3)`, 첫 사격 anchor `(3,0)`이 된다.
+- builder는 room·투척병 정의·전용 폭탄·collider 없는 적/Telegraph prefab을 두 씬에 동기화한다. 독립 씬에서는 던전 `RunHost`, room binder, 미니맵, 외곽 문 presenter와 완료 presenter를 제거하고 `PrototypeRoomAdvanceController`의 다음 씬을 비운다. 던전 미러에는 반대 계약을 적용한다.
 - Editor 메뉴 `Bomb Swap > Playtest > Play Thrower Lanes Room`이 동기화, 단일 씬 열기와 Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
-- 표준 Build Settings enabled scene에는 넣지 않는다. 전용 WebGL 빌드는 연결 빌드 하네스에 이 scene 경로만 직접 전달하며 Build Settings 자체를 바꾸지 않는다.
-- 콘텐츠 validator는 정확한 room/정의/폭탄 수치, anchor, session·presenter·spawn, 빈 다음 씬, 던전 adapter 부재, MainCamera와 Build Settings 제외를 검사한다.
+- 전용 WebGL 빌드는 연결 빌드 하네스에 `ThrowerLanesPlaytest` 경로만 직접 전달하며 Build Settings 자체를 바꾸지 않는다. 표준 WebGL 빌드는 `TestSandboxThrower`를 포함한다.
+- 콘텐츠 validator는 두 씬의 정확한 room/정의/폭탄 수치, anchor, session·presenter·spawn을 검사한다. 독립 씬은 빈 다음 씬·던전 adapter 부재·Build Settings 제외를, 던전 미러는 host/binder/minimap/door/completion 참조와 enabled Build Settings 포함을 각각 요구한다.
 
 ## 저작 불변식
 
@@ -125,7 +128,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 고정 벽과 파괴 가능 벽을 제외한 초기 플레이 가능 셀은 모두 플레이어 spawn에서 연결되어 있다. 따라서 파괴는 진행 필수가 아니다.
 - 파괴 가능 벽은 고정 벽, spawn, 안전 셀, 퇴로 anchor, 유도 경로, 출구와 겹치지 않는다.
 - 자폭병이 있으면 유도 anchor가 하나 이상 있어야 하고 모두 초기 `Floor`이며 spawn·고정 벽·파괴 가능 벽·출구와 겹치지 않는다. 각 anchor의 기대 폭발 footprint는 저작 검증에서 확인하지만 Core AI는 목록을 읽어 목적지를 선택하지 않는다. 자폭병이 없으면 anchor 목록도 비어 있어야 한다.
-- 투척병이 있으면 사격 anchor가 최소 2개, 목표 anchor가 정의의 volley 발수의 두 배 이상이고 모두 초기 `Floor`여야 한다. spawn은 사격 목록에 포함되고 두 목록은 actor spawn·서로 간에 겹치지 않는다. 투척병이 없으면 두 목록도 비어 있어야 한다.
+- 투척병이 있으면 사격 anchor가 최소 2개, 목표 anchor가 정의의 volley 발수의 두 배 이상이고 모두 초기 `Floor`여야 한다. spawn은 사격 anchor 밖의 별도 staging 셀이며 각 잠재 출구와 Manhattan 4칸 이상 떨어지고, 첫 사격 anchor까지 최소 4칸을 이동한다. 추격자도 각 잠재 출구에서 4칸 이상 떨어지고 모든 목표 anchor의 초기 범위 1 footprint 밖이어야 하며 목표 anchor는 잠재 출구 셀과 겹치지 않는다. 두 anchor 목록은 actor spawn·서로 간에 겹치지 않는다. 투척병이 없으면 두 목록도 비어 있어야 한다.
 - 씬 spawn·장애물 Transform의 XZ 셀과 논리 메타데이터가 일치한다.
 - 회전된 room 정의의 모든 셀이 교환된 경계 안에 있고, scene `GridRoot`의 같은 Y 회전 뒤 논리 셀·시각 위치가 일치한다.
 - 폭발을 끊는 벽/기둥과 향후 파괴 가능 벽은 시각적으로 구분되어야 한다.

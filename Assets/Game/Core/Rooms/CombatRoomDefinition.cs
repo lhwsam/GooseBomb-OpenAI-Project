@@ -205,10 +205,10 @@ namespace BombSwap.Core
                         "A thrower requires at least two firing and target anchors.",
                         nameof(throwerFiringAnchors));
                 }
-                if (Array.IndexOf(throwerFiringAnchorArray, authoredThrowerSpawn) < 0)
+                if (Array.IndexOf(throwerFiringAnchorArray, authoredThrowerSpawn) >= 0)
                 {
                     throw new ArgumentException(
-                        "Thrower firing anchors must include its spawn.",
+                        "Thrower spawn must be a distinct staging cell outside its firing anchors.",
                         nameof(throwerFiringAnchors));
                 }
             }
@@ -250,8 +250,8 @@ namespace BombSwap.Core
                     (chargerSpawn.HasValue && anchor == chargerSpawn.Value) ||
                     (armoredSpawn.HasValue && anchor == armoredSpawn.Value) ||
                     (selfDestructSpawn.HasValue && anchor == selfDestructSpawn.Value) ||
-                    (throwerSpawn.HasValue && anchor != throwerSpawn.Value &&
-                     Array.IndexOf(throwerTargetAnchorArray, anchor) >= 0))
+                    (throwerSpawn.HasValue && anchor == throwerSpawn.Value) ||
+                    Array.IndexOf(throwerTargetAnchorArray, anchor) >= 0)
                 {
                     throw new ArgumentException(
                         $"Thrower firing anchor {anchor} overlaps reserved content.",

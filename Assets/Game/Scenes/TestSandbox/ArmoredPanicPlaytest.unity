@@ -1482,6 +1482,7 @@ MonoBehaviour:
   chargerSpawn: {fileID: 0}
   armoredSpawn: {fileID: 188524996}
   selfDestructSpawn: {fileID: 0}
+  throwerSpawn: {fileID: 0}
   roomDefinition: {fileID: 11400000, guid: 45d9508772be0744696d9304b9d63b4b, type: 2}
 --- !u!4 &455876710
 Transform:
@@ -1919,6 +1920,7 @@ MonoBehaviour:
   chargerDefinition: {fileID: 11400000, guid: f66ea46e897cfb94a9c9cedf31599f7f, type: 2}
   armoredDefinition: {fileID: 11400000, guid: 45f80675d52a84c43bd83d96643cb36c, type: 2}
   selfDestructDefinition: {fileID: 11400000, guid: 5f87cd37a71405e4c9d936fd5adacf6a, type: 2}
+  throwerDefinition: {fileID: 11400000, guid: 7bf2087867720e846a194de6677f26ed, type: 2}
   bossDefinition: {fileID: 11400000, guid: afe4660e2a5170945aff2fcee5100f59, type: 2}
   cellsPerSecond: 5
   chainDelaySeconds: 0.15

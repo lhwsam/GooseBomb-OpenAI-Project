@@ -18,7 +18,7 @@ MonoBehaviour:
   gridDepth: 9
   cellSize: 1
   playerSpawn: {x: 0, y: -2}
-  chaserSpawn: {x: 0, y: 2}
+  chaserSpawn: {x: -2, y: 2}
   hasCharger: 0
   chargerSpawn: {x: 0, y: 0}
   hasArmored: 0
@@ -27,18 +27,18 @@ MonoBehaviour:
   selfDestructSpawn: {x: 0, y: 0}
   selfDestructAnchors: []
   hasThrower: 1
-  throwerSpawn: {x: 0, y: 3}
+  throwerSpawn: {x: 3, y: 2}
   throwerFiringAnchors:
   - {x: 0, y: 3}
-  - {x: 3, y: 2}
   - {x: -3, y: 2}
+  - {x: 3, y: -2}
   throwerTargetAnchors:
   - {x: 0, y: 0}
   - {x: -3, y: -2}
-  - {x: 3, y: -2}
+  - {x: 2, y: -3}
   - {x: -4, y: 1}
   - {x: 4, y: 1}
-  - {x: 0, y: 4}
+  - {x: 0, y: 2}
   indestructibleWalls:
   - {x: -2, y: -1}
   - {x: -2, y: 0}

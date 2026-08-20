@@ -27,8 +27,8 @@ EditorBuildSettings:
     path: Assets/Game/Scenes/TestSandbox/TestSandbox.unity
     guid: 3dffb047c2f16df4fb8b5211136f7f17
   - enabled: 1
-    path: Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity
-    guid: f9057e58f9d33184f8a13f5575dd7d14
+    path: Assets/Game/Scenes/TestSandbox/TestSandboxThrower.unity
+    guid: 02b946f0f250da24ebd11efc5ea3d11b
   - enabled: 1
     path: Assets/Game/Scenes/TestSandbox/TestSandboxPillars.unity
     guid: 3b90612d37ce22a4cbab23d93589e656
@@ -38,6 +38,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/Scenes/TestSandbox/TestSandboxGates.unity
     guid: e289b29f5ec06f947b1d0b41be2b7988
+  - enabled: 0
+    path: Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity
+    guid: f9057e58f9d33184f8a13f5575dd7d14
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05

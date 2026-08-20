@@ -34,6 +34,7 @@
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
 - 호환성은 회전된 잠재 출구가 노드의 모든 연결 방향을 포함하는지로 판단한다. 후보 중 사용 횟수가 가장 적은 정의를 우선해 다섯 방을 한 번씩 쓰기 전 불필요한 중복을 막는다. 전투 노드가 다섯 개인 그래프에서는 현재 다섯 정의를 각각 정확히 한 번 사용한다.
 - Unity `PrototypeDungeonRunSession`은 검증된 전투방 카탈로그를 Core 정의로 변환해 그래프·배정·탐색 상태를 조합하고, 전투 노드의 definition ID를 실제 room asset·씬 이름으로 해석한다.
+- 현재 메인 카탈로그는 `Loop`, `Thrower`, `Pillars`, `Armor`, `Gates` 다섯 정의다. 기존 `Lanes`는 삭제하지 않고 독립 테스트 자산으로 보존하지만 배정 후보와 enabled Build Settings에서는 제외한다. 따라서 run당 전투방 4~5개와 카탈로그 크기 5 계약은 변하지 않는다.
 - `PrototypeDungeonSpecialRoomCatalogAsset`이 시작·폭탄 보상·보스 전실·회복·비밀·보스 타입의 서로 다른 씬 이름을 제공하며, 실제 catalog asset과 여섯 특수방 씬을 통해 run session이 모든 노드를 씬으로 해석한다.
 - `PrototypeDungeonRunNavigator`는 씬 이름과 로드 가능성을 검증한 pending 전환을 소유하고, 기대한 씬 완료 뒤에만 `DungeonRunState.TryTravel`을 호출한다. `PrototypeDungeonRunHost`는 이 상태만 방 씬 밖에 유지한다.
 - `DungeonBombLoadoutState`는 한 종류로 시작하는 run loadout, 첫 보상 후보·선택과 현재 활성 슬롯을 소유한다. Unity host와 room binder는 이 상태를 방 로컬 `PrototypeGameSession`에 주입하고 성공한 교체 사건을 다시 Core 상태에 반영해 scene 전환 뒤에도 장착 정의와 활성 슬롯을 유지한다.

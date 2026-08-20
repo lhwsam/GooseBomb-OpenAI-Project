@@ -309,8 +309,8 @@ namespace BombSwap.Tests.EditMode
                 throwerSpawn: thrower,
                 throwerFiringAnchors: new[]
                 {
-                    thrower,
                     throwerFiringAnchor,
+                    new GridPosition(1, 2),
                 },
                 throwerTargetAnchors: new[]
                 {
@@ -426,7 +426,7 @@ namespace BombSwap.Tests.EditMode
             var throwerSpawn = new GridPosition(3, 2);
             GridPosition[] firingAnchors =
             {
-                throwerSpawn,
+                new GridPosition(0, 3),
                 new GridPosition(2, 2),
             };
             GridPosition[] targetAnchors =
@@ -451,8 +451,8 @@ namespace BombSwap.Tests.EditMode
             var throwerSpawn = new GridPosition(3, 2);
             GridPosition[] firingAnchors =
             {
-                throwerSpawn,
                 new GridPosition(2, 2),
+                new GridPosition(1, 2),
             };
             GridPosition[] targetAnchors =
             {
@@ -469,7 +469,7 @@ namespace BombSwap.Tests.EditMode
                     throwerSpawn: throwerSpawn,
                     throwerFiringAnchors: new[]
                     {
-                        new GridPosition(2, 2),
+                        throwerSpawn,
                         new GridPosition(1, 2),
                     },
                     throwerTargetAnchors: targetAnchors));

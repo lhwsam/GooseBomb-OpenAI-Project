@@ -66,13 +66,15 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void Track_AtAnchorLocksNearestAuthoredRetreatInsteadOfPlayerCell()
+        public void Track_AfterReachingFirstAnchorLocksNearestAuthoredRetreatInsteadOfPlayerCell()
         {
             var clock = new ManualGameClock();
             ThrowerEnemySimulation simulation = CreateSimulation(
                 clock,
                 new GridPosition(2, -1),
-                new GridPosition(0, 2));
+                new GridPosition(0, 1));
+
+            Assert.That(simulation.Advance().HasMovement, Is.True);
 
             ThrowerEnemyAdvanceResult result = simulation.Advance();
 
@@ -91,6 +93,53 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Track_FromDistinctStagingSpawnMovesBeforeFirstTelegraph()
+        {
+            var clock = new ManualGameClock();
+            GridState grid = CreateFloorGrid();
+            Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(4, 0)), Is.True);
+            var simulation = new ThrowerEnemySimulation(
+                grid,
+                clock,
+                CreateDefinition(CreateBomb()),
+                ThrowerActor,
+                PlayerActor,
+                new GridPosition(3, 2),
+                new[]
+                {
+                    new GridPosition(0, 3),
+                    new GridPosition(-3, 2),
+                },
+                new[]
+                {
+                    new GridPosition(0, 0),
+                    new GridPosition(-3, -2),
+                    new GridPosition(2, -3),
+                    new GridPosition(-4, 1),
+                    new GridPosition(4, 1),
+                    new GridPosition(0, 2),
+                });
+
+            ThrowerEnemyAdvanceResult first = simulation.Advance();
+
+            Assert.That(first.HasMovement, Is.True);
+            Assert.That(first.HasStateTransition, Is.False);
+            Assert.That(first.State, Is.EqualTo(ThrowerEnemyState.Track));
+            Assert.That(first.Movement.To, Is.EqualTo(new GridPosition(3, 3)));
+            Assert.That(simulation.CurrentFiringAnchor, Is.EqualTo(new GridPosition(0, 3)));
+
+            for (int step = 0; step < 3; step++)
+            {
+                clock.Advance(MoveInterval);
+                Assert.That(simulation.Advance().HasMovement, Is.True);
+            }
+
+            ThrowerEnemyAdvanceResult telegraph = simulation.Advance();
+            Assert.That(telegraph.HasStateTransition, Is.True);
+            Assert.That(telegraph.State, Is.EqualTo(ThrowerEnemyState.Telegraph));
+        }
+
+        [Test]
         public void TargetTie_UsesStableAuthoredOrderAndDoesNotRetargetDuringTelegraph()
         {
             var clock = new ManualGameClock();
@@ -102,7 +151,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(CreateBomb()),
                 ThrowerActor,
                 PlayerActor,
-                new GridPosition(0, 2),
+                new GridPosition(0, 1),
                 new[] { new GridPosition(0, 2), new GridPosition(3, 2) },
                 new[]
                 {
@@ -114,6 +163,7 @@ namespace BombSwap.Tests.EditMode
                     new GridPosition(0, 3),
                 });
 
+            Assert.That(simulation.Advance().HasMovement, Is.True);
             Assert.That(simulation.Advance().LockedTarget, Is.EqualTo(new GridPosition(-3, -2)));
             Assert.That(grid.TryMoveActor(PlayerActor, new GridPosition(1, -2)), Is.True);
             clock.Advance(TimeSpan.FromSeconds(0.4));
@@ -133,7 +183,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(CreateBomb()),
                 ThrowerActor,
                 PlayerActor,
-                new GridPosition(0, 2),
+                new GridPosition(0, 1),
                 new[]
                 {
                     new GridPosition(0, 2),
@@ -150,6 +200,7 @@ namespace BombSwap.Tests.EditMode
                     new GridPosition(0, 4),
                 });
 
+            Assert.That(simulation.Advance().HasMovement, Is.True);
             ThrowerEnemyAdvanceResult first = simulation.Advance();
             Assert.That(
                 first.LockedTargets,
@@ -197,7 +248,8 @@ namespace BombSwap.Tests.EditMode
             ThrowerEnemySimulation simulation = CreateSimulation(
                 clock,
                 new GridPosition(0, -2),
-                new GridPosition(0, 2));
+                new GridPosition(0, 1));
+            Assert.That(simulation.Advance().HasMovement, Is.True);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
 
@@ -240,7 +292,8 @@ namespace BombSwap.Tests.EditMode
             ThrowerEnemySimulation simulation = CreateSimulation(
                 clock,
                 new GridPosition(0, -2),
-                new GridPosition(0, 2));
+                new GridPosition(0, 1));
+            Assert.That(simulation.Advance().HasMovement, Is.True);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
             Assert.That(simulation.Advance().ShouldLaunch, Is.True);
@@ -269,7 +322,8 @@ namespace BombSwap.Tests.EditMode
             ThrowerEnemySimulation simulation = CreateSimulation(
                 clock,
                 new GridPosition(0, -2),
-                new GridPosition(0, 2));
+                new GridPosition(0, 1));
+            Assert.That(simulation.Advance().HasMovement, Is.True);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
             simulation.Advance();
@@ -293,10 +347,6 @@ namespace BombSwap.Tests.EditMode
         {
             var clock = new ManualGameClock();
             GridState grid = CreateFloorGrid();
-            Assert.That(grid.TrySetTerrain(new GridPosition(1, 2), GridTerrain.IndestructibleWall), Is.True);
-            Assert.That(grid.TrySetTerrain(new GridPosition(0, 1), GridTerrain.IndestructibleWall), Is.True);
-            Assert.That(grid.TrySetTerrain(new GridPosition(-1, 2), GridTerrain.IndestructibleWall), Is.True);
-            Assert.That(grid.TrySetTerrain(new GridPosition(0, 3), GridTerrain.IndestructibleWall), Is.True);
             Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(0, -2)), Is.True);
             var simulation = new ThrowerEnemySimulation(
                 grid,
@@ -304,7 +354,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(CreateBomb()),
                 ThrowerActor,
                 PlayerActor,
-                new GridPosition(0, 2),
+                new GridPosition(0, 1),
                 new[] { new GridPosition(0, 2), new GridPosition(3, 2) },
                 new[]
                 {
@@ -316,6 +366,7 @@ namespace BombSwap.Tests.EditMode
                     new GridPosition(0, 4),
                 });
 
+            Assert.That(simulation.Advance().HasMovement, Is.True);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
             simulation.Advance();
@@ -323,6 +374,10 @@ namespace BombSwap.Tests.EditMode
             {
                 simulation.NotifyLaunchFailed();
             }
+            Assert.That(grid.TrySetTerrain(new GridPosition(1, 2), GridTerrain.IndestructibleWall), Is.True);
+            Assert.That(grid.TrySetTerrain(new GridPosition(0, 1), GridTerrain.IndestructibleWall), Is.True);
+            Assert.That(grid.TrySetTerrain(new GridPosition(-1, 2), GridTerrain.IndestructibleWall), Is.True);
+            Assert.That(grid.TrySetTerrain(new GridPosition(0, 3), GridTerrain.IndestructibleWall), Is.True);
             clock.Advance(RecoveryDuration);
             simulation.Advance();
             ThrowerEnemyAdvanceResult result = simulation.Advance();
@@ -332,7 +387,7 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
-        public void Constructor_RejectsDuplicateAnchorsAndStartOutsideFiringAnchors()
+        public void Constructor_RejectsDuplicateAnchorsAndStartInsideFiringAnchors()
         {
             var clock = new ManualGameClock();
             GridState grid = CreateFloorGrid();
@@ -363,7 +418,7 @@ namespace BombSwap.Tests.EditMode
                     ThrowerActor,
                     PlayerActor,
                     new GridPosition(0, 2),
-                    new[] { new GridPosition(-3, 2), new GridPosition(3, 2) },
+                    new[] { new GridPosition(0, 2), new GridPosition(3, 2) },
                     new[]
                     {
                         new GridPosition(-3, -2),
@@ -380,7 +435,7 @@ namespace BombSwap.Tests.EditMode
                     CreateDefinition(CreateBomb()),
                     ThrowerActor,
                     PlayerActor,
-                    new GridPosition(0, 2),
+                    new GridPosition(0, 1),
                     new[] { new GridPosition(0, 2), new GridPosition(3, 2) },
                     new[] { new GridPosition(-3, -2), new GridPosition(3, -2) }));
         }
@@ -397,7 +452,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(CreateBomb()),
                 ThrowerActor,
                 PlayerActor,
-                new GridPosition(0, 2),
+                new GridPosition(0, 1),
                 new[] { new GridPosition(0, 2), new GridPosition(3, 2) },
                 new[]
                 {
