@@ -4,10 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using BombSwap.Core;
+using BombSwap.Editor.UI;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
@@ -56,13 +58,13 @@ namespace BombSwap.Editor.ContentValidation
 
             public TextMeshProUGUI TitleLabel { get; set; }
 
-            public TextMeshProUGUI StatusLabel { get; set; }
-
             public Button StartButton { get; set; }
 
             public Button ControlsButton { get; set; }
 
             public Button BackButton { get; set; }
+
+            public PrototypeSettingsPanelPresenter SettingsPanel { get; set; }
         }
 
         [MenuItem("Bomb Swap/Prototype/Create Missing Prototype Content")]
@@ -107,12 +109,31 @@ namespace BombSwap.Editor.ContentValidation
                 $"Applied {PrototypeUiFactory.GameFontAssetName} as the TMP default and updated {changedLabelCount} lobby labels.");
         }
 
+        [MenuItem("Bomb Swap/Prototype/Apply Game UI Reference Resolution")]
+        public static void ApplyGameUiReferenceResolutionMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before applying the game UI reference resolution.");
+            }
+
+            bool changed = ApplyGameUiReferenceResolutionToLobbyScene();
+            Debug.Log(
+                changed
+                    ? $"Applied the {PrototypeUiFactory.ReferenceWidth:0}x{PrototypeUiFactory.ReferenceHeight:0} UI reference resolution to the lobby."
+                    : "The lobby already uses the shared UI reference resolution.");
+        }
+
         public static string CreateMissingPrototypeContent()
         {
             TMP_FontAsset gameFont = ConfigureGameDefaultFont();
-            bool lobbySceneCreated = EnsureLobbyScene();
-            ApplyGameFontToLobbyScene(gameFont);
             InputActionAsset inputActions = CreateInputActionsIfMissing();
+            AudioMixer audioMixer = LoadRequiredAsset<AudioMixer>(
+                PrototypeContentValidator.AudioMixerPath);
+            bool lobbySceneCreated = EnsureLobbyScene(inputActions, audioMixer);
+            ApplyGameFontToLobbyScene(gameFont);
+            ApplyGameUiReferenceResolutionToLobbyScene();
             PrototypeBombDefinitionAsset bombDefinition =
                 CreatePrototypeBombContentIfMissing();
             PrototypeBombDefinitionAsset areaBombDefinition =
@@ -476,7 +497,64 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static bool EnsureLobbyScene()
+        private static bool ApplyGameUiReferenceResolutionToLobbyScene()
+        {
+            string scenePath = PrototypeContentValidator.LobbyScenePath;
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                throw new InvalidOperationException(
+                    $"Lobby scene '{scenePath}' does not exist.");
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForMigration = !scene.IsValid() || !scene.isLoaded;
+            if (openedForMigration)
+            {
+                scene = EditorSceneManager.OpenScene(
+                    scenePath,
+                    OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                CanvasScaler[] scalers = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<CanvasScaler>(true))
+                    .ToArray();
+                if (scalers.Length != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Lobby scene must contain exactly one CanvasScaler, found {scalers.Length}.");
+                }
+
+                CanvasScaler scaler = scalers[0];
+                if (PrototypeUiFactory.HasReferenceCanvasScale(scaler))
+                {
+                    return false;
+                }
+
+                Undo.RecordObject(scaler, "Apply Bomb Swap UI Reference Resolution");
+                PrototypeUiFactory.ConfigureCanvasScaler(scaler);
+                EditorUtility.SetDirty(scaler);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save lobby scene '{scenePath}' after applying the UI reference resolution.");
+                }
+                return true;
+            }
+            finally
+            {
+                if (openedForMigration && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static bool EnsureLobbyScene(
+            InputActionAsset inputActions,
+            AudioMixer audioMixer)
         {
             EnsureAssetFolder("Assets/Game/Scenes/Lobby");
             EnsureAssetFolder(MaterialsPath);
@@ -498,9 +576,26 @@ namespace BombSwap.Editor.ContentValidation
 
             try
             {
-                if (created || LobbySceneNeedsAuthoredUi(scene))
+                PrototypeLobbyPresenter lobby = FindLobbyPresenter(scene);
+                bool changed = false;
+                if (created || lobby == null || !lobby.HasBaseAuthoredViewReferences)
                 {
-                    SynchronizeLobbyScene(scene);
+                    SynchronizeLobbyScene(scene, inputActions, audioMixer);
+                    changed = true;
+                }
+                else if (!lobby.HasAuthoredViewReferences)
+                {
+                    UpgradeLobbySettings(lobby, inputActions, audioMixer);
+                    changed = true;
+                }
+
+                if (LobbyButtonFeedbackAuthoring.ApplyToScene(scene) > 0)
+                {
+                    changed = true;
+                }
+
+                if (changed)
+                {
                     EditorSceneManager.MarkSceneDirty(scene);
                     bool saved = created
                         ? EditorSceneManager.SaveScene(scene, scenePath)
@@ -523,17 +618,58 @@ namespace BombSwap.Editor.ContentValidation
             return created;
         }
 
-        private static bool LobbySceneNeedsAuthoredUi(Scene scene)
+        private static PrototypeLobbyPresenter FindLobbyPresenter(Scene scene)
         {
             PrototypeLobbyPresenter[] presenters = scene.GetRootGameObjects()
                 .SelectMany(root =>
                     root.GetComponentsInChildren<PrototypeLobbyPresenter>(true))
                 .ToArray();
-            return presenters.Length != 1 ||
-                   !presenters[0].HasAuthoredViewReferences;
+            return presenters.Length == 1 ? presenters[0] : null;
         }
 
-        private static void SynchronizeLobbyScene(Scene scene)
+        private static void UpgradeLobbySettings(
+            PrototypeLobbyPresenter presenter,
+            InputActionAsset inputActions,
+            AudioMixer audioMixer)
+        {
+            GameObject systems = presenter.gameObject;
+            PrototypeUserSettingsRuntime settingsRuntime =
+                systems.GetComponent<PrototypeUserSettingsRuntime>();
+            if (settingsRuntime == null)
+            {
+                settingsRuntime = systems.AddComponent<PrototypeUserSettingsRuntime>();
+            }
+            settingsRuntime.Configure(inputActions, audioMixer);
+
+            Transform panelParent = presenter.ControlsPanel.transform.parent;
+            UnityEngine.Object.DestroyImmediate(presenter.ControlsPanel);
+            PrototypeSettingsPanelPresenter settingsPanel =
+                PrototypeSettingsPanelFactory.Create(panelParent);
+
+            TextMeshProUGUI controlsButtonLabel =
+                presenter.ControlsButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (controlsButtonLabel != null)
+            {
+                controlsButtonLabel.text = "설정";
+            }
+            presenter.BindAuthoredView(
+                presenter.LobbyCanvas,
+                presenter.LobbyEventSystem,
+                settingsPanel.gameObject,
+                presenter.TitleLabel,
+                presenter.StatusLabel,
+                presenter.StartButton,
+                presenter.ControlsButton,
+                settingsPanel.BackButton,
+                settingsRuntime,
+                settingsPanel);
+            EditorUtility.SetDirty(presenter);
+        }
+
+        private static void SynchronizeLobbyScene(
+            Scene scene,
+            InputActionAsset inputActions,
+            AudioMixer audioMixer)
         {
             foreach (GameObject existingRoot in scene.GetRootGameObjects())
             {
@@ -572,6 +708,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeLobbyPresenter presenter =
                 systems.AddComponent<PrototypeLobbyPresenter>();
             presenter.Configure(PrototypeLobbyPresenter.DefaultStartSceneName);
+            PrototypeUserSettingsRuntime settingsRuntime =
+                systems.AddComponent<PrototypeUserSettingsRuntime>();
+            settingsRuntime.Configure(inputActions, audioMixer);
 
             Transform stage = CreateChild("LobbyStage", root.transform);
             CreatePrimitive(
@@ -676,10 +815,12 @@ namespace BombSwap.Editor.ContentValidation
                 ui.EventSystem,
                 ui.ControlsPanel,
                 ui.TitleLabel,
-                ui.StatusLabel,
+                null,
                 ui.StartButton,
                 ui.ControlsButton,
-                ui.BackButton);
+                ui.BackButton,
+                settingsRuntime,
+                ui.SettingsPanel);
             EditorUtility.SetDirty(presenter);
 
             CreateLobbyCamera(root.transform);
@@ -3369,6 +3510,11 @@ namespace BombSwap.Editor.ContentValidation
             systems.SetActive(false);
             BombSwapInputReader inputReader = systems.AddComponent<BombSwapInputReader>();
             inputReader.Configure(inputActions);
+            PrototypeUserSettingsRuntime settingsRuntime =
+                systems.AddComponent<PrototypeUserSettingsRuntime>();
+            settingsRuntime.Configure(
+                inputActions,
+                LoadRequiredAsset<AudioMixer>(PrototypeContentValidator.AudioMixerPath));
             PrototypeGameSession gameSession = systems.AddComponent<PrototypeGameSession>();
             PrototypePlayerController playerController =
                 systems.AddComponent<PrototypePlayerController>();
@@ -3592,6 +3738,15 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeInputHarnessProbe harnessProbe = FindExactlyOne<PrototypeInputHarnessProbe>(scene);
 
             GameObject systems = inputReader.gameObject;
+            PrototypeUserSettingsRuntime settingsRuntime =
+                systems.GetComponent<PrototypeUserSettingsRuntime>();
+            if (settingsRuntime == null)
+            {
+                settingsRuntime = systems.AddComponent<PrototypeUserSettingsRuntime>();
+            }
+            settingsRuntime.Configure(
+                inputReader.InputActions,
+                LoadRequiredAsset<AudioMixer>(PrototypeContentValidator.AudioMixerPath));
             PrototypeGameSession gameSession = systems.GetComponent<PrototypeGameSession>();
             if (gameSession == null)
             {
@@ -4316,10 +4471,7 @@ namespace BombSwap.Editor.ContentValidation
             canvas.sortingOrder = 300;
 
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
 
             RectTransform shade = PrototypeUiFactory.CreateRect(
                 "BackgroundShade",
@@ -4383,7 +4535,7 @@ namespace BombSwap.Editor.ContentValidation
             Button controlsButton = PrototypeUiFactory.CreateButton(
                 "ControlsButton",
                 menuPanel,
-                "조작 방법",
+                "설정",
                 29f,
                 new Color(0.12f, 0.2f, 0.3f, 1f),
                 new Color(0.2f, 0.42f, 0.58f, 1f));
@@ -4392,76 +4544,8 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector2(0.17f, 0.23f),
                 new Vector2(0.83f, 0.35f));
 
-            TextMeshProUGUI statusLabel = PrototypeUiFactory.CreateText(
-                "StatusText",
-                menuPanel,
-                19f,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal,
-                TextWrappingModes.Normal);
-            SetRectAnchors(
-                statusLabel.rectTransform,
-                new Vector2(0.08f, 0.08f),
-                new Vector2(0.92f, 0.19f));
-            statusLabel.text = "키보드 / 게임패드 / 마우스 지원";
-            statusLabel.color = new Color(0.62f, 0.7f, 0.8f, 1f);
-
-            RectTransform controlsPanel = PrototypeUiFactory.CreateRect(
-                "ControlsPanel",
-                shade);
-            SetRectAnchors(
-                controlsPanel,
-                new Vector2(0.2f, 0.14f),
-                new Vector2(0.8f, 0.86f));
-            Image controlsPanelImage =
-                controlsPanel.gameObject.AddComponent<Image>();
-            controlsPanelImage.color = new Color(0.018f, 0.028f, 0.045f, 0.98f);
-
-            TextMeshProUGUI heading = PrototypeUiFactory.CreateText(
-                "HeadingText",
-                controlsPanel,
-                44f,
-                TextAlignmentOptions.Center,
-                FontStyles.Bold);
-            SetRectAnchors(
-                heading.rectTransform,
-                new Vector2(0.08f, 0.78f),
-                new Vector2(0.92f, 0.94f));
-            heading.text = "조작 방법";
-            heading.color = new Color(1f, 0.78f, 0.26f, 1f);
-
-            TextMeshProUGUI instructions = PrototypeUiFactory.CreateText(
-                "InstructionsText",
-                controlsPanel,
-                25f,
-                TextAlignmentOptions.Left,
-                FontStyles.Normal,
-                TextWrappingModes.Normal);
-            SetRectAnchors(
-                instructions.rectTransform,
-                new Vector2(0.12f, 0.29f),
-                new Vector2(0.88f, 0.77f));
-            instructions.text =
-                "이동   WASD / 방향키 / 왼쪽 스틱\n" +
-                "폭탄 설치   Z / 게임패드 South\n" +
-                "폭탄 교체   X / 게임패드 West\n" +
-                "일시정지   ESC / 게임패드 Start\n\n" +
-                "폭탄이 터질 위치를 미리 설계하고,\n" +
-                "두 폭탄을 번갈아 사용해 적을 유인하세요.";
-            instructions.color = new Color(0.86f, 0.9f, 0.96f, 1f);
-
-            Button backButton = PrototypeUiFactory.CreateButton(
-                "BackButton",
-                controlsPanel,
-                "돌아가기",
-                28f,
-                new Color(0.12f, 0.2f, 0.3f, 1f),
-                new Color(0.2f, 0.42f, 0.58f, 1f));
-            SetRectAnchors(
-                backButton.GetComponent<RectTransform>(),
-                new Vector2(0.3f, 0.1f),
-                new Vector2(0.7f, 0.23f));
-            controlsPanel.gameObject.SetActive(false);
+            PrototypeSettingsPanelPresenter settingsPanel =
+                PrototypeSettingsPanelFactory.Create(shade);
 
             var eventSystemObject = new GameObject(
                 "LobbyEventSystem",
@@ -4473,12 +4557,12 @@ namespace BombSwap.Editor.ContentValidation
             {
                 Canvas = canvas,
                 EventSystem = eventSystemObject.GetComponent<EventSystem>(),
-                ControlsPanel = controlsPanel.gameObject,
+                ControlsPanel = settingsPanel.gameObject,
                 TitleLabel = titleLabel,
-                StatusLabel = statusLabel,
                 StartButton = startButton,
                 ControlsButton = controlsButton,
-                BackButton = backButton,
+                BackButton = settingsPanel.BackButton,
+                SettingsPanel = settingsPanel,
             };
         }
 

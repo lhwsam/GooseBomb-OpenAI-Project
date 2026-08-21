@@ -138,6 +138,7 @@ namespace BombSwap
         private bool _bossSummonedSelfDestruct;
         private TimeSpan _bossSelfDestructForceAt;
         private bool _isPaused;
+        private PrototypePausePresenter _pausePresenter;
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
@@ -1442,6 +1443,12 @@ namespace BombSwap
 
             if (command.Kind == PlayerCommandKind.Pause)
             {
+                if (_isPaused &&
+                    _pausePresenter != null &&
+                    _pausePresenter.TryHandlePauseCommand())
+                {
+                    return;
+                }
                 TogglePause();
                 return;
             }
@@ -1486,14 +1493,22 @@ namespace BombSwap
             PauseStateChanged?.Invoke(_isPaused);
         }
 
+        public void ResumeFromPause()
+        {
+            if (_isPaused)
+            {
+                TogglePause();
+            }
+        }
+
         private void EnsurePausePresenter()
         {
-            PrototypePausePresenter presenter = GetComponent<PrototypePausePresenter>();
-            if (presenter == null)
+            _pausePresenter = GetComponent<PrototypePausePresenter>();
+            if (_pausePresenter == null)
             {
-                presenter = gameObject.AddComponent<PrototypePausePresenter>();
+                _pausePresenter = gameObject.AddComponent<PrototypePausePresenter>();
             }
-            presenter.Configure(this);
+            _pausePresenter.Configure(this);
         }
 
         private static bool Contains(

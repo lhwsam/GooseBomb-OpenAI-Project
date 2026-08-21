@@ -9,7 +9,39 @@ namespace BombSwap
 {
     public static class PrototypeUiFactory
     {
-        public const string GameFontAssetName = "DungGeunMo SDF";
+        public const string GameFontAssetName = "DungGeunMo";
+        public const string AlternateGameFontAssetName = "DNFBitBitv2";
+        public const float ReferenceWidth = 960f;
+        public const float ReferenceHeight = 600f;
+        public const float ReferenceMatchWidthOrHeight = 0.5f;
+
+        public static Vector2 ReferenceResolution =>
+            new Vector2(ReferenceWidth, ReferenceHeight);
+
+        public static void ConfigureCanvasScaler(CanvasScaler scaler)
+        {
+            if (scaler == null)
+            {
+                throw new ArgumentNullException(nameof(scaler));
+            }
+
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = ReferenceResolution;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = ReferenceMatchWidthOrHeight;
+        }
+
+        public static bool HasReferenceCanvasScale(CanvasScaler scaler)
+        {
+            return scaler != null &&
+                   scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize &&
+                   scaler.referenceResolution == ReferenceResolution &&
+                   scaler.screenMatchMode ==
+                   CanvasScaler.ScreenMatchMode.MatchWidthOrHeight &&
+                   Mathf.Approximately(
+                       scaler.matchWidthOrHeight,
+                       ReferenceMatchWidthOrHeight);
+        }
 
         public static TMP_FontAsset RequireGameFont()
         {
@@ -28,6 +60,19 @@ namespace BombSwap
                     $"TextMesh Pro default font is '{font.name}', expected '{GameFontAssetName}'.");
             }
             return font;
+        }
+
+        public static bool IsSupportedGameFont(TMP_FontAsset font)
+        {
+            return font != null &&
+                   (string.Equals(
+                        font.name,
+                        GameFontAssetName,
+                        StringComparison.Ordinal) ||
+                    string.Equals(
+                        font.name,
+                        AlternateGameFontAssetName,
+                        StringComparison.Ordinal));
         }
 
         public static RectTransform CreateRect(string objectName, Transform parent)
@@ -101,7 +146,53 @@ namespace BombSwap
             buttonLabel.rectTransform.offsetMin = new Vector2(18f, 4f);
             buttonLabel.rectTransform.offsetMax = new Vector2(-18f, -4f);
             buttonLabel.text = label;
+
+            PrototypeButtonScaleFeedback feedback =
+                rect.gameObject.AddComponent<PrototypeButtonScaleFeedback>();
+            feedback.Configure(rect);
             return button;
+        }
+
+        public static Slider CreateSlider(
+            string objectName,
+            Transform parent,
+            Color fillColor,
+            Color handleColor)
+        {
+            RectTransform root = CreateRect(objectName, parent);
+            Image background = root.gameObject.AddComponent<Image>();
+            background.color = new Color(0.09f, 0.12f, 0.17f, 1f);
+
+            RectTransform fillArea = CreateRect("FillArea", root);
+            fillArea.anchorMin = new Vector2(0f, 0.2f);
+            fillArea.anchorMax = new Vector2(1f, 0.8f);
+            fillArea.offsetMin = new Vector2(8f, 0f);
+            fillArea.offsetMax = new Vector2(-8f, 0f);
+
+            RectTransform fill = CreateRect("Fill", fillArea);
+            Image fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.color = fillColor;
+
+            RectTransform handleArea = CreateRect("HandleSlideArea", root);
+            handleArea.anchorMin = Vector2.zero;
+            handleArea.anchorMax = Vector2.one;
+            handleArea.offsetMin = new Vector2(8f, 0f);
+            handleArea.offsetMax = new Vector2(-8f, 0f);
+
+            RectTransform handle = CreateRect("Handle", handleArea);
+            handle.sizeDelta = new Vector2(18f, 34f);
+            Image handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = handleColor;
+
+            Slider slider = root.gameObject.AddComponent<Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.wholeNumbers = false;
+            return slider;
         }
 
         public static EventSystem EnsureEventSystem()
