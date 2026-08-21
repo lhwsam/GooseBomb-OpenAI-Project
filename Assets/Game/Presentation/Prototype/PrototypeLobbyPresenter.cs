@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -42,6 +43,12 @@ namespace BombSwap
         [SerializeField]
         private Button backButton;
 
+        [SerializeField]
+        private PrototypeUserSettingsRuntime settingsRuntime;
+
+        [SerializeField]
+        private PrototypeSettingsPanelPresenter settingsPanel;
+
         private bool _isStarting;
 
         public string StartSceneName => startSceneName;
@@ -56,7 +63,7 @@ namespace BombSwap
 
         public TextMeshProUGUI StatusLabel => statusLabel;
 
-        public string TitleText => titleLabel != null ? titleLabel.text : string.Empty;
+        public string TitleText => ComposeTitleText(titleLabel);
 
         public string StatusText => statusLabel != null ? statusLabel.text : string.Empty;
 
@@ -66,15 +73,25 @@ namespace BombSwap
 
         public Button BackButton => backButton;
 
-        public bool HasAuthoredViewReferences =>
+        public PrototypeUserSettingsRuntime SettingsRuntime => settingsRuntime;
+
+        public PrototypeSettingsPanelPresenter SettingsPanel => settingsPanel;
+
+        public bool HasBaseAuthoredViewReferences =>
             lobbyCanvas != null &&
             eventSystem != null &&
             controlsPanel != null &&
             titleLabel != null &&
-            statusLabel != null &&
             startButton != null &&
             controlsButton != null &&
             backButton != null;
+
+        public bool HasAuthoredViewReferences =>
+            HasBaseAuthoredViewReferences &&
+            settingsRuntime != null &&
+            settingsPanel != null &&
+            settingsRuntime.HasRequiredReferences &&
+            settingsPanel.HasAuthoredViewReferences;
 
         public bool IsControlsVisible =>
             controlsPanel != null && controlsPanel.activeSelf;
@@ -108,7 +125,9 @@ namespace BombSwap
             TextMeshProUGUI authoredStatusLabel,
             Button authoredStartButton,
             Button authoredControlsButton,
-            Button authoredBackButton)
+            Button authoredBackButton,
+            PrototypeUserSettingsRuntime authoredSettingsRuntime,
+            PrototypeSettingsPanelPresenter authoredSettingsPanel)
         {
             if (Application.isPlaying)
             {
@@ -124,6 +143,8 @@ namespace BombSwap
             startButton = authoredStartButton;
             controlsButton = authoredControlsButton;
             backButton = authoredBackButton;
+            settingsRuntime = authoredSettingsRuntime;
+            settingsPanel = authoredSettingsPanel;
         }
 
         private void OnEnable()
@@ -135,9 +156,11 @@ namespace BombSwap
 
             ValidateConfiguration();
             controlsPanel.SetActive(false);
+            settingsPanel.Configure(settingsRuntime, HideControls);
+            EnsureTextColorTarget(startButton);
+            EnsureTextColorTarget(controlsButton);
             startButton.onClick.AddListener(StartNewRun);
             controlsButton.onClick.AddListener(ShowControls);
-            backButton.onClick.AddListener(HideControls);
         }
 
         private void OnDisable()
@@ -150,10 +173,6 @@ namespace BombSwap
             {
                 controlsButton.onClick.RemoveListener(ShowControls);
             }
-            if (backButton != null)
-            {
-                backButton.onClick.RemoveListener(HideControls);
-            }
         }
 
         private void Start()
@@ -164,6 +183,9 @@ namespace BombSwap
             }
 
             eventSystem.SetSelectedGameObject(startButton.gameObject);
+            startButton
+                .GetComponent<PrototypeButtonScaleFeedback>()
+                .SuppressSelectionVisualUntilInteraction();
             WebGlHarnessReporter.Report("lobby-ready");
         }
 
@@ -183,7 +205,7 @@ namespace BombSwap
             StartRequestCount++;
             startButton.interactable = false;
             controlsButton.interactable = false;
-            statusLabel.text = "던전을 준비하는 중...";
+            SetStatus("던전을 준비하는 중...");
             WebGlHarnessReporter.Report("lobby-start-requested");
             try
             {
@@ -194,7 +216,7 @@ namespace BombSwap
                 _isStarting = false;
                 startButton.interactable = true;
                 controlsButton.interactable = true;
-                statusLabel.text = "시작하지 못했습니다. 다시 시도해 주세요.";
+                SetStatus("시작하지 못했습니다. 다시 시도해 주세요.");
                 throw;
             }
         }
@@ -206,9 +228,8 @@ namespace BombSwap
                 return;
             }
 
-            controlsPanel.SetActive(true);
-            eventSystem.SetSelectedGameObject(backButton.gameObject);
-            WebGlHarnessReporter.Report("lobby-controls-opened");
+            settingsPanel.Open();
+            WebGlHarnessReporter.Report("lobby-settings-opened");
         }
 
         public void HideControls()
@@ -218,7 +239,7 @@ namespace BombSwap
                 return;
             }
 
-            controlsPanel.SetActive(false);
+            settingsPanel.HideImmediately();
             eventSystem.SetSelectedGameObject(controlsButton.gameObject);
         }
 
@@ -232,27 +253,98 @@ namespace BombSwap
             if (!HasAuthoredViewReferences)
             {
                 throw new InvalidOperationException(
-                    "PrototypeLobbyPresenter requires scene-authored Canvas, EventSystem, labels, panels, and buttons.");
+                    "PrototypeLobbyPresenter requires a scene-authored Canvas, EventSystem, title, panels, and buttons.");
+            }
+            if (!HasTextColorFeedback(startButton) ||
+                !HasTextColorFeedback(controlsButton))
+            {
+                throw new InvalidOperationException(
+                    "Lobby main menu buttons require TMP labels and PrototypeButtonScaleFeedback components.");
             }
             if (lobbyCanvas.gameObject.scene != gameObject.scene ||
                 eventSystem.gameObject.scene != gameObject.scene ||
-                controlsPanel.scene != gameObject.scene)
+                controlsPanel.scene != gameObject.scene ||
+                settingsRuntime.gameObject.scene != gameObject.scene ||
+                settingsPanel.gameObject.scene != gameObject.scene)
             {
                 throw new InvalidOperationException(
                     "PrototypeLobbyPresenter view references must belong to the lobby scene.");
             }
 
-            TMP_FontAsset font = PrototypeUiFactory.RequireGameFont();
+            PrototypeUiFactory.RequireGameFont();
             TextMeshProUGUI[] labels = lobbyCanvas.GetComponentsInChildren<
                 TextMeshProUGUI>(true);
             for (int index = 0; index < labels.Length; index++)
             {
-                if (labels[index].font != font)
+                if (!PrototypeUiFactory.IsSupportedGameFont(labels[index].font))
                 {
                     throw new InvalidOperationException(
-                        $"Lobby label '{labels[index].name}' must use {PrototypeUiFactory.GameFontAssetName}.");
+                        $"Lobby label '{labels[index].name}' must use {PrototypeUiFactory.GameFontAssetName} or {PrototypeUiFactory.AlternateGameFontAssetName}.");
                 }
             }
+        }
+
+        private static bool HasTextColorFeedback(Button button)
+        {
+            return button != null &&
+                   button.GetComponent<PrototypeButtonScaleFeedback>() != null &&
+                   button.GetComponentInChildren<TextMeshProUGUI>(true) != null;
+        }
+
+        private static void EnsureTextColorTarget(Button button)
+        {
+            button
+                .GetComponent<PrototypeButtonScaleFeedback>()
+                .EnsureColorTarget(
+                    button.GetComponentInChildren<TextMeshProUGUI>(true));
+        }
+
+        private void SetStatus(string message)
+        {
+            if (statusLabel != null)
+            {
+                statusLabel.text = message;
+            }
+        }
+
+        private static string ComposeTitleText(TextMeshProUGUI primaryLabel)
+        {
+            if (primaryLabel == null)
+            {
+                return string.Empty;
+            }
+
+            string primaryText = (primaryLabel.text ?? string.Empty).Trim();
+            if (string.Equals(primaryText, GameTitle, StringComparison.Ordinal) ||
+                primaryLabel.transform.parent == null)
+            {
+                return primaryText;
+            }
+
+            TextMeshProUGUI[] titleParts = primaryLabel.transform.parent
+                .GetComponentsInChildren<TextMeshProUGUI>(true);
+            if (titleParts.Length <= 1)
+            {
+                return primaryText;
+            }
+
+            var composedTitle = new StringBuilder();
+            for (int index = 0; index < titleParts.Length; index++)
+            {
+                string part = (titleParts[index].text ?? string.Empty).Trim();
+                if (string.IsNullOrEmpty(part))
+                {
+                    continue;
+                }
+
+                if (composedTitle.Length > 0)
+                {
+                    composedTitle.Append(' ');
+                }
+                composedTitle.Append(part);
+            }
+
+            return composedTitle.ToString();
         }
     }
 }

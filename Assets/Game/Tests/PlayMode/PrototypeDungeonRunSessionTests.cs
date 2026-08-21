@@ -10,6 +10,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace BombSwap.Tests.PlayMode
 {
@@ -1933,6 +1934,10 @@ namespace BombSwap.Tests.PlayMode
         public IEnumerator RunHost_ExitsFinishedRunToLobbyAndLobbyStartsCleanRun()
         {
             Scene loadedScene = default;
+            Keyboard pauseKeyboard = null;
+            InputAction pauseAction = null;
+            int pauseBindingIndex = -1;
+            string previousPauseOverride = null;
             try
             {
                 GameObject hostRoot = CreateGameObject("LobbyExitDungeonRunHost");
@@ -1973,14 +1978,72 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(lobby.HasAuthoredViewReferences, Is.True);
                 Assert.That(lobby.LobbyCanvas.gameObject.scene, Is.EqualTo(loadedScene));
                 Assert.That(lobby.LobbyCanvas.name, Is.EqualTo("LobbyCanvas"));
+                CanvasScaler lobbyScaler = lobby.LobbyCanvas.GetComponent<CanvasScaler>();
+                Assert.That(
+                    PrototypeUiFactory.HasReferenceCanvasScale(lobbyScaler),
+                    Is.True);
                 Assert.That(lobby.LobbyEventSystem.gameObject.scene, Is.EqualTo(loadedScene));
                 Assert.That(lobby.StartButton, Is.Not.Null);
                 Assert.That(lobby.ControlsButton, Is.Not.Null);
                 Assert.That(lobby.BackButton, Is.Not.Null);
+                PrototypeButtonScaleFeedback startFeedback =
+                    lobby.StartButton.GetComponent<PrototypeButtonScaleFeedback>();
+                PrototypeButtonScaleFeedback settingsFeedback =
+                    lobby.ControlsButton.GetComponent<PrototypeButtonScaleFeedback>();
+                Assert.That(
+                    startFeedback.ColorTarget,
+                    Is.SameAs(
+                        lobby.StartButton.GetComponentInChildren<
+                            TextMeshProUGUI>(true)));
+                Assert.That(
+                    settingsFeedback.ColorTarget,
+                    Is.SameAs(
+                        lobby.ControlsButton.GetComponentInChildren<
+                            TextMeshProUGUI>(true)));
+                Assert.That(
+                    lobby.LobbyEventSystem.currentSelectedGameObject,
+                    Is.SameAs(lobby.StartButton.gameObject));
+                Assert.That(
+                    startFeedback.VisualTarget.localScale,
+                    Is.EqualTo(Vector3.one));
+                Assert.That(
+                    startFeedback.ColorTarget.color,
+                    Is.EqualTo(startFeedback.StartColor));
                 Assert.That(lobby.IsControlsVisible, Is.False);
+                Assert.That(lobby.SettingsRuntime, Is.Not.Null);
+                Assert.That(lobby.SettingsRuntime.HasRequiredReferences, Is.True);
+                Assert.That(lobby.SettingsPanel, Is.Not.Null);
+                Assert.That(
+                    lobby.SettingsPanel.KeyboardBindingCount,
+                    Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                Assert.That(
+                    lobby.SettingsRuntime.AudioMixer.GetFloat(
+                        PrototypeUserSettingsRuntime.MasterVolumeParameter,
+                        out _),
+                    Is.True);
+                Assert.That(
+                    lobby.SettingsRuntime.AudioMixer.GetFloat(
+                        PrototypeUserSettingsRuntime.BgmVolumeParameter,
+                        out _),
+                    Is.True);
+                Assert.That(
+                    lobby.SettingsRuntime.AudioMixer.GetFloat(
+                        PrototypeUserSettingsRuntime.SfxVolumeParameter,
+                        out _),
+                    Is.True);
 
                 lobby.ShowControls();
                 Assert.That(lobby.IsControlsVisible, Is.True);
+                Assert.That(lobby.SettingsPanel.IsControlsPageVisible, Is.True);
+                Assert.That(
+                    lobby.SettingsPanel
+                        .GetComponentsInChildren<TextMeshProUGUI>(true)
+                        .Any(label =>
+                            label.text.Contains("게임패드") ||
+                            label.text.Contains("Gamepad")),
+                    Is.False);
+                lobby.SettingsPanel.ShowAudioPage();
+                Assert.That(lobby.SettingsPanel.IsControlsPageVisible, Is.False);
                 lobby.HideControls();
                 Assert.That(lobby.IsControlsVisible, Is.False);
 
@@ -1990,8 +2053,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(labels, Is.Not.Empty);
                 Assert.That(
                     labels.All(label =>
-                        label.font != null &&
-                        label.font.name == PrototypeUiFactory.GameFontAssetName),
+                        PrototypeUiFactory.IsSupportedGameFont(label.font)),
                     Is.True);
 
                 lobby.StartNewRun();
@@ -2010,9 +2072,77 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     startedHost.RunSession.CurrentRoomId,
                     Is.EqualTo(startedHost.RunSession.Graph.StartRoomId));
+
+                PrototypeGameSession gameSession =
+                    UnityEngine.Object.FindObjectsByType<PrototypeGameSession>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                pauseAction = gameSession.InputReader.InputActions.FindAction(
+                    BombSwapInputActionNames.Pause,
+                    true);
+                Guid pauseBindingId = Guid.Parse(
+                    "afedc0a1-6906-45b8-90ce-f0eebf188ab2");
+                for (int index = 0; index < pauseAction.bindings.Count; index++)
+                {
+                    if (pauseAction.bindings[index].id == pauseBindingId)
+                    {
+                        pauseBindingIndex = index;
+                        break;
+                    }
+                }
+                Assert.That(pauseBindingIndex, Is.GreaterThanOrEqualTo(0));
+                previousPauseOverride =
+                    pauseAction.bindings[pauseBindingIndex].overridePath;
+                pauseAction.ApplyBindingOverride(
+                    pauseBindingIndex,
+                    "<Keyboard>/escape");
+                pauseKeyboard = InputSystem.AddDevice<Keyboard>();
+
+                PressAndRelease(pauseKeyboard, Key.Escape);
+                yield return null;
+
+                Assert.That(gameSession.IsPaused, Is.True);
+                PrototypePausePresenter pausePresenter =
+                    gameSession.GetComponent<PrototypePausePresenter>();
+                Assert.That(pausePresenter.IsVisible, Is.True);
+                Button pauseSettingsButton = pausePresenter
+                    .GetComponentsInChildren<Button>(true)
+                    .Single(button => button.name == "SettingsButton");
+                pauseSettingsButton.onClick.Invoke();
+                Assert.That(pausePresenter.IsSettingsOpen, Is.True);
+                Assert.That(pausePresenter.SettingsPanel, Is.Not.Null);
+                Assert.That(
+                    pausePresenter.SettingsPanel.KeyboardBindingCount,
+                    Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+
+                PressAndRelease(pauseKeyboard, Key.Escape);
+                yield return null;
+                Assert.That(gameSession.IsPaused, Is.True);
+                Assert.That(pausePresenter.IsSettingsOpen, Is.False);
+
+                PressAndRelease(pauseKeyboard, Key.Escape);
+                yield return null;
+                Assert.That(gameSession.IsPaused, Is.False);
             }
             finally
             {
+                if (pauseAction != null && pauseBindingIndex >= 0)
+                {
+                    if (string.IsNullOrEmpty(previousPauseOverride))
+                    {
+                        pauseAction.RemoveBindingOverride(pauseBindingIndex);
+                    }
+                    else
+                    {
+                        pauseAction.ApplyBindingOverride(
+                            pauseBindingIndex,
+                            previousPauseOverride);
+                    }
+                }
+                if (pauseKeyboard != null && pauseKeyboard.added)
+                {
+                    InputSystem.RemoveDevice(pauseKeyboard);
+                }
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
                         FindObjectsInactive.Include);
@@ -2034,6 +2164,14 @@ namespace BombSwap.Tests.PlayMode
             }
 
             yield return null;
+        }
+
+        private static void PressAndRelease(Keyboard keyboard, Key key)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
+            InputSystem.Update();
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            InputSystem.Update();
         }
 
         [Test]

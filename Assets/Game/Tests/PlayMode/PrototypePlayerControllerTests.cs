@@ -329,7 +329,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.IsPaused, Is.True);
             Assert.That(pausePresenter.IsVisible, Is.True);
             Assert.That(pausePresenter.ShowCount, Is.EqualTo(1));
-            Assert.That(pausePresenter.StatusText, Does.Contain("RESUME"));
+            Assert.That(pausePresenter.StatusText, Does.Contain("게임 계속"));
             GridSubcellPosition pausedPosition = _session.CurrentMovementPosition;
             int pausedSlot = _session.ActiveBombSlotIndex;
 
