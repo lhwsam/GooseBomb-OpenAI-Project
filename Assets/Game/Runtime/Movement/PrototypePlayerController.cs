@@ -7,24 +7,17 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypePlayerController : MonoBehaviour
     {
-        private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
-
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform playerTransform;
 
-        [SerializeField]
-        private Animator animator;
-
         private GridSpace _gridSpace;
         private float _presentationHeight;
         public PrototypeGameSession Session => session;
 
         public Transform PlayerTransform => playerTransform;
-
-        public Animator Animator => animator;
 
         public float CellsPerSecond => session != null ? session.CellsPerSecond : 0f;
 
@@ -121,10 +114,6 @@ namespace BombSwap
             }
 
             playerTransform.rotation = ToPresentationRotation(session.FacingDirection);
-            if (animator != null)
-            {
-                animator.SetBool(IsMovingParameterId, session.IsPlayerMoving);
-            }
         }
 
         private Vector3 ToPresentationPosition(GridSubcellPosition position)

@@ -250,6 +250,31 @@ namespace BombSwap.Tests.PlayMode
             }
         }
 
+        [Test]
+        public void PlayerAnimationPresenter_ConfigureAssignsSessionAndAnimator()
+        {
+            var root = new GameObject("PlayerAnimatorConfigureTest");
+            root.SetActive(false);
+            try
+            {
+                PrototypeGameSession session = root.AddComponent<PrototypeGameSession>();
+                PrototypePlayerAnimationPresenter presenter =
+                    root.AddComponent<PrototypePlayerAnimationPresenter>();
+                var player = new GameObject("Player");
+                player.transform.SetParent(root.transform, false);
+                Animator playerAnimator = player.AddComponent<Animator>();
+
+                presenter.Configure(session, playerAnimator);
+
+                Assert.That(presenter.Session, Is.SameAs(session));
+                Assert.That(presenter.Animator, Is.SameAs(playerAnimator));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         [UnityTest]
         public IEnumerator RoomAuthority_DrivesSandboxGridAndAuthoredSpawns()
         {

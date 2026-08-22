@@ -7,6 +7,9 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeChaserPresenter : MonoBehaviour
     {
+        private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
+        private static readonly int AttackParameterId = Animator.StringToHash("Attack");
+        private static readonly int DieParameterId = Animator.StringToHash("Die");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -21,6 +24,7 @@ namespace BombSwap
 
         private GameObject _instance;
         private Renderer _renderer;
+        private Animator _animator;
         private MaterialPropertyBlock _propertyBlock;
         private int _colorPropertyId;
         private Color _normalColor;
@@ -41,6 +45,10 @@ namespace BombSwap
         public int MoveCount { get; private set; }
 
         public int DeathCount { get; private set; }
+
+        public int AttackAnimationCount { get; private set; }
+
+        public Animator Animator => _animator;
 
         public bool IsInitialized { get; private set; }
 
@@ -81,7 +89,9 @@ namespace BombSwap
             }
 
             session.ChaserMoved += OnChaserMoved;
+            session.PlayerDamaged += OnPlayerDamaged;
             session.EnemyDied += OnEnemyDied;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -94,7 +104,9 @@ namespace BombSwap
             if (session != null)
             {
                 session.ChaserMoved -= OnChaserMoved;
+                session.PlayerDamaged -= OnPlayerDamaged;
                 session.EnemyDied -= OnEnemyDied;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             if (_instance != null)
@@ -104,6 +116,11 @@ namespace BombSwap
 
             _instance = null;
             _renderer = null;
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+            }
+            _animator = null;
             IsInitialized = false;
             _isInterpolating = false;
             _isShowingDeath = false;
@@ -111,6 +128,11 @@ namespace BombSwap
 
         private void Update()
         {
+            if (session != null && session.IsPaused)
+            {
+                return;
+            }
+
             if (_isInterpolating && _instance != null)
             {
                 _visualElapsed += Time.deltaTime;
@@ -123,6 +145,7 @@ namespace BombSwap
                 {
                     _instance.transform.position = _visualTarget;
                     _isInterpolating = false;
+                    SetMovingAnimation(false);
                 }
             }
 
@@ -155,6 +178,13 @@ namespace BombSwap
             _instance = Instantiate(definition.ChaserPrefab, presentationRoot);
             _instance.name = "PrototypeChaserVisual";
             _renderer = _instance.GetComponentInChildren<Renderer>(true);
+            _animator = _instance.GetComponentInChildren<Animator>(true);
+            if (_animator != null)
+            {
+                _animator.applyRootMotion = false;
+                _animator.speed = session.IsPaused ? 0f : 1f;
+                _animator.SetBool(IsMovingParameterId, false);
+            }
             InitializeColor();
             _visualDuration = 1f / definition.CellsPerSecond;
             _visualTarget = ToPresentationPosition(session.CurrentChaserGridPosition);
@@ -181,6 +211,29 @@ namespace BombSwap
             _visualTarget = ToPresentationPosition(step.To);
             _visualElapsed = 0f;
             _isInterpolating = true;
+            Vector3 facing = _visualTarget - _visualStart;
+            facing.y = 0f;
+            if (facing.sqrMagnitude > 0.0001f)
+            {
+                _instance.transform.rotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
+            }
+            SetMovingAnimation(true);
+        }
+
+        private void OnPlayerDamaged(PlayerDamageResult damage)
+        {
+            if (!damage.WasApplied ||
+                damage.SourceKind != PlayerDamageSourceKind.EnemyContact ||
+                damage.SourceActorId != session.ChaserActorId)
+            {
+                return;
+            }
+
+            AttackAnimationCount++;
+            if (_animator != null)
+            {
+                _animator.SetTrigger(AttackParameterId);
+            }
         }
 
         private void OnEnemyDied(EnemyDamageResult damage)
@@ -196,9 +249,31 @@ namespace BombSwap
 
             DeathCount++;
             _isInterpolating = false;
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, false);
+                _animator.ResetTrigger(AttackParameterId);
+                _animator.SetTrigger(DieParameterId);
+            }
             ApplyColor(deathColor);
             _deathEndsAt = Time.unscaledTime + session.ChaserDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (_animator != null)
+            {
+                _animator.speed = isPaused ? 0f : 1f;
+            }
+        }
+
+        private void SetMovingAnimation(bool isMoving)
+        {
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, isMoving);
+            }
         }
 
         private void InitializeColor()

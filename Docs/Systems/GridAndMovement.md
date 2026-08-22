@@ -25,7 +25,7 @@
 
 카메라, 애니메이션, 발자국 VFX는 이 시스템의 권위 상태가 아니다.
 
-`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 매 frame 진행하고 `PrototypePlayerController`가 Core 연속 위치를 placeholder Transform으로 표현한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
+`BombSwapInputReader`와 `CardinalInputInterpreter`가 키보드·게임패드 값을 `PlayerCommand.Move`의 네 방향 또는 `None`으로 변환한다. TestSandbox에서는 `PrototypeGameSession`이 공유 논리 격자의 `PlayerMovementSimulation`을 매 frame 진행하고 `PrototypePlayerController`가 Core 연속 위치와 방향을 플레이어 Transform으로 표현한다. `PrototypePlayerAnimationPresenter`는 세션의 이동 상태와 성공한 폭탄 설치·사망·일시정지 사건만 Animator의 `IsMoving`, `PlaceBomb`, `Die`, 재생 속도로 변환하며 논리 상태를 소유하지 않는다. Base Layer는 Idle·Run·Die 전신 동작을 담당하고, 몸통·머리·양팔만 활성화한 Avatar Mask의 `Upper Body` override 레이어가 PlaceBomb을 담당해 이동 중 하체 Run을 보존한다. 입력의 상세 계약은 `InputAndCommands.md`가 소유한다.
 
 같은 TestSandbox의 `ChaserEnemySimulation`은 별도 `ActorId`로 같은 격자를 점유하며 0.5초 cadence, 재계획 시점의 BFS 거리장과 최대 두 칸 방향 유지로 플레이어를 추격한다. 선택적 `ChargerEnemySimulation`은 1초 cadence의 BFS로 가장 가까운 유효 행/열 정렬 셀을 획득하고, 예고 시작 순간 방향과 최대 돌진 거리를 잠근 뒤 한 셀씩 돌진한다. 목적 셀의 벽·actor·폭탄 점유는 `GridState.TryMoveActor`가 플레이어와 동일한 원자적 계약으로 차단하고, 각 presenter는 확정된 step만 상태별 속도로 3D placeholder에 보간한다.
 
@@ -55,7 +55,7 @@
 - 방향 변경은 별도 셀 cadence나 pending queue 없이 다음 관찰 frame의 이동 축에 적용한다. 상하좌우만 허용하므로 한 frame의 변위는 한 축에만 생긴다.
 - 셀 경계를 통과할 때 `GridState.TryMoveActor`로 정수 점유를 전이하고 `PlayerMovementStep`을 발행한다. 큰 frame은 열린 각 셀을 순서대로 검사해 장애물을 건너뛰지 않는다.
 - 목적 셀이 막히면 플레이어는 현재 셀 중심보다 그 목적지 쪽으로 진행하지 않는다. 반대 경계에서 들어온 진행도만 중심까지 정리할 수 있다.
-- `PrototypeGameSession`은 TestSandbox의 11×9 바닥과 논리 장애물을 이동·폭탄 simulation에 공유하고 연속 위치 변경을 Unity 표현에 알린다. `PrototypePlayerController`는 독립 보간 없이 Core 위치를 직접 표시한다.
+- `PrototypeGameSession`은 TestSandbox의 11×9 바닥과 논리 장애물을 이동·폭탄 simulation에 공유하고 연속 위치 변경을 Unity 표현에 알린다. `PrototypePlayerController`는 독립 보간 없이 Core 위치와 방향을 직접 표시하고, `PrototypePlayerAnimationPresenter`는 같은 세션의 확정 상태와 사건을 canonical 플레이어 prefab의 Animator에 전달한다.
 - room asset의 고정 벽은 `IndestructibleWall`, 파괴 가능 벽은 `DestructibleWall`로 초기화된다. 둘 다 이동·설치를 막고, 확정 폭발이 파괴 가능 벽을 `Floor`로 바꾼 뒤부터 같은 셀 전이 규칙으로 통과할 수 있다.
 
 ## 구현된 Unity 좌표 계약

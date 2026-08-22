@@ -1320,25 +1320,9 @@ namespace BombSwap.Editor.ContentValidation
 
         private static PrototypeChaserDefinitionAsset CreatePrototypeChaserContentIfMissing()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
-            {
-                throw new InvalidOperationException("Required URP Lit shader was not found.");
-            }
-
-            EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Enemies");
-            Material chaserMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/Chaser.mat",
-                shader,
-                new Color(0.18f, 0.82f, 0.38f, 1f));
-            GameObject chaserPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.ChaserPrefabPath,
-                "ChaserPlaceholder",
-                PrimitiveType.Capsule,
-                Vector3.zero,
-                new Vector3(0.36f, 0.45f, 0.36f),
-                chaserMaterial);
+            GameObject chaserPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.ChaserPrefabPath);
 
             PrototypeChaserDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeChaserDefinitionAsset>(
@@ -1359,8 +1343,8 @@ namespace BombSwap.Editor.ContentValidation
                 2f,
                 2,
                 chaserPrefab,
-                0.45f,
-                0.12f);
+                0f,
+                2.2f);
             EditorUtility.SetDirty(definition);
             return definition;
         }
@@ -3350,10 +3334,6 @@ namespace BombSwap.Editor.ContentValidation
                 MaterialsPath + "/GridLine.mat",
                 shader,
                 new Color(0.28f, 0.39f, 0.48f, 1f));
-            Material playerMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/Player.mat",
-                shader,
-                new Color(1f, 0.69f, 0.12f, 1f));
             Material destructibleWallMaterial = GetOrCreateMaterial(
                 PrototypeContentValidator.DestructibleWallMaterialPath,
                 shader,
@@ -3372,6 +3352,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeGameSession gameSession = systems.AddComponent<PrototypeGameSession>();
             PrototypePlayerController playerController =
                 systems.AddComponent<PrototypePlayerController>();
+            PrototypePlayerAnimationPresenter playerAnimationPresenter =
+                systems.AddComponent<PrototypePlayerAnimationPresenter>();
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
             PrototypeDestructibleWallPresenter destructibleWallPresenter =
                 systems.AddComponent<PrototypeDestructibleWallPresenter>();
@@ -3503,18 +3485,13 @@ namespace BombSwap.Editor.ContentValidation
                     0f,
                     selfDestructCell.Z * cellSize);
             }
-            GameObject player = CreatePrimitive(
-                "PlayerPlaceholder",
-                PrimitiveType.Capsule,
+            Transform player = SynchronizePlayerPresentation(
                 gridRoot.transform,
+                null,
                 new Vector3(
                     room.PlayerSpawn.X * cellSize,
-                    0.5f,
-                    room.PlayerSpawn.Z * cellSize),
-                new Vector3(0.35f, 0.5f, 0.35f),
-                playerMaterial,
-                true);
-            player.tag = "Player";
+                    0f,
+                    room.PlayerSpawn.Z * cellSize));
             Transform runtimePresentation = CreateChild("RuntimePresentation", gridRoot.transform);
 
             CreateCamera(root.transform);
@@ -3528,7 +3505,7 @@ namespace BombSwap.Editor.ContentValidation
                 inputReader,
                 gridRoot.transform,
                 playerSpawn,
-                player.transform,
+                player,
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
@@ -3544,7 +3521,9 @@ namespace BombSwap.Editor.ContentValidation
                 startingArmored: armoredDefinition,
                 startingBoss: bossDefinition,
                 startingSelfDestruct: selfDestructDefinition);
-            playerController.Configure(gameSession, player.transform);
+            Animator playerAnimator = player.GetComponentInChildren<Animator>(true);
+            playerController.Configure(gameSession, player);
+            playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
@@ -3592,6 +3571,13 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeInputHarnessProbe harnessProbe = FindExactlyOne<PrototypeInputHarnessProbe>(scene);
 
             GameObject systems = inputReader.gameObject;
+            PrototypePlayerAnimationPresenter playerAnimationPresenter =
+                systems.GetComponent<PrototypePlayerAnimationPresenter>();
+            if (playerAnimationPresenter == null)
+            {
+                playerAnimationPresenter =
+                    systems.AddComponent<PrototypePlayerAnimationPresenter>();
+            }
             PrototypeGameSession gameSession = systems.GetComponent<PrototypeGameSession>();
             if (gameSession == null)
             {
@@ -3746,9 +3732,10 @@ namespace BombSwap.Editor.ContentValidation
                 room);
             var gridSpace = new GridSpace(context.GridRoot.position, roomDefinition.CellSize);
             context.PlayerSpawn.position = gridSpace.GridToWorld(room.PlayerSpawn);
-            Vector3 playerPosition = gridSpace.GridToWorld(room.PlayerSpawn);
-            playerPosition.y = context.PlayerPlaceholder.position.y;
-            context.PlayerPlaceholder.position = playerPosition;
+            Transform player = SynchronizePlayerPresentation(
+                context.GridRoot,
+                context.PlayerPlaceholder,
+                gridSpace.GridToWorld(room.PlayerSpawn));
             chaserSpawn.position = gridSpace.GridToWorld(room.ChaserSpawn);
             if (room.ChargerSpawn.HasValue)
             {
@@ -3769,7 +3756,7 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             Renderer playerRenderer =
-                context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
+                player.GetComponentInChildren<Renderer>();
             if (playerRenderer == null)
             {
                 throw new InvalidOperationException(
@@ -3780,7 +3767,7 @@ namespace BombSwap.Editor.ContentValidation
                 inputReader,
                 context.GridRoot,
                 context.PlayerSpawn,
-                context.PlayerPlaceholder,
+                player,
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
@@ -3799,7 +3786,9 @@ namespace BombSwap.Editor.ContentValidation
                 startingBoss: bossDefinition,
                 startingSelfDestruct: selfDestructDefinition,
                 startingThrower: throwerDefinition);
-            playerController.Configure(gameSession, context.PlayerPlaceholder);
+            Animator playerAnimator = player.GetComponentInChildren<Animator>(true);
+            playerController.Configure(gameSession, player);
+            playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, playerRenderer);
@@ -3820,6 +3809,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(context);
             EditorUtility.SetDirty(gameSession);
             EditorUtility.SetDirty(playerController);
+            EditorUtility.SetDirty(playerAnimationPresenter);
             EditorUtility.SetDirty(bombPresenter);
             EditorUtility.SetDirty(destructibleWallPresenter);
             EditorUtility.SetDirty(healthPresenter);
@@ -3835,6 +3825,67 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);
             EditorUtility.SetDirty(roomAdvanceController);
+        }
+
+        private static Transform SynchronizePlayerPresentation(
+            Transform gridRoot,
+            Transform currentPlayer,
+            Vector3 worldPosition)
+        {
+            if (gridRoot == null)
+            {
+                throw new ArgumentNullException(nameof(gridRoot));
+            }
+
+            GameObject playerPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.PlayerPrefabPath);
+            GameObject source = currentPlayer != null
+                ? PrefabUtility.GetCorrespondingObjectFromOriginalSource(
+                    currentPlayer.gameObject)
+                : null;
+            bool usesCanonicalPrefab = source != null && string.Equals(
+                AssetDatabase.GetAssetPath(source),
+                PrototypeContentValidator.PlayerPrefabPath,
+                StringComparison.Ordinal);
+
+            Transform player = currentPlayer;
+            if (!usesCanonicalPrefab)
+            {
+                if (currentPlayer != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(currentPlayer.gameObject);
+                }
+
+                GameObject instance = PrefabUtility.InstantiatePrefab(
+                    playerPrefab,
+                    gridRoot) as GameObject;
+                if (instance == null)
+                {
+                    throw new InvalidOperationException(
+                        "Unity failed to instantiate the canonical player prefab.");
+                }
+
+                player = instance.transform;
+            }
+
+            player.SetParent(gridRoot, true);
+            player.position = worldPosition;
+            player.rotation = Quaternion.identity;
+            player.localScale = Vector3.one;
+
+            Animator[] animators = player.GetComponentsInChildren<Animator>(true);
+            Renderer[] renderers = player.GetComponentsInChildren<Renderer>(true);
+            if (!player.CompareTag("Player") ||
+                animators.Length != 1 ||
+                renderers.Length == 0 ||
+                player.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                player.GetComponentsInChildren<Rigidbody>(true).Length != 0)
+            {
+                throw new InvalidOperationException(
+                    "Canonical player instance has invalid tag, Animator, Renderer, or physics components.");
+            }
+
+            return player;
         }
 
         private static void SetSerializedObjectName(
