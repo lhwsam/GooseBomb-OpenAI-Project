@@ -82,7 +82,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - Telegraph 종료 뒤 서로 다른 세 목표로 0.45초 표현 비행을 동시에 시작한다. 비행 중에는 아직 격자를 점유하는 폭탄이 아니며, 각 착탄 순간 같은 `BombSimulation`에 `ActorId(7)` 소유 폭탄으로 설치해 fuse·벽 차단·0.15초 연쇄 지연을 기존 폭탄과 공유한다.
 - 착탄 셀을 다른 폭탄이 먼저 점유하면 재조준하거나 중복 생성하지 않고 해당 발만 실패한다. 같은 volley의 나머지 발은 독립적으로 착탄한다. 비행 대기 수와 모든 활성 BombId가 해제될 때까지 다음 volley를 만들지 않으며, 이후 다음 저작 사격 anchor를 순환한다.
 - 투척병은 자기 폭탄 피해를 무시하지만 플레이어·다른 적 소유 폭발에는 체력 1 규칙으로 사망한다. 사망과 actor 점유 제거는 한 번만 처리되고 마지막 적이면 기존 단일 방 클리어를 사용한다.
-- `PrototypeThrowerPresenter`는 collider 없는 보라색 placeholder를 확정 Core 이동 cadence로 보간하고, 재사용하는 자홍색 셀 3개로 잠긴 목표를 표시한다. `PrototypeBombPresenter`는 세 포물선 비행을 각각 풀링 표현한 뒤 성공 착탄 시 대응 폭탄 표현으로 넘긴다.
+- `PrototypeThrowerPresenter`는 collider와 Rigidbody가 없는 `ThrowerPig` 프리팹을 확정 Core 이동 cadence로 보간한다. Track 이동은 Idle/Walk, Telegraph 진입은 Throw, Recover는 Idle, 사망은 terminal Die 표현으로 변환하고 Root Motion은 사용하지 않는다. 재사용하는 자홍색 셀 3개로 잠긴 목표를 표시하며, `PrototypeBombPresenter`는 세 포물선 비행을 각각 풀링 표현한 뒤 성공 착탄 시 대응 폭탄 표현으로 넘긴다.
 - `prototype-combat-thrower`는 메인 던전의 `TestSandboxThrower`와 독립 `ThrowerLanesPlaytest.unity`가 함께 사용하는 권위 room이다. 플레이어 `(0,-2)`, 추격자 `(-2,2)`, 투척병 staging `(3,2)`, 사격 anchor `(0,3)·(-3,2)·(3,-2)`, 목표 후보 `(0,0)·(-3,-2)·(2,-3)·(-4,1)·(4,1)·(0,2)`를 사용한다. 첫 공격은 중앙·하단 양측 3칸을 사용하고 다음 사격 위치에서는 중앙 압박점과 다른 측면 2칸을 조합한다. staging→첫 사격 anchor는 4칸이며 두 적은 모든 잠재 출구에서 4칸 이상 떨어진다. 추격자 시작점은 모든 초기 목표 폭발 반경 밖이므로 입장 직후 첫 적 폭탄이 일반병을 자동 처치하지 않는다.
 
 ## 불변식

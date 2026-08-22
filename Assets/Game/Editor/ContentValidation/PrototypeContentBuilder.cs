@@ -1723,7 +1723,7 @@ namespace BombSwap.Editor.ContentValidation
                 bombDefinition,
                 enemyPrefab,
                 telegraphPrefab,
-                0.5f,
+                0f,
                 0.12f);
             EditorUtility.SetDirty(definition);
             return definition;

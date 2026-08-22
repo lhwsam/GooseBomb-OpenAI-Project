@@ -178,7 +178,17 @@ namespace BombSwap.Editor.ContentValidation
         public const string SelfDestructTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/SelfDestructTelegraphCellPlaceholder.prefab";
         public const string ThrowerPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/ThrowerPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/ThrowerPig.prefab";
+        public const string ThrowerAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/AC_Thrower_Pig.controller";
+        public const string ThrowerIdleClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-idle.fbx";
+        public const string ThrowerWalkClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-walk.fbx";
+        public const string ThrowerThrowClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-throw.fbx";
+        public const string ThrowerDieClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-die.fbx";
         public const string ThrowerTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ThrowerTelegraphCellPlaceholder.prefab";
         public const string BossPrefabPath =
@@ -1529,6 +1539,76 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype thrower definition has inconsistent bomb or presentation references.");
             }
+            if (definition.EnemyPrefab != null)
+            {
+                Animator[] animators =
+                    definition.EnemyPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.EnemyPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.EnemyPrefab.GetComponentInChildren<Collider>(true) != null ||
+                    definition.EnemyPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        ThrowerAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateThrowerAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical thrower prefab requires one valid Humanoid Animator " +
+                        "with Idle/Walk/Throw/Die states, a skinned renderer, " +
+                        "disabled root motion, and no Collider or Rigidbody.");
+                }
+            }
+        }
+
+        private static bool ValidateThrowerAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 4 ||
+                controller.parameters.Count(parameter => parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1 ||
+                controller.parameters.Count(parameter => parameter.name == "Throw" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter => parameter.name == "Recover" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter => parameter.name == "Die" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "ThrowerIdle");
+            AnimatorState walk = FindSingleAnimatorState(machine, "ThrowerWalk");
+            AnimatorState throwState = FindSingleAnimatorState(machine, "ThrowerThrow");
+            AnimatorState die = FindSingleAnimatorState(machine, "ThrowerDie");
+            if (idle == null || walk == null || throwState == null || die == null ||
+                machine.states.Length != 4 || machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), ThrowerIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(walk.motion), ThrowerWalkClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(throwState.motion), ThrowerThrowClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(die.motion), ThrowerDieClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, walk, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(walk.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(idle.transitions, throwState, "Throw", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(walk.transitions, throwState, "Throw", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(throwState.transitions, idle, "Recover", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && walk.transitions.Length == 2 &&
+                   throwState.transitions.Length == 1 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 1 &&
+                   !machine.anyStateTransitions[0].canTransitionToSelf;
         }
 
         private static bool HasMinimumExitDistance(
