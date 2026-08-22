@@ -8,6 +8,12 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeChargerPresenter : MonoBehaviour
     {
+        private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
+        private static readonly int TrackParameterId = Animator.StringToHash("Track");
+        private static readonly int TelegraphParameterId = Animator.StringToHash("Telegraph");
+        private static readonly int ChargeParameterId = Animator.StringToHash("Charge");
+        private static readonly int RecoverParameterId = Animator.StringToHash("Recover");
+        private static readonly int DieParameterId = Animator.StringToHash("Die");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -31,6 +37,7 @@ namespace BombSwap
 
         private GameObject _instance;
         private Renderer _renderer;
+        private Animator _animator;
         private MaterialPropertyBlock _propertyBlock;
         private int _colorPropertyId;
         private Color _normalColor;
@@ -38,7 +45,7 @@ namespace BombSwap
         private Vector3 _visualTarget;
         private float _visualElapsed;
         private float _visualDuration;
-        private float _deathEndsAt;
+        private float _deathRemaining;
         private bool _isInterpolating;
         private bool _isShowingDeath;
         private readonly List<GameObject> _telegraphCells = new List<GameObject>();
@@ -54,6 +61,8 @@ namespace BombSwap
         public int StateChangeCount { get; private set; }
 
         public int DeathCount { get; private set; }
+
+        public Animator Animator => _animator;
 
         public bool IsInitialized { get; private set; }
 
@@ -99,6 +108,7 @@ namespace BombSwap
 
             session.ChargerAdvanced += OnChargerAdvanced;
             session.EnemyDied += OnEnemyDied;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -112,6 +122,7 @@ namespace BombSwap
             {
                 session.ChargerAdvanced -= OnChargerAdvanced;
                 session.EnemyDied -= OnEnemyDied;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             if (_instance != null)
@@ -128,6 +139,11 @@ namespace BombSwap
 
             _instance = null;
             _renderer = null;
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+            }
+            _animator = null;
             _telegraphCells.Clear();
             ActiveTelegraphCellCount = 0;
             IsInitialized = false;
@@ -137,6 +153,11 @@ namespace BombSwap
 
         private void Update()
         {
+            if (session != null && session.IsPaused)
+            {
+                return;
+            }
+
             if (_isInterpolating && _instance != null)
             {
                 _visualElapsed += Time.deltaTime;
@@ -149,13 +170,21 @@ namespace BombSwap
                 {
                     _instance.transform.position = _visualTarget;
                     _isInterpolating = false;
+                    if (CurrentState == ChargerEnemyState.Track)
+                    {
+                        SetMovingAnimation(false);
+                    }
                 }
             }
 
-            if (_isShowingDeath && _instance != null && Time.unscaledTime >= _deathEndsAt)
+            if (_isShowingDeath && _instance != null)
             {
-                _instance.SetActive(false);
-                _isShowingDeath = false;
+                _deathRemaining -= Time.unscaledDeltaTime;
+                if (_deathRemaining <= 0f)
+                {
+                    _instance.SetActive(false);
+                    _isShowingDeath = false;
+                }
             }
         }
 
@@ -182,6 +211,13 @@ namespace BombSwap
             _instance = Instantiate(definition.ChargerPrefab, presentationRoot);
             _instance.name = "PrototypeChargerVisual";
             _renderer = _instance.GetComponentInChildren<Renderer>(true);
+            _animator = _instance.GetComponentInChildren<Animator>(true);
+            if (_animator != null)
+            {
+                _animator.applyRootMotion = false;
+                _animator.speed = session.IsPaused ? 0f : 1f;
+                _animator.SetBool(IsMovingParameterId, false);
+            }
             InitializeColor();
             _visualDuration = 1f / definition.ChargeCellsPerSecond;
             _visualTarget = ToPresentationPosition(session.CurrentChargerGridPosition);
@@ -189,6 +225,7 @@ namespace BombSwap
             _instance.transform.position = _visualTarget;
             _instance.SetActive(session.IsChargerAlive);
             CurrentState = session.CurrentChargerState;
+            ApplyAnimationState(CurrentState);
             ApplyStateColor(CurrentState);
             if (CurrentState == ChargerEnemyState.Telegraph)
             {
@@ -216,6 +253,7 @@ namespace BombSwap
             {
                 StateChangeCount++;
                 CurrentState = result.State;
+                ApplyAnimationState(CurrentState);
                 ApplyStateColor(CurrentState);
                 if (CurrentState == ChargerEnemyState.Telegraph)
                 {
@@ -239,6 +277,17 @@ namespace BombSwap
                 _visualTarget = ToPresentationPosition(result.Movement.To);
                 _visualElapsed = 0f;
                 _isInterpolating = true;
+                Vector3 facing = _visualTarget - _visualStart;
+                facing.y = 0f;
+                if (facing.sqrMagnitude > 0.0001f)
+                {
+                    _instance.transform.rotation =
+                        Quaternion.LookRotation(facing.normalized, Vector3.up);
+                }
+                if (result.State == ChargerEnemyState.Track)
+                {
+                    SetMovingAnimation(true);
+                }
             }
         }
 
@@ -256,9 +305,70 @@ namespace BombSwap
             DeathCount++;
             _isInterpolating = false;
             HideTelegraphLane();
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, false);
+                ResetLivingTriggers();
+                _animator.SetTrigger(DieParameterId);
+            }
             ApplyColor(deathColor);
-            _deathEndsAt = Time.unscaledTime + session.ChargerDefinition.DeathVisualSeconds;
+            _deathRemaining = session.ChargerDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (_animator != null)
+            {
+                _animator.speed = isPaused ? 0f : 1f;
+            }
+        }
+
+        private void ApplyAnimationState(ChargerEnemyState state)
+        {
+            if (_animator == null)
+            {
+                return;
+            }
+
+            ResetLivingTriggers();
+            switch (state)
+            {
+                case ChargerEnemyState.Track:
+                    _animator.SetBool(IsMovingParameterId, false);
+                    _animator.SetTrigger(TrackParameterId);
+                    break;
+                case ChargerEnemyState.Telegraph:
+                    _animator.SetBool(IsMovingParameterId, false);
+                    _animator.SetTrigger(TelegraphParameterId);
+                    break;
+                case ChargerEnemyState.Charge:
+                    _animator.SetBool(IsMovingParameterId, false);
+                    _animator.SetTrigger(ChargeParameterId);
+                    break;
+                case ChargerEnemyState.Recover:
+                    _animator.SetBool(IsMovingParameterId, false);
+                    _animator.SetTrigger(RecoverParameterId);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
+            }
+        }
+
+        private void ResetLivingTriggers()
+        {
+            _animator.ResetTrigger(TrackParameterId);
+            _animator.ResetTrigger(TelegraphParameterId);
+            _animator.ResetTrigger(ChargeParameterId);
+            _animator.ResetTrigger(RecoverParameterId);
+        }
+
+        private void SetMovingAnimation(bool isMoving)
+        {
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, isMoving);
+            }
         }
 
         private void InitializeColor()

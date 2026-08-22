@@ -1404,8 +1404,8 @@ namespace BombSwap.Editor.ContentValidation
                 1f,
                 chargerPrefab,
                 chargerTelegraphCellPrefab,
-                0.45f,
-                0.12f);
+                0f,
+                2.2f);
             EditorUtility.SetDirty(definition);
             return definition;
         }
