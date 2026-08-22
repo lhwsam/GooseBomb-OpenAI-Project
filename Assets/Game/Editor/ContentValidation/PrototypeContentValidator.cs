@@ -192,7 +192,25 @@ namespace BombSwap.Editor.ContentValidation
         public const string ThrowerTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ThrowerTelegraphCellPlaceholder.prefab";
         public const string BossPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BossPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/BossPig.prefab";
+        public const string BossAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/AC_Boss_Pig.controller";
+        public const string BossIdleClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-idle.fbx";
+        public const string BossWalkClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-walk.fbx";
+        public const string BossTelegraphClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-telegraph.fbx";
+        public const string BossChargeClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-charge.fbx";
+        public const string BossSummonClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-summon.fbx";
+        public const string BossThrowLeftClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-throw-left.fbx";
+        public const string BossThrowRightClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-throw-right.fbx";
+        public const string BossDieClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-die.fbx";
         public const string BossDangerCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossDangerCellPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
@@ -1398,6 +1416,31 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype boss presentation prefabs must not contain Colliders; logical grid owns collision.");
             }
+            if (definition.BossPrefab != null)
+            {
+                Animator[] animators =
+                    definition.BossPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.BossPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.BossPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        BossAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateBossAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical boss prefab requires one valid Humanoid Animator with the " +
+                        "Idle/Walk/Telegraph/Charge/Summon/alternating Throw/Die contract, " +
+                        "a skinned renderer, disabled root motion, and no Rigidbody.");
+                }
+            }
 
             PrototypeCombatRoomDefinitionAsset shell =
                 AssetDatabase.LoadAssetAtPath<PrototypeCombatRoomDefinitionAsset>(
@@ -1445,6 +1488,94 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add($"Missing prototype boss arena: {PrototypeBossArenaDefinitionPath}");
             }
+        }
+
+        private static bool ValidateBossAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 8 ||
+                !HasSingleAnimatorParameter(controller, "Alive", AnimatorControllerParameterType.Bool) ||
+                !HasSingleAnimatorParameter(controller, "IsMoving", AnimatorControllerParameterType.Bool) ||
+                !HasSingleAnimatorParameter(controller, "Telegraph", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "Charge", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "Summon", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "ThrowLeft", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "ThrowRight", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "Die", AnimatorControllerParameterType.Trigger))
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "BossIdle");
+            AnimatorState walk = FindSingleAnimatorState(machine, "BossWalk");
+            AnimatorState telegraph = FindSingleAnimatorState(machine, "BossTelegraph");
+            AnimatorState charge = FindSingleAnimatorState(machine, "BossCharge");
+            AnimatorState summon = FindSingleAnimatorState(machine, "BossSummon");
+            AnimatorState throwLeft = FindSingleAnimatorState(machine, "BossThrowLeft");
+            AnimatorState throwRight = FindSingleAnimatorState(machine, "BossThrowRight");
+            AnimatorState die = FindSingleAnimatorState(machine, "BossDie");
+            if (idle == null || walk == null || telegraph == null || charge == null ||
+                summon == null || throwLeft == null || throwRight == null || die == null ||
+                machine.states.Length != 8 || machine.stateMachines.Length != 0 ||
+                !HasAnimatorMotion(idle, BossIdleClipPath) ||
+                !HasAnimatorMotion(walk, BossWalkClipPath) ||
+                !HasAnimatorMotion(telegraph, BossTelegraphClipPath) ||
+                !HasAnimatorMotion(charge, BossChargeClipPath) ||
+                !HasAnimatorMotion(summon, BossSummonClipPath) ||
+                !HasAnimatorMotion(throwLeft, BossThrowLeftClipPath) ||
+                !HasAnimatorMotion(throwRight, BossThrowRightClipPath) ||
+                !HasAnimatorMotion(die, BossDieClipPath))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, walk, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(walk.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasBossLivingTransition(machine.anyStateTransitions, telegraph, "Telegraph") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, charge, "Charge") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, summon, "Summon") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, throwLeft, "ThrowLeft") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, throwRight, "ThrowRight") &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 1 && walk.transitions.Length == 1 &&
+                   telegraph.transitions.Length == 2 && charge.transitions.Length == 2 &&
+                   summon.transitions.Length == 2 && throwLeft.transitions.Length == 2 &&
+                   throwRight.transitions.Length == 2 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 6 &&
+                   machine.anyStateTransitions.All(transition => !transition.canTransitionToSelf);
+        }
+
+        private static bool HasSingleAnimatorParameter(
+            AnimatorController controller,
+            string name,
+            AnimatorControllerParameterType type)
+        {
+            return controller.parameters.Count(parameter =>
+                parameter.name == name && parameter.type == type) == 1;
+        }
+
+        private static bool HasAnimatorMotion(AnimatorState state, string assetPath)
+        {
+            return string.Equals(
+                AssetDatabase.GetAssetPath(state.motion), assetPath, StringComparison.Ordinal);
+        }
+
+        private static bool HasBossLivingTransition(
+            AnimatorStateTransition[] transitions,
+            AnimatorState destination,
+            string trigger)
+        {
+            return transitions.Count(transition =>
+                transition.destinationState == destination &&
+                !transition.hasExitTime && transition.conditions.Length == 2 &&
+                transition.conditions.Any(condition =>
+                    condition.parameter == trigger &&
+                    condition.mode == AnimatorConditionMode.If) &&
+                transition.conditions.Any(condition =>
+                    condition.parameter == "Alive" &&
+                    condition.mode == AnimatorConditionMode.If)) == 1;
         }
 
         private static void ValidatePrototypeThrowerDefinition(

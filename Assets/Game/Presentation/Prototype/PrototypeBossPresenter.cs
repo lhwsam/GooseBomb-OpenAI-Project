@@ -8,6 +8,14 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeBossPresenter : MonoBehaviour
     {
+        private static readonly int AliveParameterId = Animator.StringToHash("Alive");
+        private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
+        private static readonly int TelegraphParameterId = Animator.StringToHash("Telegraph");
+        private static readonly int ChargeParameterId = Animator.StringToHash("Charge");
+        private static readonly int SummonParameterId = Animator.StringToHash("Summon");
+        private static readonly int ThrowLeftParameterId = Animator.StringToHash("ThrowLeft");
+        private static readonly int ThrowRightParameterId = Animator.StringToHash("ThrowRight");
+        private static readonly int DieParameterId = Animator.StringToHash("Die");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -43,6 +51,7 @@ namespace BombSwap
         private readonly Queue<GridPosition> _movementTargets = new Queue<GridPosition>();
         private GameObject _bossInstance;
         private Renderer _bossRenderer;
+        private Animator _animator;
         private GameObject _moveTargetInstance;
         private Renderer _moveTargetRenderer;
         private MaterialPropertyBlock _bossPropertyBlock;
@@ -55,9 +64,10 @@ namespace BombSwap
         private Vector3 _moveVisualTo;
         private float _moveVisualElapsed;
         private float _moveVisualDuration;
-        private float _deathEndsAt;
+        private float _deathRemaining;
         private bool _isMoving;
         private bool _isShowingDeath;
+        private bool _isParityWaveTelegraphActive;
 
         public PrototypeGameSession Session => session;
 
@@ -76,6 +86,12 @@ namespace BombSwap
         public int MovementCount { get; private set; }
 
         public int DeathCount { get; private set; }
+
+        public int ThrowAnimationCount { get; private set; }
+
+        public bool LastThrowWasLeft { get; private set; }
+
+        public Animator Animator => _animator;
 
         public int DisplayedHealth { get; private set; }
 
@@ -122,6 +138,8 @@ namespace BombSwap
             session.BossPatternTransitioned += OnBossPatternTransitioned;
             session.BossMoved += OnBossMoved;
             session.BossDamaged += OnBossDamaged;
+            session.BossBombLaunched += OnBossBombLaunched;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -136,6 +154,8 @@ namespace BombSwap
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
                 session.BossMoved -= OnBossMoved;
                 session.BossDamaged -= OnBossDamaged;
+                session.BossBombLaunched -= OnBossBombLaunched;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             if (_bossInstance != null)
@@ -156,6 +176,11 @@ namespace BombSwap
 
             _bossInstance = null;
             _bossRenderer = null;
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+            }
+            _animator = null;
             _moveTargetInstance = null;
             _moveTargetRenderer = null;
             _dangerCellInstances.Clear();
@@ -164,6 +189,7 @@ namespace BombSwap
             IsInitialized = false;
             _isMoving = false;
             _isShowingDeath = false;
+            _isParityWaveTelegraphActive = false;
             _movementTargets.Clear();
         }
 
@@ -187,11 +213,14 @@ namespace BombSwap
                     StartNextMovementSegment();
                 }
             }
-            if (_isShowingDeath && _bossInstance != null &&
-                Time.unscaledTime >= _deathEndsAt)
+            if (_isShowingDeath && _bossInstance != null && !session.IsPaused)
             {
-                _bossInstance.SetActive(false);
-                _isShowingDeath = false;
+                _deathRemaining -= Time.unscaledDeltaTime;
+                if (_deathRemaining <= 0f)
+                {
+                    _bossInstance.SetActive(false);
+                    _isShowingDeath = false;
+                }
             }
         }
 
@@ -223,6 +252,14 @@ namespace BombSwap
                 session.GridSpace.GridToWorld(session.CurrentBossGridPosition) +
                 (Vector3.up * definition.VisualHeight);
             _bossRenderer = _bossInstance.GetComponentInChildren<Renderer>(true);
+            _animator = _bossInstance.GetComponentInChildren<Animator>(true);
+            if (_animator != null)
+            {
+                _animator.applyRootMotion = false;
+                _animator.speed = session.IsPaused ? 0f : 1f;
+                _animator.SetBool(AliveParameterId, session.IsBossAlive);
+                _animator.SetBool(IsMovingParameterId, false);
+            }
             _bossColorPropertyId = ResolveColorProperty(_bossRenderer, "Boss");
             _bossPropertyBlock = new MaterialPropertyBlock();
             _moveTargetPropertyBlock = new MaterialPropertyBlock();
@@ -234,6 +271,7 @@ namespace BombSwap
             CurrentPhase = session.CurrentBossPhase;
             CurrentPattern = session.CurrentBossPattern;
             ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
+            ApplyBossAnimation(CurrentState, CurrentPattern);
             ApplyDangerCells(CurrentState, session.CurrentBossDangerCells);
             ApplyMoveTarget(CurrentState, session.NextBossGridPosition);
             _bossInstance.SetActive(session.IsBossAlive);
@@ -288,6 +326,7 @@ namespace BombSwap
                 StartNextMovementSegment();
             }
             ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
+            ApplyBossAnimation(CurrentState, CurrentPattern);
             ApplyDangerCells(CurrentState, transition.DangerCells);
             ApplyMoveTarget(CurrentState, transition.NextBossPosition);
         }
@@ -314,11 +353,108 @@ namespace BombSwap
             DeathCount++;
             CurrentState = BossBattleState.Defeated;
             _isMoving = false;
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, false);
+                _animator.SetBool(AliveParameterId, false);
+                ResetLivingAnimationTriggers();
+                _animator.SetTrigger(DieParameterId);
+            }
             ApplyDangerCells(CurrentState, Array.Empty<GridPosition>());
             ApplyMoveTarget(CurrentState, default);
             ApplyBossColor(deathColor);
-            _deathEndsAt = Time.unscaledTime + session.BossDefinition.DeathVisualSeconds;
+            _deathRemaining = session.BossDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
+        }
+
+        private void OnBossBombLaunched(BossBombFlight flight)
+        {
+            if (!IsInitialized)
+            {
+                InitializePresentation();
+            }
+            if (_animator == null || _isShowingDeath)
+            {
+                return;
+            }
+
+            bool useLeft = flight.Sequence % 2 == 0;
+            LastThrowWasLeft = useLeft;
+            ThrowAnimationCount++;
+            _animator.ResetTrigger(
+                useLeft ? ThrowRightParameterId : ThrowLeftParameterId);
+            _animator.SetTrigger(
+                useLeft ? ThrowLeftParameterId : ThrowRightParameterId);
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (_animator != null)
+            {
+                _animator.speed = isPaused ? 0f : 1f;
+            }
+        }
+
+        private void ApplyBossAnimation(BossBattleState state, BossPatternKind pattern)
+        {
+            if (_animator == null || state == BossBattleState.Defeated)
+            {
+                return;
+            }
+
+            switch (state)
+            {
+                case BossBattleState.Telegraph:
+                {
+                    _animator.SetBool(IsMovingParameterId, false);
+                    ResetLivingAnimationTriggers();
+                    bool shouldTriggerTelegraph = false;
+                    if (pattern == BossPatternKind.ParityWave)
+                    {
+                        shouldTriggerTelegraph = !_isParityWaveTelegraphActive;
+                        _isParityWaveTelegraphActive = true;
+                    }
+                    else
+                    {
+                        _isParityWaveTelegraphActive = false;
+                    }
+                    if (shouldTriggerTelegraph)
+                    {
+                        _animator.SetTrigger(TelegraphParameterId);
+                    }
+                    break;
+                }
+                case BossBattleState.Execute:
+                    if (pattern == BossPatternKind.FixedCharge)
+                    {
+                        _animator.SetBool(IsMovingParameterId, false);
+                        _animator.SetTrigger(ChargeParameterId);
+                    }
+                    else if (pattern == BossPatternKind.SummonSelfDestruct)
+                    {
+                        _animator.SetBool(IsMovingParameterId, false);
+                        _animator.SetTrigger(SummonParameterId);
+                    }
+                    break;
+                case BossBattleState.Recovery:
+                    _animator.SetBool(IsMovingParameterId, false);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
+            }
+        }
+
+        private void ResetLivingAnimationTriggers()
+        {
+            if (_animator == null)
+            {
+                return;
+            }
+            _animator.ResetTrigger(TelegraphParameterId);
+            _animator.ResetTrigger(ChargeParameterId);
+            _animator.ResetTrigger(SummonParameterId);
+            _animator.ResetTrigger(ThrowLeftParameterId);
+            _animator.ResetTrigger(ThrowRightParameterId);
         }
 
         private void ApplyBossState(
@@ -429,6 +565,10 @@ namespace BombSwap
             if (_movementTargets.Count == 0 || _bossInstance == null)
             {
                 _isMoving = false;
+                if (_animator != null)
+                {
+                    _animator.SetBool(IsMovingParameterId, false);
+                }
                 return;
             }
 
@@ -438,6 +578,17 @@ namespace BombSwap
                 (Vector3.up * session.BossDefinition.VisualHeight);
             _moveVisualElapsed = 0f;
             _isMoving = true;
+            Vector3 facing = _moveVisualTo - _moveVisualFrom;
+            facing.y = 0f;
+            if (facing.sqrMagnitude > 0.0001f)
+            {
+                _bossInstance.transform.rotation =
+                    Quaternion.LookRotation(facing.normalized, Vector3.up);
+            }
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, true);
+            }
         }
 
         private void ApplyBossColor(Color color)

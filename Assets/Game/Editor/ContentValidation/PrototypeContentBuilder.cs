@@ -1818,7 +1818,7 @@ namespace BombSwap.Editor.ContentValidation
                 dangerCellPrefab,
                 throwBombDefinition,
                 chainBombDefinition,
-                0.6f,
+                0f,
                 0.03f,
                 0.2f);
             EditorUtility.SetDirty(definition);

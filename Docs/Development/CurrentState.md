@@ -346,3 +346,4 @@
 - PlayerDuck과 ChaserPig에 이어 ChargerPig 모델과 전용 Animator를 연결했다. Charger의 Track/Telegraph/Charge/Recover/Die 표현은 Presenter가 기존 Core 이벤트를 번역하며, 논리 이동과 충돌 규칙은 변경하지 않는다.
 - SelfDestructPig 모델과 전용 Animator를 연결했다. Chase·WarningChase·Telegraph·Detonated Core 상태는 Idle/Run·Telegraph·Detonate 표현으로만 변환되며 기존 fuse와 펄스 튜닝은 유지한다.
 - ThrowerPig 모델과 전용 Animator를 연결했다. Track 이동은 Idle/Walk, Telegraph는 Throw, Recover는 Idle, 사망은 Die 표현으로 변환하며 기존 이동·예고·비행·회복 타이밍은 유지한다.
+- BossPig 모델과 전용 Animator를 연결했다. Telegraph 모션은 연속된 ParityWave의 첫 행에서만 재생하고 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 돌진·소환·사망은 Charge·Summon·Die로 변환한다. 연속 폭탄 발사는 개별 발사 sequence 기준으로 ThrowLeft/ThrowRight를 교대하며 기존 Boss Core 패턴과 타이밍은 유지한다.
