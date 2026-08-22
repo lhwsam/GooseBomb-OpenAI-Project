@@ -49,9 +49,11 @@
 - GDD 20.5의 `prototype-secret-v3` 후처리로 일반 전투방 2~3개와 맞닿는 빈 좌표에 Secret 하나를 결정론적으로 추가했다. 입구별 공개 상태는 Core run state가 소유한다. 금 간 문은 일반 문과 같은 경계 위치에 표시되고 문 앞 출구 셀은 `Floor`로 유지되며, 실제 폭발 `AffectedCells`가 그 셀에 닿으면 파괴벽 결과 없이 해당 문·미니맵만 열린다. `DungeonSecret` 중앙 cache는 한 run에 한 번 `ROOM TOKENS +3`을 지급한다.
 - 폭발 영향 셀과 현재 플레이어 논리 셀을 비교해 자기 폭발 피해 1을 적용하고, 같은 폭발 중복·무적 중 별도 폭발·사망 뒤 명령을 차단.
 - `PrototypePlayerHealthPresenter`가 공유 material을 복제하지 않고 피격 pulse와 사망 색을 표시하도록 TestSandbox에 연결.
+- canonical `PlayerDuck` prefab과 Humanoid Animator를 전투·던전 16개 씬의 플레이어 표현으로 연결하고, `PrototypePlayerAnimationPresenter`가 이동·성공한 폭탄 설치·사망·일시정지를 `IsMoving`·`PlaceBomb`·`Die`와 Animator 재생 속도로 변환하도록 분리했다. 폭탄 설치는 몸통·머리·양팔만 포함한 Avatar Mask의 `Upper Body` override 레이어에서 재생해 이동 중에도 Base Layer의 하체 Run을 유지한다.
 - 안정 `EnemyDefinitionId`, 주입 시계 cadence, 재계획 시점의 결정론적 BFS 거리장, 최단 경로를 벗어나지 않는 최대 두 칸 방향 유지를 소유하는 `ChaserEnemySimulation` 구현.
 - 내구도 1, 폭발 ID별 중복 차단과 단일 치명 결과를 소유하는 `EnemyHealthSimulation` 구현.
 - 검증된 `PrototypeChaserDefinitionAsset`, collider 없는 chaser prefab, 논리 spawn과 `PrototypeChaserPresenter`를 TestSandbox에 연결.
+- Chaser 표현을 canonical `ChaserPig` Humanoid prefab으로 교체하고 `PrototypeChaserPresenter`가 확정 이동 중 `IsMoving`, 적용된 접촉 피해에서 `Attack`, 사망에서 terminal `Die`, pause에서 Animator 재생 속도를 제어하도록 연결했다. Pig Controller는 Idle·Run·Attack·Die 클립과 전이 계약을 소유한다.
 - 추격자 폭발 사망 시 논리 actor 점유를 한 번 제거하고 `EnemyDied`와 단일 `RoomCleared`를 발행하는 첫 유도→처치 루프 구현.
 - cardinal 논리 인접만 추격자 접촉으로 판정한다. 한 칸 이동으로 새 인접이 생기면 0.5초 시각 도착 경계까지 기다리고 그때도 인접한 경우에만 접촉 피해 1을 기존 플레이어 체력·0.75초 무적·피격 표현에 연결한다.
 - `PlayerDamageResult`가 폭발 `BombId`와 적 접촉 `ActorId` 원인을 구분하고, 같은 프레임 폭발 사망 적이 접촉 피해를 남기지 않는 처리 순서 구현.
