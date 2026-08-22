@@ -58,6 +58,8 @@ namespace BombSwap.Editor.ContentValidation
 
             public TextMeshProUGUI TitleLabel { get; set; }
 
+            public TextMeshProUGUI VersionLabel { get; set; }
+
             public Button StartButton { get; set; }
 
             public Button ControlsButton { get; set; }
@@ -589,6 +591,23 @@ namespace BombSwap.Editor.ContentValidation
                     changed = true;
                 }
 
+                if (lobby != null && !lobby.HasVersionLabelReference)
+                {
+                    TextMeshProUGUI[] versionLabels = lobby.LobbyCanvas
+                        .GetComponentsInChildren<TextMeshProUGUI>(true)
+                        .Where(label => string.Equals(
+                            label.name,
+                            "VersionText",
+                            StringComparison.Ordinal))
+                        .ToArray();
+                    if (versionLabels.Length == 1)
+                    {
+                        lobby.BindVersionLabel(versionLabels[0]);
+                        EditorUtility.SetDirty(lobby);
+                        changed = true;
+                    }
+                }
+
                 if (LobbyButtonFeedbackAuthoring.ApplyToScene(scene) > 0)
                 {
                     changed = true;
@@ -821,6 +840,7 @@ namespace BombSwap.Editor.ContentValidation
                 ui.BackButton,
                 settingsRuntime,
                 ui.SettingsPanel);
+            presenter.BindVersionLabel(ui.VersionLabel);
             EditorUtility.SetDirty(presenter);
 
             CreateLobbyCamera(root.transform);
@@ -4520,6 +4540,19 @@ namespace BombSwap.Editor.ContentValidation
             subtitle.text = "미래의 폭발을 설계하는 룸 액션 로그라이트";
             subtitle.color = new Color(0.76f, 0.84f, 0.93f, 1f);
 
+            TextMeshProUGUI versionLabel = PrototypeUiFactory.CreateText(
+                "VersionText",
+                menuPanel,
+                18f,
+                TextAlignmentOptions.BottomLeft);
+            SetRectAnchors(
+                versionLabel.rectTransform,
+                new Vector2(0.04f, 0.04f),
+                new Vector2(0.35f, 0.1f));
+            versionLabel.text = PrototypeLobbyPresenter.FormatVersionText(
+                PlayerSettings.bundleVersion);
+            versionLabel.color = new Color(0.53f, 0.53f, 0.53f, 1f);
+
             Button startButton = PrototypeUiFactory.CreateButton(
                 "StartRunButton",
                 menuPanel,
@@ -4559,6 +4592,7 @@ namespace BombSwap.Editor.ContentValidation
                 EventSystem = eventSystemObject.GetComponent<EventSystem>(),
                 ControlsPanel = settingsPanel.gameObject,
                 TitleLabel = titleLabel,
+                VersionLabel = versionLabel,
                 StartButton = startButton,
                 ControlsButton = controlsButton,
                 BackButton = settingsPanel.BackButton,

@@ -285,22 +285,109 @@ namespace BombSwap.Tests.PlayMode
 
                 feedback.OnPointerEnter(pointer);
                 yield return new WaitForSecondsRealtime(0.04f);
-                Assert.That(label.color, Is.EqualTo(targetColor));
+                AssertColorApproximately(label.color, targetColor);
                 Assert.That(background.color, Is.EqualTo(backgroundColor));
 
                 feedback.OnPointerDown(pointer);
                 yield return new WaitForSecondsRealtime(0.04f);
-                Assert.That(label.color, Is.EqualTo(targetColor));
+                AssertColorApproximately(label.color, targetColor);
                 Assert.That(background.color, Is.EqualTo(backgroundColor));
 
                 feedback.enabled = false;
-                Assert.That(label.color, Is.EqualTo(startColor));
+                AssertColorApproximately(label.color, startColor);
                 Assert.That(background.color, Is.EqualTo(backgroundColor));
             }
             finally
             {
                 Object.Destroy(root);
             }
+        }
+
+        private static void AssertColorApproximately(Color actual, Color expected)
+        {
+            const float tolerance = 0.0001f;
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(tolerance));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(tolerance));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(tolerance));
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(tolerance));
+        }
+
+        [UnityTest]
+        public IEnumerator HoverVisuals_FollowHoverSelectionAndDisabledStates()
+        {
+            PrototypeButtonScaleFeedback feedback = CreateFeedback(
+                out GameObject root,
+                out _);
+            var leftArrow = new GameObject("Arrow_Left", typeof(RectTransform));
+            var rightArrow = new GameObject("Arrow_Right", typeof(RectTransform));
+            leftArrow.transform.SetParent(root.transform, false);
+            rightArrow.transform.SetParent(root.transform, false);
+            leftArrow.SetActive(false);
+            rightArrow.SetActive(false);
+            feedback.ConfigureHoverVisuals(new[] { leftArrow, rightArrow });
+
+            try
+            {
+                var pointer = new PointerEventData(null)
+                {
+                    button = PointerEventData.InputButton.Left
+                };
+
+                feedback.OnPointerEnter(pointer);
+                Assert.That(leftArrow.activeSelf, Is.True);
+                Assert.That(rightArrow.activeSelf, Is.True);
+
+                feedback.OnPointerDown(pointer);
+                Assert.That(leftArrow.activeSelf, Is.True);
+                Assert.That(rightArrow.activeSelf, Is.True);
+
+                feedback.OnPointerExit(pointer);
+                Assert.That(leftArrow.activeSelf, Is.False);
+                Assert.That(rightArrow.activeSelf, Is.False);
+
+                feedback.OnSelect(new BaseEventData(null));
+                Assert.That(leftArrow.activeSelf, Is.True);
+                Assert.That(rightArrow.activeSelf, Is.True);
+
+                root.GetComponent<Button>().interactable = false;
+                yield return null;
+                Assert.That(leftArrow.activeSelf, Is.False);
+                Assert.That(rightArrow.activeSelf, Is.False);
+
+                feedback.enabled = false;
+                Assert.That(leftArrow.activeSelf, Is.False);
+                Assert.That(rightArrow.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.Destroy(root);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator UnconfiguredDirectArrowChildren_AreNotDiscoveredByName()
+        {
+            PrototypeButtonScaleFeedback feedback = CreateFeedback(
+                out GameObject root,
+                out _);
+            var arrow = new GameObject("Arrow_Left", typeof(RectTransform));
+            arrow.transform.SetParent(root.transform, false);
+            arrow.SetActive(false);
+
+            try
+            {
+                feedback.enabled = false;
+                feedback.enabled = true;
+                feedback.OnPointerEnter(new PointerEventData(null));
+
+                Assert.That(arrow.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.Destroy(root);
+            }
+
+            yield return null;
         }
 
         private static PrototypeButtonScaleFeedback CreateFeedback(

@@ -35,6 +35,9 @@ namespace BombSwap
         private TextMeshProUGUI statusLabel;
 
         [SerializeField]
+        private TextMeshProUGUI versionLabel;
+
+        [SerializeField]
         private Button startButton;
 
         [SerializeField]
@@ -63,9 +66,14 @@ namespace BombSwap
 
         public TextMeshProUGUI StatusLabel => statusLabel;
 
+        public TextMeshProUGUI VersionLabel => versionLabel;
+
         public string TitleText => ComposeTitleText(titleLabel);
 
         public string StatusText => statusLabel != null ? statusLabel.text : string.Empty;
+
+        public string VersionText =>
+            versionLabel != null ? versionLabel.text : string.Empty;
 
         public Button StartButton => startButton;
 
@@ -92,6 +100,8 @@ namespace BombSwap
             settingsPanel != null &&
             settingsRuntime.HasRequiredReferences &&
             settingsPanel.HasAuthoredViewReferences;
+
+        public bool HasVersionLabelReference => versionLabel != null;
 
         public bool IsControlsVisible =>
             controlsPanel != null && controlsPanel.activeSelf;
@@ -147,6 +157,18 @@ namespace BombSwap
             settingsPanel = authoredSettingsPanel;
         }
 
+        public void BindVersionLabel(TextMeshProUGUI authoredVersionLabel)
+        {
+            if (Application.isPlaying)
+            {
+                throw new InvalidOperationException(
+                    "Lobby version label can only be authored outside Play Mode.");
+            }
+
+            versionLabel = authoredVersionLabel ??
+                throw new ArgumentNullException(nameof(authoredVersionLabel));
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
@@ -155,6 +177,7 @@ namespace BombSwap
             }
 
             ValidateConfiguration();
+            versionLabel.text = FormatVersionText(Application.version);
             controlsPanel.SetActive(false);
             settingsPanel.Configure(settingsRuntime, HideControls);
             EnsureTextColorTarget(startButton);
@@ -255,6 +278,11 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "PrototypeLobbyPresenter requires a scene-authored Canvas, EventSystem, title, panels, and buttons.");
             }
+            if (!HasVersionLabelReference)
+            {
+                throw new InvalidOperationException(
+                    "PrototypeLobbyPresenter requires a scene-authored version label.");
+            }
             if (!HasTextColorFeedback(startButton) ||
                 !HasTextColorFeedback(controlsButton))
             {
@@ -264,6 +292,7 @@ namespace BombSwap
             if (lobbyCanvas.gameObject.scene != gameObject.scene ||
                 eventSystem.gameObject.scene != gameObject.scene ||
                 controlsPanel.scene != gameObject.scene ||
+                versionLabel.gameObject.scene != gameObject.scene ||
                 settingsRuntime.gameObject.scene != gameObject.scene ||
                 settingsPanel.gameObject.scene != gameObject.scene)
             {
@@ -282,6 +311,18 @@ namespace BombSwap
                         $"Lobby label '{labels[index].name}' must use {PrototypeUiFactory.GameFontAssetName} or {PrototypeUiFactory.AlternateGameFontAssetName}.");
                 }
             }
+        }
+
+        public static string FormatVersionText(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                throw new ArgumentException(
+                    "Application version cannot be empty.",
+                    nameof(version));
+            }
+
+            return $"v.{version.Trim()}";
         }
 
         private static bool HasTextColorFeedback(Button button)

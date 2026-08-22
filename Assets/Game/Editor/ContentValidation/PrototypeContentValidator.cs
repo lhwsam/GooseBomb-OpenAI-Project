@@ -302,12 +302,28 @@ namespace BombSwap.Editor.ContentValidation
                         errors.Add(
                             $"Lobby start scene must be '{PrototypeLobbyPresenter.DefaultStartSceneName}'.");
                     }
-                    if (!presenter.HasAuthoredViewReferences)
+                    bool hasAuthoredViewReferences =
+                        presenter.HasAuthoredViewReferences;
+                    if (!hasAuthoredViewReferences)
                     {
                         errors.Add(
                             "Lobby presenter must reference its scene-authored Canvas, EventSystem, controls panel, labels, and buttons.");
                     }
-                    else
+                    if (!presenter.HasVersionLabelReference)
+                    {
+                        errors.Add(
+                            "Lobby presenter must reference its scene-authored version label.");
+                    }
+                    else if (presenter.LobbyCanvas == null ||
+                             presenter.VersionLabel.gameObject.scene != scene ||
+                             !presenter.VersionLabel.transform.IsChildOf(
+                                 presenter.LobbyCanvas.transform))
+                    {
+                        errors.Add(
+                            "Lobby version label must belong to the authored LobbyCanvas.");
+                    }
+
+                    if (hasAuthoredViewReferences)
                     {
                         if (presenter.LobbyCanvas.gameObject.scene != scene ||
                             presenter.LobbyEventSystem.gameObject.scene != scene ||
@@ -336,6 +352,33 @@ namespace BombSwap.Editor.ContentValidation
                         {
                             errors.Add(
                                 "Lobby settings panel must reference the shared input actions and AudioMixer.");
+                        }
+                        if (presenter.SettingsPanel != null &&
+                            presenter.SettingsPanel
+                                .GetComponentsInChildren<TextMeshProUGUI>(true)
+                                .Any(label => string.Equals(
+                                    label.name,
+                                    "SettingsStatusText",
+                                    StringComparison.Ordinal)))
+                        {
+                            errors.Add(
+                                "Lobby settings panel must not contain the obsolete SettingsStatusText label.");
+                        }
+
+                        Image settingsPanelImage = presenter.SettingsPanel != null
+                            ? presenter.SettingsPanel.GetComponent<Image>()
+                            : null;
+                        if (!LobbySettingsPanelSpriteAuthoring
+                                .HasPixelPerfectConfiguration(settingsPanelImage) ||
+                            !LobbySettingsPanelSpriteAuthoring
+                                .HasPixelPerfectImporterConfiguration())
+                        {
+                            errors.Add(
+                                $"Lobby settings panel must use " +
+                                $"{LobbySettingsPanelSpriteAuthoring.SpriteName} " +
+                                "as an integer-scaled Simple pixel image with " +
+                                "Point, no mipmaps, uncompressed, Clamp import settings. " +
+                                "Designer-authored RectTransform layout is preserved.");
                         }
                     }
                 }
@@ -423,6 +466,37 @@ namespace BombSwap.Editor.ContentValidation
                         {
                             errors.Add(
                                 $"Lobby button '{button.name}' must use the shared hover, press, and timing feedback configuration.");
+                        }
+
+                        for (int hoverIndex = 0;
+                             hoverIndex < feedbacks[0].HoverVisualTargetCount;
+                             hoverIndex++)
+                        {
+                            GameObject hoverTarget =
+                                feedbacks[0].GetHoverVisualTarget(hoverIndex);
+                            bool ownsHoverTarget = hoverTarget != null &&
+                                hoverTarget.transform != buttonRect &&
+                                hoverTarget.transform.IsChildOf(buttonRect);
+                            if (!ownsHoverTarget)
+                            {
+                                errors.Add(
+                                    $"Lobby button '{button.name}' contains a hover visual outside its hierarchy.");
+                            }
+                            else if (hoverTarget.activeSelf)
+                            {
+                                errors.Add(
+                                    $"Lobby button '{button.name}' hover visual '{hoverTarget.name}' must be inactive in the authored Normal state.");
+                            }
+                        }
+
+                        bool isMainMenuButton = presenters.Length == 1 &&
+                            (button == presenters[0].StartButton ||
+                             button == presenters[0].ControlsButton);
+                        if (isMainMenuButton &&
+                            feedbacks[0].HoverVisualTargetCount != 2)
+                        {
+                            errors.Add(
+                                $"Lobby main-menu button '{button.name}' must explicitly reference its two hover arrow visuals.");
                         }
                     }
                 }

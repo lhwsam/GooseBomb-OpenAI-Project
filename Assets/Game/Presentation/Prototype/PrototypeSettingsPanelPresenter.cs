@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -66,6 +67,9 @@ namespace BombSwap
         private Button fullscreenButton;
 
         [SerializeField]
+        private Button keyboardResetButton;
+
+        [SerializeField]
         private Button resetButton;
 
         [SerializeField]
@@ -93,10 +97,15 @@ namespace BombSwap
         private TextMeshProUGUI screenShakeValueLabel;
 
         [SerializeField]
-        private TextMeshProUGUI statusLabel;
-
-        [SerializeField]
         private KeyboardBindingView[] keyboardBindings = Array.Empty<KeyboardBindingView>();
+
+        private static readonly Color DuplicateBindingColor =
+            new Color(1f, 0.34f, 0.22f, 1f);
+
+        private const string DuplicateBindingMessage = "이미 사용 중";
+        private const float DuplicateBindingShakeDistance = 8f;
+        private const float DuplicateBindingShakeDuration = 0.32f;
+        private const float DuplicateBindingNoticeDuration = 0.55f;
 
         private PrototypeUserSettingsRuntime _settings;
         private Action _closeRequested;
@@ -109,6 +118,10 @@ namespace BombSwap
         private bool _synchronizing;
         private UnityAction[] _bindingButtonListeners;
         private int _rebindCanceledFrame = -1;
+        private Sequence _duplicateBindingSequence;
+        private KeyboardBindingView _duplicateBindingView;
+        private Vector2 _duplicateBindingBasePosition;
+        private Color _duplicateBindingBaseColor;
 
         public bool HasAuthoredViewReferences =>
             controlsPage != null &&
@@ -117,6 +130,8 @@ namespace BombSwap
             audioTabButton != null &&
             backButton != null &&
             fullscreenButton != null &&
+            keyboardResetButton != null &&
+            keyboardResetButton.transform.IsChildOf(controlsPage.transform) &&
             resetButton != null &&
             masterSlider != null &&
             bgmSlider != null &&
@@ -126,7 +141,6 @@ namespace BombSwap
             bgmValueLabel != null &&
             sfxValueLabel != null &&
             screenShakeValueLabel != null &&
-            statusLabel != null &&
             keyboardBindings != null &&
             keyboardBindings.Length == PrototypeSettingsPanelFactory.KeyboardBindingCount;
 
@@ -139,9 +153,28 @@ namespace BombSwap
         public int KeyboardBindingCount =>
             keyboardBindings != null ? keyboardBindings.Length : 0;
 
+        public KeyboardBindingView GetKeyboardBinding(int index)
+        {
+            if (keyboardBindings == null)
+            {
+                throw new InvalidOperationException(
+                    "Keyboard binding views are not configured.");
+            }
+
+            return keyboardBindings[index];
+        }
+
         public PrototypeUserSettingsRuntime Settings => _settings;
 
         public Button BackButton => backButton;
+
+        public GameObject ControlsPage => controlsPage;
+
+        public Button KeyboardResetButton => keyboardResetButton;
+
+        public bool IsDuplicateBindingFeedbackPlaying =>
+            _duplicateBindingSequence != null &&
+            _duplicateBindingSequence.IsActive();
 
         public void BindAuthoredView(
             GameObject authoredControlsPage,
@@ -150,6 +183,7 @@ namespace BombSwap
             Button authoredAudioTabButton,
             Button authoredBackButton,
             Button authoredFullscreenButton,
+            Button authoredKeyboardResetButton,
             Button authoredResetButton,
             Slider authoredMasterSlider,
             Slider authoredBgmSlider,
@@ -159,7 +193,6 @@ namespace BombSwap
             TextMeshProUGUI authoredBgmValueLabel,
             TextMeshProUGUI authoredSfxValueLabel,
             TextMeshProUGUI authoredScreenShakeValueLabel,
-            TextMeshProUGUI authoredStatusLabel,
             KeyboardBindingView[] authoredKeyboardBindings)
         {
             if (Application.isPlaying && isActiveAndEnabled)
@@ -174,6 +207,7 @@ namespace BombSwap
             audioTabButton = authoredAudioTabButton;
             backButton = authoredBackButton;
             fullscreenButton = authoredFullscreenButton;
+            keyboardResetButton = authoredKeyboardResetButton;
             resetButton = authoredResetButton;
             masterSlider = authoredMasterSlider;
             bgmSlider = authoredBgmSlider;
@@ -183,7 +217,6 @@ namespace BombSwap
             bgmValueLabel = authoredBgmValueLabel;
             sfxValueLabel = authoredSfxValueLabel;
             screenShakeValueLabel = authoredScreenShakeValueLabel;
-            statusLabel = authoredStatusLabel;
             keyboardBindings = authoredKeyboardBindings ??
                 throw new ArgumentNullException(nameof(authoredKeyboardBindings));
         }
@@ -221,6 +254,7 @@ namespace BombSwap
         private void OnDisable()
         {
             CancelRebind();
+            StopDuplicateBindingFeedback();
             UnbindListeners();
         }
 
@@ -254,14 +288,12 @@ namespace BombSwap
         {
             controlsPage.SetActive(true);
             audioPage.SetActive(false);
-            SetStatus("변경할 키를 선택하세요. ESC는 변경 취소입니다.");
         }
 
         public void ShowAudioPage()
         {
             controlsPage.SetActive(false);
             audioPage.SetActive(true);
-            SetStatus("음량과 화면 흔들림은 즉시 적용됩니다.");
             WebGlHarnessReporter.Report("settings-audio-page-opened");
         }
 
@@ -276,6 +308,7 @@ namespace BombSwap
             audioTabButton.onClick.AddListener(ShowAudioPage);
             backButton.onClick.AddListener(Close);
             fullscreenButton.onClick.AddListener(ToggleFullscreen);
+            keyboardResetButton.onClick.AddListener(ResetKeyboardBindings);
             resetButton.onClick.AddListener(ResetDefaults);
             masterSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
             bgmSlider.onValueChanged.AddListener(OnBgmVolumeChanged);
@@ -303,6 +336,7 @@ namespace BombSwap
             audioTabButton.onClick.RemoveListener(ShowAudioPage);
             backButton.onClick.RemoveListener(Close);
             fullscreenButton.onClick.RemoveListener(ToggleFullscreen);
+            keyboardResetButton.onClick.RemoveListener(ResetKeyboardBindings);
             resetButton.onClick.RemoveListener(ResetDefaults);
             masterSlider.onValueChanged.RemoveListener(OnMasterVolumeChanged);
             bgmSlider.onValueChanged.RemoveListener(OnBgmVolumeChanged);
@@ -397,13 +431,7 @@ namespace BombSwap
         {
             for (int index = 0; index < keyboardBindings.Length; index++)
             {
-                KeyboardBindingView view = keyboardBindings[index];
-                if (!TryResolveBinding(view, out InputAction action, out int bindingIndex))
-                {
-                    view.ValueLabel.text = "누락";
-                    continue;
-                }
-                view.ValueLabel.text = action.GetBindingDisplayString(bindingIndex);
+                RefreshBindingLabel(keyboardBindings[index]);
             }
         }
 
@@ -415,13 +443,13 @@ namespace BombSwap
                 return;
             }
 
+            StopDuplicateBindingFeedback();
             _activeBinding = view;
             _rebindingAction = action;
             _rebindingActionWasEnabled = action.enabled;
             _previousOverridePath = action.bindings[bindingIndex].overridePath;
             action.Disable();
             view.ValueLabel.text = "키 입력...";
-            SetStatus("새 키를 누르세요. ESC를 누르면 취소됩니다.");
 
             _rebindingOperation = action.PerformInteractiveRebinding(bindingIndex)
                 .WithControlsHavingToMatchPath("<Keyboard>")
@@ -437,6 +465,7 @@ namespace BombSwap
             InputAction completedAction = _rebindingAction;
             bool actionWasEnabled = _rebindingActionWasEnabled;
             string previousOverridePath = _previousOverridePath;
+            bool duplicateBinding = false;
 
             _rebindingOperation?.Dispose();
             _rebindingOperation = null;
@@ -450,6 +479,7 @@ namespace BombSwap
                 string candidatePath = action.bindings[bindingIndex].effectivePath;
                 if (HasDuplicateKeyboardBinding(completedView, candidatePath))
                 {
+                    duplicateBinding = true;
                     if (string.IsNullOrEmpty(previousOverridePath))
                     {
                         action.RemoveBindingOverride(bindingIndex);
@@ -458,19 +488,17 @@ namespace BombSwap
                     {
                         action.ApplyBindingOverride(bindingIndex, previousOverridePath);
                     }
-                    SetStatus("이미 다른 조작에서 사용하는 키입니다.");
+                    WebGlHarnessReporter.Report("settings-key-duplicate");
                 }
                 else
                 {
                     _settings.SaveInputOverrides();
-                    SetStatus("키 변경을 저장했습니다.");
                     WebGlHarnessReporter.Report("settings-key-rebound");
                 }
             }
             else
             {
                 _rebindCanceledFrame = Time.frameCount;
-                SetStatus("키 변경을 취소했습니다.");
             }
 
             if (completedAction != null && actionWasEnabled)
@@ -478,6 +506,10 @@ namespace BombSwap
                 completedAction.Enable();
             }
             RefreshBindingLabels();
+            if (duplicateBinding && completedView != null)
+            {
+                PlayDuplicateBindingFeedback(completedView);
+            }
             if (completedView != null)
             {
                 Select(completedView.Button);
@@ -554,26 +586,161 @@ namespace BombSwap
         private void ToggleFullscreen()
         {
             Screen.fullScreen = !Screen.fullScreen;
-            SetStatus(Screen.fullScreen ? "전체 화면을 요청했습니다." : "창 모드로 전환했습니다.");
             WebGlHarnessReporter.Report("settings-fullscreen-toggled");
+        }
+
+        private void ResetKeyboardBindings()
+        {
+            CancelRebind();
+            StopDuplicateBindingFeedback();
+            _settings.ResetKeyboardBindingsToDefaults();
+            RefreshBindingLabels();
+            Select(keyboardResetButton);
+            WebGlHarnessReporter.Report("settings-keyboard-defaults-restored");
         }
 
         private void ResetDefaults()
         {
             CancelRebind();
+            StopDuplicateBindingFeedback();
             _settings.ResetToDefaults();
             RefreshAll();
-            SetStatus("설정을 기본값으로 복원했습니다.");
             WebGlHarnessReporter.Report("settings-defaults-restored");
         }
 
-        private void SetStatus(string message)
+        private void PlayDuplicateBindingFeedback(KeyboardBindingView view)
         {
-            if (statusLabel != null)
+            StopDuplicateBindingFeedback();
+
+            RectTransform target = view.Button.transform as RectTransform;
+            if (target == null || view.ValueLabel == null)
             {
-                statusLabel.text = message;
+                return;
+            }
+
+            _duplicateBindingView = view;
+            _duplicateBindingBasePosition = target.anchoredPosition;
+            _duplicateBindingBaseColor = view.ValueLabel.color;
+            view.ValueLabel.text = DuplicateBindingMessage;
+
+            float segmentDuration = DuplicateBindingShakeDuration / 5f;
+            _duplicateBindingSequence = DOTween.Sequence()
+                .Append(TweenAnchoredPosition(
+                    target,
+                    _duplicateBindingBasePosition +
+                        new Vector2(DuplicateBindingShakeDistance, 0f),
+                    segmentDuration))
+                .Append(TweenAnchoredPosition(
+                    target,
+                    _duplicateBindingBasePosition +
+                        new Vector2(-6f, 0f),
+                    segmentDuration))
+                .Append(TweenAnchoredPosition(
+                    target,
+                    _duplicateBindingBasePosition + new Vector2(4f, 0f),
+                    segmentDuration))
+                .Append(TweenAnchoredPosition(
+                    target,
+                    _duplicateBindingBasePosition + new Vector2(-2f, 0f),
+                    segmentDuration))
+                .Append(TweenAnchoredPosition(
+                    target,
+                    _duplicateBindingBasePosition,
+                    segmentDuration))
+                .Insert(0f, TweenGraphicColor(
+                    view.ValueLabel,
+                    DuplicateBindingColor,
+                    0.08f))
+                .AppendInterval(DuplicateBindingNoticeDuration)
+                .Append(TweenGraphicColor(
+                    view.ValueLabel,
+                    _duplicateBindingBaseColor,
+                    0.12f))
+                .SetUpdate(true)
+                .SetTarget(this)
+                .OnComplete(CompleteDuplicateBindingFeedback);
+        }
+
+        private void CompleteDuplicateBindingFeedback()
+        {
+            RestoreDuplicateBindingVisual();
+            _duplicateBindingSequence = null;
+            _duplicateBindingView = null;
+        }
+
+        private void StopDuplicateBindingFeedback()
+        {
+            if (_duplicateBindingSequence != null)
+            {
+                _duplicateBindingSequence.Kill(false);
+                _duplicateBindingSequence = null;
+            }
+
+            if (_duplicateBindingView == null)
+            {
+                return;
+            }
+
+            RestoreDuplicateBindingVisual();
+            _duplicateBindingView = null;
+        }
+
+        private void RestoreDuplicateBindingVisual()
+        {
+            if (_duplicateBindingView == null)
+            {
+                return;
+            }
+
+            RectTransform target =
+                _duplicateBindingView.Button.transform as RectTransform;
+            if (target != null)
+            {
+                target.anchoredPosition = _duplicateBindingBasePosition;
+            }
+            if (_duplicateBindingView.ValueLabel != null)
+            {
+                _duplicateBindingView.ValueLabel.color =
+                    _duplicateBindingBaseColor;
+                RefreshBindingLabel(_duplicateBindingView);
             }
         }
+
+        private void RefreshBindingLabel(KeyboardBindingView view)
+        {
+            if (!TryResolveBinding(
+                    view,
+                    out InputAction action,
+                    out int bindingIndex))
+            {
+                view.ValueLabel.text = "누락";
+                return;
+            }
+
+            view.ValueLabel.text = action.GetBindingDisplayString(bindingIndex);
+        }
+
+        private static Tween TweenAnchoredPosition(
+            RectTransform target,
+            Vector2 desiredPosition,
+            float duration) =>
+            DOTween.To(
+                    () => target.anchoredPosition,
+                    value => target.anchoredPosition = value,
+                    desiredPosition,
+                    duration)
+                .SetEase(Ease.InOutQuad);
+
+        private static Tween TweenGraphicColor(
+            Graphic target,
+            Color desiredColor,
+            float duration) =>
+            DOTween.To(
+                    () => target.color,
+                    value => target.color = value,
+                    desiredColor,
+                    duration)
+                .SetEase(Ease.OutQuad);
 
         private static void Select(Selectable selectable)
         {

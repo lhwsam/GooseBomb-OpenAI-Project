@@ -1935,9 +1935,16 @@ namespace BombSwap.Tests.PlayMode
         {
             Scene loadedScene = default;
             Keyboard pauseKeyboard = null;
+            Keyboard feedbackKeyboard = null;
             InputAction pauseAction = null;
+            InputActionAsset lobbyInputActions = null;
             int pauseBindingIndex = -1;
             string previousPauseOverride = null;
+            bool hadInputOverrides = PlayerPrefs.HasKey(
+                PrototypeUserSettingsStorage.InputOverridesKey);
+            string previousInputOverrides = PlayerPrefs.GetString(
+                PrototypeUserSettingsStorage.InputOverridesKey,
+                string.Empty);
             try
             {
                 GameObject hostRoot = CreateGameObject("LobbyExitDungeonRunHost");
@@ -1974,8 +1981,17 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeLobbyPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
-                Assert.That(lobby.TitleText, Is.EqualTo(PrototypeLobbyPresenter.GameTitle));
+                Assert.That(
+                    lobby.TitleText,
+                    Does.Contain(PrototypeLobbyPresenter.GameTitle));
                 Assert.That(lobby.HasAuthoredViewReferences, Is.True);
+                Assert.That(lobby.HasVersionLabelReference, Is.True);
+                Assert.That(lobby.VersionLabel, Is.Not.Null);
+                Assert.That(
+                    lobby.VersionText,
+                    Is.EqualTo(
+                        PrototypeLobbyPresenter.FormatVersionText(
+                            Application.version)));
                 Assert.That(lobby.LobbyCanvas.gameObject.scene, Is.EqualTo(loadedScene));
                 Assert.That(lobby.LobbyCanvas.name, Is.EqualTo("LobbyCanvas"));
                 CanvasScaler lobbyScaler = lobby.LobbyCanvas.GetComponent<CanvasScaler>();
@@ -2000,6 +2016,19 @@ namespace BombSwap.Tests.PlayMode
                     Is.SameAs(
                         lobby.ControlsButton.GetComponentInChildren<
                             TextMeshProUGUI>(true)));
+                Assert.That(startFeedback.HoverVisualTargetCount, Is.EqualTo(2));
+                Assert.That(settingsFeedback.HoverVisualTargetCount, Is.EqualTo(2));
+                for (int hoverIndex = 0; hoverIndex < 2; hoverIndex++)
+                {
+                    Assert.That(
+                        startFeedback.GetHoverVisualTarget(hoverIndex).transform
+                            .IsChildOf(lobby.StartButton.transform),
+                        Is.True);
+                    Assert.That(
+                        settingsFeedback.GetHoverVisualTarget(hoverIndex).transform
+                            .IsChildOf(lobby.ControlsButton.transform),
+                        Is.True);
+                }
                 Assert.That(
                     lobby.LobbyEventSystem.currentSelectedGameObject,
                     Is.SameAs(lobby.StartButton.gameObject));
@@ -2016,6 +2045,16 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     lobby.SettingsPanel.KeyboardBindingCount,
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                Assert.That(lobby.SettingsPanel.KeyboardResetButton, Is.Not.Null);
+                Assert.That(
+                    lobby.SettingsPanel.KeyboardResetButton.transform
+                        .IsChildOf(lobby.SettingsPanel.transform),
+                    Is.True);
+                Assert.That(
+                    lobby.SettingsPanel
+                        .GetComponentsInChildren<TextMeshProUGUI>(true)
+                        .Any(label => label.name == "SettingsStatusText"),
+                    Is.False);
                 Assert.That(
                     lobby.SettingsRuntime.AudioMixer.GetFloat(
                         PrototypeUserSettingsRuntime.MasterVolumeParameter,
@@ -2035,6 +2074,34 @@ namespace BombSwap.Tests.PlayMode
                 lobby.ShowControls();
                 Assert.That(lobby.IsControlsVisible, Is.True);
                 Assert.That(lobby.SettingsPanel.IsControlsPageVisible, Is.True);
+                lobbyInputActions = lobby.SettingsRuntime.InputActions;
+                lobby.SettingsPanel.KeyboardResetButton.onClick.Invoke();
+                PrototypeSettingsPanelPresenter.KeyboardBindingView upBinding =
+                    lobby.SettingsPanel.GetKeyboardBinding(0);
+                feedbackKeyboard = InputSystem.AddDevice<Keyboard>();
+                upBinding.Button.onClick.Invoke();
+                Assert.That(lobby.SettingsPanel.IsRebinding, Is.True);
+
+                InputSystem.QueueStateEvent(
+                    feedbackKeyboard,
+                    new KeyboardState(Key.S));
+                InputSystem.Update();
+                InputSystem.QueueStateEvent(
+                    feedbackKeyboard,
+                    new KeyboardState());
+                InputSystem.Update();
+                yield return null;
+
+                Assert.That(lobby.SettingsPanel.IsRebinding, Is.False);
+                Assert.That(
+                    lobby.SettingsPanel.IsDuplicateBindingFeedbackPlaying,
+                    Is.True);
+                Assert.That(upBinding.ValueLabel.text, Is.EqualTo("이미 사용 중"));
+                yield return new WaitForSecondsRealtime(1.1f);
+                Assert.That(
+                    lobby.SettingsPanel.IsDuplicateBindingFeedbackPlaying,
+                    Is.False);
+                Assert.That(upBinding.ValueLabel.text, Is.EqualTo("W"));
                 Assert.That(
                     lobby.SettingsPanel
                         .GetComponentsInChildren<TextMeshProUGUI>(true)
@@ -2114,6 +2181,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     pausePresenter.SettingsPanel.KeyboardBindingCount,
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                Assert.That(
+                    pausePresenter.SettingsPanel.KeyboardResetButton,
+                    Is.Not.Null);
 
                 PressAndRelease(pauseKeyboard, Key.Escape);
                 yield return null;
@@ -2143,6 +2213,32 @@ namespace BombSwap.Tests.PlayMode
                 {
                     InputSystem.RemoveDevice(pauseKeyboard);
                 }
+                if (feedbackKeyboard != null && feedbackKeyboard.added)
+                {
+                    InputSystem.RemoveDevice(feedbackKeyboard);
+                }
+                if (lobbyInputActions != null)
+                {
+                    lobbyInputActions.RemoveAllBindingOverrides();
+                    if (hadInputOverrides &&
+                        !string.IsNullOrWhiteSpace(previousInputOverrides))
+                    {
+                        lobbyInputActions.LoadBindingOverridesFromJson(
+                            previousInputOverrides);
+                    }
+                }
+                if (hadInputOverrides)
+                {
+                    PlayerPrefs.SetString(
+                        PrototypeUserSettingsStorage.InputOverridesKey,
+                        previousInputOverrides);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(
+                        PrototypeUserSettingsStorage.InputOverridesKey);
+                }
+                PlayerPrefs.Save();
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
                         FindObjectsInactive.Include);

@@ -132,5 +132,23 @@ namespace BombSwap.Tests.PlayMode
                 _actions.FindAction("PlaceBomb", true).bindings[0].effectivePath,
                 Is.EqualTo("<Keyboard>/z"));
         }
+
+        [Test]
+        public void ResetInputOverrides_RestoresKeysWithoutChangingOtherSettings()
+        {
+            var settings = new PrototypeUserSettings(0.8f, 0.3f, 0.6f, 0.2f);
+            InputAction action = _actions.FindAction("PlaceBomb", true);
+            action.ApplyBindingOverride(0, "<Keyboard>/q");
+            PrototypeUserSettingsStorage.Save(settings);
+            PrototypeUserSettingsStorage.SaveInputOverrides(_actions);
+
+            PrototypeUserSettingsStorage.ResetInputOverrides(_actions);
+
+            Assert.That(action.bindings[0].effectivePath, Is.EqualTo("<Keyboard>/z"));
+            Assert.That(
+                PlayerPrefs.HasKey(PrototypeUserSettingsStorage.InputOverridesKey),
+                Is.False);
+            Assert.That(PrototypeUserSettingsStorage.Load(), Is.EqualTo(settings));
+        }
     }
 }

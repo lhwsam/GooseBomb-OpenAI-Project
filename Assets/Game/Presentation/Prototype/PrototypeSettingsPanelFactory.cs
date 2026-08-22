@@ -61,7 +61,10 @@ namespace BombSwap
             SetAnchors(controlsPage, new Vector2(0.07f, 0.19f), new Vector2(0.93f, 0.78f));
             var bindingViews = new List<PrototypeSettingsPanelPresenter.KeyboardBindingView>(
                 KeyboardBindingDefinitions.Length);
-            float rowHeight = 1f / KeyboardBindingDefinitions.Length;
+            const float keyboardResetAreaTop = 0.14f;
+            float rowHeight =
+                (1f - keyboardResetAreaTop) /
+                KeyboardBindingDefinitions.Length;
             for (int index = 0; index < KeyboardBindingDefinitions.Length; index++)
             {
                 var definition = KeyboardBindingDefinitions[index];
@@ -84,13 +87,25 @@ namespace BombSwap
                     rebindButton.GetComponentInChildren<TextMeshProUGUI>(true));
                 bindingViews.Add(view);
             }
+            Button keyboardReset = CreateButton(
+                "ResetButton", controlsPage, "키 설정 초기화", 18f,
+                new Vector2(0.28f, 0.01f),
+                new Vector2(0.72f, keyboardResetAreaTop - 0.01f));
 
             RectTransform audioPage = PrototypeUiFactory.CreateRect("AudioPage", root);
             SetAnchors(audioPage, new Vector2(0.07f, 0.19f), new Vector2(0.93f, 0.78f));
-            CreateSliderRow(audioPage, "전체 음량", 0.77f, out Slider master, out TextMeshProUGUI masterValue);
-            CreateSliderRow(audioPage, "배경음", 0.57f, out Slider bgm, out TextMeshProUGUI bgmValue);
-            CreateSliderRow(audioPage, "효과음", 0.37f, out Slider sfx, out TextMeshProUGUI sfxValue);
-            CreateSliderRow(audioPage, "화면 흔들림", 0.17f, out Slider shake, out TextMeshProUGUI shakeValue);
+            CreateSliderRow(
+                audioPage, "MasterVolume", "전체 음량", 0.77f,
+                out Slider master, out TextMeshProUGUI masterValue);
+            CreateSliderRow(
+                audioPage, "BgmVolume", "배경음", 0.57f,
+                out Slider bgm, out TextMeshProUGUI bgmValue);
+            CreateSliderRow(
+                audioPage, "SfxVolume", "효과음", 0.37f,
+                out Slider sfx, out TextMeshProUGUI sfxValue);
+            CreateSliderRow(
+                audioPage, "ScreenShake", "화면 흔들림", 0.17f,
+                out Slider shake, out TextMeshProUGUI shakeValue);
             Button fullscreen = CreateButton(
                 "FullscreenButton", audioPage, "전체 화면 전환", 20f,
                 new Vector2(0.03f, 0.0f), new Vector2(0.48f, 0.12f));
@@ -98,14 +113,6 @@ namespace BombSwap
                 "ResetDefaultsButton", audioPage, "기본값 복원", 20f,
                 new Vector2(0.52f, 0.0f), new Vector2(0.97f, 0.12f));
             audioPage.gameObject.SetActive(false);
-
-            TextMeshProUGUI status = PrototypeUiFactory.CreateText(
-                "SettingsStatusText", root, 16f,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal,
-                TextWrappingModes.Normal);
-            SetAnchors(status.rectTransform, new Vector2(0.06f, 0.12f), new Vector2(0.94f, 0.18f));
-            status.color = new Color(0.7f, 0.78f, 0.88f, 1f);
 
             Button back = CreateButton(
                 "BackButton", root, "돌아가기", 22f,
@@ -120,6 +127,7 @@ namespace BombSwap
                 audioTab,
                 back,
                 fullscreen,
+                keyboardReset,
                 reset,
                 master,
                 bgm,
@@ -129,20 +137,20 @@ namespace BombSwap
                 bgmValue,
                 sfxValue,
                 shakeValue,
-                status,
                 bindingViews.ToArray());
             return presenter;
         }
 
         private static void CreateSliderRow(
             Transform parent,
+            string objectNamePrefix,
             string labelText,
             float top,
             out Slider slider,
             out TextMeshProUGUI valueLabel)
         {
             TextMeshProUGUI label = PrototypeUiFactory.CreateText(
-                labelText.Replace(" ", string.Empty) + "Label",
+                objectNamePrefix + "Label",
                 parent,
                 20f,
                 TextAlignmentOptions.MidlineLeft);
@@ -150,14 +158,14 @@ namespace BombSwap
             label.text = labelText;
 
             slider = PrototypeUiFactory.CreateSlider(
-                labelText.Replace(" ", string.Empty) + "Slider",
+                objectNamePrefix + "Slider",
                 parent,
                 new Color(0.25f, 0.65f, 0.95f, 1f),
                 new Color(1f, 0.78f, 0.26f, 1f));
             SetAnchors(slider.GetComponent<RectTransform>(), new Vector2(0.32f, top - 0.095f), new Vector2(0.82f, top - 0.025f));
 
             valueLabel = PrototypeUiFactory.CreateText(
-                labelText.Replace(" ", string.Empty) + "Value",
+                objectNamePrefix + "Value",
                 parent,
                 18f,
                 TextAlignmentOptions.Center);

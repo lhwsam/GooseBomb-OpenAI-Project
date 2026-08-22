@@ -87,7 +87,9 @@ namespace BombSwap.Editor.UI
                     button,
                     feedback);
 
-                if (feedback.HasConfiguration(visualTarget))
+                bool requiresSharedConfiguration =
+                    !feedback.HasConfiguration(visualTarget);
+                if (!requiresSharedConfiguration)
                 {
                     continue;
                 }
