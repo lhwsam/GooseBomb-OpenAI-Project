@@ -126,6 +126,12 @@ namespace BombSwap
             PrototypeUserSettingsStorage.SaveInputOverrides(inputActions);
         }
 
+        public void ResetKeyboardBindingsToDefaults()
+        {
+            EnsureLoaded();
+            PrototypeUserSettingsStorage.ResetInputOverrides(inputActions);
+        }
+
         private void EnsureLoaded()
         {
             if (_isLoaded)

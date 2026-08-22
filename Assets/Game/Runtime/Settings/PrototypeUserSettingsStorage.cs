@@ -82,12 +82,28 @@ namespace BombSwap
             PlayerPrefs.DeleteKey(BgmVolumeKey);
             PlayerPrefs.DeleteKey(SfxVolumeKey);
             PlayerPrefs.DeleteKey(ScreenShakeKey);
+            ResetInputOverrides(actions, false);
+            PlayerPrefs.Save();
+        }
+
+        public static void ResetInputOverrides(InputActionAsset actions)
+        {
+            ResetInputOverrides(actions, true);
+        }
+
+        private static void ResetInputOverrides(
+            InputActionAsset actions,
+            bool savePlayerPrefs)
+        {
             PlayerPrefs.DeleteKey(InputOverridesKey);
             if (actions != null)
             {
                 actions.RemoveAllBindingOverrides();
             }
-            PlayerPrefs.Save();
+            if (savePlayerPrefs)
+            {
+                PlayerPrefs.Save();
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -50,6 +51,10 @@ namespace BombSwap
         [SerializeField]
         private Color targetColor = new Color(1f, 0.72f, 0.22f, 1f);
 
+        [Header("Optional hover visuals")]
+        [SerializeField]
+        private GameObject[] hoverVisualTargets = Array.Empty<GameObject>();
+
         private Button _button;
         private Vector3 _baseScale = Vector3.one;
         private Tween _scaleTween;
@@ -84,6 +89,8 @@ namespace BombSwap
         public Color StartColor => startColor;
 
         public Color TargetColor => targetColor;
+
+        public int HoverVisualTargetCount => hoverVisualTargets?.Length ?? 0;
 
         public void Configure(
             RectTransform authoredVisualTarget,
@@ -139,6 +146,49 @@ namespace BombSwap
 
             colorTarget = fallbackColorTarget;
             ApplyVisualState(ResolveVisualState(), true);
+        }
+
+        public void ConfigureHoverVisuals(GameObject[] authoredHoverVisualTargets)
+        {
+            hoverVisualTargets = authoredHoverVisualTargets ??
+                Array.Empty<GameObject>();
+
+            if (Application.isPlaying)
+            {
+                SetHoverVisualsActive(
+                    ResolveVisualState() != VisualState.Normal);
+            }
+        }
+
+        public GameObject GetHoverVisualTarget(int index)
+        {
+            if (hoverVisualTargets == null ||
+                index < 0 ||
+                index >= hoverVisualTargets.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            return hoverVisualTargets[index];
+        }
+
+        public bool HasHoverVisualTargets(GameObject[] expectedTargets)
+        {
+            int expectedCount = expectedTargets?.Length ?? 0;
+            if (HoverVisualTargetCount != expectedCount)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < expectedCount; index++)
+            {
+                if (hoverVisualTargets[index] != expectedTargets[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void SuppressSelectionVisualUntilInteraction()
@@ -216,6 +266,7 @@ namespace BombSwap
         private void OnDestroy()
         {
             KillActiveTweens();
+            SetHoverVisualsActive(false);
         }
 
         private void Update()
@@ -370,6 +421,7 @@ namespace BombSwap
 
             TweenScale(_baseScale * multiplier, immediate);
             TweenColor(desiredColor, immediate);
+            SetHoverVisualsActive(state != VisualState.Normal);
         }
 
         private void TweenScale(Vector3 targetScale, bool immediate)
@@ -436,6 +488,29 @@ namespace BombSwap
             }
 
             RestoreConfiguredColor();
+            SetHoverVisualsActive(false);
+        }
+
+        private void SetHoverVisualsActive(bool active)
+        {
+            if (hoverVisualTargets == null)
+            {
+                return;
+            }
+
+            for (int index = 0;
+                 index < hoverVisualTargets.Length;
+                 index++)
+            {
+                GameObject target = hoverVisualTargets[index];
+                if (target != null &&
+                    target != gameObject &&
+                    target.transform.IsChildOf(transform) &&
+                    target.activeSelf != active)
+                {
+                    target.SetActive(active);
+                }
+            }
         }
 
         private void RestoreConfiguredColor()
