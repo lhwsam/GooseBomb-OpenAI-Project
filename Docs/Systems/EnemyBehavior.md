@@ -41,6 +41,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 차선 후보와 획득 경로 동률은 `North → East → South → West`다. 첫 판단은 즉시 가능하고 이후 1초 cadence에서만 플레이어의 현재 논리 셀을 다시 읽는다. 벽·파괴벽·폭탄·다른 actor는 경로와 정렬 차선을 막으며 유효 후보가 없으면 배회하지 않는다.
 - 정렬이 확인되면 `Track → Telegraph`로 전환하면서 방향과 현재 장애물까지의 최대 돌진 거리를 잠근다. 예고 중 플레이어가 이동하거나 기존 장애물이 사라져도 방향·최대 거리를 바꾸거나 늘리지 않는다.
 - `PrototypeChargerPresenter`는 고정 최대 거리의 모든 논리 셀에 collider 없는 얇은 예고 placeholder를 풀링해 표시하고 `Charge` 시작 때 회수한다. 획득 이동은 1 cell/s, 돌진 이동은 8 cells/s로 각각 확정 Core step을 보간한다.
+- Charger 표현은 collider와 Rigidbody가 없는 `ChargerPig` 프리팹을 사용한다. Presenter는 확정된 `Track` 이동을 Idle/Run, 상태 전이를 Telegraph/Charge/Recover, `EnemyDied`를 Die 트리거로 변환하며 Root Motion은 사용하지 않는다.
 - 예고 종료 뒤 `Charge`에서 고정 방향으로 한 셀씩 이동한다. 플레이어가 다음 셀에 있으면 겹치지 않은 채 단일 충돌 피해 후보를 만들고, 고정 최대 거리를 소진하거나 고정 벽·파괴벽·새 폭탄·다른 actor가 먼저 막으면 피해 없이 `Recover`가 된다.
 - 폭탄 충돌의 고정 지연 연쇄와 별도 기절은 기존 bomb scheduler·소유권 계약을 확장해야 하므로 현재는 `Deferred`다. 폭탄은 다른 논리 점유 장애물과 같이 조기 회복만 만든다.
 - `PrototypeGameSession`은 같은 frame에서 추격자 다음 돌진형 순서로 이동을 확정한다. 폭발 피해는 추격자 다음 돌진형 순서로 적용하고, 모든 `EnemyDied` 뒤 살아 있는 적이 없을 때만 `RoomCleared`를 한 번 발행한다.

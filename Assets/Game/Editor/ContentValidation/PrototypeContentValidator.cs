@@ -132,17 +132,31 @@ namespace BombSwap.Editor.ContentValidation
         public const string ChaserPrefabPath =
             "Assets/Game/Content/Prefabs/Enemies/ChaserPig.prefab";
         public const string ChaserAnimatorControllerPath =
-            "Assets/Arts/Character/Pig/Normal/Animations/normal-pig-rigged.controller";
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-rigged.controller";
         public const string ChaserIdleClipPath =
-            "Assets/Arts/Character/Pig/Normal/Animations/normal-pig-idle.fbx";
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-idle.fbx";
         public const string ChaserRunClipPath =
-            "Assets/Arts/Character/Pig/Normal/Animations/normal-pig-run.fbx";
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-run.fbx";
         public const string ChaserAttackClipPath =
-            "Assets/Arts/Character/Pig/Normal/Animations/normal-pig-attack.fbx";
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-attack.fbx";
         public const string ChaserDieClipPath =
-            "Assets/Arts/Character/Pig/Normal/Animations/normal-pig-die.fbx";
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-die.fbx";
         public const string ChargerPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/ChargerPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/ChargerPig.prefab";
+        public const string ChargerAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/AC_Charger_Pig.controller";
+        public const string ChargerIdleClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-idle.fbx";
+        public const string ChargerRunClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-walk.fbx";
+        public const string ChargerTelegraphClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-telegraph.fbx";
+        public const string ChargerChargeClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-charge.fbx";
+        public const string ChargerRecoverClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-recover.fbx";
+        public const string ChargerDieClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-die.fbx";
         public const string ChargerTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChargerTelegraphCellPlaceholder.prefab";
         public const string ArmoredPrefabPath =
@@ -975,6 +989,31 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add("Prototype charger prefab must not contain a Collider; logical grid owns collision.");
             }
+            if (definition.ChargerPrefab != null)
+            {
+                Animator[] animators =
+                    definition.ChargerPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.ChargerPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.ChargerPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        ChargerAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateChargerAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical charger prefab requires one valid Humanoid Animator with " +
+                        "Track/Telegraph/Charge/Recover/Die states, a skinned renderer, " +
+                        "disabled root motion, and no Rigidbody.");
+                }
+            }
             if (definition.TelegraphCellPrefab != null &&
                 definition.TelegraphCellPrefab.GetComponentInChildren<Collider>(true) != null)
             {
@@ -982,6 +1021,62 @@ namespace BombSwap.Editor.ContentValidation
                     "Prototype charger telegraph-cell prefab must not contain a Collider; " +
                     "logical grid owns collision.");
             }
+        }
+
+        private static bool ValidateChargerAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 6 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1)
+            {
+                return false;
+            }
+            foreach (string trigger in new[] { "Track", "Telegraph", "Charge", "Recover", "Die" })
+            {
+                if (controller.parameters.Count(parameter =>
+                        parameter.name == trigger &&
+                        parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+                {
+                    return false;
+                }
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "ChargerIdle");
+            AnimatorState run = FindSingleAnimatorState(machine, "ChargerRun");
+            AnimatorState telegraph = FindSingleAnimatorState(machine, "ChargerTelegraph");
+            AnimatorState charge = FindSingleAnimatorState(machine, "ChargerCharge");
+            AnimatorState recover = FindSingleAnimatorState(machine, "ChargerRecover");
+            AnimatorState die = FindSingleAnimatorState(machine, "ChargerDie");
+            if (idle == null || run == null || telegraph == null || charge == null ||
+                recover == null || die == null || machine.states.Length != 6 ||
+                machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), ChargerIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(run.motion), ChargerRunClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(telegraph.motion), ChargerTelegraphClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(charge.motion), ChargerChargeClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(recover.motion), ChargerRecoverClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(die.motion), ChargerDieClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, run, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(idle.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(telegraph.transitions, charge, "Charge", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(charge.transitions, recover, "Recover", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(recover.transitions, idle, "Track", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && run.transitions.Length == 2 &&
+                   telegraph.transitions.Length == 1 && charge.transitions.Length == 1 &&
+                   recover.transitions.Length == 1 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 1 &&
+                   !machine.anyStateTransitions[0].canTransitionToSelf;
         }
 
         private static void ValidatePrototypeArmoredDefinition(ICollection<string> errors)
