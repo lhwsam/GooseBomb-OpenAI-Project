@@ -8,6 +8,9 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeSelfDestructPresenter : MonoBehaviour
     {
+        private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
+        private static readonly int TelegraphParameterId = Animator.StringToHash("Telegraph");
+        private static readonly int DetonateParameterId = Animator.StringToHash("Detonate");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -38,6 +41,7 @@ namespace BombSwap
         private readonly List<GameObject> telegraphCells = new List<GameObject>();
         private GameObject instance;
         private Renderer instanceRenderer;
+        private Animator animator;
         private MaterialPropertyBlock propertyBlock;
         private int colorPropertyId;
         private Color normalColor;
@@ -46,7 +50,7 @@ namespace BombSwap
         private Vector3 visualTarget;
         private float visualElapsed;
         private float visualDuration;
-        private float deathEndsAt;
+        private float deathRemaining;
         private float pulsePhase;
         private bool isInterpolating;
         private bool isShowingDeath;
@@ -66,6 +70,8 @@ namespace BombSwap
         public int StateChangeCount { get; private set; }
 
         public int DeathCount { get; private set; }
+
+        public Animator Animator => animator;
 
         public int ActiveTelegraphCellCount { get; private set; }
 
@@ -108,6 +114,7 @@ namespace BombSwap
             session.SelfDestructAdvanced += OnSelfDestructAdvanced;
             session.SelfDestructSpawned += OnSelfDestructSpawned;
             session.EnemyDied += OnEnemyDied;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -122,6 +129,7 @@ namespace BombSwap
                 session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
                 session.SelfDestructSpawned -= OnSelfDestructSpawned;
                 session.EnemyDied -= OnEnemyDied;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             if (instance != null)
@@ -138,6 +146,11 @@ namespace BombSwap
 
             instance = null;
             instanceRenderer = null;
+            if (animator != null)
+            {
+                animator.speed = 1f;
+            }
+            animator = null;
             telegraphCells.Clear();
             ActiveTelegraphCellCount = 0;
             IsInitialized = false;
@@ -147,6 +160,11 @@ namespace BombSwap
 
         private void Update()
         {
+            if (session != null && session.IsPaused)
+            {
+                return;
+            }
+
             if (isInterpolating && instance != null)
             {
                 visualElapsed += Time.deltaTime;
@@ -159,23 +177,27 @@ namespace BombSwap
                 {
                     instance.transform.position = visualTarget;
                     isInterpolating = false;
+                    SetMovingAnimation(false);
                 }
             }
 
             if (!isShowingDeath &&
                 instance != null &&
                 session != null &&
-                !session.IsPaused &&
                 (CurrentState == SelfDestructEnemyState.WarningChase ||
                     CurrentState == SelfDestructEnemyState.Telegraph))
             {
                 ApplyPulse(Time.deltaTime);
             }
 
-            if (isShowingDeath && instance != null && Time.unscaledTime >= deathEndsAt)
+            if (isShowingDeath && instance != null)
             {
-                instance.SetActive(false);
-                isShowingDeath = false;
+                deathRemaining -= Time.unscaledDeltaTime;
+                if (deathRemaining <= 0f)
+                {
+                    instance.SetActive(false);
+                    isShowingDeath = false;
+                }
             }
         }
 
@@ -226,6 +248,13 @@ namespace BombSwap
             instance = Instantiate(definition.EnemyPrefab, presentationRoot);
             instance.name = "PrototypeSelfDestructVisual";
             instanceRenderer = instance.GetComponentInChildren<Renderer>(true);
+            animator = instance.GetComponentInChildren<Animator>(true);
+            if (animator != null)
+            {
+                animator.applyRootMotion = false;
+                animator.speed = session.IsPaused ? 0f : 1f;
+                animator.SetBool(IsMovingParameterId, false);
+            }
             baseScale = instance.transform.localScale;
             InitializeColor();
             visualDuration = 1f / definition.ChaseCellsPerSecond;
@@ -234,6 +263,7 @@ namespace BombSwap
             instance.transform.position = visualTarget;
             instance.SetActive(session.IsSelfDestructAlive);
             CurrentState = session.CurrentSelfDestructState;
+            ApplyAnimationState(CurrentState);
             ApplyStateVisual(CurrentState);
             if (CurrentState == SelfDestructEnemyState.Telegraph)
             {
@@ -264,6 +294,14 @@ namespace BombSwap
                     (float)result.MovementDuration.TotalSeconds,
                     Mathf.Epsilon);
                 isInterpolating = true;
+                Vector3 facing = visualTarget - visualStart;
+                facing.y = 0f;
+                if (facing.sqrMagnitude > 0.0001f)
+                {
+                    instance.transform.rotation =
+                        Quaternion.LookRotation(facing.normalized, Vector3.up);
+                }
+                SetMovingAnimation(true);
             }
             if (result.HasStateTransition)
             {
@@ -278,6 +316,7 @@ namespace BombSwap
                     visualElapsed = 0f;
                     instance.transform.position = visualTarget;
                 }
+                ApplyAnimationState(CurrentState);
                 ApplyStateVisual(CurrentState);
                 if (CurrentState == SelfDestructEnemyState.Telegraph)
                 {
@@ -306,9 +345,53 @@ namespace BombSwap
             HideTelegraph();
             instance.transform.localScale = baseScale;
             ApplyColor(deathColor);
-            deathEndsAt = Time.unscaledTime +
-                session.SelfDestructDefinition.DeathVisualSeconds;
+            deathRemaining = session.SelfDestructDefinition.DeathVisualSeconds;
             isShowingDeath = true;
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (animator != null)
+            {
+                animator.speed = isPaused ? 0f : 1f;
+            }
+        }
+
+        private void ApplyAnimationState(SelfDestructEnemyState state)
+        {
+            if (animator == null)
+            {
+                return;
+            }
+
+            switch (state)
+            {
+                case SelfDestructEnemyState.Chase:
+                case SelfDestructEnemyState.WarningChase:
+                    break;
+                case SelfDestructEnemyState.Telegraph:
+                    animator.SetBool(IsMovingParameterId, false);
+                    animator.ResetTrigger(DetonateParameterId);
+                    animator.SetTrigger(TelegraphParameterId);
+                    break;
+                case SelfDestructEnemyState.Detonated:
+                    animator.SetBool(IsMovingParameterId, false);
+                    animator.ResetTrigger(TelegraphParameterId);
+                    animator.SetTrigger(DetonateParameterId);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
+            }
+        }
+
+        private void SetMovingAnimation(bool isMoving)
+        {
+            if (animator != null &&
+                (CurrentState == SelfDestructEnemyState.Chase ||
+                    CurrentState == SelfDestructEnemyState.WarningChase))
+            {
+                animator.SetBool(IsMovingParameterId, isMoving);
+            }
         }
 
         private void ShowTelegraph()

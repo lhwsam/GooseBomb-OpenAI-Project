@@ -344,3 +344,4 @@
 # 3D 캐릭터 표현
 
 - PlayerDuck과 ChaserPig에 이어 ChargerPig 모델과 전용 Animator를 연결했다. Charger의 Track/Telegraph/Charge/Recover/Die 표현은 Presenter가 기존 Core 이벤트를 번역하며, 논리 이동과 충돌 규칙은 변경하지 않는다.
+- SelfDestructPig 모델과 전용 Animator를 연결했다. Chase·WarningChase·Telegraph·Detonated Core 상태는 Idle/Run·Telegraph·Detonate 표현으로만 변환되며 기존 fuse와 펄스 튜닝은 유지한다.

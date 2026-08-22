@@ -164,7 +164,17 @@ namespace BombSwap.Editor.ContentValidation
         public const string ArmoredPanicTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPanicTelegraphCellPlaceholder.prefab";
         public const string SelfDestructPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/SelfDestructPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/SelfDestructPig.prefab";
+        public const string SelfDestructAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/AC_SelfDestruct_Pig.controller";
+        public const string SelfDestructIdleClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-idle.fbx";
+        public const string SelfDestructRunClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-run.fbx";
+        public const string SelfDestructTelegraphClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-telegraph.fbx";
+        public const string SelfDestructDetonateClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-detonate.fbx";
         public const string SelfDestructTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/SelfDestructTelegraphCellPlaceholder.prefab";
         public const string ThrowerPrefabPath =
@@ -1218,6 +1228,78 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype self-destruct definition has inconsistent blast or presentation references.");
             }
+            if (definition.EnemyPrefab != null)
+            {
+                Animator[] animators =
+                    definition.EnemyPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.EnemyPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.EnemyPrefab.GetComponentInChildren<Collider>(true) != null ||
+                    definition.EnemyPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        SelfDestructAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateSelfDestructAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical self-destruct prefab requires one valid Humanoid Animator " +
+                        "with Idle/Run/Telegraph/Detonate states, a skinned renderer, " +
+                        "disabled root motion, and no Collider or Rigidbody.");
+                }
+            }
+        }
+
+        private static bool ValidateSelfDestructAnimatorContract(
+            AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 3 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "Telegraph" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "Detonate" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "SelfDestructIdle");
+            AnimatorState run = FindSingleAnimatorState(machine, "SelfDestructRun");
+            AnimatorState telegraph =
+                FindSingleAnimatorState(machine, "SelfDestructTelegraph");
+            AnimatorState detonate =
+                FindSingleAnimatorState(machine, "SelfDestructDetonate");
+            if (idle == null || run == null || telegraph == null || detonate == null ||
+                machine.states.Length != 4 || machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), SelfDestructIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(run.motion), SelfDestructRunClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(telegraph.motion), SelfDestructTelegraphClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(detonate.motion), SelfDestructDetonateClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, run, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(idle.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(telegraph.transitions, detonate, "Detonate", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && run.transitions.Length == 2 &&
+                   telegraph.transitions.Length == 1 && detonate.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 0;
         }
 
         private static void ValidatePrototypeBossDefinition(ICollection<string> errors)

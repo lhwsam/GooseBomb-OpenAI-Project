@@ -19,7 +19,7 @@ MonoBehaviour:
   warningDistance: 3
   primeDistance: 1
   detonationBombDefinition: {fileID: 11400000, guid: 93b309c0b23b46849834446b8b7f7fa8, type: 2}
-  enemyPrefab: {fileID: 2595045374024366570, guid: 5121d797d6b05264782db7870c1f3f16, type: 3}
+  enemyPrefab: {fileID: 7953779922241634839, guid: a7298b8c913d79d4faf22ff769259a1a, type: 3}
   telegraphCellPrefab: {fileID: 5347778065953228880, guid: 4fa8697dd5702124b8329c151437568a, type: 3}
-  visualHeight: 0.45
+  visualHeight: 0
   deathVisualSeconds: 0.12

@@ -1558,7 +1558,7 @@ namespace BombSwap.Editor.ContentValidation
                 blastDefinition,
                 enemyPrefab,
                 telegraphPrefab,
-                0.45f,
+                0f,
                 0.12f);
             EditorUtility.SetDirty(definition);
             return definition;
