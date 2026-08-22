@@ -67,6 +67,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 매 추적 cadence에 현재 플레이어 셀에서 역방향 BFS 거리장을 만들고 최단 거리가 작아지는 한 칸을 `North → East → South → West` 동률 순서로 선택한다. actor·폭탄 점유와 비바닥은 차단하며 경로가 없으면 임의 배회하지 않고 기다린다.
 - 이동 뒤 Manhattan 3칸 이내면 `WarningChase`가 되어 누적을 시작한다. 범위 안에 연속으로 머무는 동안 한 칸 cadence는 0.5초에서 0.2초까지 선형으로 줄어들고, 1.5초가 끝나면 인접 여부와 관계없이 현재 셀에서 `Telegraph`가 된다. cadence 시작 시 1칸 이내면 그보다 먼저 점화한다. 플레이어가 3칸 밖으로 벗어나면 즉시 `Chase`로 돌아가 누적을 0으로 초기화하므로 열린 공간에서 5 cells/s 플레이어가 일찍 이탈하면 취소할 수 있다.
 - `WarningChase`는 누적 진행도에 따라 정상색↔주황 경고색 pulse가 3→8Hz, 최대 scale이 1.08→1.18배로 연속 상승한다. 이동 표현도 각 Core 결과의 실제 가변 cadence를 사용한다. `Telegraph`에서는 이동을 멈추고 권위 셀에 고정하며 8Hz·최대 1.18배 pulse와 실제 범위 셀을 함께 표시한다. 이는 `MaterialPropertyBlock`과 기존 인스턴스 scale만 갱신하며 material 인스턴스를 만들지 않는다.
+- 자폭병 표현은 collider와 Rigidbody가 없는 `SelfDestructPig` 프리팹을 사용한다. Presenter는 Chase·WarningChase 이동을 Idle/Run, 점화를 Telegraph, 폭발 종결을 Detonate로 변환하며 별도 Die 상태와 Root Motion은 사용하지 않는다.
 - `Chase` 또는 `WarningChase` 중 플레이어 폭발에 맞으면 현재 권위 셀로 표현을 맞춘 뒤 즉시 Telegraph가 된다. 이후 플레이어 이동이나 추가 폭발은 원점과 상태를 다시 선택하지 않는다.
 - Telegraph 시작 시 자폭병 소유의 논리 폭탄 하나를 같은 셀에 설치한다. 플레이어 슬롯·쿨타임과 분리되지만 기존 `BombSimulation`의 ID, fuse, 0.15초 연쇄 지연, 벽 차단과 파괴벽 규칙을 그대로 사용한다.
 - 자기 폭발이 확정되면 자폭병 체력과 actor 점유를 한 번 제거하고 `EnemyDied`를 발행한다. 범위에 든 플레이어·다른 적·보스는 기존 대상별 피해와 무적 계약을 사용한다.
