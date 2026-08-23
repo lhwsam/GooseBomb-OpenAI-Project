@@ -3855,6 +3855,122 @@ namespace BombSwap.Editor.ContentValidation
                 }
             }
 
+            bool validatesEnvironmentVisuals = string.Equals(
+                context.gameObject.scene.path,
+                TestSandboxScenePath,
+                StringComparison.Ordinal);
+            GameObject brickPrefab = validatesEnvironmentVisuals
+                ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.BrickBlockPrefabPath)
+                : null;
+            GameObject cornerPrefab = validatesEnvironmentVisuals
+                ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.BrickCornerPrefabPath)
+                : null;
+            for (int index = 0;
+                 validatesEnvironmentVisuals && index < obstacles.childCount;
+                 index++)
+            {
+                Transform visual = obstacles.GetChild(index).Find("Visual");
+                if (!IsExpectedVisualPrefab(visual, cornerPrefab))
+                {
+                    errors.Add(
+                        $"TestSandbox obstacle {obstacles.GetChild(index).name} must use the collider-free BrickCorner visual prefab.");
+                }
+            }
+
+            if (validatesEnvironmentVisuals)
+            {
+                Transform floorVisuals =
+                    context.GridRoot.Find("Environment/FloorVisuals");
+                int expectedFloorCount = room.Width * room.Depth;
+                if (floorVisuals == null || floorVisuals.childCount != expectedFloorCount)
+                {
+                    errors.Add(
+                        $"TestSandbox floor must contain {expectedFloorCount} BrickBlock visual cells.");
+                }
+                else
+                {
+                    for (int index = 0; index < floorVisuals.childCount; index++)
+                    {
+                        if (!IsExpectedVisualPrefab(floorVisuals.GetChild(index), brickPrefab))
+                        {
+                            errors.Add("TestSandbox floor contains an invalid visual prefab.");
+                            break;
+                        }
+                    }
+                }
+
+                Transform boundaryVisuals =
+                    context.GridRoot.Find("Environment/BoundaryVisuals");
+                Transform boundaryBaseVisuals =
+                    context.GridRoot.Find("Environment/BoundaryBaseVisuals");
+                int expectedBoundaryCount =
+                    (2 * (room.Width - 1)) + (2 * (room.Depth - 1)) + 4;
+                if (boundaryVisuals == null ||
+                    boundaryVisuals.childCount != expectedBoundaryCount)
+                {
+                    errors.Add(
+                        $"TestSandbox boundary must contain {expectedBoundaryCount} brick visual cells.");
+                }
+                else
+                {
+                    for (int index = 0; index < boundaryVisuals.childCount; index++)
+                    {
+                        Transform visual = boundaryVisuals.GetChild(index);
+                        if (!IsExpectedVisualPrefab(visual, cornerPrefab))
+                        {
+                            errors.Add("TestSandbox boundary contains an invalid visual prefab.");
+                            break;
+                        }
+                    }
+                }
+                if (boundaryBaseVisuals == null ||
+                    boundaryBaseVisuals.childCount != expectedBoundaryCount)
+                {
+                    errors.Add(
+                        $"TestSandbox boundary base must contain {expectedBoundaryCount} BrickBlock visual cells.");
+                }
+                else
+                {
+                    for (int index = 0; index < boundaryBaseVisuals.childCount; index++)
+                    {
+                        if (!IsExpectedVisualPrefab(
+                                boundaryBaseVisuals.GetChild(index),
+                                brickPrefab))
+                        {
+                            errors.Add(
+                                "TestSandbox boundary base contains an invalid visual prefab.");
+                            break;
+                        }
+                    }
+
+                    if (boundaryVisuals != null &&
+                        boundaryVisuals.childCount == expectedBoundaryCount)
+                    {
+                        var wallPositions = new HashSet<Vector3>();
+                        var basePositions = new HashSet<Vector3>();
+                        for (int index = 0; index < boundaryVisuals.childCount; index++)
+                        {
+                            wallPositions.Add(
+                                boundaryVisuals.GetChild(index).localPosition);
+                        }
+                        for (int index = 0; index < boundaryBaseVisuals.childCount; index++)
+                        {
+                            basePositions.Add(
+                                boundaryBaseVisuals.GetChild(index).localPosition);
+                        }
+                        if (wallPositions.Count != expectedBoundaryCount ||
+                            basePositions.Count != expectedBoundaryCount ||
+                            !wallPositions.SetEquals(basePositions))
+                        {
+                            errors.Add(
+                                "TestSandbox boundary base cells must match the BrickCorner wall cells one-to-one.");
+                        }
+                    }
+                }
+            }
+
 
             Transform destructibleObstacles =
                 context.GridRoot.Find("Environment/DestructibleObstacles");
@@ -3864,8 +3980,6 @@ namespace BombSwap.Editor.ContentValidation
                 return;
             }
 
-            Material destructibleMaterial = AssetDatabase.LoadAssetAtPath<Material>(
-                DestructibleWallMaterialPath);
             var authoredDestructibleWalls =
                 new HashSet<GridPosition>(room.DestructibleWalls);
             var seenDestructibleWalls = new HashSet<GridPosition>();
@@ -3884,11 +3998,23 @@ namespace BombSwap.Editor.ContentValidation
                 }
 
                 Renderer[] renderers = obstacle.GetComponentsInChildren<Renderer>(true);
-                if (renderers.Length != 4 || destructibleMaterial == null ||
-                    renderers.Any(renderer => renderer.sharedMaterial != destructibleMaterial))
+                Material destructibleMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                    DestructibleWallMaterialPath);
+                Transform visual = obstacle.Find("Visual");
+                GameObject woodBoxPrefab = validatesEnvironmentVisuals
+                    ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                        EnvironmentBlockVisualAuthoring.WoodBoxPrefabPath)
+                    : null;
+                bool matchesVisual = validatesEnvironmentVisuals
+                    ? renderers.Length > 0 &&
+                      IsExpectedVisualPrefab(visual, woodBoxPrefab)
+                    : renderers.Length == 4 && destructibleMaterial != null &&
+                      renderers.All(renderer =>
+                          renderer.sharedMaterial == destructibleMaterial);
+                if (!matchesVisual)
                 {
                     errors.Add(
-                        $"TestSandbox destructible visual {obstacle.name} must use four segmented blocks and the validated material.");
+                        $"TestSandbox destructible visual {obstacle.name} must contain a visible model.");
                 }
                 if (obstacle.GetComponentsInChildren<Collider>(true).Length != 0)
                 {
@@ -3905,6 +4031,22 @@ namespace BombSwap.Editor.ContentValidation
                         $"TestSandbox is missing a destructible visual for authored wall {wall}.");
                 }
             }
+        }
+
+        private static bool IsExpectedVisualPrefab(
+            Transform visual,
+            GameObject expectedPrefab)
+        {
+            if (visual == null || expectedPrefab == null ||
+                PrefabUtility.GetCorrespondingObjectFromSource(visual.gameObject) !=
+                    expectedPrefab ||
+                visual.GetComponentsInChildren<Collider>(true).Length != 0)
+            {
+                return false;
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            return renderers.Length > 0 && renderers.Any(renderer => renderer.enabled);
         }
 
         private static void ValidateTransformCell(

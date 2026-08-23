@@ -3610,6 +3610,10 @@ namespace BombSwap.Editor.ContentValidation
                     destructibleWallMaterial,
                     index);
             }
+            EnvironmentBlockVisualAuthoring.Synchronize(
+                gridRoot.transform,
+                roomDefinition,
+                room);
 
             Transform playerSpawn = CreateChild("PlayerSpawn", gridRoot.transform);
             playerSpawn.localPosition = new Vector3(
@@ -3905,6 +3909,16 @@ namespace BombSwap.Editor.ContentValidation
                 context.GridRoot,
                 roomDefinition,
                 room);
+            if (string.Equals(
+                    scene.path,
+                    PrototypeContentValidator.TestSandboxScenePath,
+                    StringComparison.Ordinal))
+            {
+                EnvironmentBlockVisualAuthoring.Synchronize(
+                    context.GridRoot,
+                    roomDefinition,
+                    room);
+            }
             var gridSpace = new GridSpace(context.GridRoot.position, roomDefinition.CellSize);
             context.PlayerSpawn.position = gridSpace.GridToWorld(room.PlayerSpawn);
             Transform player = SynchronizePlayerPresentation(
@@ -4159,6 +4173,12 @@ namespace BombSwap.Editor.ContentValidation
             var gridSpace = new GridSpace(gridRoot.position, roomDefinition.CellSize);
             Material material = AssetDatabase.LoadAssetAtPath<Material>(
                 PrototypeContentValidator.DestructibleWallMaterialPath);
+            GameObject woodBoxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.WoodBoxPrefabPath);
+            bool usesEnvironmentVisuals = string.Equals(
+                gridRoot.gameObject.scene.path,
+                PrototypeContentValidator.TestSandboxScenePath,
+                StringComparison.Ordinal);
             if (material == null)
             {
                 throw new InvalidOperationException("Prototype destructible-wall material is missing.");
@@ -4173,8 +4193,14 @@ namespace BombSwap.Editor.ContentValidation
                     matches = false;
                 }
                 Renderer[] renderers = obstacle.GetComponentsInChildren<Renderer>(true);
-                if (renderers.Length != 4 ||
-                    renderers.Any(renderer => renderer.sharedMaterial != material) ||
+                Transform visual = obstacle.Find("Visual");
+                bool matchesVisual = usesEnvironmentVisuals
+                    ? renderers.Length > 0 && woodBoxPrefab != null && visual != null &&
+                      PrefabUtility.GetCorrespondingObjectFromSource(visual.gameObject) ==
+                          woodBoxPrefab
+                    : renderers.Length == 4 &&
+                      renderers.All(renderer => renderer.sharedMaterial == material);
+                if (!matchesVisual ||
                     obstacle.GetComponentsInChildren<Collider>(true).Length != 0)
                 {
                     matches = false;
