@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using BombSwap.Editor.ContentValidation;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -16,6 +17,31 @@ namespace BombSwap.Editor.UI
         public const string ThirdPartyRoot = "Assets/ThirdParty";
         public const string LocalSkinAssetPath =
             "Assets/ThirdParty/BombSwap/Resources/BombSwap/ThirdPartyUiSkin.asset";
+
+        private static readonly string[] PrivateVendorAssetPrefixes =
+        {
+            ThirdPartyRoot + "/",
+            "Assets/Feel/",
+            "Assets/Plugins/Demigiant/DOTweenPro/"
+        };
+
+        private static readonly string[] PrivateVendorAssetPaths =
+        {
+            "Assets/Feel.meta",
+            "Assets/Plugins/Demigiant/DOTweenPro.meta",
+            "Assets/Plugins/Demigiant/readme_DOTweenPro.txt",
+            "Assets/Plugins/Demigiant/readme_DOTweenPro.txt.meta"
+        };
+
+        private const string ObsoleteFeelDefine =
+            "MOREMOUNTAINS_NICEVIBRATIONS_INSTALLED";
+
+        private static readonly BuildTargetGroup[] SupportedBuildTargetGroups =
+        {
+            BuildTargetGroup.Android,
+            BuildTargetGroup.Standalone,
+            BuildTargetGroup.WebGL
+        };
 
         private const string BlackAndWhiteTexturePath =
             "Assets/ThirdParty/UI/BlackandWhiteUI.png/BlackandWhiteUI.png";
@@ -72,14 +98,47 @@ namespace BombSwap.Editor.UI
             var errors = new List<string>();
             ValidatePublicDependencies(errors);
             ValidateOptionalUiBindings(errors);
+            ValidateNoObsoleteVendorDefines(errors);
             if (errors.Count > 0)
             {
                 throw new InvalidOperationException(string.Join("\n", errors));
             }
 
             Debug.Log(
-                "Public first-party assets contain no direct Assets/ThirdParty " +
+                "Public first-party assets contain no direct private vendor " +
                 "dependencies and optional UI bindings use public fallbacks.");
+        }
+
+        [MenuItem(
+            "Tools/Bomb Swap/Third Party/Remove Obsolete Vendor Defines")]
+        public static void RemoveObsoleteVendorDefines()
+        {
+            EnsureNotPlaying();
+            int changedTargetCount = 0;
+            for (int index = 0;
+                 index < SupportedBuildTargetGroups.Length;
+                 index++)
+            {
+                NamedBuildTarget target = NamedBuildTarget.FromBuildTargetGroup(
+                    SupportedBuildTargetGroups[index]);
+                string symbols = PlayerSettings.GetScriptingDefineSymbols(target);
+                string updated = RemoveDefine(symbols, ObsoleteFeelDefine);
+                if (string.Equals(
+                        symbols,
+                        updated,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                PlayerSettings.SetScriptingDefineSymbols(target, updated);
+                changedTargetCount++;
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                $"Removed obsolete private-vendor defines from " +
+                $"{changedTargetCount} build target(s).");
         }
 
         [MenuItem("Bomb Swap/Third Party/Export Local Assets Package")]
@@ -144,16 +203,81 @@ namespace BombSwap.Editor.UI
                      index++)
                 {
                     string dependency = dependencies[index];
-                    if (dependency.StartsWith(
-                            ThirdPartyRoot + "/",
-                            StringComparison.OrdinalIgnoreCase))
+                    if (IsPrivateVendorAsset(dependency))
                     {
                         errors.Add(
                             $"Public asset '{ownerPath}' directly references " +
-                            $"ignored third-party asset '{dependency}'.");
+                            $"private vendor asset '{dependency}'.");
                     }
                 }
             }
+        }
+
+        internal static void ValidateNoObsoleteVendorDefines(
+            ICollection<string> errors)
+        {
+            for (int index = 0;
+                 index < SupportedBuildTargetGroups.Length;
+                 index++)
+            {
+                BuildTargetGroup group = SupportedBuildTargetGroups[index];
+                NamedBuildTarget target =
+                    NamedBuildTarget.FromBuildTargetGroup(group);
+                string symbols = PlayerSettings.GetScriptingDefineSymbols(target);
+                if (symbols.Split(';').Any(symbol => string.Equals(
+                        symbol.Trim(),
+                        ObsoleteFeelDefine,
+                        StringComparison.Ordinal)))
+                {
+                    errors.Add(
+                        $"Build target '{group}' still declares removed vendor " +
+                        $"define '{ObsoleteFeelDefine}'.");
+                }
+            }
+        }
+
+        private static bool IsPrivateVendorAsset(string assetPath)
+        {
+            for (int index = 0;
+                 index < PrivateVendorAssetPrefixes.Length;
+                 index++)
+            {
+                if (assetPath.StartsWith(
+                        PrivateVendorAssetPrefixes[index],
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            for (int index = 0;
+                 index < PrivateVendorAssetPaths.Length;
+                 index++)
+            {
+                if (string.Equals(
+                        assetPath,
+                        PrivateVendorAssetPaths[index],
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string RemoveDefine(string symbols, string define)
+        {
+            return string.Join(
+                ";",
+                symbols.Split(';')
+                    .Select(symbol => symbol.Trim())
+                    .Where(symbol =>
+                        !string.IsNullOrEmpty(symbol) &&
+                        !string.Equals(
+                            symbol,
+                            define,
+                            StringComparison.Ordinal)));
         }
 
         internal static void ValidateOptionalUiBindings(

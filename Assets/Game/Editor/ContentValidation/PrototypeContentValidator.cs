@@ -173,6 +173,8 @@ namespace BombSwap.Editor.ContentValidation
             ValidateLobbyScene(errors);
             PrototypeThirdPartyAssetAuthoring.ValidatePublicDependencies(errors);
             PrototypeThirdPartyAssetAuthoring.ValidateOptionalUiBindings(errors);
+            PrototypeThirdPartyAssetAuthoring.ValidateNoObsoleteVendorDefines(
+                errors);
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);

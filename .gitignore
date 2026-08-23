@@ -24,6 +24,12 @@
 # Licensed/local third-party Unity assets and their private transfer packages.
 /[Aa]ssets/[Tt]hird[Pp]arty/
 /[Aa]ssets/[Tt]hird[Pp]arty.meta
+/[Aa]ssets/[Ff]eel/
+/[Aa]ssets/[Ff]eel.meta
+/[Aa]ssets/[Pp]lugins/[Dd]emigiant/[Dd][Oo][Tt]ween[Pp]ro/
+/[Aa]ssets/[Pp]lugins/[Dd]emigiant/[Dd][Oo][Tt]ween[Pp]ro.meta
+/[Aa]ssets/[Pp]lugins/[Dd]emigiant/readme_[Dd][Oo][Tt]ween[Pp]ro.txt
+/[Aa]ssets/[Pp]lugins/[Dd]emigiant/readme_[Dd][Oo][Tt]ween[Pp]ro.txt.meta
 /ExternalAssets/UI-Packages/*
 !/ExternalAssets/UI-Packages/README.md
 

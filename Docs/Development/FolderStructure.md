@@ -82,4 +82,4 @@ Assets/Game/
 
 ## 서드파티 경계
 
-`Assets/Feel`, `Assets/Plugins` 등 vendor 경로는 first-party 구조에 포함하지 않는다. 패키지 연동 코드는 필요 시 `Presentation` 또는 `Runtime` 아래의 좁은 Adapter 폴더를 만들고 해당 패키지 참조를 그 경계에 한정한다. 참조가 커지면 그때 별도 asmdef 분리를 검토한다.
+vendor 경로는 first-party 구조에 포함하지 않는다. 현재 Git에는 재배포가 허용된 무료 DOTween Core의 `Assets/Plugins/Demigiant/DOTween`, `DemiLib`만 원본 그대로 유지한다. `Assets/ThirdParty`, `Assets/Feel`, `DOTweenPro`는 공개 저장소에서 제외한다. 패키지 연동 코드는 필요 시 `Presentation` 또는 `Runtime` 아래의 좁은 Adapter 폴더를 만들고 해당 패키지 참조를 그 경계에 한정한다. 참조가 커지면 그때 별도 asmdef 분리를 검토한다.

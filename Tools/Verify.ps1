@@ -353,8 +353,29 @@ function Invoke-Unity {
         '-logFile', $LogPath
     ) + $Arguments
 
-    & $UnityEditor @allArguments
-    return $LASTEXITCODE
+    # Unity.exe is a Windows GUI-subsystem executable. PowerShell 7 can launch it
+    # successfully without assigning $LASTEXITCODE, so wait on the native process
+    # object and read its actual exit code instead.
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $UnityEditor
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    foreach ($argument in $allArguments) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    if (-not $process) {
+        throw "Unity process failed to start: $UnityEditor"
+    }
+
+    try {
+        $process.WaitForExit()
+        return $process.ExitCode
+    }
+    finally {
+        $process.Dispose()
+    }
 }
 
 function Test-NUnitResult {
@@ -421,8 +442,7 @@ function Invoke-UnityTestAssembly {
         '-runTests',
         '-testPlatform', $Platform,
         '-assemblyNames', $AssemblyName,
-        '-testResults', $ResultPath,
-        '-quit'
+        '-testResults', $ResultPath
     )
     if ($exitCode -ne 0) {
         throw "Unity test process exited with code $exitCode. See $LogPath"

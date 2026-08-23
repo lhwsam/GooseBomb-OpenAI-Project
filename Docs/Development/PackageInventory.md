@@ -1,6 +1,6 @@
 # 패키지 인벤토리와 사용 정책
 
-- 기준: `Packages/manifest.json`, 2026-08-14
+- 기준: `Packages/manifest.json`과 vendor 경로, 2026-08-23
 - 상태: 설치 사실은 `Accepted`, 실제 게임 사용은 별도 표기
 
 | 패키지 | 버전 | 현재 역할 | 프로토타입 정책 |
@@ -15,9 +15,11 @@
 | uGUI | 2.5.0 | UI 가능성 | 프로토타입 HUD 구현 시 선택 |
 | Visual Scripting | 1.9.11 | 설치됨 | first-party 핵심 규칙에 사용하지 않음 |
 | Timeline | 1.8.12 | 설치됨 | 보스/연출 필요가 확인될 때 검토 |
-| Feel | Asset 폴더 | 피드백/VFX | Presentation 어댑터 뒤에서만 사용, vendor 수정 금지 |
+| DOTween Core | `Assets/Plugins/Demigiant/DOTween`, `DemiLib` | UI 표현 tween | 공식 원본과 고지 파일을 유지한 무료 Core만 Git 추적 |
+| DOTween Pro | 로컬 Asset Store extension | 사용하지 않음 | Git·공개 기록 제외. 각 작업자 유효 license 필요 |
+| Feel | 로컬 Asset Store extension | 제거됨 | Git·공개 기록 제외. 필요 시 각 작업자가 직접 설치하고 어댑터 뒤에서만 사용 |
 
-`Assets/ThirdParty`의 공급자 원본은 Unity Package Manager 패키지가 아니며 Git에서 제외한다. 팀 내부 전달, 공개 대체 UI와 참조 검증은 [서드파티 자산과 로컬 패키지](../Systems/ThirdPartyAssets.md) 및 [ADR-0009](../ADR/0009-Local-ThirdParty-Asset-Distribution.md)를 따른다.
+`Assets/ThirdParty`, `Assets/Feel`, DOTween Pro의 공급자 원본은 Unity Package Manager 패키지가 아니며 Git에서 제외한다. 무료 DOTween Core는 공급자의 재배포 조건에 맞춰 원본과 copyright/readme를 유지한다. 로컬 에셋 설치, 공개 대체 UI와 참조 검증은 [서드파티 자산과 로컬 패키지](../Systems/ThirdPartyAssets.md) 및 [ADR-0009](../ADR/0009-Local-ThirdParty-Asset-Distribution.md)를 따른다.
 
 ## 변경 규칙
 
