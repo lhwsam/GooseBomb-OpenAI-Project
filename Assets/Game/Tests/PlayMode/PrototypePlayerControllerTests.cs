@@ -905,6 +905,7 @@ namespace BombSwap.Tests.PlayMode
                 false,
                 includePresenter: true,
                 includeBombAnimator: true,
+                includeAuthoredBombReadyVfx: true,
                 fuseSeconds: 0.08f,
                 explosionVisualSeconds: 0.4f);
             yield return null;
@@ -921,6 +922,20 @@ namespace BombSwap.Tests.PlayMode
                 animator => animator.gameObject.activeInHierarchy);
             Assert.That(pooledBombAnimator, Is.Not.Null);
             Assert.That(pooledBombAnimator.enabled, Is.True);
+            Transform bombReadyVfxAnchor =
+                pooledBombAnimator.transform.Find("SparksEffect");
+            Assert.That(bombReadyVfxAnchor, Is.Not.Null);
+            Transform bombReadyVfx = bombReadyVfxAnchor.Find("Particle");
+            Assert.That(bombReadyVfx, Is.Not.Null);
+            Assert.That(
+                bombReadyVfx.localPosition,
+                Is.EqualTo(Vector3.zero));
+            Assert.That(
+                Quaternion.Angle(bombReadyVfx.localRotation, Quaternion.identity),
+                Is.LessThan(0.001f));
+            Assert.That(
+                bombReadyVfx.GetComponent<ParticleSystem>(),
+                Is.Not.Null);
 
             yield return new WaitForSecondsRealtime(0.15f);
 
@@ -2107,6 +2122,7 @@ namespace BombSwap.Tests.PlayMode
             bool includeProbe = false,
             bool includePresenter = false,
             bool includeBombAnimator = false,
+            bool includeAuthoredBombReadyVfx = false,
             bool includeHealthPresenter = false,
             bool includeChaserPresenter = false,
             bool includeWeaponHud = false,
@@ -2209,6 +2225,14 @@ namespace BombSwap.Tests.PlayMode
             {
                 Animator animator = _bombPrefab.AddComponent<Animator>();
                 animator.enabled = false;
+            }
+            if (includeAuthoredBombReadyVfx)
+            {
+                var bombReadyVfxAnchor = new GameObject("SparksEffect");
+                bombReadyVfxAnchor.transform.SetParent(_bombPrefab.transform, false);
+                var particle = new GameObject("Particle");
+                particle.transform.SetParent(bombReadyVfxAnchor.transform, false);
+                particle.AddComponent<ParticleSystem>();
             }
             _bombPrefab.SetActive(false);
             _explosionPrefab = new GameObject("ExplosionVisualPrefab");

@@ -38,6 +38,7 @@
 - 장치 입력을 Core `PlayerCommand`로 변환하고, 세션 이동 계산 직전 최신 Move 값을 frame 단위로 재확인하며, focus 상실 시 이동을 해제하는 `BombSwapInputReader` 구현.
 - 11개 인게임 던전 씬은 네 방향 일반 문에 `Door.prefab`과 `IsOpen` Animator bool을 사용하고, 비밀 문은 collider 없는 `CrackedBrickBlock.prefab` root를 켜고 끈다. 각 씬의 `FloorVisuals`는 local Y `-1`에서 방 내부 셀과 네 문 위치의 바닥 블록을 함께 소유하며 별도 `BoundaryBaseVisuals`는 사용하지 않는다. Legacy·독립 플레이테스트 씬은 이 롤아웃에서 제외한다.
 - 일반 문 Presenter는 상태별 MaterialPropertyBlock 색상 덮어쓰기를 하지 않고 에셋의 원본 머티리얼을 유지한다.
+- `Assets/Arts/VFX`는 Git에서 제외한다. 권한 있는 작업자는 VFX unitypackage를 임포트한 뒤 `Bomb Swap/Local Setup/Connect Licensed VFX`를 한 번 실행한다. 메뉴는 비밀문 `DustExplosion`을 로컬 Resources 설정에 연결하고 플레이어 폭탄 3종의 기존 정상·Missing 자식을 현재 패키지 `SparksEffect`로 교체한다. 폭탄 prefab 참조는 커밋할 수 있으며 원본 vendor asset은 제외한다. 패키지가 없는 clone은 플레이어 폭탄에 Missing 참조가 보일 수 있고 비밀문은 절차형 fallback으로 실행되지만, 패키지 import와 메뉴 실행으로 복구된다.
 - 같은 11개 씬의 `InteriorObstacles` 자식은 기존 논리 셀 XZ를 유지하고 local Y `0`을 사용한다.
 - Input Actions·TestSandbox·Build Settings를 재생성/검증하는 Editor builder와 validator 구현.
 - 개발 WebGL에서 입력 사건을 브라우저 smoke에 전달하는 제한된 harness probe 구현.

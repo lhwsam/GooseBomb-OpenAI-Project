@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using BombSwap.Core;
 using NUnit.Framework;
@@ -440,6 +441,15 @@ namespace BombSwap.Tests.PlayMode
         {
             PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter(
                 configureSecretWallBreakVfx: false);
+            var noLocalOverrides =
+                ScriptableObject.CreateInstance<PrototypeLocalVfxOverrides>();
+            _createdAssets.Add(noLocalOverrides);
+            FieldInfo localOverridesField = typeof(PrototypeDungeonDoorPresenter)
+                .GetField(
+                    "_localVfxOverrides",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(localOverridesField, Is.Not.Null);
+            localOverridesField.SetValue(presenter, noLocalOverrides);
             var crackPosition = new Vector3(-2f, 1f, 4f);
             presenter.WestSecretCracks.transform.position = crackPosition;
 
@@ -455,6 +465,35 @@ namespace BombSwap.Tests.PlayMode
                     crackPosition +
                     (Vector3.up *
                      PrototypeDungeonDoorPresenter.SecretWallBreakVfxHeightOffset)));
+            Assert.That(instance.GetComponent<ParticleSystem>().isPlaying, Is.True);
+        }
+
+        [Test]
+        public void DoorPresenter_UsesLocalOverrideWhenAuthoredVfxIsNotAssigned()
+        {
+            PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter(
+                configureSecretWallBreakVfx: false);
+            GameObject localVfxPrefab = CreateSecretWallBreakVfxPrefab();
+            Quaternion expectedRotation = Quaternion.Euler(-90f, 0f, 0f);
+            localVfxPrefab.transform.rotation = expectedRotation;
+            var overrides = ScriptableObject.CreateInstance<PrototypeLocalVfxOverrides>();
+            _createdAssets.Add(overrides);
+            overrides.Configure(
+                localVfxPrefab,
+                localVfxPrefab,
+                Vector3.zero,
+                Vector3.zero);
+            presenter.ConfigureLocalVfxOverrides(overrides);
+
+            GameObject instance = presenter.PlaySecretWallBreak(
+                RoomExitDirection.North,
+                RoomRotation.None);
+            _createdGameObjects.Add(instance);
+
+            Assert.That(instance.name, Does.StartWith(localVfxPrefab.name));
+            Assert.That(
+                Quaternion.Angle(instance.transform.rotation, expectedRotation),
+                Is.LessThan(0.001f));
             Assert.That(instance.GetComponent<ParticleSystem>().isPlaying, Is.True);
         }
 

@@ -293,6 +293,8 @@ namespace BombSwap.Editor.ContentValidation
         private static void ValidatePublicAssetDependencies(
             ICollection<string> errors)
         {
+            ISet<string> approvedPlayerBombVfxDependencies =
+                LocalLicensedVfxSetup.GetApprovedPlayerBombVfxDependencies();
             string[] assetGuids = AssetDatabase.FindAssets(
                 string.Empty,
                 new[] { "Assets/Game" });
@@ -313,6 +315,14 @@ namespace BombSwap.Editor.ContentValidation
                      dependencyIndex++)
                 {
                     string dependency = dependencies[dependencyIndex];
+                    if (LocalLicensedVfxSetup.IsApprovedPlayerBombVfxReference(
+                            assetPath,
+                            dependency,
+                            dependencies,
+                            approvedPlayerBombVfxDependencies))
+                    {
+                        continue;
+                    }
                     if (PrivateVendorAssetRoots.Any(root =>
                             dependency.StartsWith(
                                 root,

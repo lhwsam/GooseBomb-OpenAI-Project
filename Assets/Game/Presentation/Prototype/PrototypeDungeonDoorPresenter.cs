@@ -60,6 +60,8 @@ namespace BombSwap
         [SerializeField]
         private GameObject secretWallBreakVfxPrefab;
 
+        private PrototypeLocalVfxOverrides _localVfxOverrides;
+
         private readonly DungeonRoomExitStatus[] _localStatuses =
             new DungeonRoomExitStatus[4];
 
@@ -149,6 +151,13 @@ namespace BombSwap
             secretWallBreakVfxPrefab = authoredVfxPrefab;
         }
 
+        public void ConfigureLocalVfxOverrides(PrototypeLocalVfxOverrides localVfxOverrides)
+        {
+            _localVfxOverrides = localVfxOverrides ??
+                throw new ArgumentNullException(nameof(localVfxOverrides));
+            _localVfxOverrides.ValidateConfiguration();
+        }
+
         public GameObject PlaySecretWallBreak(
             RoomExitDirection graphDirection,
             RoomRotation roomRotation)
@@ -160,8 +169,9 @@ namespace BombSwap
             Vector3 position =
                 GetSecretCracks(localDirection).transform.position +
                 (Vector3.up * SecretWallBreakVfxHeightOffset);
-            GameObject instance = secretWallBreakVfxPrefab != null
-                ? Instantiate(secretWallBreakVfxPrefab)
+            GameObject resolvedVfxPrefab = ResolveSecretWallBreakVfxPrefab();
+            GameObject instance = resolvedVfxPrefab != null
+                ? Instantiate(resolvedVfxPrefab)
                 : CreateFallbackSecretWallBreakVfx();
             instance.transform.position = position;
             ParticleSystem[] particleSystems =
@@ -184,6 +194,19 @@ namespace BombSwap
             }
             Destroy(instance, Mathf.Max(lifetime, 0.1f));
             return instance;
+        }
+
+        private GameObject ResolveSecretWallBreakVfxPrefab()
+        {
+            if (secretWallBreakVfxPrefab != null)
+            {
+                return secretWallBreakVfxPrefab;
+            }
+
+            _localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
+            return _localVfxOverrides != null
+                ? _localVfxOverrides.SecretWallBreakVfxPrefab
+                : null;
         }
 
         private static GameObject CreateFallbackSecretWallBreakVfx()
