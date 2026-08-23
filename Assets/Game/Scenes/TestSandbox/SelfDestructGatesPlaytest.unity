@@ -1548,7 +1548,7 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 348872156}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1001 &454227133
+--- !u!1001 &390857777
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -1605,20 +1605,20 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e5788b9f5453d56488b7149d4374205a, type: 3}
---- !u!4 &454227134 stripped
+--- !u!4 &390857778 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8991489936541618217, guid: e5788b9f5453d56488b7149d4374205a, type: 3}
-  m_PrefabInstance: {fileID: 454227133}
+  m_PrefabInstance: {fileID: 390857777}
   m_PrefabAsset: {fileID: 0}
---- !u!137 &454227135 stripped
+--- !u!137 &390857779 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 3137286212038334774, guid: e5788b9f5453d56488b7149d4374205a, type: 3}
-  m_PrefabInstance: {fileID: 454227133}
+  m_PrefabInstance: {fileID: 390857777}
   m_PrefabAsset: {fileID: 0}
---- !u!95 &454227136 stripped
+--- !u!95 &390857780 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 4711138374665857556, guid: e5788b9f5453d56488b7149d4374205a, type: 3}
-  m_PrefabInstance: {fileID: 454227133}
+  m_PrefabInstance: {fileID: 390857777}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &455876708
 GameObject:
@@ -1652,7 +1652,7 @@ MonoBehaviour:
   inputReader: {fileID: 549228480}
   gridRoot: {fileID: 1165390088}
   playerSpawn: {fileID: 1034727587}
-  playerPlaceholder: {fileID: 454227134}
+  playerPlaceholder: {fileID: 390857778}
   chaserSpawn: {fileID: 2013815863}
   chargerSpawn: {fileID: 0}
   armoredSpawn: {fileID: 0}
@@ -2030,6 +2030,7 @@ GameObject:
   - component: {fileID: 549228502}
   - component: {fileID: 549228503}
   - component: {fileID: 549228504}
+  - component: {fileID: 549228505}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -2092,7 +2093,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerController
   session: {fileID: 549228485}
-  playerTransform: {fileID: 454227134}
+  playerTransform: {fileID: 390857778}
 --- !u!114 &549228484
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2150,7 +2151,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerHealthPresenter
   session: {fileID: 549228485}
-  targetRenderer: {fileID: 454227135}
+  targetRenderer: {fileID: 390857779}
   damagePulseSeconds: 0.12
   damageColor: {r: 1, g: 0.12, b: 0.04, a: 1}
   deadColor: {r: 0.16, g: 0.17, b: 0.2, a: 1}
@@ -2308,11 +2309,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 549228479}
   m_Enabled: 1
   m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 808704e4e737f5946bc0548efa79b582, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeUserSettingsRuntime
+  inputActions: {fileID: -944628639613478452, guid: db222f5eea13d214c84832249a30664a, type: 3}
+  audioMixer: {fileID: 24100000, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+--- !u!114 &549228505
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3e9f9d749308b2d4ebb55069ff390e3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerAnimationPresenter
   session: {fileID: 549228485}
-  animator: {fileID: 454227136}
+  animator: {fileID: 390857780}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
@@ -3711,7 +3726,7 @@ Transform:
   - {fileID: 550081171}
   - {fileID: 2013815863}
   - {fileID: 1000806817}
-  - {fileID: 454227134}
+  - {fileID: 390857778}
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1180217955

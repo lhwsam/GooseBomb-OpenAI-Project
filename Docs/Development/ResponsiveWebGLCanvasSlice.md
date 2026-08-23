@@ -35,6 +35,7 @@ WebGLTemplateTests + WebGLSmoke
 ```
 
 - `index.html`이 hosting shell과 canvas CSS 크기를 소유한다. canvas의 `width`·`height` 속성은 Unity 렌더 기준 960×600을 유지한다.
+- Unity의 first-party uGUI도 공통 `PrototypeUiFactory`를 통해 960×600을 reference resolution으로 사용한다. 따라서 네이티브 canvas에서는 `CanvasScaler` scale이 1이고, CSS 축소와 Unity UI 좌표계가 서로 다른 기준값으로 표류하지 않는다.
 - CSS 표시 크기는 `min(1, availableWidth / 960, availableHeight / 600)`으로 계산한다. `ResizeObserver`와 window resize가 같은 함수를 사용한다.
 - 빌드 하네스는 프로젝트의 평상시 템플릿 설정을 영구 변경하지 않는다. build scope가 이전 값을 보존하고 종료 시 `AssetDatabase.SaveAssets()`까지 수행해 디스크 설정도 복원한다.
 - `Tools/WebGLTemplateTests.mjs`는 필수 Unity macro, 반응형 식, 고정 크기 회귀 금지와 설정 저장 복원을 검사한다.
@@ -53,6 +54,6 @@ WebGLTemplateTests + WebGLSmoke
 
 ## 비목표와 남은 위험
 
-- 모바일 터치 입력, 세로 화면 전용 HUD 재배치, 동적 내부 render resolution, 고해상도 확대, 실제 배포 CDN/HTTPS/cache 설정은 이번 범위가 아니다.
+- 모바일 터치 입력, 세로 화면 전용 HUD 재배치, 사용자 선택형 UI scale·동적 내부 render resolution, 고해상도 확대, 실제 배포 CDN/HTTPS/cache 설정은 이번 범위가 아니다.
 - 640px보다 더 작은 극단적 viewport에서는 전체 구도가 축소되므로 텍스트 자체의 최소 가독성은 별도 수동 검증이 필요하다.
 - Safari·Firefox와 실제 fullscreen 전환은 첫 배포 지원 범위를 정할 때 브라우저 매트릭스로 확인한다.

@@ -625,6 +625,10 @@ async function main() {
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-lobby.png`,
   );
+  const settingsScreenshotPath = path.join(
+    path.dirname(screenshotPath),
+    `${path.basename(screenshotPath, path.extname(screenshotPath))}-settings.png`,
+  );
   const bossTelegraphScreenshotPath = path.join(
     path.dirname(screenshotPath),
     `${path.basename(screenshotPath, path.extname(screenshotPath))}-boss-telegraph.png`,
@@ -716,7 +720,61 @@ async function main() {
     await waitForEvent(page, "lobby-ready", { timeout: 120_000 });
     fs.mkdirSync(path.dirname(lobbyScreenshotPath), { recursive: true });
     await page.screenshot({ path: lobbyScreenshotPath });
-    await page.keyboard.press("Enter");
+    const lobbyCanvasBox = await canvas.boundingBox();
+    if (!lobbyCanvasBox) {
+      throw new Error("Lobby settings smoke could not resolve the Unity canvas bounds.");
+    }
+    await canvas.click({
+      position: {
+        x: lobbyCanvasBox.width * 0.5,
+        y: lobbyCanvasBox.height * 0.71,
+      },
+    });
+    await waitForEvent(page, "lobby-settings-opened", { timeout: 5_000 });
+    await waitForEvent(page, "settings-opened", { timeout: 5_000 });
+    await page.screenshot({ path: settingsScreenshotPath });
+    let settingsCanvasBox = await canvas.boundingBox();
+    if (!settingsCanvasBox) {
+      throw new Error("Settings smoke could not resolve the Unity canvas bounds.");
+    }
+    await canvas.click({
+      position: {
+        x: settingsCanvasBox.width * 0.66,
+        y: settingsCanvasBox.height * 0.2,
+      },
+    });
+    await waitForEvent(page, "settings-audio-page-opened", { timeout: 5_000 });
+    await canvas.click({
+      position: {
+        x: settingsCanvasBox.width * 0.48,
+        y: settingsCanvasBox.height * 0.4,
+      },
+    });
+    await waitForEvent(page, "settings-master-volume-changed", {
+      timeout: 5_000,
+    });
+    settingsCanvasBox = await canvas.boundingBox();
+    if (!settingsCanvasBox) {
+      throw new Error("Settings smoke could not resolve the Unity canvas bounds.");
+    }
+    await canvas.click({
+      position: {
+        x: settingsCanvasBox.width * 0.5,
+        y: settingsCanvasBox.height * 0.88,
+      },
+    });
+    await waitForEvent(page, "settings-closed", { timeout: 5_000 });
+    checks.push({
+      name: "lobby-settings",
+      status: "passed",
+      detail: "The keyboard-only settings panel opened, switched to audio/screen controls, changed Master volume, and closed without displaying gamepad bindings.",
+    });
+    await canvas.click({
+      position: {
+        x: lobbyCanvasBox.width * 0.5,
+        y: lobbyCanvasBox.height * 0.55,
+      },
+    });
     await waitForEvent(page, "lobby-start-requested", { timeout: 5_000 });
     checks.push({
       name: "lobby-start",
@@ -770,6 +828,36 @@ async function main() {
     await waitForEvent(page, "pause-entered", { timeout: 5_000 });
     fs.mkdirSync(path.dirname(pauseScreenshotPath), { recursive: true });
     await page.screenshot({ path: pauseScreenshotPath });
+    const pauseSettingsOpenedBefore = await eventCount(page, "settings-opened");
+    const pauseSettingsClosedBefore = await eventCount(page, "settings-closed");
+    const pauseResumedBeforeSettings = await eventCount(page, "pause-resumed");
+    const pauseCanvasBox = await canvas.boundingBox();
+    if (!pauseCanvasBox) {
+      throw new Error("Pause settings smoke could not resolve the Unity canvas bounds.");
+    }
+    await canvas.click({
+      position: {
+        x: pauseCanvasBox.width * 0.5,
+        y: pauseCanvasBox.height * 0.62,
+      },
+    });
+    await waitForEvent(page, "settings-opened", {
+      count: pauseSettingsOpenedBefore + 1,
+      timeout: 5_000,
+    });
+    await page.keyboard.press("Escape");
+    await waitForEvent(page, "settings-closed", {
+      count: pauseSettingsClosedBefore + 1,
+      timeout: 5_000,
+    });
+    if (await eventCount(page, "pause-resumed") !== pauseResumedBeforeSettings) {
+      throw new Error("Closing pause settings also resumed gameplay.");
+    }
+    checks.push({
+      name: "pause-settings",
+      status: "passed",
+      detail: "The shared settings panel opened from PAUSED and Escape returned to the pause menu without resuming gameplay.",
+    });
     await page.keyboard.down("ArrowUp");
     try {
       await page.keyboard.press("KeyZ");
@@ -1995,6 +2083,11 @@ async function main() {
 
     const requiredEvents = [
       "lobby-ready",
+      "lobby-settings-opened",
+      "settings-opened",
+      "settings-audio-page-opened",
+      "settings-master-volume-changed",
+      "settings-closed",
       "lobby-start-requested",
       "run-lobby-requested",
       "probe-ready",
@@ -2133,6 +2226,7 @@ async function main() {
       harnessEvents,
       screenshotPath,
       lobbyScreenshotPath,
+      settingsScreenshotPath,
       gatesRoomScreenshotPath,
       recoveryRoomScreenshotPath,
       secretWallScreenshotPath,
@@ -2170,6 +2264,7 @@ async function main() {
       harnessEvents,
       screenshotPath,
       lobbyScreenshotPath,
+      settingsScreenshotPath,
       gatesRoomScreenshotPath,
       secretWallScreenshotPath,
       secretRoomScreenshotPath,

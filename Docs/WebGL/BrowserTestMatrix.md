@@ -17,9 +17,9 @@
 ## smoke 항목
 
 - cold/warm load와 진행 표시.
-- 첫 enabled `DungeonLobby`가 `폭탄을 낳는 거위`와 DungGeunMo TMP UI를 표시하고 `lobby-ready`를 기록해야 한다. 키보드 Enter와 표준 게임패드 South는 선택된 `게임 시작`을 Submit해 `lobby-start-requested` 뒤에만 `DungeonStart` probe가 나타나야 한다. 마우스 클릭과 `조작 방법 → 돌아가기`는 수동 WebGL 항목으로 함께 확인한다.
+- 첫 enabled `DungeonLobby`가 `Bomb Goose`와 DungGeunMo TMP UI를 표시하고 `lobby-ready`를 기록해야 한다. 키보드 Enter와 표준 게임패드 South는 선택된 `게임 시작`을 Submit해 `lobby-start-requested` 뒤에만 `DungeonStart` probe가 나타나야 한다. 마우스 hover `1.06` 확대, 누름 `0.96` 축소·복귀와 `조작 방법 → 돌아가기`는 수동 WebGL 항목으로 함께 확인한다.
 - canvas click/focus 전후 키보드 입력.
-- WASD/방향키, 게임패드 사용 시 매핑. Input System 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select→의미 명령은 PlayMode에서 검증한다. 별도 WebGL smoke는 `navigator.getGamepads()`의 표준 가상 장치 연결부터 스틱·D-pad 해제, 유지 스틱 중 분리의 즉시 정지·300ms 위치 안정성과 동일 index 재연결 입력 복구, South 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱·South 차단과 재개 뒤 유지 스틱 재적용, Select의 실패 런 재시작까지 검증한다. 실제 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·브라우저/OS별 Gamepad API 차이는 수동 항목으로 남긴다. 기본 자동 smoke는 seed-0 Start 안전방에서 첫 `Pillars` 전투방으로 이동한 뒤 겹친 직교 방향키의 최신 축 우선과 빠른 즉시 press-release 방향 교대가 각 탭마다 한 frame의 실제 motion을 만들고 이후 추가 이동 없이 멈추는지 확인한다. 방 준비 이후 돌진형의 첫 관련 행동은 `charger-telegraph`가 아니라 `charger-track-moved`여야 하며, 이어 측면·중앙 아래쪽 폭탄 유도로 방을 실제 클리어한다. Telegraph·Charge 이동/목표 충돌·Recover의 모든 상태 분기와 시간 경계는 EditMode·PlayMode가 소유한다. 실제 browser 경로에서는 다른 적 점유나 플레이어 폭탄 처치에 따라 한 run에서 모든 분기가 나타나지 않을 수 있으므로 이를 억지로 기다리지 않는다.
+- WASD/방향키, 게임패드 사용 시 매핑. Input System 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select→의미 명령은 PlayMode에서 검증한다. 별도 WebGL smoke는 `navigator.getGamepads()`의 표준 가상 장치 연결부터 스틱·D-pad 해제, 유지 스틱 중 분리의 즉시 정지·300ms 위치 안정성과 동일 index 재연결 입력 복구, South 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱 500ms 차단과 Start 재개 뒤 유지 스틱 재적용, Select의 실패 런 재시작까지 검증한다. pause 메뉴에서 South는 선택된 UI 버튼의 Submit으로 사용되므로 gameplay 차단 검사는 유지 스틱으로 독립 검증한다. 실제 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·브라우저/OS별 Gamepad API 차이는 수동 항목으로 남긴다. 기본 자동 smoke는 seed-0 Start 안전방에서 첫 `Pillars` 전투방으로 이동한 뒤 겹친 직교 방향키의 최신 축 우선과 빠른 즉시 press-release 방향 교대가 각 탭마다 한 frame의 실제 motion을 만들고 이후 추가 이동 없이 멈추는지 확인한다. 방 준비 이후 돌진형의 첫 관련 행동은 `charger-telegraph`가 아니라 `charger-track-moved`여야 하며, 이어 측면·중앙 아래쪽 폭탄 유도로 방을 실제 클리어한다. Telegraph·Charge 이동/목표 충돌·Recover의 모든 상태 분기와 시간 경계는 EditMode·PlayMode가 소유한다. 실제 browser 경로에서는 다른 적 점유나 플레이어 폭탄 처치에 따라 한 run에서 모든 분기가 나타나지 않을 수 있으므로 이를 억지로 기다리지 않는다.
 - focus 상실/복귀 후 stuck input 없음. 기본 자동 smoke는 오른쪽 키를 누른 채 브라우저 `blur` lifecycle 사건을 발생시키고 `Move(None)` 뒤 셀·motion이 정지하는지 확인한다. 이어 `focus` 복귀 전 key-up이 누락된 상태에서도 이동이 되살아나지 않고 다음 `Esc` 입력이 정상 처리돼야 한다.
 - 페이지 스크롤/브라우저 단축키와 충돌 없음.
 - 모든 방에서 플레이어 현재/최대 체력과 bar가 좌상단에 읽히고, 현재 런의 `ROOM TOKENS`가 우상단에 보이며, 보스방에서만 보스 현재/최대 체력과 phase가 상단 중앙에 나타나 무기 HUD·전투 공간·pause/완료/실패 overlay와 충돌하지 않는지 캡처로 확인한다.
@@ -31,6 +31,9 @@
 - 방향성 직선 폭탄 전용 smoke는 첫 전투를 클리어하고 BombReward 오른쪽 `prototype-line`을 선택한 뒤 슬롯 2에서 동쪽으로 설치한다. 설치 직후 북쪽 이동 명령을 보내도 `line-bomb-placed-east`와 `line-bomb-exploded-east`가 유지되고, 캡처에서 비대칭 설치체의 방향과 HUD 장착 상태가 읽혀야 한다.
 - 보스 격파 뒤 `FLOOR CLEARED` 결과 UI가 표시되고 전투가 멈춘다. 완료 화면을 캡처한 뒤 `로비로 돌아가기`를 Submit해 `run-lobby-requested → lobby-ready`를 확인하고, 로비에서 다시 시작해 페이지 reload 없이 새 seed-0 시작방과 초기화된 보상·방 클리어·전투 토큰을 확인한다. 이어 안전방에서 자기 폭발 5회로 실제 사망시켜 `RUN FAILED`와 `CAUSE: BOMB EXPLOSION`을 캡처하고, 기존 `R` 즉시 재시작으로 세 번째 시작방 준비와 토큰 0까지 확인한다.
 - 사용자 입력 뒤 오디오 재생.
+- 로비 설정에서 키보드 binding 변경→게임 시작 뒤 새 키 반영→page reload 뒤 유지→기본값 복원. 게임패드 binding 문구는 표시하지 않는다.
+- 로비와 pause의 같은 설정에서 Master/BGM/SFX/화면 흔들림 slider가 즉시 반영되고, pause 설정 중 `Esc`가 키 변경 취소→설정 닫기→게임 재개 순서로 동작한다.
+- 실제 BGM/SFX clip이 연결되기 전에는 Mixer parameter와 Console 오류만 검사하고 가청 오디오 통과로 기록하지 않는다.
 - 전체 화면/창 크기 변경 시 화면과 UI. 자동 smoke는 로드 직후 1280×720→640×720, 전체 경로 뒤 1024×768→640×720을 검사한다. canvas는 각각 viewport 안에 완전히 들어오고 문서 overflow가 없으며 960×600 네이티브 상한과 16:10 비율을 유지해야 한다. 실제 fullscreen 진입과 640px 미만 텍스트 가독성은 수동 항목이다.
 - 브라우저 Console error와 WebGL context loss.
 - 캐시된 이전 버전에서 새 버전 갱신.

@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BombSwap.Core;
+using BombSwap.Editor.UI;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
@@ -20,10 +22,12 @@ namespace BombSwap.Editor.ContentValidation
         public const string LobbyScenePath =
             "Assets/Game/Scenes/Lobby/DungeonLobby.unity";
         public const string GameFontAssetPath =
-            "Assets/TextMesh Pro/Fonts/DungGeunMo SDF.asset";
+            "Assets/TextMesh Pro/Fonts/DungGeunMo.asset";
         public const string TmpSettingsAssetPath =
             "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
+        public const string AudioMixerPath =
+            "Assets/Game/Content/Audio/BombSwapAudioMixer.mixer";
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
         public const string TestSandboxLanesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity";
@@ -234,6 +238,8 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             ValidateGameFont(errors);
+            PixelFontStyleAuthoring.Validate(errors);
+            ValidateAudioMixer(errors);
             ValidateLobbyScene(errors);
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinitions(errors);
@@ -449,6 +455,41 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static void ValidateAudioMixer(ICollection<string> errors)
+        {
+            AudioMixer mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(AudioMixerPath);
+            if (mixer == null)
+            {
+                errors.Add($"Missing prototype AudioMixer: {AudioMixerPath}");
+                return;
+            }
+
+            string[] requiredGroups = { "Master", "BGM", "SFX" };
+            for (int index = 0; index < requiredGroups.Length; index++)
+            {
+                if (mixer.FindMatchingGroups(requiredGroups[index]).Length == 0)
+                {
+                    errors.Add(
+                        $"Prototype AudioMixer is missing group '{requiredGroups[index]}'.");
+                }
+            }
+
+            string[] requiredParameters =
+            {
+                PrototypeUserSettingsRuntime.MasterVolumeParameter,
+                PrototypeUserSettingsRuntime.BgmVolumeParameter,
+                PrototypeUserSettingsRuntime.SfxVolumeParameter
+            };
+            for (int index = 0; index < requiredParameters.Length; index++)
+            {
+                if (!mixer.GetFloat(requiredParameters[index], out _))
+                {
+                    errors.Add(
+                        $"Prototype AudioMixer is missing exposed parameter '{requiredParameters[index]}'.");
+                }
+            }
+        }
+
         private static void ValidateLobbyScene(ICollection<string> errors)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(LobbyScenePath) == null)
@@ -486,12 +527,28 @@ namespace BombSwap.Editor.ContentValidation
                         errors.Add(
                             $"Lobby start scene must be '{PrototypeLobbyPresenter.DefaultStartSceneName}'.");
                     }
-                    if (!presenter.HasAuthoredViewReferences)
+                    bool hasAuthoredViewReferences =
+                        presenter.HasAuthoredViewReferences;
+                    if (!hasAuthoredViewReferences)
                     {
                         errors.Add(
                             "Lobby presenter must reference its scene-authored Canvas, EventSystem, controls panel, labels, and buttons.");
                     }
-                    else
+                    if (!presenter.HasVersionLabelReference)
+                    {
+                        errors.Add(
+                            "Lobby presenter must reference its scene-authored version label.");
+                    }
+                    else if (presenter.LobbyCanvas == null ||
+                             presenter.VersionLabel.gameObject.scene != scene ||
+                             !presenter.VersionLabel.transform.IsChildOf(
+                                 presenter.LobbyCanvas.transform))
+                    {
+                        errors.Add(
+                            "Lobby version label must belong to the authored LobbyCanvas.");
+                    }
+
+                    if (hasAuthoredViewReferences)
                     {
                         if (presenter.LobbyCanvas.gameObject.scene != scene ||
                             presenter.LobbyEventSystem.gameObject.scene != scene ||
@@ -513,7 +570,49 @@ namespace BombSwap.Editor.ContentValidation
                             errors.Add(
                                 "Lobby controls panel must be inactive in the authored scene.");
                         }
+                        if (presenter.SettingsRuntime == null ||
+                            !presenter.SettingsRuntime.HasRequiredReferences ||
+                            presenter.SettingsPanel == null ||
+                            !presenter.SettingsPanel.HasAuthoredViewReferences)
+                        {
+                            errors.Add(
+                                "Lobby settings panel must reference the shared input actions and AudioMixer.");
+                        }
+                        if (presenter.SettingsPanel != null &&
+                            presenter.SettingsPanel
+                                .GetComponentsInChildren<TextMeshProUGUI>(true)
+                                .Any(label => string.Equals(
+                                    label.name,
+                                    "SettingsStatusText",
+                                    StringComparison.Ordinal)))
+                        {
+                            errors.Add(
+                                "Lobby settings panel must not contain the obsolete SettingsStatusText label.");
+                        }
+
+                        Image settingsPanelImage = presenter.SettingsPanel != null
+                            ? presenter.SettingsPanel.GetComponent<Image>()
+                            : null;
+                        if (!LobbySettingsPanelSpriteAuthoring
+                                .HasPixelPerfectConfiguration(settingsPanelImage) ||
+                            !LobbySettingsPanelSpriteAuthoring
+                                .HasPixelPerfectImporterConfiguration())
+                        {
+                            errors.Add(
+                                $"Lobby settings panel must use " +
+                                $"{LobbySettingsPanelSpriteAuthoring.SpriteName} " +
+                                "as an integer-scaled Simple pixel image with " +
+                                "Point, no mipmaps, uncompressed, Clamp import settings. " +
+                                "Designer-authored RectTransform layout is preserved.");
+                        }
                     }
+                }
+
+                if (FindComponents<PrototypeUserSettingsRuntime>(scene).Length != 1 ||
+                    FindComponents<PrototypeSettingsPanelPresenter>(scene).Length != 1)
+                {
+                    errors.Add(
+                        "Lobby must contain one authored user-settings runtime and settings panel.");
                 }
 
                 Canvas[] canvases = FindComponents<Canvas>(scene);
@@ -522,11 +621,17 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         "Lobby must contain exactly one scene-authored Screen Space Overlay Canvas.");
                 }
-                if (FindComponents<CanvasScaler>(scene).Length != 1 ||
+                CanvasScaler[] canvasScalers = FindComponents<CanvasScaler>(scene);
+                if (canvasScalers.Length != 1 ||
                     FindComponents<GraphicRaycaster>(scene).Length != 1)
                 {
                     errors.Add(
                         "Lobby Canvas must contain exactly one CanvasScaler and GraphicRaycaster.");
+                }
+                else if (!PrototypeUiFactory.HasReferenceCanvasScale(canvasScalers[0]))
+                {
+                    errors.Add(
+                        $"Lobby CanvasScaler must use the shared {PrototypeUiFactory.ReferenceWidth:0}x{PrototypeUiFactory.ReferenceHeight:0} reference resolution.");
                 }
 
                 EventSystem[] eventSystems = FindComponents<EventSystem>(scene);
@@ -539,21 +644,84 @@ namespace BombSwap.Editor.ContentValidation
                         "Lobby must contain one scene-authored EventSystem with InputSystemUIInputModule.");
                 }
 
-                TMP_FontAsset gameFont =
-                    AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(GameFontAssetPath);
                 TextMeshProUGUI[] labels = FindComponents<TextMeshProUGUI>(scene);
                 if (labels.Length == 0)
                 {
                     errors.Add("Lobby scene must contain authored TextMeshProUGUI labels.");
                 }
-                else if (gameFont != null)
+                else
                 {
                     for (int index = 0; index < labels.Length; index++)
                     {
-                        if (labels[index].font != gameFont)
+                        if (!PrototypeUiFactory.IsSupportedGameFont(labels[index].font))
                         {
                             errors.Add(
-                                $"Lobby label '{labels[index].name}' must use {PrototypeUiFactory.GameFontAssetName}.");
+                                $"Lobby label '{labels[index].name}' must use {PrototypeUiFactory.GameFontAssetName} or {PrototypeUiFactory.AlternateGameFontAssetName}.");
+                        }
+                    }
+                }
+
+                Button[] buttons = FindComponents<Button>(scene);
+                if (buttons.Length == 0)
+                {
+                    errors.Add("Lobby scene must contain authored buttons.");
+                }
+                else
+                {
+                    for (int index = 0; index < buttons.Length; index++)
+                    {
+                        Button button = buttons[index];
+                        PrototypeButtonScaleFeedback[] feedbacks =
+                            button.GetComponents<PrototypeButtonScaleFeedback>();
+                        if (feedbacks.Length != 1)
+                        {
+                            errors.Add(
+                                $"Lobby button '{button.name}' must contain exactly one PrototypeButtonScaleFeedback.");
+                            continue;
+                        }
+
+                        RectTransform buttonRect =
+                            button.transform as RectTransform;
+                        RectTransform visualTarget = feedbacks[0].VisualTarget;
+                        bool ownsVisualTarget = visualTarget != null &&
+                            (visualTarget == buttonRect ||
+                             visualTarget.IsChildOf(buttonRect));
+                        if (!ownsVisualTarget ||
+                            !feedbacks[0].HasConfiguration(visualTarget))
+                        {
+                            errors.Add(
+                                $"Lobby button '{button.name}' must use the shared hover, press, and timing feedback configuration.");
+                        }
+
+                        for (int hoverIndex = 0;
+                             hoverIndex < feedbacks[0].HoverVisualTargetCount;
+                             hoverIndex++)
+                        {
+                            GameObject hoverTarget =
+                                feedbacks[0].GetHoverVisualTarget(hoverIndex);
+                            bool ownsHoverTarget = hoverTarget != null &&
+                                hoverTarget.transform != buttonRect &&
+                                hoverTarget.transform.IsChildOf(buttonRect);
+                            if (!ownsHoverTarget)
+                            {
+                                errors.Add(
+                                    $"Lobby button '{button.name}' contains a hover visual outside its hierarchy.");
+                            }
+                            else if (hoverTarget.activeSelf)
+                            {
+                                errors.Add(
+                                    $"Lobby button '{button.name}' hover visual '{hoverTarget.name}' must be inactive in the authored Normal state.");
+                            }
+                        }
+
+                        bool isMainMenuButton = presenters.Length == 1 &&
+                            (button == presenters[0].StartButton ||
+                             button == presenters[0].ControlsButton);
+                        if (isMainMenuButton &&
+                            feedbacks[0].HoverVisualTargetCount != 2)
+                        {
+                            errors.Add(
+                                $"Lobby main-menu button '{button.name}' must explicitly reference its two hover arrow visuals.");
                         }
                     }
                 }
@@ -2794,6 +2962,8 @@ namespace BombSwap.Editor.ContentValidation
             {
                 TestSandboxContext[] contexts = FindComponents<TestSandboxContext>(scene);
                 BombSwapInputReader[] readers = FindComponents<BombSwapInputReader>(scene);
+                PrototypeUserSettingsRuntime[] userSettings =
+                    FindComponents<PrototypeUserSettingsRuntime>(scene);
                 PrototypeGameSession[] sessions = FindComponents<PrototypeGameSession>(scene);
                 PrototypePlayerController[] playerControllers =
                     FindComponents<PrototypePlayerController>(scene);
@@ -2848,6 +3018,12 @@ namespace BombSwap.Editor.ContentValidation
                 if (readers.Length != 1)
                 {
                     errors.Add($"TestSandbox must contain exactly one BombSwapInputReader; found {readers.Length}.");
+                }
+                if (userSettings.Length != 1 ||
+                    !userSettings[0].HasRequiredReferences)
+                {
+                    errors.Add(
+                        "TestSandbox must contain one configured PrototypeUserSettingsRuntime.");
                 }
                 if (sessions.Length != 1)
                 {
