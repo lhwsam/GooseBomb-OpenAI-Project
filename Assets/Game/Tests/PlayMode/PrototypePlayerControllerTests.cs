@@ -16,6 +16,9 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _root;
         private GameObject _bombPrefab;
         private GameObject _explosionPrefab;
+        private GameObject _crossCenterExplosionPrefab;
+        private GameObject _crossStraightExplosionPrefab;
+        private GameObject _areaGridExplosionPrefab;
         private GameObject _chaserPrefab;
         private GameObject _chargerPrefab;
         private GameObject _chargerTelegraphCellPrefab;
@@ -86,6 +89,18 @@ namespace BombSwap.Tests.PlayMode
             if (_explosionPrefab != null)
             {
                 Object.DestroyImmediate(_explosionPrefab);
+            }
+            if (_crossCenterExplosionPrefab != null)
+            {
+                Object.DestroyImmediate(_crossCenterExplosionPrefab);
+            }
+            if (_crossStraightExplosionPrefab != null)
+            {
+                Object.DestroyImmediate(_crossStraightExplosionPrefab);
+            }
+            if (_areaGridExplosionPrefab != null)
+            {
+                Object.DestroyImmediate(_areaGridExplosionPrefab);
             }
             if (_chaserPrefab != null)
             {
@@ -974,6 +989,206 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator BombPresenter_PresentsCrossVfxFromResolvedDirectionalRanges()
+        {
+            CreateRuntime(
+                new Vector2Int(1, 0),
+                true,
+                includePresenter: true,
+                fuseSeconds: 0.08f,
+                explosionVisualSeconds: 0.4f,
+                firstExplosionRange: 2,
+                destructibleWalls: new[] { new Vector2Int(0, 1) });
+            ConfigureTestExplosionVfx();
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(4));
+            ParticleSystem[] activeParticles = System.Array.FindAll(
+                _presenter.PresentationRoot.GetComponentsInChildren<ParticleSystem>(true),
+                particle => particle.gameObject.activeInHierarchy);
+            Assert.That(activeParticles.Length, Is.EqualTo(4));
+            float expectedVisualY =
+                _session.GridSpace.GridToWorld(new GridPosition(0, 0)).y +
+                PrototypeBombPresenter.CrossExplosionVisualHeight;
+            var speedModifiers = new List<float>();
+            bool foundNorth = false;
+            bool foundSouth = false;
+            bool foundWest = false;
+            for (int index = 0; index < activeParticles.Length; index++)
+            {
+                if (activeParticles[index].name != "Flames_F")
+                {
+                    Assert.That(
+                        activeParticles[index].transform.position.y,
+                        Is.EqualTo(expectedVisualY).Within(0.001f));
+                    continue;
+                }
+                float speedModifier =
+                    activeParticles[index].velocityOverLifetime.speedModifier.constant;
+                speedModifiers.Add(speedModifier);
+                Transform straight = activeParticles[index].transform.parent;
+                Assert.That(
+                    straight.position.y,
+                    Is.EqualTo(expectedVisualY).Within(0.001f));
+                float northAngle = Quaternion.Angle(
+                    straight.rotation,
+                    Quaternion.identity);
+                float southAngle = Quaternion.Angle(
+                    straight.rotation,
+                    Quaternion.Euler(0f, 180f, 0f));
+                float westAngle = Quaternion.Angle(
+                    straight.rotation,
+                    Quaternion.Euler(0f, 270f, 0f));
+                if (northAngle < 0.001f)
+                {
+                    foundNorth = Mathf.Approximately(speedModifier, 0.25f);
+                }
+                else if (southAngle < 0.001f)
+                {
+                    foundSouth = Mathf.Approximately(speedModifier, 0.5f);
+                }
+                else if (westAngle < 0.001f)
+                {
+                    foundWest = Mathf.Approximately(speedModifier, 0.5f);
+                }
+            }
+            speedModifiers.Sort();
+            Assert.That(speedModifiers, Is.EqualTo(new[] { 0.25f, 0.5f, 0.5f }));
+            Assert.That(foundNorth, Is.True);
+            Assert.That(foundSouth, Is.True);
+            Assert.That(foundWest, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.5f);
+            Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(4));
+
+            yield return new WaitForSecondsRealtime(0.55f);
+            Assert.That(_presenter.ActiveExplosionVisualCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator BombPresenter_PresentsForwardLineVfxInPlacementDirection()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includePresenter: true,
+                fuseSeconds: 0.08f,
+                explosionVisualSeconds: 0.4f,
+                areaExplosionRange: 3,
+                secondExplosionShape: BombExplosionShape.ForwardLine,
+                secondDefinitionId: "test-line",
+                swapCooldownSeconds: 0.01f,
+                destructibleWalls: new[] { new Vector2Int(1, 0) },
+                combatEnabled: false);
+            ConfigureTestExplosionVfx();
+            yield return null;
+
+            QueueKeyboardState(Key.D);
+            yield return null;
+            QueueKeyboardState();
+            yield return null;
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(2));
+            ParticleSystem[] activeParticles = System.Array.FindAll(
+                _presenter.PresentationRoot.GetComponentsInChildren<ParticleSystem>(true),
+                particle => particle.gameObject.activeInHierarchy);
+            Assert.That(activeParticles.Length, Is.EqualTo(2));
+            ParticleSystem straightFlames = System.Array.Find(
+                activeParticles,
+                particle => particle.name == "Flames_F");
+            Assert.That(straightFlames, Is.Not.Null);
+            Assert.That(
+                straightFlames.velocityOverLifetime.speedModifier.constant,
+                Is.EqualTo(0.25f).Within(0.001f));
+            Assert.That(
+                Quaternion.Angle(
+                    straightFlames.transform.parent.rotation,
+                    Quaternion.Euler(0f, 90f, 0f)),
+                Is.LessThan(0.001f));
+            float expectedVisualY =
+                _session.GridSpace.GridToWorld(new GridPosition(0, 0)).y +
+                PrototypeBombPresenter.CrossExplosionVisualHeight;
+            Assert.That(
+                straightFlames.transform.parent.position.y,
+                Is.EqualTo(expectedVisualY).Within(0.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator BombPresenter_PresentsAreaGridVfxForResolvedCells()
+        {
+            CreateRuntime(
+                new Vector2Int(1, 0),
+                true,
+                includePresenter: true,
+                fuseSeconds: 0.08f,
+                explosionVisualSeconds: 0.4f,
+                areaExplosionRange: 1,
+                secondExplosionShape: BombExplosionShape.SquareArea,
+                secondDefinitionId: "test-area",
+                swapCooldownSeconds: 0.01f,
+                destructibleWalls: new[] { new Vector2Int(0, 1) },
+                combatEnabled: false);
+            _areaGridExplosionPrefab = new GameObject("AreaGridVfxPrefab");
+            _areaGridExplosionPrefab.AddComponent<ParticleSystem>();
+            _areaGridExplosionPrefab.SetActive(false);
+            _presenter.ConfigureAreaExplosionVfx(_areaGridExplosionPrefab);
+            BombExplosion areaExplosion = null;
+            _session.BombExploded += explosion =>
+            {
+                if (explosion.DefinitionId.Value == "test-area")
+                {
+                    areaExplosion = explosion;
+                }
+            };
+            yield return null;
+
+            PressAndRelease(Key.X);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.15f);
+
+            Assert.That(areaExplosion, Is.Not.Null);
+            Assert.That(areaExplosion.AffectedCells.Count, Is.EqualTo(8));
+            Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(8));
+            ParticleSystem[] activeParticles = System.Array.FindAll(
+                _presenter.PresentationRoot.GetComponentsInChildren<ParticleSystem>(true),
+                particle => particle.gameObject.activeInHierarchy);
+            Assert.That(activeParticles.Length, Is.EqualTo(8));
+            for (int cellIndex = 0;
+                 cellIndex < areaExplosion.AffectedCells.Count;
+                 cellIndex++)
+            {
+                Vector3 expectedPosition = GetExplosionVfxPosition(
+                    areaExplosion.AffectedCells[cellIndex]);
+                bool found = false;
+                for (int particleIndex = 0;
+                     particleIndex < activeParticles.Length;
+                     particleIndex++)
+                {
+                    if (Vector3.Distance(
+                            activeParticles[particleIndex].transform.position,
+                            expectedPosition) < 0.001f)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                Assert.That(
+                    found,
+                    Is.True,
+                    $"Area VFX was missing at {areaExplosion.AffectedCells[cellIndex]}.");
+            }
+
+            yield return new WaitForSecondsRealtime(0.95f);
+            Assert.That(_presenter.ActiveExplosionVisualCount, Is.Zero);
+        }
+
+        [UnityTest]
         public IEnumerator SelfExplosion_AppliesOneDamageAndNextExplosionDuringInvulnerabilityIsIgnored()
         {
             CreateRuntime(
@@ -1703,8 +1918,10 @@ namespace BombSwap.Tests.PlayMode
                 bossPhaseOneRecoverySeconds: 0.2f,
                 bossPhaseTwoTelegraphSeconds: 0.01f,
                 bossPhaseTwoExecuteSeconds: 0.01f);
+            ConfigureTestExplosionVfx();
             BossBombFlight launched = default;
             BombSnapshot landed = default;
+            bool explosionVfxObserved = false;
             _session.BossBombLaunched += flight =>
             {
                 if (launched.Definition == null)
@@ -1717,6 +1934,15 @@ namespace BombSwap.Tests.PlayMode
                 if (launched.Definition != null && snapshot.Position == launched.Target)
                 {
                     landed = snapshot;
+                }
+            };
+            _session.BombExploded += explosion =>
+            {
+                if (landed.Id.IsValid && explosion.BombId == landed.Id)
+                {
+                    explosionVfxObserved = HasActiveParticleAt(
+                        "Flames_F",
+                        GetExplosionVfxPosition(explosion.Origin));
                 }
             };
 
@@ -1738,6 +1964,13 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(landed.Position, Is.EqualTo(launched.Target));
             Assert.That(landed.DetonatesAt, Is.GreaterThan(launched.LandsAt));
             Assert.That(_presenter.ActiveBossFlightVisualCount, Is.LessThan(3));
+
+            deadline = Time.realtimeSinceStartup + 1f;
+            while (!explosionVfxObserved && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(explosionVfxObserved, Is.True);
         }
 
         [UnityTest]
@@ -2055,12 +2288,14 @@ namespace BombSwap.Tests.PlayMode
                 throwerFlightSeconds: 0.04f,
                 throwerRecoverySeconds: 0.04f,
                 throwerBombFuseSeconds: 1f);
+            ConfigureTestExplosionVfx();
             int telegraphCount = 0;
             int visibleTelegraphCellCount = 0;
             int launchCount = 0;
             int placedCount = 0;
             var thrownBombIds = new List<BombId>();
             var thrownCauses = new Dictionary<BombId, BombDetonationCause>();
+            bool throwerExplosionVfxObserved = false;
             _session.ThrowerAdvanced += result =>
             {
                 if (result.State == ThrowerEnemyState.Telegraph &&
@@ -2082,6 +2317,9 @@ namespace BombSwap.Tests.PlayMode
                 if (thrownBombIds.Contains(explosion.BombId))
                 {
                     thrownCauses[explosion.BombId] = explosion.Cause;
+                    throwerExplosionVfxObserved |= HasActiveParticleAt(
+                        "Flames_F",
+                        GetExplosionVfxPosition(explosion.Origin));
                 }
             };
 
@@ -2130,6 +2368,51 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 thrownBombIds,
                 Has.None.Matches<BombId>(id => _presenter.HasBombVisual(id)));
+            Assert.That(throwerExplosionVfxObserved, Is.True);
+        }
+
+        private void ConfigureTestExplosionVfx()
+        {
+            _crossCenterExplosionPrefab = new GameObject("CrossCenterVfxPrefab");
+            _crossCenterExplosionPrefab.AddComponent<ParticleSystem>();
+            _crossCenterExplosionPrefab.SetActive(false);
+            _crossStraightExplosionPrefab = new GameObject("CrossStraightVfxPrefab");
+            var flamesObject = new GameObject("Flames_F");
+            flamesObject.transform.SetParent(_crossStraightExplosionPrefab.transform, false);
+            ParticleSystem flames = flamesObject.AddComponent<ParticleSystem>();
+            ParticleSystem.VelocityOverLifetimeModule velocity =
+                flames.velocityOverLifetime;
+            velocity.enabled = true;
+            _crossStraightExplosionPrefab.SetActive(false);
+            _presenter.ConfigureCrossExplosionVfx(
+                _crossCenterExplosionPrefab,
+                _crossStraightExplosionPrefab);
+        }
+
+        private Vector3 GetExplosionVfxPosition(GridPosition origin)
+        {
+            return _session.GridSpace.GridToWorld(origin) +
+                (Vector3.up * PrototypeBombPresenter.CrossExplosionVisualHeight);
+        }
+
+        private bool HasActiveParticleAt(
+            string particleName,
+            Vector3 expectedPosition)
+        {
+            ParticleSystem[] particles =
+                _presenter.PresentationRoot.GetComponentsInChildren<ParticleSystem>(true);
+            for (int index = 0; index < particles.Length; index++)
+            {
+                if (particles[index].name == particleName &&
+                    particles[index].gameObject.activeInHierarchy &&
+                    Vector3.Distance(
+                        particles[index].transform.parent.position,
+                        expectedPosition) < 0.001f)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void CreateRuntime(
@@ -2145,6 +2428,7 @@ namespace BombSwap.Tests.PlayMode
             bool includeHealthHud = false,
             float fuseSeconds = 1f,
             float explosionVisualSeconds = 0.25f,
+            int firstExplosionRange = 1,
             float placementCooldownSeconds = 0.01f,
             int areaExplosionRange = 1,
             float areaPlacementCooldownSeconds = 0.01f,
@@ -2257,7 +2541,7 @@ namespace BombSwap.Tests.PlayMode
             _definition.Configure(
                 "test-cross",
                 fuseSeconds,
-                1,
+                firstExplosionRange,
                 _bombPrefab,
                 _explosionPrefab,
                 explosionVisualSeconds,

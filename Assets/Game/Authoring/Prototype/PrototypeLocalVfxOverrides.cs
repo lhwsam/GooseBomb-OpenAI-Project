@@ -14,6 +14,15 @@ namespace BombSwap
         private GameObject bombReadyVfxPrefab;
 
         [SerializeField]
+        private GameObject crossBombCenterExplosionVfxPrefab;
+
+        [SerializeField]
+        private GameObject crossBombStraightExplosionVfxPrefab;
+
+        [SerializeField]
+        private GameObject areaBombGridExplosionVfxPrefab;
+
+        [SerializeField]
         private Vector3 bombReadyLocalPosition = new Vector3(-0.031f, 0.926f, -0.152f);
 
         [SerializeField]
@@ -22,6 +31,15 @@ namespace BombSwap
         public GameObject SecretWallBreakVfxPrefab => secretWallBreakVfxPrefab;
 
         public GameObject BombReadyVfxPrefab => bombReadyVfxPrefab;
+
+        public GameObject CrossBombCenterExplosionVfxPrefab =>
+            crossBombCenterExplosionVfxPrefab;
+
+        public GameObject CrossBombStraightExplosionVfxPrefab =>
+            crossBombStraightExplosionVfxPrefab;
+
+        public GameObject AreaBombGridExplosionVfxPrefab =>
+            areaBombGridExplosionVfxPrefab;
 
         public Vector3 BombReadyLocalPosition => bombReadyLocalPosition;
 
@@ -55,6 +73,46 @@ namespace BombSwap
             ValidateParticlePrefab(
                 bombReadyVfxPrefab,
                 nameof(bombReadyVfxPrefab));
+            if (crossBombCenterExplosionVfxPrefab != null ||
+                crossBombStraightExplosionVfxPrefab != null)
+            {
+                ValidateParticlePrefab(
+                    crossBombCenterExplosionVfxPrefab,
+                    nameof(crossBombCenterExplosionVfxPrefab));
+                ValidateParticlePrefab(
+                    crossBombStraightExplosionVfxPrefab,
+                    nameof(crossBombStraightExplosionVfxPrefab));
+            }
+            if (areaBombGridExplosionVfxPrefab != null)
+            {
+                ValidateParticlePrefab(
+                    areaBombGridExplosionVfxPrefab,
+                    nameof(areaBombGridExplosionVfxPrefab));
+            }
+        }
+
+        public void ConfigureCrossBombExplosionVfx(
+            GameObject authoredCenterExplosionVfxPrefab,
+            GameObject authoredStraightExplosionVfxPrefab)
+        {
+            ValidateParticlePrefab(
+                authoredCenterExplosionVfxPrefab,
+                nameof(authoredCenterExplosionVfxPrefab));
+            ValidateParticlePrefab(
+                authoredStraightExplosionVfxPrefab,
+                nameof(authoredStraightExplosionVfxPrefab));
+
+            crossBombCenterExplosionVfxPrefab = authoredCenterExplosionVfxPrefab;
+            crossBombStraightExplosionVfxPrefab = authoredStraightExplosionVfxPrefab;
+        }
+
+        public void ConfigureAreaBombExplosionVfx(
+            GameObject authoredGridExplosionVfxPrefab)
+        {
+            ValidateParticlePrefab(
+                authoredGridExplosionVfxPrefab,
+                nameof(authoredGridExplosionVfxPrefab));
+            areaBombGridExplosionVfxPrefab = authoredGridExplosionVfxPrefab;
         }
 
         public static PrototypeLocalVfxOverrides LoadOptional()

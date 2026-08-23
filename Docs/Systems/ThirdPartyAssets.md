@@ -33,8 +33,8 @@
 
 - Free Quick Effects Vol. 1과 Unity Particle Pack은 가격이 무료여도 Unity Asset Store 원본이다. 공개 source 저장소에는 넣지 않고 각 작업자가 자신의 Unity 계정으로 공식 package를 취득한다.
 - 현재 `Assets/Arts/VFX/EffectPrefab/bomb`의 프로젝트 저작 prefab은 공급자 material을 직접 참조하므로 같은 로컬 경계에 둔다. 공개 Git에 넣으려면 first-party material·texture로 교체하고 직접 의존성 검증을 통과시킨 뒤 별도 변경으로 이동한다.
-- 현재 `Assets/Game`에는 이 VFX prefab의 직접 참조가 없다. package가 없어도 prototype 기능과 공개 대체 표현은 유지된다.
-- 플레이어 폭탄의 공개 prefab은 빈 `SparksEffect` 앵커를 커밋한다. 로컬 연결은 `Bomb Swap/Local Setup/Connect Licensed VFX`, 공개 fallback 복귀는 `Bomb Swap/Local Setup/Reset Player Bomb VFX to Public Fallback`을 사용하며, 로컬 VFX 자식이 붙은 prefab은 공개 브랜치에 커밋하지 않는다.
+- 현재 `Assets/Game`에는 Git 제외 VFX prefab의 직접 직렬화 참조가 없다. package import 후 `Bomb Swap/Local Setup/Connect Licensed VFX`를 실행하면 Git 제외 로컬 설정에 비밀 벽 파괴, 플레이어 십자·일자 폭탄의 중심·직선 VFX와 범위 폭탄의 Grid VFX를 연결하고 플레이어 폭탄 준비 파티클을 복구한다. package가 없어도 prototype 기능과 공개 대체 표현은 유지된다.
+- 플레이어 폭탄의 공개 prefab은 빈 `SparksEffect` 앵커를 커밋한다. 공개 fallback 복귀는 `Bomb Swap/Local Setup/Reset Player Bomb VFX to Public Fallback`을 사용하며, 로컬 VFX 자식이 붙은 prefab과 Git 제외 `BombSwapLocalVfxOverrides.asset`은 공개 브랜치에 커밋하지 않는다.
 - 이력 재작성 전 복구 package는 저장소 밖에만 보관한다. `.unitypackage`는 사용 권한을 만들지 않으며 수신자별 license·seat 조건을 먼저 확인한다.
 
 ## 선택 UI Sprite 직접 연결

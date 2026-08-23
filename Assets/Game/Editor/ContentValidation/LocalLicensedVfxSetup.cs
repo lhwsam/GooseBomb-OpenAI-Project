@@ -16,6 +16,12 @@ namespace BombSwap.Editor.ContentValidation
         public const string SparksEffectPrefabPath =
             "Assets/Arts/VFX/UnityTechnologies/ParticlePack/EffectExamples/" +
             "Legacy Particles/Prefabs/SparksEffect.prefab";
+        public const string CrossBombCenterExplosionPrefabPath =
+            "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Explosion.prefab";
+        public const string CrossBombStraightExplosionPrefabPath =
+            "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Bomb_Straight.prefab";
+        public const string AreaBombGridExplosionPrefabPath =
+            "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Explosion_Grid.prefab";
 
         private static readonly string[] PlayerBombPrefabPaths =
         {
@@ -34,6 +40,12 @@ namespace BombSwap.Editor.ContentValidation
         {
             GameObject dustExplosion = LoadParticlePrefab(DustExplosionPrefabPath);
             GameObject sparksEffect = LoadParticlePrefab(SparksEffectPrefabPath);
+            GameObject centerExplosion = LoadParticlePrefab(
+                CrossBombCenterExplosionPrefabPath);
+            GameObject straightExplosion = LoadParticlePrefab(
+                CrossBombStraightExplosionPrefabPath);
+            GameObject areaGridExplosion = LoadParticlePrefab(
+                AreaBombGridExplosionPrefabPath);
             SynchronizePlayerBombVfx(sparksEffect);
             EnsureDirectory(SettingsDirectory);
 
@@ -56,6 +68,10 @@ namespace BombSwap.Editor.ContentValidation
                 sparksEffect,
                 BombReadyLocalPosition,
                 BombReadyLocalEulerAngles);
+            settings.ConfigureCrossBombExplosionVfx(
+                centerExplosion,
+                straightExplosion);
+            settings.ConfigureAreaBombExplosionVfx(areaGridExplosion);
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(SettingsAssetPath, ImportAssetOptions.ForceUpdate);
@@ -104,6 +120,20 @@ namespace BombSwap.Editor.ContentValidation
                 settings.BombReadyVfxPrefab,
                 SparksEffectPrefabPath,
                 "bomb-ready VFX");
+            ValidateExpectedReference(
+                settings.CrossBombCenterExplosionVfxPrefab,
+                CrossBombCenterExplosionPrefabPath,
+                "cross-bomb center explosion VFX");
+            ValidateExpectedReference(
+                settings.CrossBombStraightExplosionVfxPrefab,
+                CrossBombStraightExplosionPrefabPath,
+                "cross-bomb straight explosion VFX");
+            ValidateStraightExplosionPrefab(
+                settings.CrossBombStraightExplosionVfxPrefab);
+            ValidateExpectedReference(
+                settings.AreaBombGridExplosionVfxPrefab,
+                AreaBombGridExplosionPrefabPath,
+                "area-bomb grid explosion VFX");
             ValidatePlayerBombVfx();
         }
 
@@ -160,6 +190,22 @@ namespace BombSwap.Editor.ContentValidation
                 throw new InvalidOperationException(
                     $"Local {label} must reference '{expectedPath}'.");
             }
+        }
+
+        private static void ValidateStraightExplosionPrefab(GameObject prefab)
+        {
+            ParticleSystem[] systems = prefab.GetComponentsInChildren<ParticleSystem>(true);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                if (systems[index].name == "Flames_F")
+                {
+                    return;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Cross-bomb straight VFX at '{CrossBombStraightExplosionPrefabPath}' " +
+                "requires a child ParticleSystem named 'Flames_F'.");
         }
 
         private static void EnsureDirectory(string assetDirectory)

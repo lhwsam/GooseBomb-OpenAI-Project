@@ -294,6 +294,8 @@ namespace BombSwap
 
         public ActorId ChaserActorId => _chaser != null ? _chaser.ActorId : default;
 
+        public ActorId PlayerActorId => PrototypePlayerActorId;
+
         public GridPosition CurrentChaserGridPosition =>
             _chaser != null ? _chaser.CurrentPosition : default;
 
