@@ -412,30 +412,27 @@ async function main() {
       page,
       "place-bomb-definition-prototype-cross",
     );
-    await setButton(page, StandardButton.South, 1);
-    await page.waitForTimeout(100);
-    await setButton(page, StandardButton.South, 0);
-    await page.waitForTimeout(400);
-    const pausedCellAfterInput = await getLastPlayerCell(page);
-    const pausedEastStepsAfterInput = await eventCount(page, "move-step-direction-east");
-    const pausedPlacementsAfterInput = await eventCount(
+    await page.waitForTimeout(500);
+    const pausedCellAfterWait = await getLastPlayerCell(page);
+    const pausedEastStepsAfterWait = await eventCount(page, "move-step-direction-east");
+    const pausedPlacementsAfterWait = await eventCount(
       page,
       "place-bomb-definition-prototype-cross",
     );
-    if (JSON.stringify(pausedCellAfterInput) !== JSON.stringify(pausedCell) ||
-        pausedEastStepsAfterInput !== pausedEastSteps ||
-        pausedPlacementsAfterInput !== pausedPlacements) {
+    if (JSON.stringify(pausedCellAfterWait) !== JSON.stringify(pausedCell) ||
+        pausedEastStepsAfterWait !== pausedEastSteps ||
+        pausedPlacementsAfterWait !== pausedPlacements) {
       throw new Error(
-        `Gamepad input advanced while paused: cell ${JSON.stringify(pausedCell)} -> ` +
-        `${JSON.stringify(pausedCellAfterInput)}, east steps ${pausedEastSteps} -> ` +
-        `${pausedEastStepsAfterInput}, placements ${pausedPlacements} -> ` +
-        `${pausedPlacementsAfterInput}.`,
+        `Held gamepad input advanced while paused: cell ${JSON.stringify(pausedCell)} -> ` +
+        `${JSON.stringify(pausedCellAfterWait)}, east steps ${pausedEastSteps} -> ` +
+        `${pausedEastStepsAfterWait}, placements ${pausedPlacements} -> ` +
+        `${pausedPlacementsAfterWait}.`,
       );
     }
     checks.push({
-      name: "pause-blocks-held-stick-and-south",
+      name: "pause-blocks-held-stick",
       status: "passed",
-      detail: "A held east stick and South press left the authoritative cell, east-step count, and bomb placements unchanged for 400ms.",
+      detail: "A held east stick left the authoritative cell, east-step count, and bomb placements unchanged for 500ms. South is intentionally not used here because it is the UI Submit action for the selected pause-menu button.",
     });
 
     const pauseResumedBefore = await eventCount(page, "pause-resumed");

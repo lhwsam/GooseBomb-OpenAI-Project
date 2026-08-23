@@ -7,7 +7,7 @@ using UnityEngine.InputSystem.LowLevel;
 
 namespace BombSwap.Tests.PlayMode
 {
-    public sealed class BombSwapInputReaderTests
+    public sealed class BombSwapInputReaderTests : InputTestFixture
     {
         private InputActionAsset _inputActions;
         private Keyboard _keyboard;
@@ -34,7 +34,7 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             if (_reader != null)
             {
@@ -57,6 +57,7 @@ namespace BombSwap.Tests.PlayMode
             {
                 InputSystem.RemoveDevice(_gamepad);
             }
+            base.TearDown();
         }
 
         [Test]

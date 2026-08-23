@@ -108,10 +108,7 @@ namespace BombSwap
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
 
             RectTransform panel = CreateRect("WeaponPanel", canvasObject.transform);
             panel.anchorMin = Vector2.zero;

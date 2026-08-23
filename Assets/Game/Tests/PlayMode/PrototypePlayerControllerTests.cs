@@ -9,7 +9,7 @@ using UnityEngine.TestTools;
 
 namespace BombSwap.Tests.PlayMode
 {
-    public sealed class PrototypePlayerControllerTests
+    public sealed class PrototypePlayerControllerTests : InputTestFixture
     {
         private InputActionAsset _inputActions;
         private Keyboard _keyboard;
@@ -73,7 +73,7 @@ namespace BombSwap.Tests.PlayMode
         private Transform _player;
 
         [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             if (_root != null)
             {
@@ -248,6 +248,7 @@ namespace BombSwap.Tests.PlayMode
             {
                 InputSystem.RemoveDevice(_keyboard);
             }
+            base.TearDown();
         }
 
         [Test]
@@ -354,7 +355,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.IsPaused, Is.True);
             Assert.That(pausePresenter.IsVisible, Is.True);
             Assert.That(pausePresenter.ShowCount, Is.EqualTo(1));
-            Assert.That(pausePresenter.StatusText, Does.Contain("RESUME"));
+            Assert.That(pausePresenter.StatusText, Does.Contain("게임 계속"));
             GridSubcellPosition pausedPosition = _session.CurrentMovementPosition;
             int pausedSlot = _session.ActiveBombSlotIndex;
 
@@ -1446,7 +1447,12 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(contactDamageCount, Is.Zero);
             Assert.That(_session.CurrentHealth, Is.EqualTo(5));
 
-            yield return new WaitForSecondsRealtime(0.2f);
+            float contactDeadline = Time.realtimeSinceStartup + 1f;
+            while (contactDamageCount == 0 &&
+                   Time.realtimeSinceStartup < contactDeadline)
+            {
+                yield return null;
+            }
 
             Assert.That(contactDamageCount, Is.EqualTo(1));
             Assert.That(firstContact.SourceActorId, Is.EqualTo(_session.ChaserActorId));
@@ -1540,14 +1546,18 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_bossPresenter.IsBossVisible, Is.True);
             Assert.That(_bossPresenter.IsMoveTargetVisible, Is.False);
 
-            int frameGuard = 0;
+            float deadline = Time.realtimeSinceStartup + 10f;
             while ((_session.CurrentBossPattern != BossPatternKind.Overheat ||
                     _session.CurrentBossState != BossBattleState.Recovery) &&
-                   frameGuard++ < 600)
+                   Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
-            Assert.That(frameGuard, Is.LessThan(600));
+            Assert.That(
+                _session.CurrentBossPattern == BossPatternKind.Overheat &&
+                _session.CurrentBossState == BossBattleState.Recovery,
+                Is.True,
+                "Boss did not reach Overheat recovery within 10 real-time seconds.");
             Assert.That(_bossPresenter.CurrentPattern, Is.EqualTo(BossPatternKind.Overheat));
 
             PressAndRelease(Key.X);
@@ -1671,16 +1681,16 @@ namespace BombSwap.Tests.PlayMode
                 }
             };
 
-            int frameGuard = 0;
-            while (launched.Definition == null && frameGuard++ < 600)
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (launched.Definition == null && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
             Assert.That(launched.Definition, Is.Not.Null);
             Assert.That(_presenter.ActiveBossFlightVisualCount, Is.GreaterThan(0));
 
-            frameGuard = 0;
-            while (!landed.Id.IsValid && frameGuard++ < 180)
+            deadline = Time.realtimeSinceStartup + 1f;
+            while (!landed.Id.IsValid && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -1772,14 +1782,18 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
             Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
 
-            int frameGuard = 0;
+            float deadline = Time.realtimeSinceStartup + 5f;
             while ((_session.CurrentBossPattern != BossPatternKind.Overheat ||
                     _session.CurrentBossState != BossBattleState.Recovery) &&
-                   frameGuard++ < 600)
+                   Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
-            Assert.That(frameGuard, Is.LessThan(600));
+            Assert.That(
+                _session.CurrentBossPattern == BossPatternKind.Overheat &&
+                _session.CurrentBossState == BossBattleState.Recovery,
+                Is.True,
+                "Boss did not reach Overheat recovery within 5 real-time seconds.");
 
             yield return new WaitForSecondsRealtime(0.04f);
             Assert.That(
@@ -1793,8 +1807,9 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
             Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(2f / 3f).Within(0.001f));
 
-            frameGuard = 0;
-            while (_session.CurrentBossPhase != BossPhase.Two && frameGuard++ < 600)
+            deadline = Time.realtimeSinceStartup + 5f;
+            while (_session.CurrentBossPhase != BossPhase.Two &&
+                   Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -2031,8 +2046,8 @@ namespace BombSwap.Tests.PlayMode
                 }
             };
 
-            int frameGuard = 0;
-            while (placedCount < 3 && frameGuard++ < 120)
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (placedCount < 3 && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -2060,8 +2075,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
 
             Assert.That(_session.TryPlaceBomb(), Is.True);
-            frameGuard = 0;
-            while (thrownCauses.Count < 3 && frameGuard++ < 240)
+            deadline = Time.realtimeSinceStartup + 2f;
+            while (thrownCauses.Count < 3 && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }

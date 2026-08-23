@@ -20,7 +20,7 @@
 
 - 프로젝트 템플릿은 `Assets/WebGLTemplates/BombSwap/index.html`이다.
 - command-line과 연결된 Editor 빌드 하네스는 빌드 범위에서만 `PROJECT:BombSwap`을 활성화한다. 완료·실패 여부와 관계없이 기존 `PlayerSettings.WebGL.template`을 복원하고 `AssetDatabase.SaveAssets()`로 디스크에도 반영한다.
-- Unity canvas의 내부 기준은 960×600이다. hosting shell은 이보다 확대하지 않고 사용 가능한 viewport가 작을 때만 16:10 비율로 축소한다.
+- Unity canvas의 내부 기준과 first-party uGUI `CanvasScaler` reference resolution은 모두 960×600이다. uGUI 설정은 `PrototypeUiFactory`가 소유하고, hosting shell은 이보다 확대하지 않고 사용 가능한 viewport가 작을 때만 16:10 비율로 축소한다.
 - canvas와 문서는 viewport를 넘지 않아야 하며 scrollbar를 만들지 않는다. pointer 입력은 canvas focus를 회복한다.
 - 하단 footer는 핵심 키보드 조작과 fullscreen 진입점을 제공한다. 좁은 창에서는 focus 안내 일부를 숨길 수 있지만 게임 canvas를 가리면 안 된다.
 - 구현·검증 근거는 [반응형 WebGL 캔버스 수직 슬라이스](../Development/ResponsiveWebGLCanvasSlice.md)를 따른다.

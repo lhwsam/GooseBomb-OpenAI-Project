@@ -218,8 +218,7 @@ namespace BombSwap
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 110;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
+            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
 
             _instructionLabel = PrototypeUiFactory.CreateText(
                 "BombRewardInstruction",
