@@ -85,6 +85,9 @@ namespace BombSwap
         [SerializeField]
         private bool bossEnabled;
 
+        [SerializeField]
+        private PrototypePauseView pauseViewPrefab;
+
         private GridState _grid;
         private ManualGameClock _clock;
         private PlayerMovementSimulation _movement;
@@ -235,6 +238,8 @@ namespace BombSwap
         public bool IsCombatEnabledByDefault => combatEnabled;
 
         public bool IsBossEnabledByDefault => bossEnabled;
+
+        public PrototypePauseView PauseViewPrefab => pauseViewPrefab;
 
         public bool HasChaser => IsCombatEnabledForVisit && !IsBossEnabledForVisit;
 
@@ -537,6 +542,18 @@ namespace BombSwap
             _runtimeCombatEnabled = null;
             _runtimeBossEnabled = null;
             _runtimeInitialPlayerHealth = null;
+        }
+
+        public void BindPauseViewPrefab(PrototypePauseView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeGameSession before changing its pause view prefab.");
+            }
+
+            pauseViewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
         }
 
         public void PrepareRuntimePlayerHealth(int currentHealth)
@@ -1503,12 +1520,19 @@ namespace BombSwap
 
         private void EnsurePausePresenter()
         {
+            if (pauseViewPrefab == null ||
+                !pauseViewPrefab.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "PrototypeGameSession requires a configured pause view prefab.");
+            }
+
             _pausePresenter = GetComponent<PrototypePausePresenter>();
             if (_pausePresenter == null)
             {
                 _pausePresenter = gameObject.AddComponent<PrototypePausePresenter>();
             }
-            _pausePresenter.Configure(this);
+            _pausePresenter.Configure(this, pauseViewPrefab);
         }
 
         private static bool Contains(

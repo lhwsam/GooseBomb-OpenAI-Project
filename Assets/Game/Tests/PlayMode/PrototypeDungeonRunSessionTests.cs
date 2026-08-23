@@ -917,6 +917,11 @@ namespace BombSwap.Tests.PlayMode
                             FindObjectsInactive.Include)
                         .Single();
                 Assert.That(startMinimap.IsInitialized, Is.True);
+                Assert.That(startMinimap.ViewPrefab, Is.Not.Null);
+                Assert.That(startMinimap.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    startMinimap.ViewInstance,
+                    Is.Not.SameAs(startMinimap.ViewPrefab));
                 Assert.That(
                     startMinimap.DisplayedCurrentRoomId,
                     Is.EqualTo(run.Graph.StartRoomId));
@@ -927,13 +932,16 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo(DungeonMinimapRoomState.Current));
 
                 RectTransform minimapPanel =
-                    UnityEngine.Object.FindObjectsByType<RectTransform>(
+                    (RectTransform)startMinimap.ViewInstance.MapRoot.parent;
+                PrototypeHealthHud startHealthHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
                             FindObjectsInactive.Include)
-                        .Single(rect => rect.name == "MinimapPanel");
-                RectTransform rewardPanel =
-                    UnityEngine.Object.FindObjectsByType<RectTransform>(
-                            FindObjectsInactive.Include)
-                        .Single(rect => rect.name == "CombatRewardPanel");
+                        .Single();
+                RectTransform rewardPanel = (RectTransform)startHealthHud
+                    .ViewInstance
+                    .CombatRewardLabel
+                    .transform
+                    .parent;
                 Assert.That(
                     minimapPanel.anchoredPosition.y,
                     Is.LessThanOrEqualTo(
@@ -956,6 +964,8 @@ namespace BombSwap.Tests.PlayMode
                             FindObjectsInactive.Include)
                         .Single();
                 Assert.That(combatMinimap.IsInitialized, Is.True);
+                Assert.That(combatMinimap.ViewPrefab, Is.Not.Null);
+                Assert.That(combatMinimap.ViewInstance, Is.Not.Null);
                 Assert.That(
                     combatMinimap.DisplayedCurrentRoomId,
                     Is.EqualTo(firstCombat));
@@ -2172,9 +2182,8 @@ namespace BombSwap.Tests.PlayMode
                 PrototypePausePresenter pausePresenter =
                     gameSession.GetComponent<PrototypePausePresenter>();
                 Assert.That(pausePresenter.IsVisible, Is.True);
-                Button pauseSettingsButton = pausePresenter
-                    .GetComponentsInChildren<Button>(true)
-                    .Single(button => button.name == "SettingsButton");
+                Button pauseSettingsButton =
+                    pausePresenter.ViewInstance.SettingsButton;
                 pauseSettingsButton.onClick.Invoke();
                 Assert.That(pausePresenter.IsSettingsOpen, Is.True);
                 Assert.That(pausePresenter.SettingsPanel, Is.Not.Null);

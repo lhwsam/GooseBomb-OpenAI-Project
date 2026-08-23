@@ -1927,6 +1927,7 @@ MonoBehaviour:
   chainDelaySeconds: 0.15
   combatEnabled: 1
   bossEnabled: 0
+  pauseViewPrefab: {fileID: 1855802264835458640, guid: 665669ecaff9ccd4d9699294899cd3c5, type: 3}
 --- !u!114 &549228486
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1972,6 +1973,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeWeaponHud
   session: {fileID: 549228485}
+  viewPrefab: {fileID: 3812362610853399480, guid: f9c29ab51f92cef43b6e0bd2980420fd, type: 3}
 --- !u!114 &549228490
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2054,6 +2056,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeHealthHud
   session: {fileID: 549228485}
+  viewPrefab: {fileID: 5783908146879051745, guid: 266fa4c9aa6ca9644b97a3f9548dc00c, type: 3}
 --- !u!114 &549228501
 MonoBehaviour:
   m_ObjectHideFlags: 0

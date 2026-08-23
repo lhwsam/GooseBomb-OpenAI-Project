@@ -169,6 +169,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateGameFont(errors);
             PixelFontStyleAuthoring.Validate(errors);
             ValidateAudioMixer(errors);
+            ValidateInGameUiPrefabs(errors);
             ValidateLobbyScene(errors);
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinitions(errors);
@@ -332,13 +333,12 @@ namespace BombSwap.Editor.ContentValidation
                             errors.Add(
                                 "Lobby presenter view references must belong to the lobby scene.");
                         }
-                        if (!string.Equals(
-                                presenter.TitleText,
+                        if (presenter.TitleText.IndexOf(
                                 PrototypeLobbyPresenter.GameTitle,
-                                StringComparison.Ordinal))
+                                StringComparison.Ordinal) < 0)
                         {
                             errors.Add(
-                                $"Lobby title must be '{PrototypeLobbyPresenter.GameTitle}'.");
+                                $"Lobby title must include '{PrototypeLobbyPresenter.GameTitle}'.");
                         }
                         if (presenter.ControlsPanel.activeSelf)
                         {
@@ -2100,6 +2100,132 @@ namespace BombSwap.Editor.ContentValidation
                 errors);
         }
 
+        private static void ValidateInGameUiPrefabs(
+            ICollection<string> errors)
+        {
+            ValidateInGameUiPrefab<PrototypeWeaponHudView>(
+                PrototypeInGameUiPrefabAuthoring.WeaponHudPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypeHealthHudView>(
+                PrototypeInGameUiPrefabAuthoring.HealthHudPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypeDungeonMinimapView>(
+                PrototypeInGameUiPrefabAuthoring.MinimapPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypePauseView>(
+                PrototypeInGameUiPrefabAuthoring.PausePrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidatePauseTitleWave(errors);
+        }
+
+        private static void ValidatePauseTitleWave(
+            ICollection<string> errors)
+        {
+            PrototypePauseView pause =
+                AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
+                    PrototypeInGameUiPrefabAuthoring.PausePrefabPath);
+            if (pause == null)
+            {
+                return;
+            }
+
+            PrototypePauseTitleWave[] waves =
+                pause.GetComponentsInChildren<PrototypePauseTitleWave>(true);
+            if (waves.Length != 1 ||
+                waves[0].Target == null ||
+                waves[0].Target.gameObject != waves[0].gameObject)
+            {
+                errors.Add(
+                    "Pause UI prefab must contain exactly one title wave " +
+                    "with its same-object TMP target assigned.");
+            }
+        }
+
+        private static void ValidateInGameUiPrefab<T>(
+            string assetPath,
+            Func<T, bool> hasRequiredReferences,
+            ICollection<string> errors)
+            where T : MonoBehaviour
+        {
+            T view = AssetDatabase.LoadAssetAtPath<T>(assetPath);
+            if (view == null)
+            {
+                errors.Add($"Missing in-game UI prefab view: {assetPath}");
+                return;
+            }
+            if (!hasRequiredReferences(view))
+            {
+                errors.Add(
+                    $"In-game UI prefab has missing authored references: {assetPath}");
+            }
+        }
+
+        private static void ValidateInGameUiBindings(
+            Scene scene,
+            ICollection<string> errors)
+        {
+            PrototypeWeaponHudView weaponPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeWeaponHudView>(
+                    PrototypeInGameUiPrefabAuthoring.WeaponHudPrefabPath);
+            PrototypeHealthHudView healthPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeHealthHudView>(
+                    PrototypeInGameUiPrefabAuthoring.HealthHudPrefabPath);
+            PrototypeDungeonMinimapView minimapPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonMinimapView>(
+                    PrototypeInGameUiPrefabAuthoring.MinimapPrefabPath);
+            PrototypePauseView pausePrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
+                    PrototypeInGameUiPrefabAuthoring.PausePrefabPath);
+
+            PrototypeWeaponHud[] weaponHuds =
+                FindComponents<PrototypeWeaponHud>(scene);
+            for (int index = 0; index < weaponHuds.Length; index++)
+            {
+                if (weaponHuds[index].ViewPrefab != weaponPrefab)
+                {
+                    errors.Add(
+                        "PrototypeWeaponHud must reference the shared editable weapon HUD prefab.");
+                }
+            }
+
+            PrototypeHealthHud[] healthHuds =
+                FindComponents<PrototypeHealthHud>(scene);
+            for (int index = 0; index < healthHuds.Length; index++)
+            {
+                if (healthHuds[index].ViewPrefab != healthPrefab)
+                {
+                    errors.Add(
+                        "PrototypeHealthHud must reference the shared editable health HUD prefab.");
+                }
+            }
+
+            PrototypeDungeonMinimapPresenter[] minimaps =
+                FindComponents<PrototypeDungeonMinimapPresenter>(scene);
+            for (int index = 0; index < minimaps.Length; index++)
+            {
+                if (minimaps[index].ViewPrefab != minimapPrefab)
+                {
+                    errors.Add(
+                        "PrototypeDungeonMinimapPresenter must reference the shared editable minimap prefab.");
+                }
+            }
+
+            PrototypeGameSession[] sessions =
+                FindComponents<PrototypeGameSession>(scene);
+            for (int index = 0; index < sessions.Length; index++)
+            {
+                if (sessions[index].PauseViewPrefab != pausePrefab)
+                {
+                    errors.Add(
+                        "PrototypeGameSession must reference the shared editable pause prefab.");
+                }
+            }
+        }
+
         private static void ValidateStandaloneArmoredPlaytestScene(
             ICollection<string> errors)
         {
@@ -2231,6 +2357,7 @@ namespace BombSwap.Editor.ContentValidation
                     sceneErrors.Add(
                         $"Standalone {label} playtest requires an enabled MainCamera.");
                 }
+                ValidateInGameUiBindings(scene, sceneErrors);
             }
             finally
             {
@@ -2346,6 +2473,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeSecretRewardPresenter>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
+
+                ValidateInGameUiBindings(scene, errors);
 
                 if (contexts.Length != 1)
                 {

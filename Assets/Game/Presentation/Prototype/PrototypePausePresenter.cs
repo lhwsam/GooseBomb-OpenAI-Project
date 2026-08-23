@@ -10,6 +10,8 @@ namespace BombSwap
     public sealed class PrototypePausePresenter : MonoBehaviour
     {
         private PrototypeGameSession _session;
+        private PrototypePauseView _viewPrefab;
+        private PrototypePauseView _viewInstance;
         private PrototypeUserSettingsRuntime _settingsRuntime;
         private GameObject _canvasObject;
         private GameObject _menuObject;
@@ -20,6 +22,10 @@ namespace BombSwap
         private bool _isSubscribed;
 
         public PrototypeGameSession Session => _session;
+
+        public PrototypePauseView ViewPrefab => _viewPrefab;
+
+        public PrototypePauseView ViewInstance => _viewInstance;
 
         public bool IsVisible { get; private set; }
 
@@ -59,6 +65,26 @@ namespace BombSwap
                 Subscribe();
                 SetVisible(session.IsPaused);
             }
+        }
+
+        public void Configure(
+            PrototypeGameSession session,
+            PrototypePauseView authoredViewPrefab)
+        {
+            BindViewPrefab(authoredViewPrefab);
+            Configure(session);
+        }
+
+        public void BindViewPrefab(PrototypePauseView authoredViewPrefab)
+        {
+            if (Application.isPlaying && _viewInstance != null)
+            {
+                throw new InvalidOperationException(
+                    "Pause view prefab cannot change after the view is instantiated.");
+            }
+
+            _viewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
         }
 
         private void OnEnable()
@@ -150,71 +176,33 @@ namespace BombSwap
                 return;
             }
 
-            _canvasObject = new GameObject(
-                "PrototypePauseCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler),
-                typeof(GraphicRaycaster));
-            _canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = _canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 250;
-            PrototypeUiFactory.ConfigureCanvasScaler(
-                _canvasObject.GetComponent<CanvasScaler>());
+            if (_viewPrefab == null || !_viewPrefab.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "PrototypePausePresenter requires a configured pause view prefab.");
+            }
+
+            _viewInstance = Instantiate(_viewPrefab, transform, false);
+            _viewInstance.name = _viewPrefab.name;
+            if (!_viewInstance.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "Instantiated pause view is missing required references.");
+            }
+
+            _canvasObject = _viewInstance.gameObject;
+            _menuObject = _viewInstance.Menu;
+            _statusLabel = _viewInstance.StatusLabel;
+            _resumeButton = _viewInstance.ResumeButton;
+            _settingsButton = _viewInstance.SettingsButton;
+            _settingsPanel = _viewInstance.SettingsPanel;
             PrototypeUiFactory.EnsureEventSystem();
-
-            RectTransform backdrop = PrototypeUiFactory.CreateRect(
-                "Backdrop",
-                _canvasObject.transform);
-            SetAnchors(backdrop, Vector2.zero, Vector2.one);
-            Image backdropImage = backdrop.gameObject.AddComponent<Image>();
-            backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 0.76f);
-
-            _menuObject = PrototypeUiFactory.CreateRect("PauseMenu", backdrop).gameObject;
-            SetAnchors(
-                _menuObject.GetComponent<RectTransform>(),
-                new Vector2(0.22f, 0.2f),
-                new Vector2(0.78f, 0.8f));
-
-            TextMeshProUGUI title = PrototypeUiFactory.CreateText(
-                "Title",
-                _menuObject.transform,
-                56f,
-                TextAlignmentOptions.Center,
-                FontStyles.Bold,
-                TextWrappingModes.Normal);
-            SetAnchors(title.rectTransform, new Vector2(0.05f, 0.65f), new Vector2(0.95f, 0.92f));
-            title.text = "PAUSED";
-            title.color = new Color(0.35f, 0.82f, 1f, 1f);
-
-            _resumeButton = CreateButton(
-                "ResumeButton", _menuObject.transform, "게임 계속", 27f,
-                new Vector2(0.18f, 0.42f), new Vector2(0.82f, 0.58f));
             _resumeButton.onClick.AddListener(ResumeGame);
-
-            _settingsButton = CreateButton(
-                "SettingsButton", _menuObject.transform, "설정", 27f,
-                new Vector2(0.18f, 0.22f), new Vector2(0.82f, 0.38f));
             _settingsButton.interactable = _settingsRuntime != null;
             _settingsButton.onClick.AddListener(OpenSettings);
 
-            _statusLabel = PrototypeUiFactory.CreateText(
-                "ResumeHint",
-                _menuObject.transform,
-                19f,
-                TextAlignmentOptions.Center,
-                FontStyles.Normal,
-                TextWrappingModes.Normal);
-            SetAnchors(_statusLabel.rectTransform, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.17f));
-            _statusLabel.text = "ESC - 게임 계속";
-            _statusLabel.color = Color.white;
-
             if (_settingsRuntime != null)
             {
-                _settingsPanel = PrototypeSettingsPanelFactory.Create(
-                    backdrop,
-                    "PauseSettingsPanel");
                 _settingsPanel.Configure(_settingsRuntime, ShowPauseMenu);
             }
         }
@@ -250,31 +238,5 @@ namespace BombSwap
             }
         }
 
-        private static Button CreateButton(
-            string objectName,
-            Transform parent,
-            string label,
-            float fontSize,
-            Vector2 min,
-            Vector2 max)
-        {
-            Button button = PrototypeUiFactory.CreateButton(
-                objectName,
-                parent,
-                label,
-                fontSize,
-                new Color(0.1f, 0.17f, 0.25f, 1f),
-                new Color(0.2f, 0.46f, 0.65f, 1f));
-            SetAnchors(button.GetComponent<RectTransform>(), min, max);
-            return button;
-        }
-
-        private static void SetAnchors(RectTransform rect, Vector2 min, Vector2 max)
-        {
-            rect.anchorMin = min;
-            rect.anchorMax = max;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
     }
 }

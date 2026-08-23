@@ -329,7 +329,13 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.IsPaused, Is.True);
             Assert.That(pausePresenter.IsVisible, Is.True);
             Assert.That(pausePresenter.ShowCount, Is.EqualTo(1));
-            Assert.That(pausePresenter.StatusText, Does.Contain("게임 계속"));
+            Assert.That(pausePresenter.StatusText, Is.Empty);
+            Assert.That(pausePresenter.ViewPrefab, Is.Not.Null);
+            Assert.That(pausePresenter.ViewInstance, Is.Not.Null);
+            Assert.That(pausePresenter.ViewInstance.StatusLabel, Is.Null);
+            Assert.That(
+                pausePresenter.ViewInstance,
+                Is.Not.SameAs(pausePresenter.ViewPrefab));
             GridSubcellPosition pausedPosition = _session.CurrentMovementPosition;
             int pausedSlot = _session.ActiveBombSlotIndex;
 
@@ -849,6 +855,11 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
 
             Assert.That(_weaponHud.IsInitialized, Is.True);
+            Assert.That(_weaponHud.ViewPrefab, Is.Not.Null);
+            Assert.That(_weaponHud.ViewInstance, Is.Not.Null);
+            Assert.That(
+                _weaponHud.ViewInstance,
+                Is.Not.SameAs(_weaponHud.ViewPrefab));
             Assert.That(_weaponHud.DisplayedActiveSlotIndex, Is.Zero);
             Assert.That(_weaponHud.FirstSlotReadyFraction, Is.EqualTo(1f));
 
@@ -872,6 +883,11 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
 
             Assert.That(_healthHud.IsInitialized, Is.True);
+            Assert.That(_healthHud.ViewPrefab, Is.Not.Null);
+            Assert.That(_healthHud.ViewInstance, Is.Not.Null);
+            Assert.That(
+                _healthHud.ViewInstance,
+                Is.Not.SameAs(_healthHud.ViewPrefab));
             Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(5));
             Assert.That(_healthHud.DisplayedPlayerMaxHealth, Is.EqualTo(5));
             Assert.That(_healthHud.PlayerHealthFillFraction, Is.EqualTo(1f));
@@ -2605,6 +2621,8 @@ namespace BombSwap.Tests.PlayMode
                 bossEnabled,
                 _selfDestructDefinition,
                 _throwerDefinition);
+            _session.BindPauseViewPrefab(
+                LoadUiPrefab<PrototypePauseView>("UI/PrototypePauseCanvas"));
             if (runtimePlayerStart.HasValue || runtimeCombatEnabled.HasValue)
             {
                 CombatRoomDefinition runtimeRoom =
@@ -2688,12 +2706,18 @@ namespace BombSwap.Tests.PlayMode
             if (includeWeaponHud)
             {
                 _weaponHud = _root.AddComponent<PrototypeWeaponHud>();
-                _weaponHud.Configure(_session);
+                _weaponHud.Configure(
+                    _session,
+                    LoadUiPrefab<PrototypeWeaponHudView>(
+                        "UI/PrototypeWeaponHudCanvas"));
             }
             if (includeHealthHud)
             {
                 _healthHud = _root.AddComponent<PrototypeHealthHud>();
-                _healthHud.Configure(_session);
+                _healthHud.Configure(
+                    _session,
+                    LoadUiPrefab<PrototypeHealthHudView>(
+                        "UI/PrototypeHealthHudCanvas"));
             }
             if (includeProbe)
             {
@@ -2710,6 +2734,17 @@ namespace BombSwap.Tests.PlayMode
             }
             _root.SetActive(true);
             _reader.SetInputFocus(true);
+        }
+
+        private static T LoadUiPrefab<T>(string resourcePath)
+            where T : UnityEngine.Object
+        {
+            T prefab = Resources.Load<T>(resourcePath);
+            Assert.That(
+                prefab,
+                Is.Not.Null,
+                $"Missing required test UI prefab at Resources/{resourcePath}.");
+            return prefab;
         }
 
         private void PressAndRelease(Key key)
