@@ -100,10 +100,12 @@ namespace BombSwap.Tests.EditMode
             Assert.That(
                 charger.MovementTransition.EndsAt,
                 Is.EqualTo(LaneAcquireStepInterval));
+            Assert.That(charger.CurrentPosition, Is.EqualTo(GridPositionAtOrigin()));
             Assert.That(charger.Advance().HasActivity, Is.False);
 
             clock.Advance(LaneAcquireStepInterval - TimeSpan.FromTicks(1));
             Assert.That(charger.Advance().HasActivity, Is.False);
+            Assert.That(charger.CurrentPosition, Is.EqualTo(new GridPosition(0, 1)));
             clock.Advance(TimeSpan.FromTicks(1));
             ChargerEnemyAdvanceResult second = charger.Advance();
 

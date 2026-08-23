@@ -75,6 +75,11 @@ namespace BombSwap.Tests.EditMode
                 new GridPosition(0, 1));
 
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            Assert.That(simulation.CurrentPosition, Is.EqualTo(new GridPosition(0, 1)));
+            clock.Advance(TimeSpan.FromTicks(MoveInterval.Ticks / 2));
+            Assert.That(simulation.Advance().HasActivity, Is.False);
+            Assert.That(simulation.CurrentPosition, Is.EqualTo(new GridPosition(0, 2)));
+            clock.Advance(TimeSpan.FromTicks(MoveInterval.Ticks / 2));
 
             ThrowerEnemyAdvanceResult result = simulation.Advance();
 
@@ -140,6 +145,7 @@ namespace BombSwap.Tests.EditMode
                 Assert.That(simulation.Advance().HasMovement, Is.True);
             }
 
+            clock.Advance(MoveInterval);
             ThrowerEnemyAdvanceResult telegraph = simulation.Advance();
             Assert.That(telegraph.HasStateTransition, Is.True);
             Assert.That(telegraph.State, Is.EqualTo(ThrowerEnemyState.Telegraph));
@@ -170,6 +176,7 @@ namespace BombSwap.Tests.EditMode
                 });
 
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            clock.Advance(MoveInterval);
             Assert.That(simulation.Advance().LockedTarget, Is.EqualTo(new GridPosition(-3, -2)));
             Assert.That(grid.TryMoveActor(PlayerActor, new GridPosition(1, -2)), Is.True);
             clock.Advance(TimeSpan.FromSeconds(0.4));
@@ -207,6 +214,7 @@ namespace BombSwap.Tests.EditMode
                 });
 
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            clock.Advance(MoveInterval);
             ThrowerEnemyAdvanceResult first = simulation.Advance();
             Assert.That(
                 first.LockedTargets,
@@ -234,6 +242,7 @@ namespace BombSwap.Tests.EditMode
                 }
             }
 
+            clock.Advance(MoveInterval);
             ThrowerEnemyAdvanceResult second = simulation.Advance();
 
             Assert.That(second.State, Is.EqualTo(ThrowerEnemyState.Telegraph));
@@ -256,6 +265,7 @@ namespace BombSwap.Tests.EditMode
                 new GridPosition(0, -2),
                 new GridPosition(0, 1));
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            clock.Advance(MoveInterval);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
 
@@ -304,6 +314,7 @@ namespace BombSwap.Tests.EditMode
                 new GridPosition(0, -2),
                 new GridPosition(0, 1));
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            clock.Advance(MoveInterval);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
             Assert.That(simulation.Advance().ShouldLaunch, Is.True);
@@ -334,6 +345,7 @@ namespace BombSwap.Tests.EditMode
                 new GridPosition(0, -2),
                 new GridPosition(0, 1));
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            clock.Advance(MoveInterval);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
             simulation.Advance();
@@ -377,6 +389,7 @@ namespace BombSwap.Tests.EditMode
                 });
 
             Assert.That(simulation.Advance().HasMovement, Is.True);
+            clock.Advance(MoveInterval);
             simulation.Advance();
             clock.Advance(TelegraphDuration);
             simulation.Advance();

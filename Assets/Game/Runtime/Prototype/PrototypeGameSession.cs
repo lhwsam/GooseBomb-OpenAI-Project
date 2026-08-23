@@ -9,6 +9,8 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeGameSession : MonoBehaviour
     {
+        private static readonly TimeSpan SimulationStep = TimeSpan.FromMilliseconds(10);
+        private const int MaxSimulationStepsPerFrame = 4096;
         private sealed class PendingBossBombFlight
         {
             public PendingBossBombFlight(BossBombFlight flight)
@@ -138,6 +140,7 @@ namespace BombSwap
         private bool _bossSummonedSelfDestruct;
         private TimeSpan _bossSelfDestructForceAt;
         private bool _isPaused;
+        private FixedStepAccumulator _simulationAccumulator;
         private PrototypePausePresenter _pausePresenter;
 
         public event Action<PlayerMovementStep> PlayerMoved;
@@ -265,7 +268,7 @@ namespace BombSwap
             _movement != null ? _movement.FacingDirection : CardinalDirection.North;
 
         public bool IsPlayerMoving =>
-            _movement != null && _movement.MoveDirection != CardinalDirection.None;
+            _movement != null && _movement.IsMoving;
 
         public int ActiveBombCount => _bombs != null ? _bombs.ActiveBombCount : 0;
 
@@ -289,6 +292,9 @@ namespace BombSwap
         public GridPosition CurrentChaserGridPosition =>
             _chaser != null ? _chaser.CurrentPosition : default;
 
+        public GridSubcellPosition CurrentChaserMovementPosition =>
+            _chaser != null ? _chaser.Position : default;
+
         public EnemyLocomotionState CurrentChaserLocomotionState =>
             IsChaserAlive ? _chaser.LocomotionState : EnemyLocomotionState.Idle;
 
@@ -303,6 +309,9 @@ namespace BombSwap
 
         public GridPosition CurrentChargerGridPosition =>
             _charger != null ? _charger.CurrentPosition : default;
+
+        public GridSubcellPosition CurrentChargerMovementPosition =>
+            _charger != null ? _charger.Position : default;
 
         public ChargerEnemyState CurrentChargerState =>
             _charger != null ? _charger.State : ChargerEnemyState.Track;
@@ -356,6 +365,9 @@ namespace BombSwap
         public GridPosition CurrentSelfDestructGridPosition =>
             _selfDestruct != null ? _selfDestruct.CurrentPosition : default;
 
+        public GridSubcellPosition CurrentSelfDestructMovementPosition =>
+            _selfDestruct != null ? _selfDestruct.Position : default;
+
         public SelfDestructEnemyState CurrentSelfDestructState =>
             _selfDestruct != null
                 ? _selfDestruct.State
@@ -386,6 +398,9 @@ namespace BombSwap
 
         public GridPosition CurrentThrowerGridPosition =>
             _thrower != null ? _thrower.CurrentPosition : default;
+
+        public GridSubcellPosition CurrentThrowerMovementPosition =>
+            _thrower != null ? _thrower.Position : default;
 
         public ThrowerEnemyState CurrentThrowerState =>
             _thrower != null ? _thrower.State : ThrowerEnemyState.Track;
@@ -992,7 +1007,7 @@ namespace BombSwap
             }
             if (_movement != null)
             {
-                _movement.SetMoveDirection(CardinalDirection.None);
+                _movement.ClearMoveIntent();
             }
         }
 
@@ -1011,7 +1026,18 @@ namespace BombSwap
                 throw new InvalidOperationException("Unity supplied an invalid simulation delta time.");
             }
 
-            _clock.Advance(TimeSpan.FromSeconds(elapsedSeconds));
+            int simulationStepCount = _simulationAccumulator.AddElapsed(
+                TimeSpan.FromSeconds(elapsedSeconds),
+                MaxSimulationStepsPerFrame);
+            for (int stepIndex = 0; stepIndex < simulationStepCount; stepIndex++)
+            {
+                AdvanceSimulationStep();
+            }
+        }
+
+        private void AdvanceSimulationStep()
+        {
+            _clock.Advance(SimulationStep);
             _appliedDamageResults.Clear();
             _appliedEnemyDamageResults.Clear();
             _armoredDamageResults.Clear();
@@ -1028,7 +1054,7 @@ namespace BombSwap
                 {
                     PlayerPositionChanged?.Invoke(
                         _movement.Position,
-                        _movement.MoveDirection);
+                        _movement.LastAdvanceDirection);
                 }
             }
             if (HasChaser && !_chaserHealth.IsDead &&
@@ -1134,29 +1160,36 @@ namespace BombSwap
             {
                 BombExplosion explosion = explosions[index];
                 _movement.NotifyBombRemoved(explosion.BombId);
-                if (Contains(explosion.AffectedCells, _movement.CurrentPosition))
+                if (!_health.IsDead)
                 {
-                    PlayerDamageResult damage = _health.ApplyExplosionDamage(
-                        explosion.BombId,
-                        DefaultExplosionDamage);
-                    if (damage.WasApplied)
+                    GridPosition playerExplosionCell =
+                        _movement.GetCurrentCellAt(explosion.DetonatedAt);
+                    if (Contains(explosion.AffectedCells, playerExplosionCell))
                     {
-                        _appliedDamageResults.Add(damage);
+                        PlayerDamageResult damage = _health.ApplyExplosionDamage(
+                            explosion.BombId,
+                            DefaultExplosionDamage);
+                        if (damage.WasApplied)
+                        {
+                            _appliedDamageResults.Add(damage);
+                        }
                     }
                 }
-                if (HasChaser)
+                if (HasChaser && !_chaserHealth.IsDead)
                 {
                     ApplyEnemyExplosionDamage(
                         explosion,
                         _chaser.ActorId,
+                        _chaser.GetCurrentCellAt(explosion.DetonatedAt),
                         _chaserHealth,
                         "chaser");
                 }
-                if (_hasCharger)
+                if (_hasCharger && !_chargerHealth.IsDead)
                 {
                     ApplyEnemyExplosionDamage(
                         explosion,
                         _charger.ActorId,
+                        _charger.GetCurrentCellAt(explosion.DetonatedAt),
                         _chargerHealth,
                         "charger");
                 }
@@ -1174,11 +1207,12 @@ namespace BombSwap
                     {
                         _thrower.NotifyBombResolved(explosion.BombId);
                     }
-                    if (explosion.OwnerId != _thrower.ActorId)
+                    if (explosion.OwnerId != _thrower.ActorId && !_throwerHealth.IsDead)
                     {
                         ApplyEnemyExplosionDamage(
                             explosion,
                             _thrower.ActorId,
+                            _thrower.GetCurrentCellAt(explosion.DetonatedAt),
                             _throwerHealth,
                             "thrower");
                     }
@@ -1237,7 +1271,7 @@ namespace BombSwap
                 PlayerDamaged?.Invoke(damage);
                 if (damage.WasFatal)
                 {
-                    _movement.SetMoveDirection(CardinalDirection.None);
+                    _movement.CancelMovement();
                     PlayerDied?.Invoke(damage);
                 }
             }
@@ -1312,6 +1346,7 @@ namespace BombSwap
 
             _grid = CreateGrid(roomDefinition);
             _clock = new ManualGameClock();
+            _simulationAccumulator = new FixedStepAccumulator(SimulationStep);
             GridPosition start = _runtimePlayerStart ?? roomDefinition.PlayerSpawn;
             _movement = new PlayerMovementSimulation(
                 _grid,
@@ -1515,7 +1550,7 @@ namespace BombSwap
         private void TogglePause()
         {
             _isPaused = !_isPaused;
-            _movement.SetMoveDirection(CardinalDirection.None);
+            _movement.ClearMoveIntent();
             if (_isPaused)
             {
                 inputReader.ReleaseMoveIntent();
@@ -1563,11 +1598,11 @@ namespace BombSwap
         private void ApplyEnemyExplosionDamage(
             BombExplosion explosion,
             ActorId actorId,
+            GridPosition position,
             EnemyHealthSimulation enemyHealth,
             string enemyLabel)
         {
             if (enemyHealth.IsDead ||
-                !_grid.TryGetActorPosition(actorId, out GridPosition position) ||
                 !Contains(explosion.AffectedCells, position))
             {
                 return;
@@ -1642,11 +1677,11 @@ namespace BombSwap
                 SelfDestructAdvanced?.Invoke(result);
                 return;
             }
+            GridPosition position =
+                _selfDestruct.GetCurrentCellAt(explosion.DetonatedAt);
             if ((_selfDestruct.State != SelfDestructEnemyState.Chase &&
                     _selfDestruct.State != SelfDestructEnemyState.WarningChase) ||
-                !_grid.TryGetActorPosition(
-                    _selfDestruct.ActorId,
-                    out GridPosition position) ||
+                !_grid.TryGetActorPosition(_selfDestruct.ActorId, out _) ||
                 !Contains(explosion.AffectedCells, position) ||
                 !_selfDestruct.TryTriggerFromExplosion(
                     explosion.BombId,
