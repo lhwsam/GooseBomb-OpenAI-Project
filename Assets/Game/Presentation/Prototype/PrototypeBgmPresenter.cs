@@ -285,7 +285,7 @@ namespace BombSwap
             BeginFade(
                 CreateTargetVolumes(family, mix),
                 boundary,
-                catalog.CrossfadeSeconds,
+                (float)PrototypeBgmMixPolicy.GetStemCrossfadeSeconds(family),
                 PrototypeBgmFamily.None);
         }
 
@@ -476,9 +476,13 @@ namespace BombSwap
             float progress = duration <= 0d
                 ? 1f
                 : Mathf.Clamp01((float)((dspTime - _fadeStartsAtDsp) / duration));
+            float curvedProgress = PrototypeBgmMixPolicy.GetSmoothFadeProgress(progress);
             for (int index = 0; index < RuntimeSourceCountValue; index++)
             {
-                _mixVolumes[index] = Mathf.Lerp(_fadeFrom[index], _fadeTo[index], progress);
+                _mixVolumes[index] = Mathf.Lerp(
+                    _fadeFrom[index],
+                    _fadeTo[index],
+                    curvedProgress);
             }
 
             if (progress < 1f)

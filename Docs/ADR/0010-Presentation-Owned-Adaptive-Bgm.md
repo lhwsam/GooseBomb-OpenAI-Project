@@ -14,7 +14,7 @@
 - `PrototypeBgmCatalogAsset`이 BGM Mixer 그룹과 여덟 런타임 clip, crossfade·pause duck·DSP 예약 수치를 소유한다. full-mix 세 파일은 청감 미리보기일 뿐 런타임 catalog에 넣지 않는다.
 - 각 대상 scene은 root `PrototypeBgmPresenter` 한 개와 catalog 참조를 저작한다. 최초 presenter의 전용 GameObject만 scene 전환을 넘어 유지하고 이후 중복 presenter는 스스로 제거한다. 전역 접근자나 Service Locator는 제공하지 않는다.
 - presenter는 첫 Input System button gesture 뒤 현재 family를 DSP 예약 시작한다. `Lobby`, `Dungeon`, `Boss` family 변경은 sample 0에서 새 family를 시작해 1초 crossfade하고 이전 family를 정지한다.
-- 같은 던전 또는 보스 family의 모든 stem은 동일 DSP 시각에 시작하고 gain 0이어도 timeline을 유지한다. room·clear·boss phase 변경은 다음 4박자 마디 경계에서 stem volume만 1초 crossfade한다.
+- 같은 던전 또는 보스 family의 모든 stem은 동일 DSP 시각에 시작하고 gain 0이어도 timeline을 유지한다. room·clear·boss phase 변경은 다음 4박자 마디 경계부터 한 마디 동안 stem volume만 smoothstep crossfade한다. family 전환과 terminal fade의 저작 시간은 catalog 값을 유지한다.
 - 일시정지는 BGM timeline을 멈추지 않고 50%로 duck한다. 사망과 보스 격파는 fade-out 뒤 정지한다.
 - 사용자 `BgmVolume`은 AudioMixer에만 적용한다. 적응형 mix와 pause duck은 `AudioSource.volume`에서 합성해 사용자 설정 값을 덮어쓰지 않는다.
 - Development WebGL의 `bgm-audio-started`는 예약 시작 경계 도달만 나타낸다. 실제 가청 출력과 밸런스는 브라우저 수동 검증을 별도로 요구한다.

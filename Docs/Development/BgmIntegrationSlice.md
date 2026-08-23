@@ -20,10 +20,10 @@
 |---|---|
 | 데이터 | `PrototypeBgmCatalog.asset`: BGM Mixer 그룹, 런타임 clip 8개, 전환 수치 |
 | 정책 | `PrototypeBgmMixPolicy`: room/clear와 boss phase별 gain, family별 마디 길이 |
-| 재생 | `PrototypeBgmPresenter`: 사용자 gesture unlock, DSP 예약, stem 동기화, crossfade, pause duck, terminal fade |
+| 재생 | `PrototypeBgmPresenter`: 사용자 gesture unlock, DSP 예약, stem 동기화, 한 마디 smoothstep crossfade, pause duck, terminal fade |
 | 저작 | `Bomb Swap/Prototype/Apply BGM Integration`: catalog 생성/갱신과 대상 17개 scene root 연결 |
 | 검증 | catalog format/sample 수, preview 비참조, scene presenter 수·참조·직렬화 AudioSource 부재 |
-| 테스트 | 던전 room/clear mix, boss phase mix, 다음 마디 계산, 잘못된 Boss room 정책 거부 |
+| 테스트 | 던전 room/clear mix, boss phase mix, 다음 마디·한 마디 길이·smoothstep 계산, 잘못된 Boss room 정책 거부 |
 
 대상 scene은 `DungeonLobby`, 정식 던전 6개, 독립 TestSandbox/플레이테스트 10개다. scene에는 `PrototypeBgmPresenter`와 catalog 참조만 저장하고 여덟 `AudioSource`는 재생 시점에 만든다.
 
@@ -47,5 +47,5 @@
 
 1. 외부 미저장 scene 상태를 소유자가 정리한 뒤 BGM 집중 PlayMode를 다시 실행한다.
 2. Web tier에서 첫 gesture 이후 `bgm-audio-started`와 Console/page error 0을 확인한다.
-3. 로비→던전 전투→클리어→Recovery/BombReward→보스 3 phase→pause→격파/사망을 실제 스피커로 듣고 loop click, stem 위상, 상대 음량과 1초 전환을 기록한다.
+3. 로비→던전 전투→클리어→Recovery/BombReward→보스 3 phase→pause→격파/사망을 실제 스피커로 듣고 loop click, stem 위상, 상대 음량, 한 마디 stem 전환과 1초 family 전환을 기록한다.
 4. 설정 BGM 0%, 기본 70%, 100%가 적응형 mix를 유지하면서 즉시 반영되는지 확인한다.

@@ -67,6 +67,34 @@ namespace BombSwap.Tests.PlayMode
             Assert.That((boundary - familyStartedAt) % 2d, Is.EqualTo(0d).Within(0.000001d));
         }
 
+        [TestCase(PrototypeBgmFamily.Lobby, PrototypeBgmMixPolicy.LobbyBarSeconds)]
+        [TestCase(PrototypeBgmFamily.Dungeon, PrototypeBgmMixPolicy.DungeonBarSeconds)]
+        [TestCase(PrototypeBgmFamily.Boss, PrototypeBgmMixPolicy.BossBarSeconds)]
+        public void StemCrossfade_UsesOneFullBar(
+            PrototypeBgmFamily family,
+            double expectedSeconds)
+        {
+            Assert.That(
+                PrototypeBgmMixPolicy.GetStemCrossfadeSeconds(family),
+                Is.EqualTo(expectedSeconds).Within(0.000001d));
+        }
+
+        [TestCase(-1f, 0f)]
+        [TestCase(0f, 0f)]
+        [TestCase(0.25f, 0.15625f)]
+        [TestCase(0.5f, 0.5f)]
+        [TestCase(0.75f, 0.84375f)]
+        [TestCase(1f, 1f)]
+        [TestCase(2f, 1f)]
+        public void SmoothFadeProgress_ClampsAndEasesBothEndpoints(
+            float linearProgress,
+            float expectedProgress)
+        {
+            Assert.That(
+                PrototypeBgmMixPolicy.GetSmoothFadeProgress(linearProgress),
+                Is.EqualTo(expectedProgress).Within(0.000001f));
+        }
+
         [Test]
         public void DungeonMix_RejectsBossRoom()
         {

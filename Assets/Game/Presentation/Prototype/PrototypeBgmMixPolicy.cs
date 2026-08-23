@@ -86,6 +86,7 @@ namespace BombSwap
         public const double LobbyBarSeconds = 2.5d;
         public const double DungeonBarSeconds = 60d / 116d * 4d;
         public const double BossBarSeconds = 60d / 128d * 4d;
+        public const double StemCrossfadeBars = 1d;
 
         public static readonly PrototypeBgmMix Lobby =
             new PrototypeBgmMix(1f, 0f, 0f, 0f);
@@ -146,6 +147,22 @@ namespace BombSwap
                 default:
                     throw new ArgumentOutOfRangeException(nameof(family), family, null);
             }
+        }
+
+        public static double GetStemCrossfadeSeconds(PrototypeBgmFamily family)
+        {
+            return GetBarSeconds(family) * StemCrossfadeBars;
+        }
+
+        public static float GetSmoothFadeProgress(float linearProgress)
+        {
+            if (float.IsNaN(linearProgress) || float.IsInfinity(linearProgress))
+            {
+                throw new ArgumentOutOfRangeException(nameof(linearProgress));
+            }
+
+            float clamped = Math.Max(0f, Math.Min(1f, linearProgress));
+            return clamped * clamped * (3f - (2f * clamped));
         }
 
         public static double GetNextBarBoundary(
