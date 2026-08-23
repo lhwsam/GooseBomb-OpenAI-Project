@@ -59,6 +59,21 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/Dungeon/DungeonSecret.unity";
         public const string DungeonBossScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonBoss.unity";
+
+        public static bool IsDungeonPresentationScenePath(string scenePath)
+        {
+            return string.Equals(scenePath, DungeonStartScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonRewardScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonBossAnteScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonRecoveryScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonSecretScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonBossScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxThrowerScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxPillarsScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxArmorScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxGatesScenePath, StringComparison.Ordinal);
+        }
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypeAreaBombDefinitionPath =
@@ -3583,6 +3598,13 @@ namespace BombSwap.Editor.ContentValidation
                 presenter.SouthDoor,
                 presenter.WestDoor,
             };
+            Animator[] doorAnimators =
+            {
+                presenter.NorthDoorAnimator,
+                presenter.EastDoorAnimator,
+                presenter.SouthDoorAnimator,
+                presenter.WestDoorAnimator,
+            };
             GameObject[] secretCrackRoots =
             {
                 presenter.NorthSecretCracks,
@@ -3616,18 +3638,42 @@ namespace BombSwap.Editor.ContentValidation
                     "Dungeon boundary must contain eight split walls, four door panels, and four secret-crack roots.");
                 return;
             }
+            bool validatesDoorPrefabs = IsDungeonPresentationScenePath(
+                context.gameObject.scene.path);
+            GameObject expectedDoorPrefab = validatesDoorPrefabs
+                ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.DoorPrefabPath)
+                : null;
             for (int index = 0; index < doors.Length; index++)
             {
                 Renderer door = doors[index];
-                if (door == null || door.transform.parent != boundary ||
-                    !string.Equals(
-                        door.gameObject.name,
-                        expectedNames[index],
-                        StringComparison.Ordinal) ||
-                    door.GetComponent<Collider>() != null)
+                Animator animator = doorAnimators[index];
+                bool matchesDoor = validatesDoorPrefabs
+                    ? door != null && animator != null && expectedDoorPrefab != null &&
+                      animator.transform.parent == boundary &&
+                      string.Equals(
+                          animator.gameObject.name,
+                          expectedNames[index],
+                          StringComparison.Ordinal) &&
+                      PrefabUtility.GetCorrespondingObjectFromSource(
+                          animator.gameObject) == expectedDoorPrefab &&
+                      animator.GetComponentsInChildren<Renderer>(true).Length == 1 &&
+                      animator.GetComponentInChildren<Renderer>(true) == door &&
+                      animator.GetComponentsInChildren<Collider>(true).Length == 0 &&
+                      animator.GetComponentsInChildren<Rigidbody>(true).Length == 0 &&
+                      HasAnimatorBoolParameter(animator, "IsOpen")
+                    : door != null && door.transform.parent == boundary &&
+                      string.Equals(
+                          door.gameObject.name,
+                          expectedNames[index],
+                          StringComparison.Ordinal) &&
+                      door.GetComponent<Collider>() == null;
+                if (!matchesDoor)
                 {
                     errors.Add(
-                        $"Dungeon {expectedNames[index]} must be a collider-free panel under BoundaryWalls.");
+                        validatesDoorPrefabs
+                            ? $"Dungeon {expectedNames[index]} must use the collider-free Door prefab with one Animator and an IsOpen bool parameter."
+                            : $"Dungeon {expectedNames[index]} must be a collider-free panel under BoundaryWalls.");
                 }
             }
 
@@ -3644,6 +3690,34 @@ namespace BombSwap.Editor.ContentValidation
             for (int index = 0; index < secretCrackRoots.Length; index++)
             {
                 GameObject root = secretCrackRoots[index];
+                if (validatesDoorPrefabs)
+                {
+                    GameObject expectedCrackedPrefab =
+                        AssetDatabase.LoadAssetAtPath<GameObject>(
+                            EnvironmentBlockVisualAuthoring.CrackedBrickBlockPrefabPath);
+                    Transform doorRoot = doorAnimators[index] != null
+                        ? doorAnimators[index].transform
+                        : null;
+                    if (root == null || expectedCrackedPrefab == null ||
+                        root.transform.parent != boundary || root.activeSelf ||
+                        !string.Equals(
+                            root.name,
+                            expectedCrackNames[index],
+                            StringComparison.Ordinal) ||
+                        PrefabUtility.GetCorrespondingObjectFromSource(root) !=
+                            expectedCrackedPrefab ||
+                        root.GetComponentsInChildren<Renderer>(true).Length == 0 ||
+                        root.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                        root.GetComponentsInChildren<Rigidbody>(true).Length != 0 ||
+                        doorRoot == null ||
+                        Vector3.SqrMagnitude(
+                            root.transform.position - doorRoot.position) > 0.000001f)
+                    {
+                        errors.Add(
+                            $"Dungeon {expectedCrackNames[index]} must use the inactive collider-free CrackedBrickBlock prefab at the matching {expectedNames[index]} position.");
+                    }
+                    continue;
+                }
                 Renderer[] renderers = root != null
                     ? root.GetComponentsInChildren<Renderer>(true)
                     : Array.Empty<Renderer>();
@@ -3833,10 +3907,18 @@ namespace BombSwap.Editor.ContentValidation
 
             var authoredWalls = new HashSet<GridPosition>(room.IndestructibleWalls);
             var seenWalls = new HashSet<GridPosition>();
+            bool validatesEnvironmentVisuals = IsDungeonPresentationScenePath(
+                context.gameObject.scene.path);
             for (int index = 0; index < obstacles.childCount; index++)
             {
                 Transform obstacle = obstacles.GetChild(index);
                 GridPosition cell = context.GridSpace.WorldToGrid(obstacle.position);
+                if (validatesEnvironmentVisuals &&
+                    !Mathf.Approximately(obstacle.localPosition.y, 0f))
+                {
+                    errors.Add(
+                        $"Dungeon obstacle {obstacle.name} local Y must be 0.");
+                }
                 if (!seenWalls.Add(cell))
                 {
                     errors.Add($"TestSandbox has duplicate obstacle visuals at {cell}.");
@@ -3855,10 +3937,6 @@ namespace BombSwap.Editor.ContentValidation
                 }
             }
 
-            bool validatesEnvironmentVisuals = string.Equals(
-                context.gameObject.scene.path,
-                TestSandboxScenePath,
-                StringComparison.Ordinal);
             GameObject brickPrefab = validatesEnvironmentVisuals
                 ? AssetDatabase.LoadAssetAtPath<GameObject>(
                     EnvironmentBlockVisualAuthoring.BrickBlockPrefabPath)
@@ -3883,7 +3961,15 @@ namespace BombSwap.Editor.ContentValidation
             {
                 Transform floorVisuals =
                     context.GridRoot.Find("Environment/FloorVisuals");
-                int expectedFloorCount = room.Width * room.Depth;
+                int expectedFloorCount = (room.Width * room.Depth) + 4;
+                if (floorVisuals != null &&
+                    !Mathf.Approximately(
+                        floorVisuals.localPosition.y,
+                        EnvironmentBlockVisualAuthoring.FloorVisualRootY))
+                {
+                    errors.Add(
+                        $"Dungeon FloorVisuals Y must be {EnvironmentBlockVisualAuthoring.FloorVisualRootY}.");
+                }
                 if (floorVisuals == null || floorVisuals.childCount != expectedFloorCount)
                 {
                     errors.Add(
@@ -3891,13 +3977,39 @@ namespace BombSwap.Editor.ContentValidation
                 }
                 else
                 {
+                    var actualFloorPositions = new HashSet<Vector3>();
                     for (int index = 0; index < floorVisuals.childCount; index++)
                     {
+                        actualFloorPositions.Add(
+                            floorVisuals.GetChild(index).localPosition);
                         if (!IsExpectedVisualPrefab(floorVisuals.GetChild(index), brickPrefab))
                         {
                             errors.Add("TestSandbox floor contains an invalid visual prefab.");
                             break;
                         }
+                    }
+                    float cellSize = context.GridSpace.CellSize;
+                    int halfWidth = room.Width / 2;
+                    int halfDepth = room.Depth / 2;
+                    var expectedFloorPositions = new HashSet<Vector3>();
+                    for (int x = -halfWidth; x <= halfWidth; x++)
+                    {
+                        for (int z = -halfDepth; z <= halfDepth; z++)
+                        {
+                            expectedFloorPositions.Add(
+                                new Vector3(x * cellSize, 0f, z * cellSize));
+                        }
+                    }
+                    int edgeX = halfWidth + 1;
+                    int edgeZ = halfDepth + 1;
+                    expectedFloorPositions.Add(new Vector3(0f, 0f, edgeZ * cellSize));
+                    expectedFloorPositions.Add(new Vector3(edgeX * cellSize, 0f, 0f));
+                    expectedFloorPositions.Add(new Vector3(0f, 0f, -edgeZ * cellSize));
+                    expectedFloorPositions.Add(new Vector3(-edgeX * cellSize, 0f, 0f));
+                    if (!actualFloorPositions.SetEquals(expectedFloorPositions))
+                    {
+                        errors.Add(
+                            "TestSandbox floor cells must cover the authored room and all four door positions exactly.");
                     }
                 }
 
@@ -3925,49 +4037,10 @@ namespace BombSwap.Editor.ContentValidation
                         }
                     }
                 }
-                if (boundaryBaseVisuals == null ||
-                    boundaryBaseVisuals.childCount != expectedBoundaryCount)
+                if (boundaryBaseVisuals != null)
                 {
                     errors.Add(
-                        $"TestSandbox boundary base must contain {expectedBoundaryCount} BrickBlock visual cells.");
-                }
-                else
-                {
-                    for (int index = 0; index < boundaryBaseVisuals.childCount; index++)
-                    {
-                        if (!IsExpectedVisualPrefab(
-                                boundaryBaseVisuals.GetChild(index),
-                                brickPrefab))
-                        {
-                            errors.Add(
-                                "TestSandbox boundary base contains an invalid visual prefab.");
-                            break;
-                        }
-                    }
-
-                    if (boundaryVisuals != null &&
-                        boundaryVisuals.childCount == expectedBoundaryCount)
-                    {
-                        var wallPositions = new HashSet<Vector3>();
-                        var basePositions = new HashSet<Vector3>();
-                        for (int index = 0; index < boundaryVisuals.childCount; index++)
-                        {
-                            wallPositions.Add(
-                                boundaryVisuals.GetChild(index).localPosition);
-                        }
-                        for (int index = 0; index < boundaryBaseVisuals.childCount; index++)
-                        {
-                            basePositions.Add(
-                                boundaryBaseVisuals.GetChild(index).localPosition);
-                        }
-                        if (wallPositions.Count != expectedBoundaryCount ||
-                            basePositions.Count != expectedBoundaryCount ||
-                            !wallPositions.SetEquals(basePositions))
-                        {
-                            errors.Add(
-                                "TestSandbox boundary base cells must match the BrickCorner wall cells one-to-one.");
-                        }
-                    }
+                        "TestSandbox must not contain legacy BoundaryBaseVisuals; door support belongs to FloorVisuals.");
                 }
             }
 
@@ -4031,6 +4104,22 @@ namespace BombSwap.Editor.ContentValidation
                         $"TestSandbox is missing a destructible visual for authored wall {wall}.");
                 }
             }
+        }
+
+        private static bool HasAnimatorBoolParameter(
+            Animator animator,
+            string parameterName)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null)
+            {
+                return false;
+            }
+            return animator.parameters.Any(parameter =>
+                parameter.type == AnimatorControllerParameterType.Bool &&
+                string.Equals(
+                    parameter.name,
+                    parameterName,
+                    StringComparison.Ordinal));
         }
 
         private static bool IsExpectedVisualPrefab(

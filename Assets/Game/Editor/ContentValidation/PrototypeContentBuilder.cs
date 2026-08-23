@@ -37,15 +37,32 @@ namespace BombSwap.Editor.ContentValidation
         {
             public DungeonBoundaryPresentation(
                 Renderer[] doors,
+                Animator[] doorAnimators,
                 GameObject[] secretCrackRoots)
             {
                 Doors = doors;
+                DoorAnimators = doorAnimators;
                 SecretCrackRoots = secretCrackRoots;
             }
 
             public Renderer[] Doors { get; }
 
+            public Animator[] DoorAnimators { get; }
+
             public GameObject[] SecretCrackRoots { get; }
+        }
+
+        private sealed class DoorVisualPresentation
+        {
+            public DoorVisualPresentation(Renderer renderer, Animator animator)
+            {
+                Renderer = renderer;
+                Animator = animator;
+            }
+
+            public Renderer Renderer { get; }
+
+            public Animator Animator { get; }
         }
 
         private sealed class LobbyUiBindings
@@ -2972,6 +2989,10 @@ namespace BombSwap.Editor.ContentValidation
                 boundaryPresentation.Doors[1],
                 boundaryPresentation.Doors[2],
                 boundaryPresentation.Doors[3],
+                boundaryPresentation.DoorAnimators[0],
+                boundaryPresentation.DoorAnimators[1],
+                boundaryPresentation.DoorAnimators[2],
+                boundaryPresentation.DoorAnimators[3],
                 boundaryPresentation.SecretCrackRoots[0],
                 boundaryPresentation.SecretCrackRoots[1],
                 boundaryPresentation.SecretCrackRoots[2],
@@ -3295,26 +3316,59 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector3(-boundaryX, 0.5f, verticalCenter),
                 new Vector3(cellSize, 1f, verticalLength), wallMaterial, true);
 
-            Renderer north = EnsureBoundaryPrimitive(
-                boundary, "NorthDoor", new Vector3(0f, 0.45f, boundaryZ),
-                new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
-                doorMaterial, false);
-            Renderer east = EnsureBoundaryPrimitive(
-                boundary, "EastDoor", new Vector3(boundaryX, 0.45f, 0f),
-                new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
-                doorMaterial, false);
-            Renderer south = EnsureBoundaryPrimitive(
-                boundary, "SouthDoor", new Vector3(0f, 0.45f, -boundaryZ),
-                new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
-                doorMaterial, false);
-            Renderer west = EnsureBoundaryPrimitive(
-                boundary, "WestDoor", new Vector3(-boundaryX, 0.45f, 0f),
-                new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
-                doorMaterial, false);
+            bool usesDoorPrefabs =
+                PrototypeContentValidator.IsDungeonPresentationScenePath(
+                    context.gameObject.scene.path);
+            DoorVisualPresentation northPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "NorthDoor", new Vector3(0f, 0f, boundaryZ),
+                    Quaternion.identity)
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "NorthDoor", new Vector3(0f, 0.45f, boundaryZ),
+                        new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
+                        doorMaterial, false),
+                    null);
+            DoorVisualPresentation eastPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "EastDoor", new Vector3(boundaryX, 0f, 0f),
+                    Quaternion.Euler(0f, 90f, 0f))
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "EastDoor", new Vector3(boundaryX, 0.45f, 0f),
+                        new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
+                        doorMaterial, false),
+                    null);
+            DoorVisualPresentation southPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "SouthDoor", new Vector3(0f, 0f, -boundaryZ),
+                    Quaternion.Euler(0f, 180f, 0f))
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "SouthDoor", new Vector3(0f, 0.45f, -boundaryZ),
+                        new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
+                        doorMaterial, false),
+                    null);
+            DoorVisualPresentation westPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "WestDoor", new Vector3(-boundaryX, 0f, 0f),
+                    Quaternion.Euler(0f, 270f, 0f))
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "WestDoor", new Vector3(-boundaryX, 0.45f, 0f),
+                        new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
+                        doorMaterial, false),
+                    null);
+            Renderer north = northPresentation.Renderer;
+            Renderer east = eastPresentation.Renderer;
+            Renderer south = southPresentation.Renderer;
+            Renderer west = westPresentation.Renderer;
             GameObject northCracks = EnsureSecretCrackRoot(
                 boundary,
                 "NorthSecretCracks",
-                north.transform.localPosition,
+                northPresentation.Animator != null
+                    ? northPresentation.Animator.transform.localPosition
+                    : north.transform.localPosition,
                 true,
                 cellSize,
                 destructibleWallMaterial,
@@ -3322,7 +3376,9 @@ namespace BombSwap.Editor.ContentValidation
             GameObject eastCracks = EnsureSecretCrackRoot(
                 boundary,
                 "EastSecretCracks",
-                east.transform.localPosition,
+                eastPresentation.Animator != null
+                    ? eastPresentation.Animator.transform.localPosition
+                    : east.transform.localPosition,
                 false,
                 cellSize,
                 destructibleWallMaterial,
@@ -3330,7 +3386,9 @@ namespace BombSwap.Editor.ContentValidation
             GameObject southCracks = EnsureSecretCrackRoot(
                 boundary,
                 "SouthSecretCracks",
-                south.transform.localPosition,
+                southPresentation.Animator != null
+                    ? southPresentation.Animator.transform.localPosition
+                    : south.transform.localPosition,
                 true,
                 cellSize,
                 destructibleWallMaterial,
@@ -3338,14 +3396,188 @@ namespace BombSwap.Editor.ContentValidation
             GameObject westCracks = EnsureSecretCrackRoot(
                 boundary,
                 "WestSecretCracks",
-                west.transform.localPosition,
+                westPresentation.Animator != null
+                    ? westPresentation.Animator.transform.localPosition
+                    : west.transform.localPosition,
                 false,
                 cellSize,
                 destructibleWallMaterial,
                 crackMaterial);
             return new DungeonBoundaryPresentation(
                 new[] { north, east, south, west },
+                new[]
+                {
+                    northPresentation.Animator,
+                    eastPresentation.Animator,
+                    southPresentation.Animator,
+                    westPresentation.Animator,
+                },
                 new[] { northCracks, eastCracks, southCracks, westCracks });
+        }
+
+        [MenuItem("Bomb Swap/Prototype/Synchronize TestSandbox Door Presentation")]
+        public static void SynchronizeTestSandboxDoorPresentation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before synchronizing TestSandbox doors.");
+            }
+
+            SynchronizeDungeonEnvironmentPresentationScene(
+                PrototypeContentValidator.TestSandboxScenePath);
+        }
+
+        [MenuItem("Bomb Swap/Prototype/Synchronize All Dungeon Environment Presentation")]
+        public static void SynchronizeAllDungeonEnvironmentPresentation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before synchronizing dungeon environment presentation.");
+            }
+
+            string[] scenePaths =
+            {
+                PrototypeContentValidator.DungeonStartScenePath,
+                PrototypeContentValidator.DungeonRewardScenePath,
+                PrototypeContentValidator.DungeonBossAnteScenePath,
+                PrototypeContentValidator.DungeonRecoveryScenePath,
+                PrototypeContentValidator.DungeonSecretScenePath,
+                PrototypeContentValidator.DungeonBossScenePath,
+                PrototypeContentValidator.TestSandboxScenePath,
+                PrototypeContentValidator.TestSandboxThrowerScenePath,
+                PrototypeContentValidator.TestSandboxPillarsScenePath,
+                PrototypeContentValidator.TestSandboxArmorScenePath,
+                PrototypeContentValidator.TestSandboxGatesScenePath,
+            };
+            for (int index = 0; index < scenePaths.Length; index++)
+            {
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePaths[index]) == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Dungeon scene is missing at '{scenePaths[index]}'.");
+                }
+                Scene loadedScene = SceneManager.GetSceneByPath(scenePaths[index]);
+                if (loadedScene.IsValid() && loadedScene.isLoaded && loadedScene.isDirty)
+                {
+                    throw new InvalidOperationException(
+                        $"Dungeon scene '{scenePaths[index]}' has unsaved changes. Save or revert them before synchronization.");
+                }
+            }
+            for (int index = 0; index < scenePaths.Length; index++)
+            {
+                SynchronizeDungeonEnvironmentPresentationScene(scenePaths[index]);
+            }
+        }
+
+        private static void SynchronizeDungeonEnvironmentPresentationScene(
+            string scenePath)
+        {
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForSynchronization = !scene.IsValid() || !scene.isLoaded;
+            if (openedForSynchronization)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+            else if (scene.isDirty)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon scene '{scenePath}' has unsaved changes. Save or revert them before synchronization.");
+            }
+
+            try
+            {
+                TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
+                PrototypeDungeonDoorPresenter presenter =
+                    FindExactlyOne<PrototypeDungeonDoorPresenter>(scene);
+                PrototypeCombatRoomDefinitionAsset roomDefinition =
+                    context.RoomDefinition ?? throw new InvalidOperationException(
+                        $"Dungeon scene '{scenePath}' context is missing its room definition.");
+                CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+                SynchronizeInteriorObstacles(
+                    context.GridRoot,
+                    roomDefinition,
+                    room);
+                EnvironmentBlockVisualAuthoring.Synchronize(
+                    context.GridRoot,
+                    roomDefinition,
+                    room);
+                DungeonBoundaryPresentation presentation =
+                    SynchronizeDungeonBoundary(context);
+                presenter.Configure(
+                    presentation.Doors[0],
+                    presentation.Doors[1],
+                    presentation.Doors[2],
+                    presentation.Doors[3],
+                    presentation.DoorAnimators[0],
+                    presentation.DoorAnimators[1],
+                    presentation.DoorAnimators[2],
+                    presentation.DoorAnimators[3],
+                    presentation.SecretCrackRoots[0],
+                    presentation.SecretCrackRoots[1],
+                    presentation.SecretCrackRoots[2],
+                    presentation.SecretCrackRoots[3]);
+                EditorUtility.SetDirty(presenter);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene, scenePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save dungeon environment presentation '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForSynchronization && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static DoorVisualPresentation EnsureDoorVisualPrefab(
+            Transform boundary,
+            string name,
+            Vector3 localPosition,
+            Quaternion localRotation)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.DoorPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon door visual prefab is missing at '{EnvironmentBlockVisualAuthoring.DoorPrefabPath}'.");
+            }
+
+            Transform existing = boundary.Find(name);
+            GameObject instance = existing != null ? existing.gameObject : null;
+            if (instance != null &&
+                PrefabUtility.GetCorrespondingObjectFromSource(instance) != prefab)
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+                instance = null;
+            }
+            if (instance == null)
+            {
+                instance = PrefabUtility.InstantiatePrefab(prefab, boundary) as GameObject;
+            }
+            if (instance == null)
+            {
+                throw new InvalidOperationException("Unity failed to instantiate the dungeon door prefab.");
+            }
+
+            instance.name = name;
+            instance.transform.localPosition = localPosition;
+            instance.transform.localRotation = localRotation;
+            RemovePhysicsComponents(instance);
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            Animator[] animators = instance.GetComponentsInChildren<Animator>(true);
+            if (renderers.Length != 1 || animators.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon door prefab requires exactly one Renderer and one Animator.");
+            }
+            return new DoorVisualPresentation(renderers[0], animators[0]);
         }
 
         private static GameObject EnsureSecretCrackRoot(
@@ -3357,6 +3589,18 @@ namespace BombSwap.Editor.ContentValidation
             Material wallMaterial,
             Material crackMaterial)
         {
+            bool usesCrackedBrickPrefab =
+                PrototypeContentValidator.IsDungeonPresentationScenePath(
+                    boundary.gameObject.scene.path);
+            if (usesCrackedBrickPrefab)
+            {
+                return EnsureSecretCrackPrefab(
+                    boundary,
+                    rootName,
+                    secretDoorLocalPosition,
+                    northSouthDoor ? Quaternion.identity : Quaternion.Euler(0f, 90f, 0f));
+            }
+
             Transform root = boundary.Find(rootName);
             if (root == null)
             {
@@ -3415,6 +3659,63 @@ namespace BombSwap.Editor.ContentValidation
 
             root.gameObject.SetActive(false);
             return root.gameObject;
+        }
+
+        private static GameObject EnsureSecretCrackPrefab(
+            Transform boundary,
+            string name,
+            Vector3 localPosition,
+            Quaternion localRotation)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.CrackedBrickBlockPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Secret door visual prefab is missing at '{EnvironmentBlockVisualAuthoring.CrackedBrickBlockPrefabPath}'.");
+            }
+
+            Transform existing = boundary.Find(name);
+            GameObject instance = existing != null ? existing.gameObject : null;
+            if (instance != null &&
+                PrefabUtility.GetCorrespondingObjectFromSource(instance) != prefab)
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+                instance = null;
+            }
+            if (instance == null)
+            {
+                instance = PrefabUtility.InstantiatePrefab(prefab, boundary) as GameObject;
+            }
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    "Unity failed to instantiate the secret door visual prefab.");
+            }
+
+            instance.name = name;
+            instance.transform.localPosition = localPosition;
+            instance.transform.localRotation = localRotation;
+            RemovePhysicsComponents(instance);
+            if (instance.GetComponentsInChildren<Renderer>(true).Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Secret door visual prefab requires at least one Renderer.");
+            }
+            instance.SetActive(false);
+            return instance;
+        }
+
+        private static void RemovePhysicsComponents(GameObject root)
+        {
+            foreach (Collider collider in root.GetComponentsInChildren<Collider>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+            foreach (Rigidbody rigidbody in root.GetComponentsInChildren<Rigidbody>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(rigidbody);
+            }
         }
 
         private static Renderer EnsureBoundaryPrimitive(
@@ -3594,7 +3895,7 @@ namespace BombSwap.Editor.ContentValidation
                     $"Obstacle_{index}_{wall.X}_{wall.Z}",
                     PrimitiveType.Cube,
                     obstacles,
-                    new Vector3(wall.X * cellSize, 0.5f, wall.Z * cellSize),
+                    new Vector3(wall.X * cellSize, 0f, wall.Z * cellSize),
                     new Vector3(0.9f * cellSize, 1f, 0.9f * cellSize),
                     wallMaterial,
                     true);
@@ -3909,10 +4210,7 @@ namespace BombSwap.Editor.ContentValidation
                 context.GridRoot,
                 roomDefinition,
                 room);
-            if (string.Equals(
-                    scene.path,
-                    PrototypeContentValidator.TestSandboxScenePath,
-                    StringComparison.Ordinal))
+            if (PrototypeContentValidator.IsDungeonPresentationScenePath(scene.path))
             {
                 EnvironmentBlockVisualAuthoring.Synchronize(
                     context.GridRoot,
@@ -4111,13 +4409,24 @@ namespace BombSwap.Editor.ContentValidation
             var expected = new HashSet<GridPosition>(room.IndestructibleWalls);
             var actual = new HashSet<GridPosition>();
             var gridSpace = new GridSpace(gridRoot.position, roomDefinition.CellSize);
+            float obstacleY = PrototypeContentValidator.IsDungeonPresentationScenePath(
+                gridRoot.gameObject.scene.path)
+                ? 0f
+                : 0.5f;
             bool matches = obstacles.childCount == expected.Count;
             for (int index = 0; index < obstacles.childCount; index++)
             {
-                GridPosition cell = gridSpace.WorldToGrid(obstacles.GetChild(index).position);
+                Transform obstacle = obstacles.GetChild(index);
+                GridPosition cell = gridSpace.WorldToGrid(obstacle.position);
                 if (!actual.Add(cell) || !expected.Contains(cell))
                 {
                     matches = false;
+                }
+                if (!Mathf.Approximately(obstacle.localPosition.y, obstacleY))
+                {
+                    Vector3 localPosition = obstacle.localPosition;
+                    localPosition.y = obstacleY;
+                    obstacle.localPosition = localPosition;
                 }
             }
             if (matches && actual.SetEquals(expected))
@@ -4145,7 +4454,7 @@ namespace BombSwap.Editor.ContentValidation
                     $"Obstacle_{index}_{wall.X}_{wall.Z}",
                     PrimitiveType.Cube,
                     obstacles,
-                    new Vector3(wall.X * cellSize, 0.5f, wall.Z * cellSize),
+                    new Vector3(wall.X * cellSize, obstacleY, wall.Z * cellSize),
                     new Vector3(0.9f * cellSize, 1f, 0.9f * cellSize),
                     wallMaterial,
                     true);

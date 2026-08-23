@@ -36,7 +36,9 @@
 - 공식 Unity MCP EditMode/PlayMode 실행 결과를 실행 요청 수명·도메인 리로드와 분리해 Console에서 확인하는 테스트 전용 리포터 구현.
 - 게임 전용 `Gameplay/Move·PlaceBomb·SwapBomb·Pause` Input Actions와 Keyboard/Gamepad control scheme 구현.
 - 장치 입력을 Core `PlayerCommand`로 변환하고, 세션 이동 계산 직전 최신 Move 값을 frame 단위로 재확인하며, focus 상실 시 이동을 해제하는 `BombSwapInputReader` 구현.
-- 11×9 격자, 경계 벽, 내부 장애물, 플레이어 placeholder, 탑다운 카메라를 가진 `TestSandbox` 씬 구현.
+- 11개 인게임 던전 씬은 네 방향 일반 문에 `Door.prefab`과 `IsOpen` Animator bool을 사용하고, 비밀 문은 collider 없는 `CrackedBrickBlock.prefab` root를 켜고 끈다. 각 씬의 `FloorVisuals`는 local Y `-1`에서 방 내부 셀과 네 문 위치의 바닥 블록을 함께 소유하며 별도 `BoundaryBaseVisuals`는 사용하지 않는다. Legacy·독립 플레이테스트 씬은 이 롤아웃에서 제외한다.
+- 일반 문 Presenter는 상태별 MaterialPropertyBlock 색상 덮어쓰기를 하지 않고 에셋의 원본 머티리얼을 유지한다.
+- 같은 11개 씬의 `InteriorObstacles` 자식은 기존 논리 셀 XZ를 유지하고 local Y `0`을 사용한다.
 - Input Actions·TestSandbox·Build Settings를 재생성/검증하는 Editor builder와 validator 구현.
 - 개발 WebGL에서 입력 사건을 브라우저 smoke에 전달하는 제한된 harness probe 구현.
 - Development WebGL의 첫 harness 사건 뒤에만 나타나는 로컬 `SAVE TEST LOG`를 구현했다. `bombswap/playtest-log@1` JSON은 product identity와 시간순 사건만 내려받고 외부 전송하지 않으며, browser smoke가 다운로드 파일과 메모리 snapshot의 완전 일치를 검사한다.
@@ -112,7 +114,7 @@
 - `PrototypeDungeonRunNavigator`가 열린 문·대상 콘텐츠·로드 가능성을 검증한 pending 전환을 만들고 기대한 씬 로드 뒤에만 Core 이동을 단일 commit하도록 구현.
 - `PrototypeDungeonRunHost`가 run session·navigator만 전용 root에서 지속하고 중복 bootstrap 중 primary 한 개만 남기도록 구현.
 - `PrototypeDungeonRoomBinder`가 pending 입장 방향과 전투방 배정 회전을 session `Awake` 전에 적용하고, 논리 출구 셀의 바깥 방향 입력을 graph travel 요청으로 연결하도록 구현.
-- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태를 표시한다. `SecretWall`에서는 바깥 장식 문 renderer를 숨기고 논리 출구 셀의 Collider 없는 파괴벽 surface·금 간 root를 표시하며, 공개 뒤에는 금 간 표현을 숨기고 열린 문을 복원한다.
+- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태를 표시한다. `SecretWall`에서는 바깥 장식 문 renderer를 숨기고 논리 출구 셀의 Collider 없는 금 간 root를 표시하며, 공개 뒤와 재진입 시에는 금 간 표현과 일반 문을 모두 숨겨 빈 통로를 유지한다.
 - 다섯 전투방을 graph binder로 연결하고, 중앙 문 틈을 가진 8개 분할 외벽·collider 없는 네 문 패널을 Editor builder로 저작.
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.

@@ -532,7 +532,8 @@ namespace BombSwap
         {
             doorPresenter.Apply(
                 _runHost.RunSession.GetCurrentExitStates(),
-                _roomRotation);
+                _roomRotation,
+                _runHost.RunSession.GetCurrentSecretExitDirections());
         }
 
         private void ReportRoomRewardTokenCountChanged(

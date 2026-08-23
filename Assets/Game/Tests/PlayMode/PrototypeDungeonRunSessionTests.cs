@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using BombSwap.Core;
 using NUnit.Framework;
 using TMPro;
@@ -279,7 +280,9 @@ namespace BombSwap.Tests.PlayMode
             PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter();
             presenter.Apply(
                 session.GetCurrentExitStates(),
-                selection.Assignment.Rotation);
+                selection.Assignment.Rotation,
+                session.GetCurrentSecretExitDirections());
+            AssertDoorPropertyBlocksEmpty(presenter);
 
             AssertDisplayedStatusesMatchGraph(
                 presenter,
@@ -292,13 +295,76 @@ namespace BombSwap.Tests.PlayMode
 
             presenter.Apply(
                 session.GetCurrentExitStates(),
-                selection.Assignment.Rotation);
+                selection.Assignment.Rotation,
+                session.GetCurrentSecretExitDirections());
+            AssertDoorPropertyBlocksEmpty(presenter);
 
             AssertDisplayedStatusesMatchGraph(
                 presenter,
                 session,
                 selection.Assignment.Rotation,
                 DungeonRoomExitStatus.Open);
+        }
+
+        [Test]
+        public void DoorPresenter_RevealedSecretConnectionStaysEmptyAcrossReentry()
+        {
+            var session = new PrototypeDungeonRunSession(
+                41,
+                CreateCatalog(),
+                CreateSpecialCatalog());
+            DungeonRoomNodeId secretRoom = session.Graph.SecretRoomId;
+            DungeonRoomNodeId entranceRoom = session.Graph.GetNeighbors(secretRoom)[0];
+            TraverseRunTo(session, entranceRoom);
+            RoomExitDirection secretDirection = session.Graph.GetExitDirection(
+                entranceRoom,
+                secretRoom);
+            RoomRotation roomRotation = session.TryGetCurrentCombatRoom(out var selection)
+                ? selection.Assignment.Rotation
+                : RoomRotation.None;
+            RoomExitDirection localSecretDirection = RoomExitDirection.North;
+            for (int directionIndex = 0; directionIndex < 4; directionIndex++)
+            {
+                var candidate = (RoomExitDirection)directionIndex;
+                if (RoomRotationUtility.Rotate(candidate, roomRotation) == secretDirection)
+                {
+                    localSecretDirection = candidate;
+                    break;
+                }
+            }
+
+            PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter();
+            presenter.Apply(
+                session.GetCurrentExitStates(),
+                roomRotation,
+                session.GetCurrentSecretExitDirections());
+            Assert.That(presenter.IsDoorPanelVisible(localSecretDirection), Is.False);
+            Assert.That(presenter.IsSecretCrackVisible(localSecretDirection), Is.True);
+
+            Assert.That(
+                session.TryRevealCurrentSecretExit(secretDirection).WasRevealed,
+                Is.True);
+            presenter.Apply(
+                session.GetCurrentExitStates(),
+                roomRotation,
+                session.GetCurrentSecretExitDirections());
+            Assert.That(presenter.IsDoorPanelVisible(localSecretDirection), Is.False);
+            Assert.That(presenter.IsSecretCrackVisible(localSecretDirection), Is.False);
+
+            if (session.RunState.IsCurrentRoomLocked)
+            {
+                Assert.That(
+                    session.TryClearCurrentRoom(),
+                    Is.EqualTo(DungeonRoomClearStatus.Cleared));
+            }
+            Assert.That(session.TryTravelTo(secretRoom).Moved, Is.True);
+            Assert.That(session.TryTravelTo(entranceRoom).Moved, Is.True);
+            presenter.Apply(
+                session.GetCurrentExitStates(),
+                roomRotation,
+                session.GetCurrentSecretExitDirections());
+            Assert.That(presenter.IsDoorPanelVisible(localSecretDirection), Is.False);
+            Assert.That(presenter.IsSecretCrackVisible(localSecretDirection), Is.False);
         }
 
         [Test]
@@ -321,6 +387,10 @@ namespace BombSwap.Tests.PlayMode
                     east,
                     south,
                     null,
+                    null,
+                    null,
+                    null,
+                    null,
                     northCracks,
                     eastCracks,
                     southCracks,
@@ -331,10 +401,99 @@ namespace BombSwap.Tests.PlayMode
                     east,
                     south,
                     north,
+                    null,
+                    null,
+                    null,
+                    null,
                     northCracks,
                     eastCracks,
                     southCracks,
                     westCracks));
+        }
+
+        [UnityTest]
+        public IEnumerator AnimatedDoorPresenter_AppliesRotatedOpenAndSecretStates()
+        {
+            Scene dungeonStartScene = default;
+            Scene testSandboxScene = default;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                dungeonStartScene = SceneManager.GetSceneByName("DungeonStart");
+                LogAssert.Expect(
+                    LogType.Exception,
+                    new Regex(
+                        "InvalidOperationException: Safe dungeon room Start must disable authored combat\\."));
+                yield return SceneManager.LoadSceneAsync(
+                    "TestSandbox",
+                    LoadSceneMode.Additive);
+                yield return null;
+                testSandboxScene = SceneManager.GetSceneByName("TestSandbox");
+
+                PrototypeDungeonDoorPresenter presenter = testSandboxScene.GetRootGameObjects()
+                    .SelectMany(root =>
+                        root.GetComponentsInChildren<PrototypeDungeonDoorPresenter>(true))
+                    .Single();
+                Assert.That(presenter.HasAnimatedDoors, Is.True);
+
+                var session = new PrototypeDungeonRunSession(
+                    41,
+                    CreateCatalog(),
+                    CreateSpecialCatalog());
+                DungeonRoomNodeId firstCombat =
+                    session.Graph.GetNeighbors(session.Graph.StartRoomId)[0];
+                Assert.That(session.TryTravelTo(firstCombat).Moved, Is.True);
+                Assert.That(
+                    session.TryGetCurrentCombatRoom(out var selection),
+                    Is.True);
+
+                presenter.Apply(
+                    session.GetCurrentExitStates(),
+                    selection.Assignment.Rotation,
+                    session.GetCurrentSecretExitDirections());
+                AssertAnimatedDoorStatesMatchGraph(
+                    presenter,
+                    session,
+                    selection.Assignment.Rotation);
+
+                Assert.That(
+                    session.TryClearCurrentRoom(),
+                    Is.EqualTo(DungeonRoomClearStatus.Cleared));
+                presenter.Apply(
+                    session.GetCurrentExitStates(),
+                    selection.Assignment.Rotation,
+                    session.GetCurrentSecretExitDirections());
+                AssertAnimatedDoorStatesMatchGraph(
+                    presenter,
+                    session,
+                    selection.Assignment.Rotation);
+            }
+            finally
+            {
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                Scene cleanup = SceneManager.CreateScene(
+                    "AnimatedDoorPresenterPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (testSandboxScene.IsValid() && testSandboxScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(testSandboxScene);
+                }
+                if (dungeonStartScene.IsValid() && dungeonStartScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(dungeonStartScene);
+                }
+            }
+
+            yield return null;
         }
 
         [UnityTest]
@@ -1163,6 +1322,10 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     CountVisibleSecretCracks(entranceBinder.DoorPresenter),
                     Is.Zero);
+                AssertSecretConnectionPresentationMatchesGraph(
+                    entranceBinder.DoorPresenter,
+                    run,
+                    entranceBinder.RoomRotation);
 
                 PrototypeDungeonTransitionStartResult secretEntry = host.RequestTravel(
                     run.Graph.GetExitDirection(entranceCombat, secretRoom));
@@ -1227,6 +1390,15 @@ namespace BombSwap.Tests.PlayMode
                     secretExit.Transition.TargetSceneName,
                     Is.EqualTo(combatSceneName));
                 yield return null;
+                PrototypeDungeonRoomBinder entranceReentryBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                AssertSecretConnectionPresentationMatchesGraph(
+                    entranceReentryBinder.DoorPresenter,
+                    run,
+                    entranceReentryBinder.RoomRotation);
+
                 PrototypeDungeonTransitionStartResult secretReentry = host.RequestTravel(
                     run.Graph.GetExitDirection(entranceCombat, secretRoom));
                 Assert.That(secretReentry.Started, Is.True);
@@ -1239,6 +1411,14 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeSecretRewardPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
+                PrototypeDungeonRoomBinder secretReentryBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                AssertSecretConnectionPresentationMatchesGraph(
+                    secretReentryBinder.DoorPresenter,
+                    run,
+                    secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
                 Assert.That(reentryReward.IsVisualVisible, Is.False);
                 Assert.That(
@@ -2468,6 +2648,10 @@ namespace BombSwap.Tests.PlayMode
                 CreateDoorRenderer("EastDoor"),
                 CreateDoorRenderer("SouthDoor"),
                 CreateDoorRenderer("WestDoor"),
+                null,
+                null,
+                null,
+                null,
                 CreateCrackRoot("NorthSecretCracks"),
                 CreateCrackRoot("EastSecretCracks"),
                 CreateCrackRoot("SouthSecretCracks"),
@@ -2715,7 +2899,7 @@ namespace BombSwap.Tests.PlayMode
                     $"Authored {localDirections[index]} maps to graph {graphDirection}.");
                 Assert.That(
                     presenter.IsDoorPanelVisible(localDirections[index]),
-                    Is.EqualTo(graphState.Status != DungeonRoomExitStatus.SecretWall),
+                    Is.EqualTo(!session.GetCurrentSecretExitDirections().Contains(graphDirection)),
                     $"Authored {localDirections[index]} door visibility must match {graphState.Status}.");
                 if (graphState.IsConnected)
                 {
@@ -2736,6 +2920,109 @@ namespace BombSwap.Tests.PlayMode
                 }
             }
             Assert.That(connectedCount, Is.GreaterThan(0));
+        }
+
+        private static void AssertAnimatedDoorStatesMatchGraph(
+            PrototypeDungeonDoorPresenter presenter,
+            PrototypeDungeonRunSession session,
+            RoomRotation roomRotation)
+        {
+            RoomExitDirection[] localDirections =
+            {
+                RoomExitDirection.North,
+                RoomExitDirection.East,
+                RoomExitDirection.South,
+                RoomExitDirection.West,
+            };
+            Animator[] animators =
+            {
+                presenter.NorthDoorAnimator,
+                presenter.EastDoorAnimator,
+                presenter.SouthDoorAnimator,
+                presenter.WestDoorAnimator,
+            };
+
+            for (int index = 0; index < localDirections.Length; index++)
+            {
+                RoomExitDirection graphDirection = RoomRotationUtility.Rotate(
+                    localDirections[index],
+                    roomRotation);
+                DungeonRoomExitState graphState =
+                    session.RunState.GetCurrentExitState(graphDirection);
+                Assert.That(
+                    animators[index].GetBool("IsOpen"),
+                    Is.EqualTo(
+                        graphState.Status == DungeonRoomExitStatus.Open &&
+                        !session.GetCurrentSecretExitDirections().Contains(graphDirection)),
+                    $"Authored {localDirections[index]} animator must match graph {graphDirection}.");
+                Assert.That(
+                    presenter.IsDoorPanelVisible(localDirections[index]),
+                    Is.EqualTo(!session.GetCurrentSecretExitDirections().Contains(graphDirection)));
+                Assert.That(
+                    presenter.IsSecretCrackVisible(localDirections[index]),
+                    Is.EqualTo(graphState.Status == DungeonRoomExitStatus.SecretWall));
+            }
+        }
+
+        private static void AssertSecretConnectionPresentationMatchesGraph(
+            PrototypeDungeonDoorPresenter presenter,
+            PrototypeDungeonRunSession session,
+            RoomRotation roomRotation)
+        {
+            RoomExitDirection[] localDirections =
+            {
+                RoomExitDirection.North,
+                RoomExitDirection.East,
+                RoomExitDirection.South,
+                RoomExitDirection.West,
+            };
+            IReadOnlyList<RoomExitDirection> secretDirections =
+                session.GetCurrentSecretExitDirections();
+            Assert.That(secretDirections, Is.Not.Empty);
+
+            for (int index = 0; index < localDirections.Length; index++)
+            {
+                RoomExitDirection graphDirection = RoomRotationUtility.Rotate(
+                    localDirections[index],
+                    roomRotation);
+                if (!secretDirections.Contains(graphDirection))
+                {
+                    continue;
+                }
+
+                DungeonRoomExitState graphState =
+                    session.RunState.GetCurrentExitState(graphDirection);
+                Assert.That(
+                    presenter.IsDoorPanelVisible(localDirections[index]),
+                    Is.False,
+                    $"Secret connection {graphDirection} must never display a normal door.");
+                Assert.That(
+                    presenter.IsSecretCrackVisible(localDirections[index]),
+                    Is.EqualTo(graphState.Status == DungeonRoomExitStatus.SecretWall),
+                    $"Secret connection {graphDirection} must display cracks only before reveal.");
+            }
+        }
+
+        private static void AssertDoorPropertyBlocksEmpty(
+            PrototypeDungeonDoorPresenter presenter)
+        {
+            Renderer[] doors =
+            {
+                presenter.NorthDoor,
+                presenter.EastDoor,
+                presenter.SouthDoor,
+                presenter.WestDoor,
+            };
+            var propertyBlock = new MaterialPropertyBlock();
+            for (int index = 0; index < doors.Length; index++)
+            {
+                doors[index].GetPropertyBlock(propertyBlock);
+                Assert.That(
+                    propertyBlock.isEmpty,
+                    Is.True,
+                    $"Door {doors[index].name} must preserve its authored material properties.");
+                propertyBlock.Clear();
+            }
         }
 
         private static string ExpectedSpecialScene(RoomType roomType)
