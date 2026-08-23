@@ -180,6 +180,25 @@ namespace BombSwap
             return RunState.GetCurrentExitStates();
         }
 
+        public IReadOnlyList<RoomExitDirection> GetCurrentSecretExitDirections()
+        {
+            var directions = new List<RoomExitDirection>();
+            for (int directionIndex = 0; directionIndex < 4; directionIndex++)
+            {
+                var direction = (RoomExitDirection)directionIndex;
+                if (!Graph.TryGetNeighbor(CurrentRoomId, direction, out DungeonRoomNodeId neighbor) ||
+                    !Graph.TryGetConnection(CurrentRoomId, neighbor, out DungeonRoomConnection connection) ||
+                    connection.Kind != DungeonRoomConnectionKind.Secret)
+                {
+                    continue;
+                }
+
+                directions.Add(direction);
+            }
+
+            return directions;
+        }
+
         public IReadOnlyList<DungeonRoomExitState> GetExitStates(
             DungeonRoomNodeId roomId)
         {

@@ -13,7 +13,7 @@ namespace BombSwap
     {
         public const string DefaultLobbySceneName = "DungeonLobby";
         public const string DefaultStartSceneName = "DungeonStart";
-        public const string GameTitle = "폭탄을 낳는 거위";
+        public const string GameTitle = "Bomb Goose";
 
         [SerializeField]
         private string startSceneName = DefaultStartSceneName;

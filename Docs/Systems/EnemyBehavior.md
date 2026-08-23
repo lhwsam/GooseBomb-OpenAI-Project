@@ -30,7 +30,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 플레이어와 cardinal 인접하면 같은 셀에 들어가지 않고 멈춘다. 제자리에서 이미 인접한 경우는 즉시 접촉 후보가 되지만, 한 칸 이동으로 새로 인접해진 경우에는 그 이동의 0.5초 시각 도착 경계까지 기다리고 그때도 인접해야만 접촉 피해 1을 준다. 이동 시작에 논리 점유가 먼저 확정되더라도 보이는 적보다 한 칸 앞에서 맞는 것처럼 느껴지지 않게 하는 결정론적 표현 동기화 계약이다.
 - 추격자는 fuse나 폭발 위험 셀을 읽지 않는다. 설치 폭탄은 다른 논리 이동 장애물과 동일하게만 취급한다.
 - `EnemyHealthSimulation`은 폭발 `BombId`별 중복 처리를 차단한다. 내구도 1 추격자가 폭발 영향 셀에 있으면 사망하고 actor 점유가 한 번 제거되며, 세션은 `EnemyDied`와 마지막 적의 `RoomCleared`를 한 번 발행한다.
-- `PrototypeChaserPresenter`는 Core 이동 결과를 같은 0.5초 cadence로 선형 보간하고 사망 색을 `MaterialPropertyBlock`으로 잠시 표시한 뒤 placeholder를 비활성화한다. 접촉 가능 시각은 Transform을 읽지 않고 Core의 같은 도착 시각으로 계산한다.
+- `PrototypeChaserPresenter`는 Core가 계산한 연속 위치를 표시하고 사망 색을 `MaterialPropertyBlock`으로 잠시 표시한 뒤 placeholder를 비활성화한다. 접촉 가능 시각은 Transform을 읽지 않고 Core의 판정 칸과 도착 시각으로 계산한다.
 
 이전 국소 Manhattan 선택은 seed-0 전체 경로에서 `(1,-3) → (1,-4) → (1,-5)` 왕복을 만들었다. 현재 BFS 계약은 막힌 포켓보다 실제 도달 가능한 최단 가지를 선택하고, 두 칸 방향 유지가 계획 거리 증가를 강제하기 전에 재계획해 이 반복 원인을 제거한다. 수치와 공간 압력의 재미는 여전히 사람 플레이테스트 대상이다.
 
@@ -40,7 +40,8 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - `ChargerEnemySimulation`은 `ActorId(3)`으로 추격자와 같은 `GridState`를 점유한다. `Track`에서 현재 플레이어와 장애물 없는 행/열이 아니면, 가장 가까우면서 플레이어까지 명확한 cardinal 차선을 만드는 도달 가능 셀을 BFS로 찾고 첫 한 칸만 이동한다.
 - 차선 후보와 획득 경로 동률은 `North → East → South → West`다. 첫 판단은 즉시 가능하고 이후 1초 cadence에서만 플레이어의 현재 논리 셀을 다시 읽는다. 벽·파괴벽·폭탄·다른 actor는 경로와 정렬 차선을 막으며 유효 후보가 없으면 배회하지 않는다.
 - 정렬이 확인되면 `Track → Telegraph`로 전환하면서 방향과 현재 장애물까지의 최대 돌진 거리를 잠근다. 예고 중 플레이어가 이동하거나 기존 장애물이 사라져도 방향·최대 거리를 바꾸거나 늘리지 않는다.
-- `PrototypeChargerPresenter`는 고정 최대 거리의 모든 논리 셀에 collider 없는 얇은 예고 placeholder를 풀링해 표시하고 `Charge` 시작 때 회수한다. 획득 이동은 1 cell/s, 돌진 이동은 8 cells/s로 각각 확정 Core step을 보간한다.
+- `PrototypeChargerPresenter`는 고정 최대 거리의 모든 논리 셀에 collider 없는 얇은 예고 placeholder를 풀링해 표시하고 `Charge` 시작 때 회수한다. 획득 이동과 돌진 이동의 연속 위치는 각각의 Core 이동 시간으로 계산된다.
+- Charger 표현은 collider와 Rigidbody가 없는 `ChargerPig` 프리팹을 사용한다. Presenter는 확정된 `Track` 이동을 Idle/Run, 상태 전이를 Telegraph/Charge/Recover, `EnemyDied`를 Die 트리거로 변환하며 Root Motion은 사용하지 않는다.
 - 예고 종료 뒤 `Charge`에서 고정 방향으로 한 셀씩 이동한다. 플레이어가 다음 셀에 있으면 겹치지 않은 채 단일 충돌 피해 후보를 만들고, 고정 최대 거리를 소진하거나 고정 벽·파괴벽·새 폭탄·다른 actor가 먼저 막으면 피해 없이 `Recover`가 된다.
 - 폭탄 충돌의 고정 지연 연쇄와 별도 기절은 기존 bomb scheduler·소유권 계약을 확장해야 하므로 현재는 `Deferred`다. 폭탄은 다른 논리 점유 장애물과 같이 조기 회복만 만든다.
 - `PrototypeGameSession`은 같은 frame에서 추격자 다음 돌진형 순서로 이동을 확정한다. 폭발 피해는 추격자 다음 돌진형 순서로 적용하고, 모든 `EnemyDied` 뒤 살아 있는 적이 없을 때만 `RoomCleared`를 한 번 발행한다.
@@ -66,6 +67,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 매 추적 cadence에 현재 플레이어 셀에서 역방향 BFS 거리장을 만들고 최단 거리가 작아지는 한 칸을 `North → East → South → West` 동률 순서로 선택한다. actor·폭탄 점유와 비바닥은 차단하며 경로가 없으면 임의 배회하지 않고 기다린다.
 - 이동 뒤 Manhattan 3칸 이내면 `WarningChase`가 되어 누적을 시작한다. 범위 안에 연속으로 머무는 동안 한 칸 cadence는 0.5초에서 0.2초까지 선형으로 줄어들고, 1.5초가 끝나면 인접 여부와 관계없이 현재 셀에서 `Telegraph`가 된다. cadence 시작 시 1칸 이내면 그보다 먼저 점화한다. 플레이어가 3칸 밖으로 벗어나면 즉시 `Chase`로 돌아가 누적을 0으로 초기화하므로 열린 공간에서 5 cells/s 플레이어가 일찍 이탈하면 취소할 수 있다.
 - `WarningChase`는 누적 진행도에 따라 정상색↔주황 경고색 pulse가 3→8Hz, 최대 scale이 1.08→1.18배로 연속 상승한다. 이동 표현도 각 Core 결과의 실제 가변 cadence를 사용한다. `Telegraph`에서는 이동을 멈추고 권위 셀에 고정하며 8Hz·최대 1.18배 pulse와 실제 범위 셀을 함께 표시한다. 이는 `MaterialPropertyBlock`과 기존 인스턴스 scale만 갱신하며 material 인스턴스를 만들지 않는다.
+- 자폭병 표현은 collider와 Rigidbody가 없는 `SelfDestructPig` 프리팹을 사용한다. Presenter는 Chase·WarningChase 이동을 Idle/Run, 점화를 Telegraph, 폭발 종결을 Detonate로 변환하며 별도 Die 상태와 Root Motion은 사용하지 않는다.
 - `Chase` 또는 `WarningChase` 중 플레이어 폭발에 맞으면 현재 권위 셀로 표현을 맞춘 뒤 즉시 Telegraph가 된다. 이후 플레이어 이동이나 추가 폭발은 원점과 상태를 다시 선택하지 않는다.
 - Telegraph 시작 시 자폭병 소유의 논리 폭탄 하나를 같은 셀에 설치한다. 플레이어 슬롯·쿨타임과 분리되지만 기존 `BombSimulation`의 ID, fuse, 0.15초 연쇄 지연, 벽 차단과 파괴벽 규칙을 그대로 사용한다.
 - 자기 폭발이 확정되면 자폭병 체력과 actor 점유를 한 번 제거하고 `EnemyDied`를 발행한다. 범위에 든 플레이어·다른 적·보스는 기존 대상별 피해와 무적 계약을 사용한다.
@@ -80,7 +82,7 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - Telegraph 종료 뒤 서로 다른 세 목표로 0.45초 표현 비행을 동시에 시작한다. 비행 중에는 아직 격자를 점유하는 폭탄이 아니며, 각 착탄 순간 같은 `BombSimulation`에 `ActorId(7)` 소유 폭탄으로 설치해 fuse·벽 차단·0.15초 연쇄 지연을 기존 폭탄과 공유한다.
 - 착탄 셀을 다른 폭탄이 먼저 점유하면 재조준하거나 중복 생성하지 않고 해당 발만 실패한다. 같은 volley의 나머지 발은 독립적으로 착탄한다. 비행 대기 수와 모든 활성 BombId가 해제될 때까지 다음 volley를 만들지 않으며, 이후 다음 저작 사격 anchor를 순환한다.
 - 투척병은 자기 폭탄 피해를 무시하지만 플레이어·다른 적 소유 폭발에는 체력 1 규칙으로 사망한다. 사망과 actor 점유 제거는 한 번만 처리되고 마지막 적이면 기존 단일 방 클리어를 사용한다.
-- `PrototypeThrowerPresenter`는 collider 없는 보라색 placeholder를 확정 Core 이동 cadence로 보간하고, 재사용하는 자홍색 셀 3개로 잠긴 목표를 표시한다. `PrototypeBombPresenter`는 세 포물선 비행을 각각 풀링 표현한 뒤 성공 착탄 시 대응 폭탄 표현으로 넘긴다.
+- `PrototypeThrowerPresenter`는 collider와 Rigidbody가 없는 `ThrowerPig` 프리팹을 Core 연속 위치에 표시한다. Track 이동은 Idle/Walk, Telegraph 진입은 Throw, Recover는 Idle, 사망은 terminal Die 표현으로 변환하고 Root Motion은 사용하지 않는다. 재사용하는 자홍색 셀 3개로 잠긴 목표를 표시하며, `PrototypeBombPresenter`는 세 포물선 비행을 각각 풀링 표현한 뒤 성공 착탄 시 대응 폭탄 표현으로 넘긴다.
 - `prototype-combat-thrower`는 메인 던전의 `TestSandboxThrower`와 독립 `ThrowerLanesPlaytest.unity`가 함께 사용하는 권위 room이다. 플레이어 `(0,-2)`, 추격자 `(-2,2)`, 투척병 staging `(3,2)`, 사격 anchor `(0,3)·(-3,2)·(3,-2)`, 목표 후보 `(0,0)·(-3,-2)·(2,-3)·(-4,1)·(4,1)·(0,2)`를 사용한다. 첫 공격은 중앙·하단 양측 3칸을 사용하고 다음 사격 위치에서는 중앙 압박점과 다른 측면 2칸을 조합한다. staging→첫 사격 anchor는 4칸이며 두 적은 모든 잠재 출구에서 4칸 이상 떨어진다. 추격자 시작점은 모든 초기 목표 폭발 반경 밖이므로 입장 직후 첫 적 폭탄이 일반병을 자동 처치하지 않는다.
 
 ## 불변식
@@ -123,3 +125,12 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 전용 Development WebGL에서 서로 다른 `thrower-telegraph-x-*` 3개 뒤 `thrower-bomb-launched`와 `thrower-bomb-armed-definition-prototype-thrower-blocker`가 각각 3번 발생하고 하나 이상 `thrower-bomb-detonated-by-chain`으로 이어지는 순서를 검증한다. 이 표식은 규칙 연결을 증명하지만 예고 가독성·압박·재미를 판정하지 않는다.
 
 다음 판단은 전용 Lanes 씬에서 사용자 요청으로 단축한 0.3초 예고가 위협적이면서도 다음 퇴로 선택을 바꿀 최소 가독성을 유지하는지, 1.5초 fuse·범위 1이 회피와 의도적 연쇄 둘 다 가능하게 하는지, 가장 가까운 1칸을 유지하면서 측면 2칸이 바뀌는 사격 anchor 순환이 반복 포격을 줄이는지를 사람 플레이로 확인하는 것이다. 지지될 때만 메인 던전 카탈로그 편성과 기존 Lanes 조합을 별도 수직 슬라이스로 진행한다. 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책은 여러 동일 적을 실제로 추가할 때까지 보류한다.
+
+## 공통 이동 표현 계약
+
+- `EnemyLocomotionState.Moving`은 Core의 커밋된 한 칸 이동이 진행 중임을 나타낸다.
+- 이동을 허용하는 행동 phase에서 실제 이동이 성공하면 `Moving`을 저장하고 다음 cadence까지 유지한다. 경로·점유·목표 부재로 이동 시도가 실패하거나 목적지 대기 및 명시적 비이동 phase에 들어가면 `Idle`로 전환한다. Charger의 Charge 진입은 즉시 첫 charge step을 예약하므로 `Moving` 의도이며, Presenter는 전용 Charge 애니메이션을 우선한다.
+- Presenter는 Core의 연속 위치와 locomotion 상태를 읽을 뿐, 별도 위치 보간이나 이동 타이머를 소유하지 않는다.
+- Telegraph·Recover·Detonated는 진행 중인 한 칸 이동이 100% 완료된 뒤 진입한다. 사망은 예약을 해제하고 전용 terminal 표현을 우선한다.
+- 각 적 simulation은 호환용 이동 사건의 `From`, `To`, `StartedAt`, `EndsAt`과 별개로 실제 연속 위치와 50% 판정 칸을 Core에서 소유한다.
+- transition은 논리 점유를 지연하지 않는다. Core의 정수 격자 위치는 이동 판단 시 즉시 `To`로 확정되고, transition은 그 결과를 프레임 독립적으로 표현하기 위한 읽기 전용 구간이다.

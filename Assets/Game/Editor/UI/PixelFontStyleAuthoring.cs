@@ -103,7 +103,7 @@ namespace BombSwap.Editor.UI
                 CreatePreviewText(
                     "DungGeunMoSample",
                     canvas,
-                    "DungGeunMo  -  폭탄을 낳는 거위",
+                    "DungGeunMo  -  Bomb Goose",
                     dungGeunMo,
                     dungGeunMoMaterial,
                     gradient,
@@ -113,7 +113,7 @@ namespace BombSwap.Editor.UI
                 CreatePreviewText(
                     "DNFBitBitv2Sample",
                     canvas,
-                    "DNFBitBitv2  -  폭탄을 낳는 거위",
+                    "DNFBitBitv2  -  Bomb Goose",
                     dnfBit,
                     dnfBitMaterial,
                     gradient,

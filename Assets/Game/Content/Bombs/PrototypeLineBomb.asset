@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: PrototypeLineBomb
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
   definitionId: prototype-line
-  fuseSeconds: 2.25
+  fuseSeconds: 2
   range: 3
   explosionShape: 2
   placementCooldownSeconds: 2.25
-  bombPrefab: {fileID: 5789397388904481518, guid: 83e70f2c97aa9f24d9c3e0d6655a8bed, type: 3}
+  bombPrefab: {fileID: 4554948568698839365, guid: 17dc7f68e16f9694cbfbd3cc1f5d978b, type: 3}
   explosionCellPrefab: {fileID: 4514356706795463908, guid: a4c98c7e446da894f94afc995aeeb81f, type: 3}
   explosionVisualSeconds: 0.25

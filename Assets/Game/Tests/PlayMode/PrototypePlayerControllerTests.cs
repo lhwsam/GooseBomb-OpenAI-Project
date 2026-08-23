@@ -9,7 +9,7 @@ using UnityEngine.TestTools;
 
 namespace BombSwap.Tests.PlayMode
 {
-    public sealed class PrototypePlayerControllerTests
+    public sealed class PrototypePlayerControllerTests : InputTestFixture
     {
         private InputActionAsset _inputActions;
         private Keyboard _keyboard;
@@ -73,7 +73,7 @@ namespace BombSwap.Tests.PlayMode
         private Transform _player;
 
         [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             if (_root != null)
             {
@@ -247,6 +247,32 @@ namespace BombSwap.Tests.PlayMode
             if (_keyboard != null && _keyboard.added)
             {
                 InputSystem.RemoveDevice(_keyboard);
+            }
+            base.TearDown();
+        }
+
+        [Test]
+        public void PlayerAnimationPresenter_ConfigureAssignsSessionAndAnimator()
+        {
+            var root = new GameObject("PlayerAnimatorConfigureTest");
+            root.SetActive(false);
+            try
+            {
+                PrototypeGameSession session = root.AddComponent<PrototypeGameSession>();
+                PrototypePlayerAnimationPresenter presenter =
+                    root.AddComponent<PrototypePlayerAnimationPresenter>();
+                var player = new GameObject("Player");
+                player.transform.SetParent(root.transform, false);
+                Animator playerAnimator = player.AddComponent<Animator>();
+
+                presenter.Configure(session, playerAnimator);
+
+                Assert.That(presenter.Session, Is.SameAs(session));
+                Assert.That(presenter.Animator, Is.SameAs(playerAnimator));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
             }
         }
 
@@ -453,7 +479,7 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ReleasedDirection_StopsPresentationWithoutFinishingCommittedCell()
+        public IEnumerator ReleasedDirection_FinishesCommittedCellThenStops()
         {
             CreateRuntime(Vector2Int.zero, false);
             yield return null;
@@ -461,18 +487,18 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState(Key.W);
             yield return null;
             QueueKeyboardState();
-            float releasedPosition = _player.position.z;
-
-            yield return new WaitForSecondsRealtime(0.15f);
+            yield return new WaitForSecondsRealtime(0.25f);
 
             Assert.That(
                 _player.position.z,
-                Is.EqualTo(releasedPosition).Within(0.02f),
-                "Releasing movement should stop the authoritative presentation on the next frame.");
+                Is.EqualTo(1f).Within(0.02f),
+                "Releasing movement must finish the already committed cell step.");
+            Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(_session.IsPlayerMoving, Is.False);
         }
 
         [UnityTest]
-        public IEnumerator OverlappingPerpendicularInput_ChangesMotionOnConsecutiveFrames()
+        public IEnumerator OverlappingPerpendicularInput_AppliesAtNextCellStep()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
@@ -488,20 +514,14 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState(Key.W);
             yield return null;
             QueueKeyboardState(Key.W, Key.D);
-            yield return null;
-            QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.25f);
             QueueKeyboardState();
 
-            Assert.That(
-                directions,
-                Has.Count.GreaterThanOrEqualTo(3),
-                "Each held direction change should affect motion on the next observed frame.");
+            Assert.That(directions, Has.Count.GreaterThanOrEqualTo(2));
             Assert.That(directions[0], Is.EqualTo(CardinalDirection.North));
             Assert.That(directions[1], Is.EqualTo(CardinalDirection.East));
-            Assert.That(directions[2], Is.EqualTo(CardinalDirection.North));
             Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(0d));
-            Assert.That(_session.CurrentMovementPosition.Z, Is.GreaterThan(0d));
+            Assert.That(_session.CurrentMovementPosition.Z, Is.EqualTo(1d).Within(0.001d));
         }
 
         [UnityTest]
@@ -513,25 +533,24 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState(Key.W);
             yield return null;
             QueueKeyboardState(Key.W, Key.D);
-            yield return null;
+            float deadline = Time.realtimeSinceStartup + 0.5f;
+            while (_session.CurrentMovementPosition.X <= 0d &&
+                Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
 
-            double eastStart = _session.CurrentMovementPosition.X;
-            double northStart = _session.CurrentMovementPosition.Z;
-            yield return null;
-            yield return null;
-            yield return null;
-
-            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(eastStart));
+            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(0d));
             Assert.That(
                 _session.CurrentMovementPosition.Z,
-                Is.EqualTo(northStart).Within(0.000001d),
-                "Holding the unchanged diagonal must keep moving east instead of alternating axes each frame.");
+                Is.EqualTo(1d).Within(0.000001d),
+                "The queued east input must apply only after the north cell step completes.");
 
             QueueKeyboardState();
         }
 
         [UnityTest]
-        public IEnumerator RapidAlternatingTaps_ApplyEachDirectionOnTheNextFrame()
+        public IEnumerator RapidAlternatingTaps_DoNotTurnInsideCommittedCell()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
@@ -553,18 +572,13 @@ namespace BombSwap.Tests.PlayMode
                 yield return null;
             }
 
-            Assert.That(directions, Has.Count.GreaterThanOrEqualTo(keys.Length));
-            for (int index = 0; index < keys.Length; index++)
-            {
-                CardinalDirection expected = index % 2 == 0
-                    ? CardinalDirection.North
-                    : CardinalDirection.East;
-                Assert.That(directions[index], Is.EqualTo(expected));
-            }
+            Assert.That(directions, Is.Not.Empty);
+            Assert.That(directions, Has.All.EqualTo(CardinalDirection.North));
+            Assert.That(_session.CurrentMovementPosition.X, Is.Zero.Within(0.000001d));
         }
 
         [UnityTest]
-        public IEnumerator RapidAlternatingSubframeTaps_MoveOnEveryFollowingFrame()
+        public IEnumerator RapidAlternatingSubframeTaps_DoNotCreateDiagonalMovement()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
@@ -586,18 +600,11 @@ namespace BombSwap.Tests.PlayMode
             }
             yield return null;
 
-            Assert.That(directions, Has.Count.GreaterThanOrEqualTo(keys.Length));
-            for (int index = 0; index < keys.Length; index++)
-            {
-                CardinalDirection expected = index % 2 == 0
-                    ? CardinalDirection.North
-                    : CardinalDirection.East;
-                Assert.That(directions[index], Is.EqualTo(expected));
-            }
-
-            GridSubcellPosition stopped = _session.CurrentMovementPosition;
-            yield return new WaitForSecondsRealtime(0.1f);
-            Assert.That(_session.CurrentMovementPosition, Is.EqualTo(stopped));
+            Assert.That(
+                _session.CurrentMovementPosition.X == 0d ||
+                _session.CurrentMovementPosition.Z == 0d,
+                Is.True,
+                "A committed cell step must stay on one cardinal axis.");
         }
 
         [UnityTest]
@@ -613,6 +620,7 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(0, 0)));
             Assert.That(_player.position, Is.EqualTo(new Vector3(0f, 0.5f, 0f)));
+            Assert.That(_session.IsPlayerMoving, Is.False);
         }
 
         [UnityTest]
@@ -912,6 +920,8 @@ namespace BombSwap.Tests.PlayMode
                 Vector2Int.zero,
                 false,
                 includePresenter: true,
+                includeBombAnimator: true,
+                includeAuthoredBombReadyVfx: true,
                 fuseSeconds: 0.08f,
                 explosionVisualSeconds: 0.4f);
             yield return null;
@@ -923,13 +933,42 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_presenter.ActiveBombVisualCount, Is.EqualTo(1));
             Assert.That(_presenter.HasBombVisual(placedId), Is.True);
+            Animator pooledBombAnimator = System.Array.Find(
+                _presenter.PresentationRoot.GetComponentsInChildren<Animator>(true),
+                animator => animator.gameObject.activeInHierarchy);
+            Assert.That(pooledBombAnimator, Is.Not.Null);
+            Assert.That(pooledBombAnimator.enabled, Is.True);
+            Transform bombReadyVfxAnchor =
+                pooledBombAnimator.transform.Find("SparksEffect");
+            Assert.That(bombReadyVfxAnchor, Is.Not.Null);
+            Transform bombReadyVfx = bombReadyVfxAnchor.Find("Particle");
+            Assert.That(bombReadyVfx, Is.Not.Null);
+            Assert.That(
+                bombReadyVfx.localPosition,
+                Is.EqualTo(Vector3.zero));
+            Assert.That(
+                Quaternion.Angle(bombReadyVfx.localRotation, Quaternion.identity),
+                Is.LessThan(0.001f));
+            Assert.That(
+                bombReadyVfx.GetComponent<ParticleSystem>(),
+                Is.Not.Null);
 
             yield return new WaitForSecondsRealtime(0.15f);
 
             Assert.That(_presenter.ActiveBombVisualCount, Is.Zero);
             Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(5));
+            Assert.That(pooledBombAnimator.enabled, Is.False);
 
-            yield return new WaitForSecondsRealtime(0.45f);
+            PressAndRelease(Key.Z);
+            yield return null;
+
+            Animator reusedBombAnimator = System.Array.Find(
+                _presenter.PresentationRoot.GetComponentsInChildren<Animator>(true),
+                animator => animator.gameObject.activeInHierarchy);
+            Assert.That(reusedBombAnimator, Is.SameAs(pooledBombAnimator));
+            Assert.That(reusedBombAnimator.enabled, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.55f);
 
             Assert.That(_presenter.ActiveExplosionVisualCount, Is.Zero);
         }
@@ -1042,19 +1081,29 @@ namespace BombSwap.Tests.PlayMode
 
             yield return null;
 
+            var start = new GridPosition(1, -1);
             var expected = new GridPosition(1, 0);
             Assert.That(_session.ChaserActorId, Is.EqualTo(new ActorId(2)));
-            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(expected));
-            Assert.That(_session.GetCell(expected).HasActor, Is.True);
+            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(start));
+            Assert.That(_session.GetCell(start).HasActor, Is.True);
             Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
             Assert.That(_chaserPresenter.MoveCount, Is.EqualTo(1));
             Assert.That(_chaserPresenter.IsEnemyVisible, Is.True);
+            Assert.That(_session.CurrentChaserMovementTransition.IsValid, Is.True);
+            Assert.That(_chaserPresenter.Animator.GetBool("IsMoving"), Is.True);
 
             yield return new WaitForSecondsRealtime(0.55f);
 
+            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(expected));
+            Assert.That(_session.GetCell(expected).HasActor, Is.True);
             Assert.That(_chaserPresenter.Instance.transform.position.x, Is.EqualTo(1f).Within(0.02f));
             Assert.That(_chaserPresenter.Instance.transform.position.y, Is.EqualTo(0.45f).Within(0.02f));
             Assert.That(_chaserPresenter.Instance.transform.position.z, Is.EqualTo(0f).Within(0.02f));
+            Assert.That(
+                _session.CurrentChaserMovementTransition.GetProgress(
+                    _session.CurrentGameTime),
+                Is.EqualTo(1d));
+            Assert.That(_chaserPresenter.Animator.GetBool("IsMoving"), Is.False);
         }
 
         [UnityTest]
@@ -1079,7 +1128,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_chargerPresenter.IsEnemyVisible, Is.True);
             Assert.That(_chargerPresenter.ActiveTelegraphCellCount, Is.EqualTo(4));
 
-            yield return new WaitForSecondsRealtime(0.09f);
+            yield return new WaitForSecondsRealtime(0.2f);
 
             Assert.That(_session.CurrentChargerState, Is.EqualTo(ChargerEnemyState.Charge));
             Assert.That(_session.CurrentChargerGridPosition, Is.EqualTo(new GridPosition(0, 1)));
@@ -1427,7 +1476,7 @@ namespace BombSwap.Tests.PlayMode
 
             yield return null;
 
-            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(new GridPosition(1, 0)));
+            Assert.That(_session.CurrentChaserGridPosition, Is.EqualTo(new GridPosition(1, -1)));
             Assert.That(contactDamageCount, Is.Zero);
             Assert.That(_session.CurrentHealth, Is.EqualTo(5));
             Assert.That(_healthPresenter.DamagePulseCount, Is.Zero);
@@ -1437,7 +1486,12 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(contactDamageCount, Is.Zero);
             Assert.That(_session.CurrentHealth, Is.EqualTo(5));
 
-            yield return new WaitForSecondsRealtime(0.2f);
+            float contactDeadline = Time.realtimeSinceStartup + 1f;
+            while (contactDamageCount == 0 &&
+                   Time.realtimeSinceStartup < contactDeadline)
+            {
+                yield return null;
+            }
 
             Assert.That(contactDamageCount, Is.EqualTo(1));
             Assert.That(firstContact.SourceActorId, Is.EqualTo(_session.ChaserActorId));
@@ -1531,14 +1585,18 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_bossPresenter.IsBossVisible, Is.True);
             Assert.That(_bossPresenter.IsMoveTargetVisible, Is.False);
 
-            int frameGuard = 0;
+            float deadline = Time.realtimeSinceStartup + 10f;
             while ((_session.CurrentBossPattern != BossPatternKind.Overheat ||
                     _session.CurrentBossState != BossBattleState.Recovery) &&
-                   frameGuard++ < 600)
+                   Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
-            Assert.That(frameGuard, Is.LessThan(600));
+            Assert.That(
+                _session.CurrentBossPattern == BossPatternKind.Overheat &&
+                _session.CurrentBossState == BossBattleState.Recovery,
+                Is.True,
+                "Boss did not reach Overheat recovery within 10 real-time seconds.");
             Assert.That(_bossPresenter.CurrentPattern, Is.EqualTo(BossPatternKind.Overheat));
 
             PressAndRelease(Key.X);
@@ -1662,16 +1720,16 @@ namespace BombSwap.Tests.PlayMode
                 }
             };
 
-            int frameGuard = 0;
-            while (launched.Definition == null && frameGuard++ < 600)
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (launched.Definition == null && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
             Assert.That(launched.Definition, Is.Not.Null);
             Assert.That(_presenter.ActiveBossFlightVisualCount, Is.GreaterThan(0));
 
-            frameGuard = 0;
-            while (!landed.Id.IsValid && frameGuard++ < 180)
+            deadline = Time.realtimeSinceStartup + 1f;
+            while (!landed.Id.IsValid && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -1763,14 +1821,18 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
             Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
 
-            int frameGuard = 0;
+            float deadline = Time.realtimeSinceStartup + 5f;
             while ((_session.CurrentBossPattern != BossPatternKind.Overheat ||
                     _session.CurrentBossState != BossBattleState.Recovery) &&
-                   frameGuard++ < 600)
+                   Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
-            Assert.That(frameGuard, Is.LessThan(600));
+            Assert.That(
+                _session.CurrentBossPattern == BossPatternKind.Overheat &&
+                _session.CurrentBossState == BossBattleState.Recovery,
+                Is.True,
+                "Boss did not reach Overheat recovery within 5 real-time seconds.");
 
             yield return new WaitForSecondsRealtime(0.04f);
             Assert.That(
@@ -1784,8 +1846,9 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
             Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(2f / 3f).Within(0.001f));
 
-            frameGuard = 0;
-            while (_session.CurrentBossPhase != BossPhase.Two && frameGuard++ < 600)
+            deadline = Time.realtimeSinceStartup + 5f;
+            while (_session.CurrentBossPhase != BossPhase.Two &&
+                   Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -1830,7 +1893,7 @@ namespace BombSwap.Tests.PlayMode
                 selfDestructSpawnPosition: new Vector2Int(0, 2),
                 selfDestructAnchors: new[] { new Vector2Int(-1, 0) },
                 includeSelfDestructPresenter: true,
-                selfDestructChaseCellsPerSecond: 1f,
+                selfDestructChaseCellsPerSecond: 20f,
                 selfDestructFuseSeconds: 0.25f,
                 selfDestructExplosionRange: 2);
             int armedCount = 0;
@@ -1844,7 +1907,7 @@ namespace BombSwap.Tests.PlayMode
                 }
             };
 
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.06f);
             Assert.That(
                 _session.CurrentSelfDestructGridPosition,
                 Is.EqualTo(new GridPosition(0, 1)));
@@ -1909,14 +1972,14 @@ namespace BombSwap.Tests.PlayMode
                 selfDestructSpawnPosition: new Vector2Int(2, 2),
                 selfDestructAnchors: new[] { new Vector2Int(2, 1) },
                 includeSelfDestructPresenter: true,
-                selfDestructChaseCellsPerSecond: 1f,
-                selfDestructWarningMaxCellsPerSecond: 2f,
+                selfDestructChaseCellsPerSecond: 10f,
+                selfDestructWarningMaxCellsPerSecond: 20f,
                 selfDestructWarningEscalationSeconds: 0.15f,
                 selfDestructFuseSeconds: 1f);
             int armedCount = 0;
             _session.SelfDestructArmed += _ => armedCount++;
 
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.11f);
             Assert.That(
                 _session.CurrentSelfDestructGridPosition,
                 Is.EqualTo(new GridPosition(2, 1)));
@@ -2022,8 +2085,8 @@ namespace BombSwap.Tests.PlayMode
                 }
             };
 
-            int frameGuard = 0;
-            while (placedCount < 3 && frameGuard++ < 120)
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (placedCount < 3 && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -2051,8 +2114,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
 
             Assert.That(_session.TryPlaceBomb(), Is.True);
-            frameGuard = 0;
-            while (thrownCauses.Count < 3 && frameGuard++ < 240)
+            deadline = Time.realtimeSinceStartup + 2f;
+            while (thrownCauses.Count < 3 && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
@@ -2074,6 +2137,8 @@ namespace BombSwap.Tests.PlayMode
             bool includeBlocker,
             bool includeProbe = false,
             bool includePresenter = false,
+            bool includeBombAnimator = false,
+            bool includeAuthoredBombReadyVfx = false,
             bool includeHealthPresenter = false,
             bool includeChaserPresenter = false,
             bool includeWeaponHud = false,
@@ -2172,6 +2237,19 @@ namespace BombSwap.Tests.PlayMode
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
             _bombPrefab = new GameObject("BombVisualPrefab");
+            if (includeBombAnimator)
+            {
+                Animator animator = _bombPrefab.AddComponent<Animator>();
+                animator.enabled = false;
+            }
+            if (includeAuthoredBombReadyVfx)
+            {
+                var bombReadyVfxAnchor = new GameObject("SparksEffect");
+                bombReadyVfxAnchor.transform.SetParent(_bombPrefab.transform, false);
+                var particle = new GameObject("Particle");
+                particle.transform.SetParent(bombReadyVfxAnchor.transform, false);
+                particle.AddComponent<ParticleSystem>();
+            }
             _bombPrefab.SetActive(false);
             _explosionPrefab = new GameObject("ExplosionVisualPrefab");
             _explosionPrefab.SetActive(false);

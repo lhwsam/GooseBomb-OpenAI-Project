@@ -19,7 +19,7 @@ MonoBehaviour:
   telegraphSeconds: 0.75
   chargeCellsPerSecond: 8
   recoverSeconds: 1
-  chargerPrefab: {fileID: 7858000552484071694, guid: e4daa76361d76094799d5bf0a0c95ab8, type: 3}
+  chargerPrefab: {fileID: 8498699728700203326, guid: cb372ecdbe6b6584288a5525daac8264, type: 3}
   telegraphCellPrefab: {fileID: 8492596576126979629, guid: 9f53f382ddc9fda40847df5f680a35f7, type: 3}
-  visualHeight: 0.45
-  deathVisualSeconds: 0.12
+  visualHeight: 0
+  deathVisualSeconds: 2.2

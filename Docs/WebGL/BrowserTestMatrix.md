@@ -17,7 +17,7 @@
 ## smoke 항목
 
 - cold/warm load와 진행 표시.
-- 첫 enabled `DungeonLobby`가 `폭탄을 낳는 거위`와 DungGeunMo TMP UI를 표시하고 `lobby-ready`를 기록해야 한다. 키보드 Enter와 표준 게임패드 South는 선택된 `게임 시작`을 Submit해 `lobby-start-requested` 뒤에만 `DungeonStart` probe가 나타나야 한다. 마우스 hover `1.06` 확대, 누름 `0.96` 축소·복귀와 `조작 방법 → 돌아가기`는 수동 WebGL 항목으로 함께 확인한다.
+- 첫 enabled `DungeonLobby`가 `Bomb Goose`와 DungGeunMo TMP UI를 표시하고 `lobby-ready`를 기록해야 한다. 키보드 Enter와 표준 게임패드 South는 선택된 `게임 시작`을 Submit해 `lobby-start-requested` 뒤에만 `DungeonStart` probe가 나타나야 한다. 마우스 hover `1.06` 확대, 누름 `0.96` 축소·복귀와 `조작 방법 → 돌아가기`는 수동 WebGL 항목으로 함께 확인한다.
 - canvas click/focus 전후 키보드 입력.
 - WASD/방향키, 게임패드 사용 시 매핑. Input System 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select→의미 명령은 PlayMode에서 검증한다. 별도 WebGL smoke는 `navigator.getGamepads()`의 표준 가상 장치 연결부터 스틱·D-pad 해제, 유지 스틱 중 분리의 즉시 정지·300ms 위치 안정성과 동일 index 재연결 입력 복구, South 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱 500ms 차단과 Start 재개 뒤 유지 스틱 재적용, Select의 실패 런 재시작까지 검증한다. pause 메뉴에서 South는 선택된 UI 버튼의 Submit으로 사용되므로 gameplay 차단 검사는 유지 스틱으로 독립 검증한다. 실제 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·브라우저/OS별 Gamepad API 차이는 수동 항목으로 남긴다. 기본 자동 smoke는 seed-0 Start 안전방에서 첫 `Pillars` 전투방으로 이동한 뒤 겹친 직교 방향키의 최신 축 우선과 빠른 즉시 press-release 방향 교대가 각 탭마다 한 frame의 실제 motion을 만들고 이후 추가 이동 없이 멈추는지 확인한다. 방 준비 이후 돌진형의 첫 관련 행동은 `charger-telegraph`가 아니라 `charger-track-moved`여야 하며, 이어 측면·중앙 아래쪽 폭탄 유도로 방을 실제 클리어한다. Telegraph·Charge 이동/목표 충돌·Recover의 모든 상태 분기와 시간 경계는 EditMode·PlayMode가 소유한다. 실제 browser 경로에서는 다른 적 점유나 플레이어 폭탄 처치에 따라 한 run에서 모든 분기가 나타나지 않을 수 있으므로 이를 억지로 기다리지 않는다.
 - focus 상실/복귀 후 stuck input 없음. 기본 자동 smoke는 오른쪽 키를 누른 채 브라우저 `blur` lifecycle 사건을 발생시키고 `Move(None)` 뒤 셀·motion이 정지하는지 확인한다. 이어 `focus` 복귀 전 key-up이 누락된 상태에서도 이동이 되살아나지 않고 다음 `Esc` 입력이 정상 처리돼야 한다.

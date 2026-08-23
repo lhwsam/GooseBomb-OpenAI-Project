@@ -22,6 +22,7 @@ namespace BombSwap.Core
         private readonly Dictionary<GridPosition, int> distances =
             new Dictionary<GridPosition, int>();
         private readonly Queue<GridPosition> frontier = new Queue<GridPosition>();
+        private readonly CommittedActorMovement movement;
         private TimeSpan lastObservedTime;
         private TimeSpan nextMoveAt;
         private TimeSpan telegraphStartedAt;
@@ -30,6 +31,8 @@ namespace BombSwap.Core
         private int pendingFlightCount;
         private IReadOnlyList<GridPosition> lockedTargets = NoLockedTargets;
         private readonly HashSet<BombId> activeBombIds = new HashSet<BombId>();
+        private EnemyLocomotionState locomotionState;
+        private EnemyMovementTransition movementTransition;
 
         public ThrowerEnemySimulation(
             GridState grid,
@@ -93,7 +96,7 @@ namespace BombSwap.Core
 
             ActorId = actorId;
             TargetActorId = targetActorId;
-            CurrentPosition = startPosition;
+            movement = new CommittedActorMovement(grid, actorId, startPosition, clock.Now);
             State = ThrowerEnemyState.Track;
             nextMoveAt = clock.Now;
             lastObservedTime = clock.Now;
@@ -105,9 +108,18 @@ namespace BombSwap.Core
 
         public ActorId TargetActorId { get; }
 
-        public GridPosition CurrentPosition { get; private set; }
+        public GridPosition CurrentPosition => movement.CurrentCell;
+
+        public GridSubcellPosition Position => movement.Position;
+
+        public GridPosition GetCurrentCellAt(TimeSpan gameTime) =>
+            movement.GetCurrentCellAt(gameTime);
 
         public ThrowerEnemyState State { get; private set; }
+
+        public EnemyLocomotionState LocomotionState => locomotionState;
+
+        public EnemyMovementTransition MovementTransition => movementTransition;
 
         public GridPosition LockedTarget =>
             lockedTargets.Count > 0 ? lockedTargets[0] : default;
@@ -126,6 +138,12 @@ namespace BombSwap.Core
         public ThrowerEnemyAdvanceResult Advance()
         {
             TimeSpan now = ObserveTime();
+            movement.Advance(now);
+            if (movement.IsMoving)
+            {
+                locomotionState = EnemyLocomotionState.Moving;
+                return NoActivity();
+            }
             switch (State)
             {
                 case ThrowerEnemyState.Track:
@@ -138,6 +156,7 @@ namespace BombSwap.Core
 
                     ThrowerEnemyState previous = State;
                     State = ThrowerEnemyState.Recover;
+                    locomotionState = EnemyLocomotionState.Idle;
                     recoveryStartedAt = now;
                     pendingFlightCount = lockedTargets.Count;
                     return CreateResult(previous, default, TimeSpan.Zero, false, true);
@@ -149,6 +168,7 @@ namespace BombSwap.Core
 
                     ThrowerEnemyState recoveryPrevious = State;
                     State = ThrowerEnemyState.Track;
+                    locomotionState = EnemyLocomotionState.Idle;
                     firingAnchorIndex = (firingAnchorIndex + 1) % firingAnchors.Length;
                     nextMoveAt = now;
                     return CreateResult(
@@ -213,16 +233,19 @@ namespace BombSwap.Core
             {
                 if (HasOutstandingBomb)
                 {
+                    locomotionState = EnemyLocomotionState.Idle;
                     return NoActivity();
                 }
                 if (!grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition))
                 {
+                    locomotionState = EnemyLocomotionState.Idle;
                     return NoActivity();
                 }
 
                 ThrowerEnemyState previous = State;
                 lockedTargets = SelectTargetAnchors(targetPosition);
                 State = ThrowerEnemyState.Telegraph;
+                locomotionState = EnemyLocomotionState.Idle;
                 telegraphStartedAt = now;
                 return CreateResult(previous, default, TimeSpan.Zero, false, false);
             }
@@ -231,17 +254,35 @@ namespace BombSwap.Core
                 return NoActivity();
             }
 
-            bool moved = TryMoveToward(CurrentFiringAnchor, out EnemyMovementStep movement);
+            bool moved = TryMoveToward(
+                CurrentFiringAnchor,
+                now,
+                Definition.MoveStepInterval,
+                out EnemyMovementStep movementStep);
+            locomotionState = moved
+                ? EnemyLocomotionState.Moving
+                : EnemyLocomotionState.Idle;
             nextMoveAt = AddWithSaturation(now, Definition.MoveStepInterval);
+            if (moved)
+            {
+                movementTransition = new EnemyMovementTransition(
+                    movementStep,
+                    now,
+                    Definition.MoveStepInterval);
+            }
             return CreateResult(
                 State,
-                movement,
+                movementStep,
                 Definition.MoveStepInterval,
                 moved,
                 false);
         }
 
-        private bool TryMoveToward(GridPosition destination, out EnemyMovementStep movement)
+        private bool TryMoveToward(
+            GridPosition destination,
+            TimeSpan now,
+            TimeSpan duration,
+            out EnemyMovementStep movementStep)
         {
             BuildDistanceField(destination);
             CardinalDirection selectedDirection = CardinalDirection.None;
@@ -262,20 +303,19 @@ namespace BombSwap.Core
             }
             if (selectedDirection == CardinalDirection.None)
             {
-                movement = default;
+                movementStep = default;
                 return false;
             }
 
             GridPosition previous = CurrentPosition;
             GridPosition next = Offset(previous, selectedDirection);
-            if (!grid.TryMoveActor(ActorId, next))
+            if (!movement.TryStart(next, selectedDirection, now, duration))
             {
-                movement = default;
+                movementStep = default;
                 return false;
             }
 
-            CurrentPosition = next;
-            movement = new EnemyMovementStep(ActorId, previous, next, selectedDirection);
+            movementStep = new EnemyMovementStep(ActorId, previous, next, selectedDirection);
             return true;
         }
 
@@ -309,13 +349,16 @@ namespace BombSwap.Core
             return cell.IsWalkableTerrain &&
                 (position == CurrentPosition ||
                  position == destination ||
-                 cell.Occupancy == GridOccupancy.None);
+                 (cell.Occupancy == GridOccupancy.None &&
+                  !grid.IsCellReservedForActorMove(position)));
         }
 
         private bool IsAvailable(GridPosition position)
         {
             GridCellState cell = grid.GetCell(position);
-            return cell.IsWalkableTerrain && cell.Occupancy == GridOccupancy.None;
+            return cell.IsWalkableTerrain &&
+                cell.Occupancy == GridOccupancy.None &&
+                !grid.IsCellReservedForActorMove(position);
         }
 
         private IReadOnlyList<GridPosition> SelectTargetAnchors(

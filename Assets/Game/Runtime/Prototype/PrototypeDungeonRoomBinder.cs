@@ -459,6 +459,7 @@ namespace BombSwap
 
                 _runtimeSecretDoorDirections.Remove(affectedCell);
                 RemoveSecretDoorImpactCell(affectedCell);
+                doorPresenter.PlaySecretWallBreak(direction, _roomRotation);
                 RefreshDoors();
                 SecretExitRevealed?.Invoke(result);
                 WebGlHarnessReporter.Report(
@@ -532,7 +533,8 @@ namespace BombSwap
         {
             doorPresenter.Apply(
                 _runHost.RunSession.GetCurrentExitStates(),
-                _roomRotation);
+                _roomRotation,
+                _runHost.RunSession.GetCurrentSecretExitDirections());
         }
 
         private void ReportRoomRewardTokenCountChanged(

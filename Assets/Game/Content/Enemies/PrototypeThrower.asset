@@ -20,7 +20,7 @@ MonoBehaviour:
   maxHealth: 1
   bombsPerVolley: 3
   bombDefinition: {fileID: 11400000, guid: ee3b0c55019745d46b29347256d96568, type: 2}
-  enemyPrefab: {fileID: 2246957002122644732, guid: 3300a465cf394a44e8b4154dac395fc3, type: 3}
+  enemyPrefab: {fileID: 9086557310790043371, guid: 20593550853fe5c48a432bc7e05b6f5b, type: 3}
   telegraphCellPrefab: {fileID: 6127233976684694925, guid: d3e0a0a81c3bd6b4c9559fae57559058, type: 3}
-  visualHeight: 0.5
+  visualHeight: 0
   deathVisualSeconds: 0.12

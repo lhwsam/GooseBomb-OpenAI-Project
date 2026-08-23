@@ -5,6 +5,7 @@
     "BombSwap.Core",
     "BombSwap.Unity",
     "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework",
     "Unity.TextMeshPro"
   ],
   "optionalUnityReferences": [

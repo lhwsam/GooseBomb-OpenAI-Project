@@ -37,15 +37,32 @@ namespace BombSwap.Editor.ContentValidation
         {
             public DungeonBoundaryPresentation(
                 Renderer[] doors,
+                Animator[] doorAnimators,
                 GameObject[] secretCrackRoots)
             {
                 Doors = doors;
+                DoorAnimators = doorAnimators;
                 SecretCrackRoots = secretCrackRoots;
             }
 
             public Renderer[] Doors { get; }
 
+            public Animator[] DoorAnimators { get; }
+
             public GameObject[] SecretCrackRoots { get; }
+        }
+
+        private sealed class DoorVisualPresentation
+        {
+            public DoorVisualPresentation(Renderer renderer, Animator animator)
+            {
+                Renderer = renderer;
+                Animator = animator;
+            }
+
+            public Renderer Renderer { get; }
+
+            public Animator Animator { get; }
         }
 
         private sealed class LobbyUiBindings
@@ -1120,10 +1137,6 @@ namespace BombSwap.Editor.ContentValidation
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
 
-            Material bombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/Bomb.mat",
-                shader,
-                new Color(0.07f, 0.08f, 0.1f, 1f));
             Material explosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/Explosion.mat",
                 shader,
@@ -1135,13 +1148,8 @@ namespace BombSwap.Editor.ContentValidation
                 EditorUtility.SetDirty(explosionMaterial);
             }
 
-            GameObject bombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.BombPrefabPath,
-                "BombPlaceholder",
-                PrimitiveType.Sphere,
-                new Vector3(0f, 0.32f, 0f),
-                new Vector3(0.62f, 0.62f, 0.62f),
-                bombMaterial);
+            GameObject bombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BombPrefabPath);
             GameObject explosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.ExplosionCellPrefabPath,
                 "ExplosionCellPlaceholder",
@@ -1185,10 +1193,6 @@ namespace BombSwap.Editor.ContentValidation
 
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
-            Material bombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/AreaBomb.mat",
-                shader,
-                new Color(0.52f, 0.08f, 0.82f, 1f));
             Material explosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/AreaExplosion.mat",
                 shader,
@@ -1200,13 +1204,8 @@ namespace BombSwap.Editor.ContentValidation
                 EditorUtility.SetDirty(explosionMaterial);
             }
 
-            GameObject bombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.AreaBombPrefabPath,
-                "AreaBombPlaceholder",
-                PrimitiveType.Cylinder,
-                new Vector3(0f, 0.16f, 0f),
-                new Vector3(0.46f, 0.12f, 0.46f),
-                bombMaterial);
+            GameObject bombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.AreaBombPrefabPath);
             GameObject explosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.AreaExplosionCellPrefabPath,
                 "AreaExplosionCellPlaceholder",
@@ -1227,7 +1226,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = "PrototypeAreaBomb";
             definition.Configure(
                 "prototype-area",
-                1.75f,
+                2f,
                 1,
                 bombPrefab,
                 explosionPrefab,
@@ -1242,7 +1241,6 @@ namespace BombSwap.Editor.ContentValidation
 
         private static PrototypeBombDefinitionAsset CreatePrototypeLineBombContentIfMissing()
         {
-            MigrateLegacyLineBombAssets();
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
             {
@@ -1251,10 +1249,6 @@ namespace BombSwap.Editor.ContentValidation
 
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
-            Material bombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/LineBomb.mat",
-                shader,
-                new Color(0.04f, 0.62f, 0.78f, 1f));
             Material explosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/LineExplosion.mat",
                 shader,
@@ -1268,17 +1262,7 @@ namespace BombSwap.Editor.ContentValidation
                 EditorUtility.SetDirty(explosionMaterial);
             }
 
-            GameObject bombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.LineBombPrefabPath,
-                "LineBombPlaceholder",
-                PrimitiveType.Capsule,
-                new Vector3(0f, 0.3f, 0f),
-                new Vector3(0.42f, 0.34f, 0.42f),
-                bombMaterial);
-            EnsureForwardLineBombPrefabGeometry(
-                PrototypeContentValidator.LineBombPrefabPath,
-                bombMaterial);
-            bombPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            GameObject bombPrefab = LoadRequiredAsset<GameObject>(
                 PrototypeContentValidator.LineBombPrefabPath);
             GameObject explosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.LineExplosionCellPrefabPath,
@@ -1303,7 +1287,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = "PrototypeLineBomb";
             definition.Configure(
                 "prototype-line",
-                2.25f,
+                2f,
                 3,
                 bombPrefab,
                 explosionPrefab,
@@ -1312,106 +1296,6 @@ namespace BombSwap.Editor.ContentValidation
                 BombExplosionShape.ForwardLine);
             EditorUtility.SetDirty(definition);
             return definition;
-        }
-
-        private static void MigrateLegacyLineBombAssets()
-        {
-            string[,] paths =
-            {
-                {
-                    "Assets/Game/Content/Bombs/PrototypeLongCrossBomb.asset",
-                    PrototypeContentValidator.PrototypeLineBombDefinitionPath
-                },
-                {
-                    MaterialsPath + "/LongCrossBomb.mat",
-                    MaterialsPath + "/LineBomb.mat"
-                },
-                {
-                    MaterialsPath + "/LongCrossExplosion.mat",
-                    MaterialsPath + "/LineExplosion.mat"
-                },
-                {
-                    PrototypePrefabsPath + "/LongCrossBombPlaceholder.prefab",
-                    PrototypeContentValidator.LineBombPrefabPath
-                },
-                {
-                    PrototypePrefabsPath + "/LongCrossExplosionCellPlaceholder.prefab",
-                    PrototypeContentValidator.LineExplosionCellPrefabPath
-                }
-            };
-
-            for (int index = 0; index < paths.GetLength(0); index++)
-            {
-                string source = paths[index, 0];
-                string destination = paths[index, 1];
-                bool sourceExists = AssetDatabase.LoadMainAssetAtPath(source) != null;
-                bool destinationExists = AssetDatabase.LoadMainAssetAtPath(destination) != null;
-                if (!sourceExists)
-                {
-                    continue;
-                }
-                if (destinationExists)
-                {
-                    throw new InvalidOperationException(
-                        $"Cannot migrate line-bomb asset because both paths exist: {source}, {destination}");
-                }
-
-                string error = AssetDatabase.MoveAsset(source, destination);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    throw new InvalidOperationException(
-                        $"Could not migrate line-bomb asset '{source}' to '{destination}': {error}");
-                }
-            }
-        }
-
-        private static void EnsureForwardLineBombPrefabGeometry(
-            string assetPath,
-            Material material)
-        {
-            GameObject contents = PrefabUtility.LoadPrefabContents(assetPath);
-            try
-            {
-                bool nameChanged = contents.name != "LineBombPlaceholder";
-                contents.name = "LineBombPlaceholder";
-                Transform body = contents.transform.Find("DirectionBody");
-                Transform tip = contents.transform.Find("DirectionTip");
-                if (contents.transform.childCount == 2 && body != null && tip != null)
-                {
-                    if (nameChanged)
-                    {
-                        PrefabUtility.SaveAsPrefabAsset(contents, assetPath);
-                    }
-                    return;
-                }
-
-                for (int index = contents.transform.childCount - 1; index >= 0; index--)
-                {
-                    UnityEngine.Object.DestroyImmediate(
-                        contents.transform.GetChild(index).gameObject);
-                }
-                CreatePrimitive(
-                    "DirectionBody",
-                    PrimitiveType.Cube,
-                    contents.transform,
-                    new Vector3(0f, 0.22f, -0.06f),
-                    new Vector3(0.28f, 0.24f, 0.52f),
-                    material,
-                    false);
-                CreatePrimitive(
-                    "DirectionTip",
-                    PrimitiveType.Cube,
-                    contents.transform,
-                    new Vector3(0f, 0.22f, 0.28f),
-                    new Vector3(0.42f, 0.28f, 0.20f),
-                    material,
-                    false);
-                PrefabUtility.SaveAsPrefabAsset(contents, assetPath);
-            }
-            finally
-            {
-                PrefabUtility.UnloadPrefabContents(contents);
-            }
         }
 
         private static void DeleteLegacyQuickBombAssets()
@@ -1497,25 +1381,9 @@ namespace BombSwap.Editor.ContentValidation
 
         private static PrototypeChaserDefinitionAsset CreatePrototypeChaserContentIfMissing()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null)
-            {
-                throw new InvalidOperationException("Required URP Lit shader was not found.");
-            }
-
-            EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Enemies");
-            Material chaserMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/Chaser.mat",
-                shader,
-                new Color(0.18f, 0.82f, 0.38f, 1f));
-            GameObject chaserPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.ChaserPrefabPath,
-                "ChaserPlaceholder",
-                PrimitiveType.Capsule,
-                Vector3.zero,
-                new Vector3(0.36f, 0.45f, 0.36f),
-                chaserMaterial);
+            GameObject chaserPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.ChaserPrefabPath);
 
             PrototypeChaserDefinitionAsset definition =
                 AssetDatabase.LoadAssetAtPath<PrototypeChaserDefinitionAsset>(
@@ -1536,8 +1404,8 @@ namespace BombSwap.Editor.ContentValidation
                 2f,
                 2,
                 chaserPrefab,
-                0.45f,
-                0.12f);
+                0f,
+                2.2f);
             EditorUtility.SetDirty(definition);
             return definition;
         }
@@ -1597,8 +1465,8 @@ namespace BombSwap.Editor.ContentValidation
                 1f,
                 chargerPrefab,
                 chargerTelegraphCellPrefab,
-                0.45f,
-                0.12f);
+                0f,
+                2.2f);
             EditorUtility.SetDirty(definition);
             return definition;
         }
@@ -1751,7 +1619,7 @@ namespace BombSwap.Editor.ContentValidation
                 blastDefinition,
                 enemyPrefab,
                 telegraphPrefab,
-                0.45f,
+                0f,
                 0.12f);
             EditorUtility.SetDirty(definition);
             return definition;
@@ -1818,7 +1686,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBossThrowBombDefinitionPath,
                     "PrototypeBossThrowBomb",
                     "prototype-boss-throw",
-                    1.25f,
+                    2f,
                     throwBombPrefab,
                     throwExplosionPrefab);
             PrototypeBombDefinitionAsset chainDefinition =
@@ -1826,7 +1694,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBossChainBombDefinitionPath,
                     "PrototypeBossChainBomb",
                     "prototype-boss-chain",
-                    2.25f,
+                    2f,
                     chainBombPrefab,
                     chainExplosionPrefab);
             return new[] { throwDefinition, chainDefinition };
@@ -1884,7 +1752,7 @@ namespace BombSwap.Editor.ContentValidation
             }
             bombDefinition.Configure(
                 "prototype-thrower-blocker",
-                1.5f,
+                2f,
                 1,
                 bombPrefab,
                 explosionPrefab,
@@ -1916,7 +1784,7 @@ namespace BombSwap.Editor.ContentValidation
                 bombDefinition,
                 enemyPrefab,
                 telegraphPrefab,
-                0.5f,
+                0f,
                 0.12f);
             EditorUtility.SetDirty(definition);
             return definition;
@@ -2011,7 +1879,7 @@ namespace BombSwap.Editor.ContentValidation
                 dangerCellPrefab,
                 throwBombDefinition,
                 chainBombDefinition,
-                0.6f,
+                0f,
                 0.03f,
                 0.2f);
             EditorUtility.SetDirty(definition);
@@ -3004,10 +2872,15 @@ namespace BombSwap.Editor.ContentValidation
                 boundaryPresentation.Doors[1],
                 boundaryPresentation.Doors[2],
                 boundaryPresentation.Doors[3],
+                boundaryPresentation.DoorAnimators[0],
+                boundaryPresentation.DoorAnimators[1],
+                boundaryPresentation.DoorAnimators[2],
+                boundaryPresentation.DoorAnimators[3],
                 boundaryPresentation.SecretCrackRoots[0],
                 boundaryPresentation.SecretCrackRoots[1],
                 boundaryPresentation.SecretCrackRoots[2],
                 boundaryPresentation.SecretCrackRoots[3]);
+            doorPresenter.ConfigureSecretWallBreakVfx(null);
 
             PrototypeDungeonRoomBinder binder =
                 systems.GetComponent<PrototypeDungeonRoomBinder>();
@@ -3327,26 +3200,59 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector3(-boundaryX, 0.5f, verticalCenter),
                 new Vector3(cellSize, 1f, verticalLength), wallMaterial, true);
 
-            Renderer north = EnsureBoundaryPrimitive(
-                boundary, "NorthDoor", new Vector3(0f, 0.45f, boundaryZ),
-                new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
-                doorMaterial, false);
-            Renderer east = EnsureBoundaryPrimitive(
-                boundary, "EastDoor", new Vector3(boundaryX, 0.45f, 0f),
-                new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
-                doorMaterial, false);
-            Renderer south = EnsureBoundaryPrimitive(
-                boundary, "SouthDoor", new Vector3(0f, 0.45f, -boundaryZ),
-                new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
-                doorMaterial, false);
-            Renderer west = EnsureBoundaryPrimitive(
-                boundary, "WestDoor", new Vector3(-boundaryX, 0.45f, 0f),
-                new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
-                doorMaterial, false);
+            bool usesDoorPrefabs =
+                PrototypeContentValidator.IsDungeonPresentationScenePath(
+                    context.gameObject.scene.path);
+            DoorVisualPresentation northPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "NorthDoor", new Vector3(0f, 0f, boundaryZ),
+                    Quaternion.identity)
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "NorthDoor", new Vector3(0f, 0.45f, boundaryZ),
+                        new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
+                        doorMaterial, false),
+                    null);
+            DoorVisualPresentation eastPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "EastDoor", new Vector3(boundaryX, 0f, 0f),
+                    Quaternion.Euler(0f, 90f, 0f))
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "EastDoor", new Vector3(boundaryX, 0.45f, 0f),
+                        new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
+                        doorMaterial, false),
+                    null);
+            DoorVisualPresentation southPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "SouthDoor", new Vector3(0f, 0f, -boundaryZ),
+                    Quaternion.Euler(0f, 180f, 0f))
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "SouthDoor", new Vector3(0f, 0.45f, -boundaryZ),
+                        new Vector3(0.85f * cellSize, 0.9f, 0.3f * cellSize),
+                        doorMaterial, false),
+                    null);
+            DoorVisualPresentation westPresentation = usesDoorPrefabs
+                ? EnsureDoorVisualPrefab(
+                    boundary, "WestDoor", new Vector3(-boundaryX, 0f, 0f),
+                    Quaternion.Euler(0f, 270f, 0f))
+                : new DoorVisualPresentation(
+                    EnsureBoundaryPrimitive(
+                        boundary, "WestDoor", new Vector3(-boundaryX, 0.45f, 0f),
+                        new Vector3(0.3f * cellSize, 0.9f, 0.85f * cellSize),
+                        doorMaterial, false),
+                    null);
+            Renderer north = northPresentation.Renderer;
+            Renderer east = eastPresentation.Renderer;
+            Renderer south = southPresentation.Renderer;
+            Renderer west = westPresentation.Renderer;
             GameObject northCracks = EnsureSecretCrackRoot(
                 boundary,
                 "NorthSecretCracks",
-                north.transform.localPosition,
+                northPresentation.Animator != null
+                    ? northPresentation.Animator.transform.localPosition
+                    : north.transform.localPosition,
                 true,
                 cellSize,
                 destructibleWallMaterial,
@@ -3354,7 +3260,9 @@ namespace BombSwap.Editor.ContentValidation
             GameObject eastCracks = EnsureSecretCrackRoot(
                 boundary,
                 "EastSecretCracks",
-                east.transform.localPosition,
+                eastPresentation.Animator != null
+                    ? eastPresentation.Animator.transform.localPosition
+                    : east.transform.localPosition,
                 false,
                 cellSize,
                 destructibleWallMaterial,
@@ -3362,7 +3270,9 @@ namespace BombSwap.Editor.ContentValidation
             GameObject southCracks = EnsureSecretCrackRoot(
                 boundary,
                 "SouthSecretCracks",
-                south.transform.localPosition,
+                southPresentation.Animator != null
+                    ? southPresentation.Animator.transform.localPosition
+                    : south.transform.localPosition,
                 true,
                 cellSize,
                 destructibleWallMaterial,
@@ -3370,14 +3280,189 @@ namespace BombSwap.Editor.ContentValidation
             GameObject westCracks = EnsureSecretCrackRoot(
                 boundary,
                 "WestSecretCracks",
-                west.transform.localPosition,
+                westPresentation.Animator != null
+                    ? westPresentation.Animator.transform.localPosition
+                    : west.transform.localPosition,
                 false,
                 cellSize,
                 destructibleWallMaterial,
                 crackMaterial);
             return new DungeonBoundaryPresentation(
                 new[] { north, east, south, west },
+                new[]
+                {
+                    northPresentation.Animator,
+                    eastPresentation.Animator,
+                    southPresentation.Animator,
+                    westPresentation.Animator,
+                },
                 new[] { northCracks, eastCracks, southCracks, westCracks });
+        }
+
+        [MenuItem("Bomb Swap/Prototype/Synchronize TestSandbox Door Presentation")]
+        public static void SynchronizeTestSandboxDoorPresentation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before synchronizing TestSandbox doors.");
+            }
+
+            SynchronizeDungeonEnvironmentPresentationScene(
+                PrototypeContentValidator.TestSandboxScenePath);
+        }
+
+        [MenuItem("Bomb Swap/Prototype/Synchronize All Dungeon Environment Presentation")]
+        public static void SynchronizeAllDungeonEnvironmentPresentation()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before synchronizing dungeon environment presentation.");
+            }
+
+            string[] scenePaths =
+            {
+                PrototypeContentValidator.DungeonStartScenePath,
+                PrototypeContentValidator.DungeonRewardScenePath,
+                PrototypeContentValidator.DungeonBossAnteScenePath,
+                PrototypeContentValidator.DungeonRecoveryScenePath,
+                PrototypeContentValidator.DungeonSecretScenePath,
+                PrototypeContentValidator.DungeonBossScenePath,
+                PrototypeContentValidator.TestSandboxScenePath,
+                PrototypeContentValidator.TestSandboxThrowerScenePath,
+                PrototypeContentValidator.TestSandboxPillarsScenePath,
+                PrototypeContentValidator.TestSandboxArmorScenePath,
+                PrototypeContentValidator.TestSandboxGatesScenePath,
+            };
+            for (int index = 0; index < scenePaths.Length; index++)
+            {
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePaths[index]) == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Dungeon scene is missing at '{scenePaths[index]}'.");
+                }
+                Scene loadedScene = SceneManager.GetSceneByPath(scenePaths[index]);
+                if (loadedScene.IsValid() && loadedScene.isLoaded && loadedScene.isDirty)
+                {
+                    throw new InvalidOperationException(
+                        $"Dungeon scene '{scenePaths[index]}' has unsaved changes. Save or revert them before synchronization.");
+                }
+            }
+            for (int index = 0; index < scenePaths.Length; index++)
+            {
+                SynchronizeDungeonEnvironmentPresentationScene(scenePaths[index]);
+            }
+        }
+
+        private static void SynchronizeDungeonEnvironmentPresentationScene(
+            string scenePath)
+        {
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForSynchronization = !scene.IsValid() || !scene.isLoaded;
+            if (openedForSynchronization)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+            else if (scene.isDirty)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon scene '{scenePath}' has unsaved changes. Save or revert them before synchronization.");
+            }
+
+            try
+            {
+                TestSandboxContext context = FindExactlyOne<TestSandboxContext>(scene);
+                PrototypeDungeonDoorPresenter presenter =
+                    FindExactlyOne<PrototypeDungeonDoorPresenter>(scene);
+                PrototypeCombatRoomDefinitionAsset roomDefinition =
+                    context.RoomDefinition ?? throw new InvalidOperationException(
+                        $"Dungeon scene '{scenePath}' context is missing its room definition.");
+                CombatRoomDefinition room = roomDefinition.CreateCoreDefinition();
+                SynchronizeInteriorObstacles(
+                    context.GridRoot,
+                    roomDefinition,
+                    room);
+                EnvironmentBlockVisualAuthoring.Synchronize(
+                    context.GridRoot,
+                    roomDefinition,
+                    room);
+                DungeonBoundaryPresentation presentation =
+                    SynchronizeDungeonBoundary(context);
+                presenter.Configure(
+                    presentation.Doors[0],
+                    presentation.Doors[1],
+                    presentation.Doors[2],
+                    presentation.Doors[3],
+                    presentation.DoorAnimators[0],
+                    presentation.DoorAnimators[1],
+                    presentation.DoorAnimators[2],
+                    presentation.DoorAnimators[3],
+                    presentation.SecretCrackRoots[0],
+                    presentation.SecretCrackRoots[1],
+                    presentation.SecretCrackRoots[2],
+                    presentation.SecretCrackRoots[3]);
+                presenter.ConfigureSecretWallBreakVfx(null);
+                EditorUtility.SetDirty(presenter);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene, scenePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Unity failed to save dungeon environment presentation '{scenePath}'.");
+                }
+            }
+            finally
+            {
+                if (openedForSynchronization && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+            }
+        }
+
+        private static DoorVisualPresentation EnsureDoorVisualPrefab(
+            Transform boundary,
+            string name,
+            Vector3 localPosition,
+            Quaternion localRotation)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.DoorPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Dungeon door visual prefab is missing at '{EnvironmentBlockVisualAuthoring.DoorPrefabPath}'.");
+            }
+
+            Transform existing = boundary.Find(name);
+            GameObject instance = existing != null ? existing.gameObject : null;
+            if (instance != null &&
+                PrefabUtility.GetCorrespondingObjectFromSource(instance) != prefab)
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+                instance = null;
+            }
+            if (instance == null)
+            {
+                instance = PrefabUtility.InstantiatePrefab(prefab, boundary) as GameObject;
+            }
+            if (instance == null)
+            {
+                throw new InvalidOperationException("Unity failed to instantiate the dungeon door prefab.");
+            }
+
+            instance.name = name;
+            instance.transform.localPosition = localPosition;
+            instance.transform.localRotation = localRotation;
+            RemovePhysicsComponents(instance);
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            Animator[] animators = instance.GetComponentsInChildren<Animator>(true);
+            if (renderers.Length != 1 || animators.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    "Dungeon door prefab requires exactly one Renderer and one Animator.");
+            }
+            return new DoorVisualPresentation(renderers[0], animators[0]);
         }
 
         private static GameObject EnsureSecretCrackRoot(
@@ -3389,6 +3474,18 @@ namespace BombSwap.Editor.ContentValidation
             Material wallMaterial,
             Material crackMaterial)
         {
+            bool usesCrackedBrickPrefab =
+                PrototypeContentValidator.IsDungeonPresentationScenePath(
+                    boundary.gameObject.scene.path);
+            if (usesCrackedBrickPrefab)
+            {
+                return EnsureSecretCrackPrefab(
+                    boundary,
+                    rootName,
+                    secretDoorLocalPosition,
+                    northSouthDoor ? Quaternion.identity : Quaternion.Euler(0f, 90f, 0f));
+            }
+
             Transform root = boundary.Find(rootName);
             if (root == null)
             {
@@ -3447,6 +3544,63 @@ namespace BombSwap.Editor.ContentValidation
 
             root.gameObject.SetActive(false);
             return root.gameObject;
+        }
+
+        private static GameObject EnsureSecretCrackPrefab(
+            Transform boundary,
+            string name,
+            Vector3 localPosition,
+            Quaternion localRotation)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.CrackedBrickBlockPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Secret door visual prefab is missing at '{EnvironmentBlockVisualAuthoring.CrackedBrickBlockPrefabPath}'.");
+            }
+
+            Transform existing = boundary.Find(name);
+            GameObject instance = existing != null ? existing.gameObject : null;
+            if (instance != null &&
+                PrefabUtility.GetCorrespondingObjectFromSource(instance) != prefab)
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+                instance = null;
+            }
+            if (instance == null)
+            {
+                instance = PrefabUtility.InstantiatePrefab(prefab, boundary) as GameObject;
+            }
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    "Unity failed to instantiate the secret door visual prefab.");
+            }
+
+            instance.name = name;
+            instance.transform.localPosition = localPosition;
+            instance.transform.localRotation = localRotation;
+            RemovePhysicsComponents(instance);
+            if (instance.GetComponentsInChildren<Renderer>(true).Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Secret door visual prefab requires at least one Renderer.");
+            }
+            instance.SetActive(false);
+            return instance;
+        }
+
+        private static void RemovePhysicsComponents(GameObject root)
+        {
+            foreach (Collider collider in root.GetComponentsInChildren<Collider>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+            foreach (Rigidbody rigidbody in root.GetComponentsInChildren<Rigidbody>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(rigidbody);
+            }
         }
 
         private static Renderer EnsureBoundaryPrimitive(
@@ -3527,10 +3681,6 @@ namespace BombSwap.Editor.ContentValidation
                 MaterialsPath + "/GridLine.mat",
                 shader,
                 new Color(0.28f, 0.39f, 0.48f, 1f));
-            Material playerMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/Player.mat",
-                shader,
-                new Color(1f, 0.69f, 0.12f, 1f));
             Material destructibleWallMaterial = GetOrCreateMaterial(
                 PrototypeContentValidator.DestructibleWallMaterialPath,
                 shader,
@@ -3554,6 +3704,8 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeGameSession gameSession = systems.AddComponent<PrototypeGameSession>();
             PrototypePlayerController playerController =
                 systems.AddComponent<PrototypePlayerController>();
+            PrototypePlayerAnimationPresenter playerAnimationPresenter =
+                systems.AddComponent<PrototypePlayerAnimationPresenter>();
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
             PrototypeDestructibleWallPresenter destructibleWallPresenter =
                 systems.AddComponent<PrototypeDestructibleWallPresenter>();
@@ -3628,7 +3780,7 @@ namespace BombSwap.Editor.ContentValidation
                     $"Obstacle_{index}_{wall.X}_{wall.Z}",
                     PrimitiveType.Cube,
                     obstacles,
-                    new Vector3(wall.X * cellSize, 0.5f, wall.Z * cellSize),
+                    new Vector3(wall.X * cellSize, 0f, wall.Z * cellSize),
                     new Vector3(0.9f * cellSize, 1f, 0.9f * cellSize),
                     wallMaterial,
                     true);
@@ -3644,6 +3796,10 @@ namespace BombSwap.Editor.ContentValidation
                     destructibleWallMaterial,
                     index);
             }
+            EnvironmentBlockVisualAuthoring.Synchronize(
+                gridRoot.transform,
+                roomDefinition,
+                room);
 
             Transform playerSpawn = CreateChild("PlayerSpawn", gridRoot.transform);
             playerSpawn.localPosition = new Vector3(
@@ -3685,18 +3841,13 @@ namespace BombSwap.Editor.ContentValidation
                     0f,
                     selfDestructCell.Z * cellSize);
             }
-            GameObject player = CreatePrimitive(
-                "PlayerPlaceholder",
-                PrimitiveType.Capsule,
+            Transform player = SynchronizePlayerPresentation(
                 gridRoot.transform,
+                null,
                 new Vector3(
                     room.PlayerSpawn.X * cellSize,
-                    0.5f,
-                    room.PlayerSpawn.Z * cellSize),
-                new Vector3(0.35f, 0.5f, 0.35f),
-                playerMaterial,
-                true);
-            player.tag = "Player";
+                    0f,
+                    room.PlayerSpawn.Z * cellSize));
             Transform runtimePresentation = CreateChild("RuntimePresentation", gridRoot.transform);
 
             CreateCamera(root.transform);
@@ -3710,7 +3861,7 @@ namespace BombSwap.Editor.ContentValidation
                 inputReader,
                 gridRoot.transform,
                 playerSpawn,
-                player.transform,
+                player,
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
@@ -3726,7 +3877,9 @@ namespace BombSwap.Editor.ContentValidation
                 startingArmored: armoredDefinition,
                 startingBoss: bossDefinition,
                 startingSelfDestruct: selfDestructDefinition);
-            playerController.Configure(gameSession, player.transform);
+            Animator playerAnimator = player.GetComponentInChildren<Animator>(true);
+            playerController.Configure(gameSession, player);
+            playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
@@ -3774,6 +3927,13 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeInputHarnessProbe harnessProbe = FindExactlyOne<PrototypeInputHarnessProbe>(scene);
 
             GameObject systems = inputReader.gameObject;
+            PrototypePlayerAnimationPresenter playerAnimationPresenter =
+                systems.GetComponent<PrototypePlayerAnimationPresenter>();
+            if (playerAnimationPresenter == null)
+            {
+                playerAnimationPresenter =
+                    systems.AddComponent<PrototypePlayerAnimationPresenter>();
+            }
             PrototypeUserSettingsRuntime settingsRuntime =
                 systems.GetComponent<PrototypeUserSettingsRuntime>();
             if (settingsRuntime == null)
@@ -3935,11 +4095,19 @@ namespace BombSwap.Editor.ContentValidation
                 context.GridRoot,
                 roomDefinition,
                 room);
+            if (PrototypeContentValidator.IsDungeonPresentationScenePath(scene.path))
+            {
+                EnvironmentBlockVisualAuthoring.Synchronize(
+                    context.GridRoot,
+                    roomDefinition,
+                    room);
+            }
             var gridSpace = new GridSpace(context.GridRoot.position, roomDefinition.CellSize);
             context.PlayerSpawn.position = gridSpace.GridToWorld(room.PlayerSpawn);
-            Vector3 playerPosition = gridSpace.GridToWorld(room.PlayerSpawn);
-            playerPosition.y = context.PlayerPlaceholder.position.y;
-            context.PlayerPlaceholder.position = playerPosition;
+            Transform player = SynchronizePlayerPresentation(
+                context.GridRoot,
+                context.PlayerPlaceholder,
+                gridSpace.GridToWorld(room.PlayerSpawn));
             chaserSpawn.position = gridSpace.GridToWorld(room.ChaserSpawn);
             if (room.ChargerSpawn.HasValue)
             {
@@ -3960,7 +4128,7 @@ namespace BombSwap.Editor.ContentValidation
             }
 
             Renderer playerRenderer =
-                context.PlayerPlaceholder.GetComponentInChildren<Renderer>();
+                player.GetComponentInChildren<Renderer>();
             if (playerRenderer == null)
             {
                 throw new InvalidOperationException(
@@ -3971,7 +4139,7 @@ namespace BombSwap.Editor.ContentValidation
                 inputReader,
                 context.GridRoot,
                 context.PlayerSpawn,
-                context.PlayerPlaceholder,
+                player,
                 chaserSpawn,
                 roomDefinition,
                 chargerSpawn,
@@ -3990,7 +4158,9 @@ namespace BombSwap.Editor.ContentValidation
                 startingBoss: bossDefinition,
                 startingSelfDestruct: selfDestructDefinition,
                 startingThrower: throwerDefinition);
-            playerController.Configure(gameSession, context.PlayerPlaceholder);
+            Animator playerAnimator = player.GetComponentInChildren<Animator>(true);
+            playerController.Configure(gameSession, player);
+            playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, playerRenderer);
@@ -4011,6 +4181,7 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(context);
             EditorUtility.SetDirty(gameSession);
             EditorUtility.SetDirty(playerController);
+            EditorUtility.SetDirty(playerAnimationPresenter);
             EditorUtility.SetDirty(bombPresenter);
             EditorUtility.SetDirty(destructibleWallPresenter);
             EditorUtility.SetDirty(healthPresenter);
@@ -4026,6 +4197,67 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(weaponHud);
             EditorUtility.SetDirty(harnessProbe);
             EditorUtility.SetDirty(roomAdvanceController);
+        }
+
+        private static Transform SynchronizePlayerPresentation(
+            Transform gridRoot,
+            Transform currentPlayer,
+            Vector3 worldPosition)
+        {
+            if (gridRoot == null)
+            {
+                throw new ArgumentNullException(nameof(gridRoot));
+            }
+
+            GameObject playerPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.PlayerPrefabPath);
+            GameObject source = currentPlayer != null
+                ? PrefabUtility.GetCorrespondingObjectFromOriginalSource(
+                    currentPlayer.gameObject)
+                : null;
+            bool usesCanonicalPrefab = source != null && string.Equals(
+                AssetDatabase.GetAssetPath(source),
+                PrototypeContentValidator.PlayerPrefabPath,
+                StringComparison.Ordinal);
+
+            Transform player = currentPlayer;
+            if (!usesCanonicalPrefab)
+            {
+                if (currentPlayer != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(currentPlayer.gameObject);
+                }
+
+                GameObject instance = PrefabUtility.InstantiatePrefab(
+                    playerPrefab,
+                    gridRoot) as GameObject;
+                if (instance == null)
+                {
+                    throw new InvalidOperationException(
+                        "Unity failed to instantiate the canonical player prefab.");
+                }
+
+                player = instance.transform;
+            }
+
+            player.SetParent(gridRoot, true);
+            player.position = worldPosition;
+            player.rotation = Quaternion.identity;
+            player.localScale = Vector3.one;
+
+            Animator[] animators = player.GetComponentsInChildren<Animator>(true);
+            Renderer[] renderers = player.GetComponentsInChildren<Renderer>(true);
+            if (!player.CompareTag("Player") ||
+                animators.Length != 1 ||
+                renderers.Length == 0 ||
+                player.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                player.GetComponentsInChildren<Rigidbody>(true).Length != 0)
+            {
+                throw new InvalidOperationException(
+                    "Canonical player instance has invalid tag, Animator, Renderer, or physics components.");
+            }
+
+            return player;
         }
 
         private static void SetSerializedObjectName(
@@ -4062,13 +4294,24 @@ namespace BombSwap.Editor.ContentValidation
             var expected = new HashSet<GridPosition>(room.IndestructibleWalls);
             var actual = new HashSet<GridPosition>();
             var gridSpace = new GridSpace(gridRoot.position, roomDefinition.CellSize);
+            float obstacleY = PrototypeContentValidator.IsDungeonPresentationScenePath(
+                gridRoot.gameObject.scene.path)
+                ? 0f
+                : 0.5f;
             bool matches = obstacles.childCount == expected.Count;
             for (int index = 0; index < obstacles.childCount; index++)
             {
-                GridPosition cell = gridSpace.WorldToGrid(obstacles.GetChild(index).position);
+                Transform obstacle = obstacles.GetChild(index);
+                GridPosition cell = gridSpace.WorldToGrid(obstacle.position);
                 if (!actual.Add(cell) || !expected.Contains(cell))
                 {
                     matches = false;
+                }
+                if (!Mathf.Approximately(obstacle.localPosition.y, obstacleY))
+                {
+                    Vector3 localPosition = obstacle.localPosition;
+                    localPosition.y = obstacleY;
+                    obstacle.localPosition = localPosition;
                 }
             }
             if (matches && actual.SetEquals(expected))
@@ -4096,7 +4339,7 @@ namespace BombSwap.Editor.ContentValidation
                     $"Obstacle_{index}_{wall.X}_{wall.Z}",
                     PrimitiveType.Cube,
                     obstacles,
-                    new Vector3(wall.X * cellSize, 0.5f, wall.Z * cellSize),
+                    new Vector3(wall.X * cellSize, obstacleY, wall.Z * cellSize),
                     new Vector3(0.9f * cellSize, 1f, 0.9f * cellSize),
                     wallMaterial,
                     true);
@@ -4124,6 +4367,12 @@ namespace BombSwap.Editor.ContentValidation
             var gridSpace = new GridSpace(gridRoot.position, roomDefinition.CellSize);
             Material material = AssetDatabase.LoadAssetAtPath<Material>(
                 PrototypeContentValidator.DestructibleWallMaterialPath);
+            GameObject woodBoxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.WoodBoxPrefabPath);
+            bool usesEnvironmentVisuals = string.Equals(
+                gridRoot.gameObject.scene.path,
+                PrototypeContentValidator.TestSandboxScenePath,
+                StringComparison.Ordinal);
             if (material == null)
             {
                 throw new InvalidOperationException("Prototype destructible-wall material is missing.");
@@ -4138,8 +4387,14 @@ namespace BombSwap.Editor.ContentValidation
                     matches = false;
                 }
                 Renderer[] renderers = obstacle.GetComponentsInChildren<Renderer>(true);
-                if (renderers.Length != 4 ||
-                    renderers.Any(renderer => renderer.sharedMaterial != material) ||
+                Transform visual = obstacle.Find("Visual");
+                bool matchesVisual = usesEnvironmentVisuals
+                    ? renderers.Length > 0 && woodBoxPrefab != null && visual != null &&
+                      PrefabUtility.GetCorrespondingObjectFromSource(visual.gameObject) ==
+                          woodBoxPrefab
+                    : renderers.Length == 4 &&
+                      renderers.All(renderer => renderer.sharedMaterial == material);
+                if (!matchesVisual ||
                     obstacle.GetComponentsInChildren<Collider>(true).Length != 0)
                 {
                     matches = false;

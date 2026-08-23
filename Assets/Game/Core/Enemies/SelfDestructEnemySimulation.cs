@@ -22,11 +22,16 @@ namespace BombSwap.Core
             new Dictionary<GridPosition, int>();
         private readonly Queue<GridPosition> chaseFrontier =
             new Queue<GridPosition>();
+        private readonly CommittedActorMovement movement;
         private TimeSpan lastObservedTime;
         private TimeSpan nextChaseStepAt;
         private TimeSpan warningStartedAt;
         private BombId armedBombId;
+        private BombId pendingTriggeringExplosionId;
+        private bool hasPendingForceTrigger;
         private IReadOnlyList<GridPosition> telegraphCells = NoTelegraphCells;
+        private EnemyLocomotionState locomotionState;
+        private EnemyMovementTransition movementTransition;
 
         public SelfDestructEnemySimulation(
             GridState grid,
@@ -77,7 +82,7 @@ namespace BombSwap.Core
 
             ActorId = actorId;
             TargetActorId = targetActorId;
-            CurrentPosition = startPosition;
+            movement = new CommittedActorMovement(grid, actorId, startPosition, clock.Now);
             TargetPosition = targetPosition;
             State = SelfDestructEnemyState.Chase;
             nextChaseStepAt = clock.Now;
@@ -90,11 +95,20 @@ namespace BombSwap.Core
 
         public ActorId TargetActorId { get; }
 
-        public GridPosition CurrentPosition { get; private set; }
+        public GridPosition CurrentPosition => movement.CurrentCell;
+
+        public GridSubcellPosition Position => movement.Position;
+
+        public GridPosition GetCurrentCellAt(TimeSpan gameTime) =>
+            movement.GetCurrentCellAt(gameTime);
 
         public GridPosition TargetPosition { get; private set; }
 
         public SelfDestructEnemyState State { get; private set; }
+
+        public EnemyLocomotionState LocomotionState => locomotionState;
+
+        public EnemyMovementTransition MovementTransition => movementTransition;
 
         public bool IsArmed => armedBombId.IsValid;
 
@@ -120,13 +134,36 @@ namespace BombSwap.Core
             }
 
             lastObservedTime = now;
+            movement.Advance(now);
+            if (movement.IsMoving)
+            {
+                locomotionState = EnemyLocomotionState.Moving;
+                return NoActivity();
+            }
+            if (pendingTriggeringExplosionId.IsValid)
+            {
+                BombId trigger = pendingTriggeringExplosionId;
+                pendingTriggeringExplosionId = default;
+                hasPendingForceTrigger = false;
+                TargetPosition = CurrentPosition;
+                return BeginTelegraph(trigger);
+            }
+            if (hasPendingForceTrigger)
+            {
+                hasPendingForceTrigger = false;
+                pendingTriggeringExplosionId = default;
+                TargetPosition = CurrentPosition;
+                return BeginTelegraph(default);
+            }
             if (!IsChasing)
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
             if (!grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition))
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
@@ -158,9 +195,20 @@ namespace BombSwap.Core
                 return BeginTelegraph(default);
             }
 
-            EnemyMovementStep movement = default;
-            bool hasMovement = TryMoveToward(targetPosition, out movement);
-            distance = ManhattanDistance(CurrentPosition, targetPosition);
+            TimeSpan movementDuration = GetCurrentStepInterval(now);
+            EnemyMovementStep movementStep = default;
+            bool hasMovement = TryMoveToward(
+                targetPosition,
+                now,
+                movementDuration,
+                out movementStep);
+            locomotionState = hasMovement
+                ? EnemyLocomotionState.Moving
+                : EnemyLocomotionState.Idle;
+            GridPosition selectedCell = hasMovement
+                ? movementStep.To
+                : CurrentPosition;
+            distance = ManhattanDistance(selectedCell, targetPosition);
             if (distance <= Definition.WarningDistance)
             {
                 if (State != SelfDestructEnemyState.WarningChase)
@@ -175,11 +223,17 @@ namespace BombSwap.Core
                 warningStartedAt = default;
             }
 
-            TimeSpan movementDuration = GetCurrentStepInterval(now);
             nextChaseStepAt = AddWithSaturation(now, movementDuration);
+            if (hasMovement)
+            {
+                movementTransition = new EnemyMovementTransition(
+                    movementStep,
+                    now,
+                    movementDuration);
+            }
             return CreateResult(
                 previousState,
-                movement,
+                movementStep,
                 movementDuration,
                 hasMovement,
                 false);
@@ -201,6 +255,18 @@ namespace BombSwap.Core
                 return false;
             }
 
+            if (movement.IsMoving)
+            {
+                if (pendingTriggeringExplosionId.IsValid || hasPendingForceTrigger)
+                {
+                    result = NoActivity();
+                    return false;
+                }
+                pendingTriggeringExplosionId = triggeringExplosionId;
+                result = NoActivity();
+                return false;
+            }
+
             TargetPosition = CurrentPosition;
             result = BeginTelegraph(triggeringExplosionId);
             return true;
@@ -210,6 +276,16 @@ namespace BombSwap.Core
         {
             if (!IsChasing)
             {
+                result = NoActivity();
+                return false;
+            }
+
+            if (movement.IsMoving)
+            {
+                if (!pendingTriggeringExplosionId.IsValid && !hasPendingForceTrigger)
+                {
+                    hasPendingForceTrigger = true;
+                }
                 result = NoActivity();
                 return false;
             }
@@ -255,6 +331,7 @@ namespace BombSwap.Core
 
             SelfDestructEnemyState previous = State;
             State = SelfDestructEnemyState.Detonated;
+            locomotionState = EnemyLocomotionState.Idle;
             telegraphCells = NoTelegraphCells;
             return new SelfDestructEnemyAdvanceResult(
                 ActorId,
@@ -288,6 +365,7 @@ namespace BombSwap.Core
         {
             SelfDestructEnemyState previous = State;
             State = SelfDestructEnemyState.Telegraph;
+            locomotionState = EnemyLocomotionState.Idle;
             warningStartedAt = default;
             TriggeringExplosionId = triggeringExplosionId;
             return new SelfDestructEnemyAdvanceResult(
@@ -304,6 +382,8 @@ namespace BombSwap.Core
 
         private bool TryMoveToward(
             GridPosition targetPosition,
+            TimeSpan now,
+            TimeSpan duration,
             out EnemyMovementStep movement)
         {
             BuildDistanceField(targetPosition);
@@ -331,17 +411,20 @@ namespace BombSwap.Core
 
             GridPosition previousPosition = CurrentPosition;
             GridPosition destination = GetTarget(CurrentPosition, selectedDirection);
-            if (!grid.TryMoveActor(ActorId, destination))
+            if (!this.movement.TryStart(
+                    destination,
+                    selectedDirection,
+                    now,
+                    duration))
             {
                 movement = default;
                 return false;
             }
 
-            CurrentPosition = destination;
             movement = new EnemyMovementStep(
                 ActorId,
                 previousPosition,
-                CurrentPosition,
+                destination,
                 selectedDirection);
             return true;
         }
@@ -384,13 +467,16 @@ namespace BombSwap.Core
 
             return position == CurrentPosition ||
                 position == targetPosition ||
-                cell.Occupancy == GridOccupancy.None;
+                (cell.Occupancy == GridOccupancy.None &&
+                 !grid.IsCellReservedForActorMove(position));
         }
 
         private bool IsAvailable(GridPosition position)
         {
             GridCellState cell = grid.GetCell(position);
-            return cell.IsWalkableTerrain && cell.Occupancy == GridOccupancy.None;
+            return cell.IsWalkableTerrain &&
+                cell.Occupancy == GridOccupancy.None &&
+                !grid.IsCellReservedForActorMove(position);
         }
 
         private SelfDestructEnemyAdvanceResult NoActivity()

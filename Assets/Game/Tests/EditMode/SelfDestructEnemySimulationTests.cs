@@ -139,7 +139,15 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.HasMovement, Is.True);
             Assert.That(result.TargetPosition, Is.EqualTo(new GridPosition(0, -3)));
             Assert.That(result.Movement.To, Is.EqualTo(new GridPosition(3, -1)));
+            Assert.That(enemy.MovementTransition.Movement, Is.EqualTo(result.Movement));
+            Assert.That(enemy.MovementTransition.StartedAt, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(enemy.MovementTransition.EndsAt, Is.EqualTo(StepInterval));
             Assert.That(enemy.State, Is.EqualTo(SelfDestructEnemyState.Chase));
+            Assert.That(enemy.CurrentPosition, Is.EqualTo(new GridPosition(3, 0)));
+
+            clock.Advance(TimeSpan.FromTicks(StepInterval.Ticks / 2));
+            Assert.That(enemy.Advance().HasActivity, Is.False);
+            Assert.That(enemy.CurrentPosition, Is.EqualTo(new GridPosition(3, -1)));
         }
 
         [Test]
@@ -215,6 +223,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.HasMovement, Is.False);
             Assert.That(result.ShouldArm, Is.True);
             Assert.That(result.State, Is.EqualTo(SelfDestructEnemyState.Telegraph));
+            Assert.That(enemy.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
             Assert.That(enemy.CurrentPosition, Is.EqualTo(enemyPosition));
         }
 
@@ -387,6 +396,7 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(result.HasActivity, Is.False);
             Assert.That(enemy.CurrentPosition, Is.EqualTo(enemyPosition));
+            Assert.That(enemy.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
         }
 
         [Test]
@@ -419,12 +429,42 @@ namespace BombSwap.Tests.EditMode
                 CreateBombId(7),
                 out SelfDestructEnemyAdvanceResult result);
 
-            Assert.That(triggered, Is.True);
+            Assert.That(triggered, Is.False);
+            Assert.That(result.HasActivity, Is.False);
+            Assert.That(enemy.TryTriggerFromExplosion(CreateBombId(8), out _), Is.False);
+            Assert.That(enemy.TryForceTrigger(out _), Is.False);
+            clock.Advance(StepInterval);
+            result = enemy.Advance();
             Assert.That(result.ShouldArm, Is.True);
             Assert.That(result.TargetPosition, Is.EqualTo(new GridPosition(0, 3)));
             Assert.That(enemy.IsDetonated, Is.False);
             Assert.That(enemy.TriggeringExplosionId, Is.EqualTo(CreateBombId(7)));
-            Assert.That(enemy.TryTriggerFromExplosion(CreateBombId(8), out _), Is.False);
+            Assert.That(enemy.TryTriggerFromExplosion(CreateBombId(9), out _), Is.False);
+            Assert.That(enemy.Advance().HasActivity, Is.False);
+        }
+
+        [Test]
+        public void ForceTrigger_DuringMovementWaitsForCommittedStepCompletion()
+        {
+            var clock = new ManualGameClock();
+            SelfDestructEnemySimulation enemy = CreateSimulation(
+                clock,
+                GridPositionAtOrigin(),
+                new GridPosition(0, 4));
+            Assert.That(enemy.Advance().HasMovement, Is.True);
+
+            Assert.That(enemy.TryForceTrigger(out SelfDestructEnemyAdvanceResult pending), Is.False);
+            Assert.That(pending.HasActivity, Is.False);
+            Assert.That(enemy.TryTriggerFromExplosion(CreateBombId(7), out _), Is.False);
+            Assert.That(enemy.TryForceTrigger(out _), Is.False);
+            clock.Advance(StepInterval);
+
+            SelfDestructEnemyAdvanceResult triggered = enemy.Advance();
+
+            Assert.That(triggered.ShouldArm, Is.True);
+            Assert.That(triggered.State, Is.EqualTo(SelfDestructEnemyState.Telegraph));
+            Assert.That(triggered.TargetPosition, Is.EqualTo(new GridPosition(0, 3)));
+            Assert.That(enemy.Advance().HasActivity, Is.False);
         }
 
         [Test]

@@ -5,6 +5,7 @@ using BombSwap.Core;
 using BombSwap.Editor.UI;
 using TMPro;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -18,6 +19,14 @@ namespace BombSwap.Editor.ContentValidation
 {
     public static class PrototypeContentValidator
     {
+        private static readonly string[] PrivateVendorAssetRoots =
+        {
+            "Assets/ThirdParty/",
+            "Assets/Feel/",
+            "Assets/Plugins/Demigiant/DOTweenPro/",
+            "Assets/Arts/VFX/",
+        };
+
         public const string LobbyScenePath =
             "Assets/Game/Scenes/Lobby/DungeonLobby.unity";
         public const string GameFontAssetPath =
@@ -58,6 +67,21 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/Dungeon/DungeonSecret.unity";
         public const string DungeonBossScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonBoss.unity";
+
+        public static bool IsDungeonPresentationScenePath(string scenePath)
+        {
+            return string.Equals(scenePath, DungeonStartScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonRewardScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonBossAnteScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonRecoveryScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonSecretScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, DungeonBossScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxThrowerScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxPillarsScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxArmorScenePath, StringComparison.Ordinal) ||
+                string.Equals(scenePath, TestSandboxGatesScenePath, StringComparison.Ordinal);
+        }
         public const string PrototypeBombDefinitionPath =
             "Assets/Game/Content/Bombs/PrototypeCrossBomb.asset";
         public const string PrototypeAreaBombDefinitionPath =
@@ -78,6 +102,14 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Bombs/PrototypeBombRewardCatalog.asset";
         public const string PrototypePlayerVitalsPath =
             "Assets/Game/Content/Player/PrototypePlayerVitals.asset";
+        public const string PlayerPrefabPath =
+            "Assets/Game/Content/Prefabs/Player/PlayerDuck.prefab";
+        public const string PlayerAnimatorControllerPath =
+            "Assets/Arts/Character/PlayerDuck/Animations/AC_Player_Duck.controller";
+        public const string PlayerUpperBodyMaskPath =
+            "Assets/Arts/Character/PlayerDuck/Animations/AM_Player_UpperBody.mask";
+        public const string PlayerPlaceBombAnimationPath =
+            "Assets/Arts/Character/PlayerDuck/Animations/put-down-bomb.fbx";
         public const string PrototypeChaserDefinitionPath =
             "Assets/Game/Content/Enemies/PrototypeChaser.asset";
         public const string PrototypeChargerDefinitionPath =
@@ -105,15 +137,15 @@ namespace BombSwap.Editor.ContentValidation
         public const string PrototypeCombatThrowerDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatThrower.asset";
         public const string BombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Player/NormalBomb.prefab";
         public const string ExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ExplosionCellPlaceholder.prefab";
         public const string AreaBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/AreaBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Player/RangeBomb.prefab";
         public const string AreaExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
         public const string LineBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/LineBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab";
         public const string LineExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/LineExplosionCellPlaceholder.prefab";
         public const string BossThrowBombPrefabPath =
@@ -125,9 +157,33 @@ namespace BombSwap.Editor.ContentValidation
         public const string BossChainExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossChainExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/ChaserPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/ChaserPig.prefab";
+        public const string ChaserAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-rigged.controller";
+        public const string ChaserIdleClipPath =
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-idle.fbx";
+        public const string ChaserRunClipPath =
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-run.fbx";
+        public const string ChaserAttackClipPath =
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-attack.fbx";
+        public const string ChaserDieClipPath =
+            "Assets/Arts/Character/Pig/Chaser/Animations/normal-pig-die.fbx";
         public const string ChargerPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/ChargerPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/ChargerPig.prefab";
+        public const string ChargerAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/AC_Charger_Pig.controller";
+        public const string ChargerIdleClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-idle.fbx";
+        public const string ChargerRunClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-walk.fbx";
+        public const string ChargerTelegraphClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-telegraph.fbx";
+        public const string ChargerChargeClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-charge.fbx";
+        public const string ChargerRecoverClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-recover.fbx";
+        public const string ChargerDieClipPath =
+            "Assets/Arts/Character/Pig/Charger/Animations/charger-pig-die.fbx";
         public const string ChargerTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ChargerTelegraphCellPlaceholder.prefab";
         public const string ArmoredPrefabPath =
@@ -135,15 +191,53 @@ namespace BombSwap.Editor.ContentValidation
         public const string ArmoredPanicTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ArmoredPanicTelegraphCellPlaceholder.prefab";
         public const string SelfDestructPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/SelfDestructPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/SelfDestructPig.prefab";
+        public const string SelfDestructAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/AC_SelfDestruct_Pig.controller";
+        public const string SelfDestructIdleClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-idle.fbx";
+        public const string SelfDestructRunClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-run.fbx";
+        public const string SelfDestructTelegraphClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-telegraph.fbx";
+        public const string SelfDestructDetonateClipPath =
+            "Assets/Arts/Character/Pig/SelfDestruct/Animations/selfdestruct-pig-detonate.fbx";
         public const string SelfDestructTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/SelfDestructTelegraphCellPlaceholder.prefab";
         public const string ThrowerPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/ThrowerPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/ThrowerPig.prefab";
+        public const string ThrowerAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/AC_Thrower_Pig.controller";
+        public const string ThrowerIdleClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-idle.fbx";
+        public const string ThrowerWalkClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-walk.fbx";
+        public const string ThrowerThrowClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-throw.fbx";
+        public const string ThrowerDieClipPath =
+            "Assets/Arts/Character/Pig/Thrower/Animations/thrower-pig-die.fbx";
         public const string ThrowerTelegraphCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ThrowerTelegraphCellPlaceholder.prefab";
         public const string BossPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BossPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Enemies/BossPig.prefab";
+        public const string BossAnimatorControllerPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/AC_Boss_Pig.controller";
+        public const string BossIdleClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-idle.fbx";
+        public const string BossWalkClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-walk.fbx";
+        public const string BossTelegraphClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-telegraph.fbx";
+        public const string BossChargeClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-charge.fbx";
+        public const string BossSummonClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-summon.fbx";
+        public const string BossThrowLeftClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-throw-left.fbx";
+        public const string BossThrowRightClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-throw-right.fbx";
+        public const string BossDieClipPath =
+            "Assets/Arts/Character/Pig/Boss/Animations/boss-pig-die.fbx";
         public const string BossDangerCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossDangerCellPlaceholder.prefab";
         public const string DestructibleWallMaterialPath =
@@ -178,6 +272,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);
+            ValidatePlayerPrefab(errors);
             ValidatePrototypeChaserDefinition(errors);
             ValidatePrototypeChargerDefinition(errors);
             ValidatePrototypeArmoredDefinition(errors);
@@ -197,6 +292,205 @@ namespace BombSwap.Editor.ContentValidation
             ValidateStandaloneBossPlaytestScene(errors);
             ValidateStandaloneThrowerPlaytestScene(errors);
             ValidateBuildSettings(errors);
+            ValidatePublicAssetDependencies(errors);
+        }
+
+        private static void ValidatePublicAssetDependencies(
+            ICollection<string> errors)
+        {
+            ISet<string> approvedPlayerBombVfxDependencies =
+                LocalLicensedVfxSetup.GetApprovedPlayerBombVfxDependencies();
+            string[] assetGuids = AssetDatabase.FindAssets(
+                string.Empty,
+                new[] { "Assets/Game" });
+            for (int assetIndex = 0; assetIndex < assetGuids.Length; assetIndex++)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(assetGuids[assetIndex]);
+                if (string.IsNullOrEmpty(assetPath) ||
+                    AssetDatabase.IsValidFolder(assetPath))
+                {
+                    continue;
+                }
+
+                string[] dependencies = AssetDatabase.GetDependencies(
+                    assetPath,
+                    true);
+                for (int dependencyIndex = 0;
+                     dependencyIndex < dependencies.Length;
+                     dependencyIndex++)
+                {
+                    string dependency = dependencies[dependencyIndex];
+                    if (LocalLicensedVfxSetup.IsApprovedPlayerBombVfxReference(
+                            assetPath,
+                            dependency,
+                            dependencies,
+                            approvedPlayerBombVfxDependencies))
+                    {
+                        continue;
+                    }
+                    if (PrivateVendorAssetRoots.Any(root =>
+                            dependency.StartsWith(
+                                root,
+                                StringComparison.OrdinalIgnoreCase)))
+                    {
+                        errors.Add(
+                            $"Public asset '{assetPath}' directly references private vendor asset '{dependency}'.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidatePlayerPrefab(ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            if (prefab == null)
+            {
+                errors.Add($"Missing canonical player prefab: {PlayerPrefabPath}");
+                return;
+            }
+
+            Animator[] animators = prefab.GetComponentsInChildren<Animator>(true);
+            SkinnedMeshRenderer[] renderers =
+                prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            AnimatorController controller = animators.Length == 1
+                ? animators[0].runtimeAnimatorController as AnimatorController
+                : null;
+            bool hasIsMoving = controller != null && controller.parameters.Any(parameter =>
+                parameter.name == "IsMoving" &&
+                parameter.type == AnimatorControllerParameterType.Bool);
+            bool hasPlaceBomb = controller != null && controller.parameters.Any(parameter =>
+                parameter.name == "PlaceBomb" &&
+                parameter.type == AnimatorControllerParameterType.Trigger);
+            bool hasDie = controller != null && controller.parameters.Any(parameter =>
+                parameter.name == "Die" &&
+                parameter.type == AnimatorControllerParameterType.Trigger);
+            bool hasUpperBodyLayer = ValidatePlayerAnimatorLayerContract(controller);
+            if (!prefab.CompareTag("Player") ||
+                animators.Length != 1 ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                    PlayerAnimatorControllerPath,
+                    StringComparison.Ordinal) ||
+                animators[0].avatar == null ||
+                !animators[0].avatar.isValid ||
+                !animators[0].avatar.isHuman ||
+                animators[0].applyRootMotion ||
+                !hasIsMoving ||
+                !hasPlaceBomb ||
+                !hasDie ||
+                !hasUpperBodyLayer ||
+                renderers.Length != 1 ||
+                prefab.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                prefab.GetComponentsInChildren<Rigidbody>(true).Length != 0)
+            {
+                errors.Add(
+                    "Canonical player prefab requires the Player tag, one valid Humanoid Animator, " +
+                    "IsMoving (Bool), PlaceBomb and Die (Trigger) parameters, one " +
+                    "masked Upper Body override layer for bomb placement, one SkinnedMeshRenderer, " +
+                    "disabled root motion, and no Collider or Rigidbody.");
+            }
+        }
+
+        private static bool ValidatePlayerAnimatorLayerContract(AnimatorController controller)
+        {
+            if (controller == null ||
+                controller.layers.Length != 2 ||
+                controller.layers[1].name != "Upper Body" ||
+                controller.layers[1].blendingMode != AnimatorLayerBlendingMode.Override ||
+                Math.Abs(controller.layers[1].defaultWeight - 1f) > 0.0001f ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(controller.layers[1].avatarMask),
+                    PlayerUpperBodyMaskPath,
+                    StringComparison.Ordinal) ||
+                !ValidatePlayerUpperBodyMask(controller.layers[1].avatarMask) ||
+                controller.layers[0].stateMachine.states.Any(child =>
+                    child.state != null && child.state.name == "player_put_down_bomb"))
+            {
+                return false;
+            }
+
+            AnimatorStateMachine stateMachine = controller.layers[1].stateMachine;
+            AnimatorState[] emptyStates = stateMachine.states
+                .Select(child => child.state)
+                .Where(state => state != null && state.name == "UpperBodyEmpty")
+                .ToArray();
+            AnimatorState[] placeBombStates = stateMachine.states
+                .Select(child => child.state)
+                .Where(state => state != null && state.name == "player_put_down_bomb")
+                .ToArray();
+            if (stateMachine.states.Length != 2 ||
+                emptyStates.Length != 1 ||
+                placeBombStates.Length != 1)
+            {
+                return false;
+            }
+
+            AnimatorState empty = emptyStates[0];
+            AnimatorState placeBomb = placeBombStates[0];
+            return stateMachine.defaultState == empty &&
+                   string.Equals(
+                       AssetDatabase.GetAssetPath(placeBomb.motion),
+                       PlayerPlaceBombAnimationPath,
+                       StringComparison.Ordinal) &&
+                   HasSingleAnimatorTransition(
+                       empty.transitions,
+                       placeBomb,
+                       "PlaceBomb",
+                       AnimatorConditionMode.If,
+                       false) &&
+                   placeBomb.transitions.Length == 1 &&
+                   placeBomb.transitions[0].destinationState == empty &&
+                   placeBomb.transitions[0].hasExitTime &&
+                   placeBomb.transitions[0].conditions.Length == 0 &&
+                   HasSingleAnimatorTransition(
+                       stateMachine.anyStateTransitions,
+                       empty,
+                       "Die",
+                       AnimatorConditionMode.If,
+                       false) &&
+                   !stateMachine.anyStateTransitions[0].canTransitionToSelf;
+        }
+
+        private static bool HasSingleAnimatorTransition(
+            AnimatorStateTransition[] transitions,
+            AnimatorState destination,
+            string parameter,
+            AnimatorConditionMode mode,
+            bool hasExitTime)
+        {
+            return transitions.Length == 1 &&
+                   transitions[0].destinationState == destination &&
+                   transitions[0].hasExitTime == hasExitTime &&
+                   transitions[0].conditions.Length == 1 &&
+                   transitions[0].conditions[0].parameter == parameter &&
+                   transitions[0].conditions[0].mode == mode;
+        }
+
+        private static bool ValidatePlayerUpperBodyMask(AvatarMask mask)
+        {
+            if (mask == null)
+            {
+                return false;
+            }
+
+            for (int bodyPart = 0; bodyPart < (int)AvatarMaskBodyPart.LastBodyPart; bodyPart++)
+            {
+                AvatarMaskBodyPart part = (AvatarMaskBodyPart)bodyPart;
+                bool expected = part == AvatarMaskBodyPart.Body ||
+                                part == AvatarMaskBodyPart.Head ||
+                                part == AvatarMaskBodyPart.LeftArm ||
+                                part == AvatarMaskBodyPart.RightArm ||
+                                part == AvatarMaskBodyPart.LeftFingers ||
+                                part == AvatarMaskBodyPart.RightFingers ||
+                                part == AvatarMaskBodyPart.LeftHandIK ||
+                                part == AvatarMaskBodyPart.RightHandIK;
+                if (mask.GetHumanoidBodyPartActive(part) != expected)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ValidateGameFont(ICollection<string> errors)
@@ -601,15 +895,21 @@ namespace BombSwap.Editor.ContentValidation
                     BombExplosionShape.Cross,
                     2,
                     errors);
-            if ((bossThrowDefinition != null &&
-                 bossThrowDefinition.FuseSeconds != 1.25f) ||
+            if ((firstDefinition != null &&
+                 firstDefinition.FuseSeconds != 2f) ||
+                (secondDefinition != null &&
+                 secondDefinition.FuseSeconds != 2f) ||
+                (lineDefinition != null &&
+                 lineDefinition.FuseSeconds != 2f) ||
+                (bossThrowDefinition != null &&
+                 bossThrowDefinition.FuseSeconds != 2f) ||
                 (bossChainDefinition != null &&
-                 bossChainDefinition.FuseSeconds != 2.25f))
+                 bossChainDefinition.FuseSeconds != 2f))
             {
                 errors.Add(
-                    "Prototype boss throw/chain bomb fuses must be 1.25 and 2.25 seconds.");
+                    "Prototype cross, area, line, boss throw, and boss chain bomb fuses must be 2 seconds.");
             }
-            ValidateForwardLineBombVisual(errors);
+            ValidatePlayerBombVisuals(errors);
             PrototypeBombLoadoutAsset loadout =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
                     PrototypeBombLoadoutPath);
@@ -697,28 +997,44 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static void ValidateForwardLineBombVisual(ICollection<string> errors)
+        private static void ValidatePlayerBombVisuals(ICollection<string> errors)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LineBombPrefabPath);
-            Material material = AssetDatabase.LoadAssetAtPath<Material>(
-                "Assets/Game/Content/Materials/Prototype/LineBomb.mat");
-            if (prefab == null)
+            string[] prefabPaths =
             {
-                return;
-            }
+                BombPrefabPath,
+                AreaBombPrefabPath,
+                LineBombPrefabPath,
+            };
+            string[] expectedNames =
+            {
+                "NormalBomb",
+                "RangeBomb",
+                "StraightBomb",
+            };
+            for (int index = 0; index < prefabPaths.Length; index++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    prefabPaths[index]);
+                if (prefab == null)
+                {
+                    continue;
+                }
 
-            Transform body = prefab.transform.Find("DirectionBody");
-            Transform tip = prefab.transform.Find("DirectionTip");
-            Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>(true);
-            if (prefab.name != "LineBombPlaceholder" ||
-                prefab.transform.childCount != 2 ||
-                body == null || tip == null ||
-                renderers.Length != 2 || material == null ||
-                renderers.Any(renderer => renderer.sharedMaterial != material) ||
-                prefab.GetComponentsInChildren<Collider>(true).Length != 0)
-            {
-                errors.Add(
-                    "Prototype line-bomb prefab must be an asymmetric collider-free two-part visual using LineBomb material.");
+                Renderer[] renderers =
+                    prefab.GetComponentsInChildren<Renderer>(true);
+                Animator[] animators =
+                    prefab.GetComponentsInChildren<Animator>(true);
+                if (prefab.name != expectedNames[index] ||
+                    renderers.Length == 0 ||
+                    animators.Length != 1 ||
+                    animators[0].runtimeAnimatorController == null ||
+                    animators[0].applyRootMotion ||
+                    prefab.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                    prefab.GetComponentsInChildren<Rigidbody>(true).Length != 0)
+                {
+                    errors.Add(
+                        $"Player bomb prefab '{prefabPaths[index]}' must use its animated collider-free visual with root motion disabled.");
+                }
             }
         }
 
@@ -838,6 +1154,107 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add("Prototype chaser prefab must not contain a Collider; logical grid owns collision.");
             }
+            if (definition.ChaserPrefab != null)
+            {
+                Animator[] animators =
+                    definition.ChaserPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.ChaserPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                bool hasAnimatorContract = ValidateChaserAnimatorContract(controller);
+                if (animators.Length != 1 ||
+                    renderers.Length == 0 ||
+                    animators[0].avatar == null ||
+                    !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman ||
+                    animators[0].applyRootMotion ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        ChaserAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !hasAnimatorContract ||
+                    definition.ChaserPrefab.GetComponentInChildren<Rigidbody>(true) != null)
+                {
+                    errors.Add(
+                        "Canonical chaser prefab requires one valid Humanoid Animator with the " +
+                        "Chaser Idle/Run/Attack/Die contract, a skinned renderer, " +
+                        "disabled root motion, and no Rigidbody.");
+                }
+            }
+        }
+
+        private static bool ValidateChaserAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 3 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "Attack" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "Die" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "ChaserIdle");
+            AnimatorState run = FindSingleAnimatorState(machine, "ChaserRun");
+            AnimatorState attack = FindSingleAnimatorState(machine, "ChaserAttack");
+            AnimatorState die = FindSingleAnimatorState(machine, "ChaserDie");
+            if (idle == null || run == null || attack == null || die == null ||
+                machine.states.Length != 4 || machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), ChaserIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(run.motion), ChaserRunClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(attack.motion), ChaserAttackClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(die.motion), ChaserDieClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, run, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(idle.transitions, attack, "Attack", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(run.transitions, attack, "Attack", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(attack.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, true) &&
+                   HasAnimatorTransition(attack.transitions, run, "IsMoving", AnimatorConditionMode.If, true) &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && run.transitions.Length == 2 &&
+                   attack.transitions.Length == 2 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 1 &&
+                   !machine.anyStateTransitions[0].canTransitionToSelf;
+        }
+
+        private static AnimatorState FindSingleAnimatorState(
+            AnimatorStateMachine machine,
+            string stateName)
+        {
+            AnimatorState[] matches = machine.states
+                .Select(child => child.state)
+                .Where(state => state != null && state.name == stateName)
+                .ToArray();
+            return matches.Length == 1 ? matches[0] : null;
+        }
+
+        private static bool HasAnimatorTransition(
+            AnimatorStateTransition[] transitions,
+            AnimatorState destination,
+            string parameter,
+            AnimatorConditionMode mode,
+            bool hasExitTime)
+        {
+            return transitions.Count(transition =>
+                transition.destinationState == destination &&
+                transition.hasExitTime == hasExitTime &&
+                transition.conditions.Length == 1 &&
+                transition.conditions[0].parameter == parameter &&
+                transition.conditions[0].mode == mode) == 1;
         }
 
         private static void ValidatePrototypeChargerDefinition(ICollection<string> errors)
@@ -883,6 +1300,31 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add("Prototype charger prefab must not contain a Collider; logical grid owns collision.");
             }
+            if (definition.ChargerPrefab != null)
+            {
+                Animator[] animators =
+                    definition.ChargerPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.ChargerPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.ChargerPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        ChargerAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateChargerAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical charger prefab requires one valid Humanoid Animator with " +
+                        "Track/Telegraph/Charge/Recover/Die states, a skinned renderer, " +
+                        "disabled root motion, and no Rigidbody.");
+                }
+            }
             if (definition.TelegraphCellPrefab != null &&
                 definition.TelegraphCellPrefab.GetComponentInChildren<Collider>(true) != null)
             {
@@ -890,6 +1332,62 @@ namespace BombSwap.Editor.ContentValidation
                     "Prototype charger telegraph-cell prefab must not contain a Collider; " +
                     "logical grid owns collision.");
             }
+        }
+
+        private static bool ValidateChargerAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 6 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1)
+            {
+                return false;
+            }
+            foreach (string trigger in new[] { "Track", "Telegraph", "Charge", "Recover", "Die" })
+            {
+                if (controller.parameters.Count(parameter =>
+                        parameter.name == trigger &&
+                        parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+                {
+                    return false;
+                }
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "ChargerIdle");
+            AnimatorState run = FindSingleAnimatorState(machine, "ChargerRun");
+            AnimatorState telegraph = FindSingleAnimatorState(machine, "ChargerTelegraph");
+            AnimatorState charge = FindSingleAnimatorState(machine, "ChargerCharge");
+            AnimatorState recover = FindSingleAnimatorState(machine, "ChargerRecover");
+            AnimatorState die = FindSingleAnimatorState(machine, "ChargerDie");
+            if (idle == null || run == null || telegraph == null || charge == null ||
+                recover == null || die == null || machine.states.Length != 6 ||
+                machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), ChargerIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(run.motion), ChargerRunClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(telegraph.motion), ChargerTelegraphClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(charge.motion), ChargerChargeClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(recover.motion), ChargerRecoverClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(die.motion), ChargerDieClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, run, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(idle.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(telegraph.transitions, charge, "Charge", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(charge.transitions, recover, "Recover", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(recover.transitions, idle, "Track", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && run.transitions.Length == 2 &&
+                   telegraph.transitions.Length == 1 && charge.transitions.Length == 1 &&
+                   recover.transitions.Length == 1 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 1 &&
+                   !machine.anyStateTransitions[0].canTransitionToSelf;
         }
 
         private static void ValidatePrototypeArmoredDefinition(ICollection<string> errors)
@@ -1031,6 +1529,78 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype self-destruct definition has inconsistent blast or presentation references.");
             }
+            if (definition.EnemyPrefab != null)
+            {
+                Animator[] animators =
+                    definition.EnemyPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.EnemyPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.EnemyPrefab.GetComponentInChildren<Collider>(true) != null ||
+                    definition.EnemyPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        SelfDestructAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateSelfDestructAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical self-destruct prefab requires one valid Humanoid Animator " +
+                        "with Idle/Run/Telegraph/Detonate states, a skinned renderer, " +
+                        "disabled root motion, and no Collider or Rigidbody.");
+                }
+            }
+        }
+
+        private static bool ValidateSelfDestructAnimatorContract(
+            AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 3 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "Telegraph" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter =>
+                    parameter.name == "Detonate" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "SelfDestructIdle");
+            AnimatorState run = FindSingleAnimatorState(machine, "SelfDestructRun");
+            AnimatorState telegraph =
+                FindSingleAnimatorState(machine, "SelfDestructTelegraph");
+            AnimatorState detonate =
+                FindSingleAnimatorState(machine, "SelfDestructDetonate");
+            if (idle == null || run == null || telegraph == null || detonate == null ||
+                machine.states.Length != 4 || machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), SelfDestructIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(run.motion), SelfDestructRunClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(telegraph.motion), SelfDestructTelegraphClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(detonate.motion), SelfDestructDetonateClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, run, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(idle.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(run.transitions, telegraph, "Telegraph", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(telegraph.transitions, detonate, "Detonate", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && run.transitions.Length == 2 &&
+                   telegraph.transitions.Length == 1 && detonate.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 0;
         }
 
         private static void ValidatePrototypeBossDefinition(ICollection<string> errors)
@@ -1065,11 +1635,11 @@ namespace BombSwap.Editor.ContentValidation
                     core.Tuning.LastStandOverheatDuration != TimeSpan.FromSeconds(2.25) ||
                     core.ThrowBombDefinition.Id !=
                         new BombDefinitionId("prototype-boss-throw") ||
-                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(1.25) ||
+                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(2) ||
                     core.ThrowBombDefinition.Range != 2 ||
                     core.ChainBombDefinition.Id !=
                         new BombDefinitionId("prototype-boss-chain") ||
-                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2.25) ||
+                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2) ||
                     core.ChainBombDefinition.Range != 2 ||
                     definition.BossSpawn != new GridPosition(0, 1))
                 {
@@ -1118,6 +1688,31 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Prototype boss presentation prefabs must not contain Colliders; logical grid owns collision.");
+            }
+            if (definition.BossPrefab != null)
+            {
+                Animator[] animators =
+                    definition.BossPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.BossPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.BossPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        BossAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateBossAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical boss prefab requires one valid Humanoid Animator with the " +
+                        "Idle/Walk/Telegraph/Charge/Summon/alternating Throw/Die contract, " +
+                        "a skinned renderer, disabled root motion, and no Rigidbody.");
+                }
             }
 
             PrototypeCombatRoomDefinitionAsset shell =
@@ -1168,6 +1763,94 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static bool ValidateBossAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 8 ||
+                !HasSingleAnimatorParameter(controller, "Alive", AnimatorControllerParameterType.Bool) ||
+                !HasSingleAnimatorParameter(controller, "IsMoving", AnimatorControllerParameterType.Bool) ||
+                !HasSingleAnimatorParameter(controller, "Telegraph", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "Charge", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "Summon", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "ThrowLeft", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "ThrowRight", AnimatorControllerParameterType.Trigger) ||
+                !HasSingleAnimatorParameter(controller, "Die", AnimatorControllerParameterType.Trigger))
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "BossIdle");
+            AnimatorState walk = FindSingleAnimatorState(machine, "BossWalk");
+            AnimatorState telegraph = FindSingleAnimatorState(machine, "BossTelegraph");
+            AnimatorState charge = FindSingleAnimatorState(machine, "BossCharge");
+            AnimatorState summon = FindSingleAnimatorState(machine, "BossSummon");
+            AnimatorState throwLeft = FindSingleAnimatorState(machine, "BossThrowLeft");
+            AnimatorState throwRight = FindSingleAnimatorState(machine, "BossThrowRight");
+            AnimatorState die = FindSingleAnimatorState(machine, "BossDie");
+            if (idle == null || walk == null || telegraph == null || charge == null ||
+                summon == null || throwLeft == null || throwRight == null || die == null ||
+                machine.states.Length != 8 || machine.stateMachines.Length != 0 ||
+                !HasAnimatorMotion(idle, BossIdleClipPath) ||
+                !HasAnimatorMotion(walk, BossWalkClipPath) ||
+                !HasAnimatorMotion(telegraph, BossTelegraphClipPath) ||
+                !HasAnimatorMotion(charge, BossChargeClipPath) ||
+                !HasAnimatorMotion(summon, BossSummonClipPath) ||
+                !HasAnimatorMotion(throwLeft, BossThrowLeftClipPath) ||
+                !HasAnimatorMotion(throwRight, BossThrowRightClipPath) ||
+                !HasAnimatorMotion(die, BossDieClipPath))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, walk, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(walk.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasBossLivingTransition(machine.anyStateTransitions, telegraph, "Telegraph") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, charge, "Charge") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, summon, "Summon") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, throwLeft, "ThrowLeft") &&
+                   HasBossLivingTransition(machine.anyStateTransitions, throwRight, "ThrowRight") &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 1 && walk.transitions.Length == 1 &&
+                   telegraph.transitions.Length == 2 && charge.transitions.Length == 2 &&
+                   summon.transitions.Length == 2 && throwLeft.transitions.Length == 2 &&
+                   throwRight.transitions.Length == 2 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 6 &&
+                   machine.anyStateTransitions.All(transition => !transition.canTransitionToSelf);
+        }
+
+        private static bool HasSingleAnimatorParameter(
+            AnimatorController controller,
+            string name,
+            AnimatorControllerParameterType type)
+        {
+            return controller.parameters.Count(parameter =>
+                parameter.name == name && parameter.type == type) == 1;
+        }
+
+        private static bool HasAnimatorMotion(AnimatorState state, string assetPath)
+        {
+            return string.Equals(
+                AssetDatabase.GetAssetPath(state.motion), assetPath, StringComparison.Ordinal);
+        }
+
+        private static bool HasBossLivingTransition(
+            AnimatorStateTransition[] transitions,
+            AnimatorState destination,
+            string trigger)
+        {
+            return transitions.Count(transition =>
+                transition.destinationState == destination &&
+                !transition.hasExitTime && transition.conditions.Length == 2 &&
+                transition.conditions.Any(condition =>
+                    condition.parameter == trigger &&
+                    condition.mode == AnimatorConditionMode.If) &&
+                transition.conditions.Any(condition =>
+                    condition.parameter == "Alive" &&
+                    condition.mode == AnimatorConditionMode.If)) == 1;
+        }
+
         private static void ValidatePrototypeThrowerDefinition(
             ICollection<string> errors)
         {
@@ -1202,7 +1885,7 @@ namespace BombSwap.Editor.ContentValidation
                     core.BombsPerVolley != 3 ||
                     bomb.Id != new BombDefinitionId("prototype-thrower-blocker") ||
                     bomb.ExplosionShape != BombExplosionShape.Cross ||
-                    bomb.FuseDuration != TimeSpan.FromSeconds(1.5) ||
+                    bomb.FuseDuration != TimeSpan.FromSeconds(2) ||
                     bomb.Range != 1 ||
                     room.Id != new RoomDefinitionId("prototype-combat-thrower") ||
                     room.ChaserSpawn != new GridPosition(-2, 2) ||
@@ -1260,6 +1943,76 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype thrower definition has inconsistent bomb or presentation references.");
             }
+            if (definition.EnemyPrefab != null)
+            {
+                Animator[] animators =
+                    definition.EnemyPrefab.GetComponentsInChildren<Animator>(true);
+                SkinnedMeshRenderer[] renderers =
+                    definition.EnemyPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                AnimatorController controller = animators.Length == 1
+                    ? animators[0].runtimeAnimatorController as AnimatorController
+                    : null;
+                if (animators.Length != 1 || renderers.Length == 0 ||
+                    animators[0].avatar == null || !animators[0].avatar.isValid ||
+                    !animators[0].avatar.isHuman || animators[0].applyRootMotion ||
+                    definition.EnemyPrefab.GetComponentInChildren<Collider>(true) != null ||
+                    definition.EnemyPrefab.GetComponentInChildren<Rigidbody>(true) != null ||
+                    !string.Equals(
+                        AssetDatabase.GetAssetPath(animators[0].runtimeAnimatorController),
+                        ThrowerAnimatorControllerPath,
+                        StringComparison.Ordinal) ||
+                    !ValidateThrowerAnimatorContract(controller))
+                {
+                    errors.Add(
+                        "Canonical thrower prefab requires one valid Humanoid Animator " +
+                        "with Idle/Walk/Throw/Die states, a skinned renderer, " +
+                        "disabled root motion, and no Collider or Rigidbody.");
+                }
+            }
+        }
+
+        private static bool ValidateThrowerAnimatorContract(AnimatorController controller)
+        {
+            if (controller == null || controller.layers.Length != 1 ||
+                controller.parameters.Length != 4 ||
+                controller.parameters.Count(parameter => parameter.name == "IsMoving" &&
+                    parameter.type == AnimatorControllerParameterType.Bool) != 1 ||
+                controller.parameters.Count(parameter => parameter.name == "Throw" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter => parameter.name == "Recover" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1 ||
+                controller.parameters.Count(parameter => parameter.name == "Die" &&
+                    parameter.type == AnimatorControllerParameterType.Trigger) != 1)
+            {
+                return false;
+            }
+
+            AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimatorState idle = FindSingleAnimatorState(machine, "ThrowerIdle");
+            AnimatorState walk = FindSingleAnimatorState(machine, "ThrowerWalk");
+            AnimatorState throwState = FindSingleAnimatorState(machine, "ThrowerThrow");
+            AnimatorState die = FindSingleAnimatorState(machine, "ThrowerDie");
+            if (idle == null || walk == null || throwState == null || die == null ||
+                machine.states.Length != 4 || machine.stateMachines.Length != 0 ||
+                !string.Equals(AssetDatabase.GetAssetPath(idle.motion), ThrowerIdleClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(walk.motion), ThrowerWalkClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(throwState.motion), ThrowerThrowClipPath, StringComparison.Ordinal) ||
+                !string.Equals(AssetDatabase.GetAssetPath(die.motion), ThrowerDieClipPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return machine.defaultState == idle &&
+                   HasAnimatorTransition(idle.transitions, walk, "IsMoving", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(walk.transitions, idle, "IsMoving", AnimatorConditionMode.IfNot, false) &&
+                   HasAnimatorTransition(idle.transitions, throwState, "Throw", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(walk.transitions, throwState, "Throw", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(throwState.transitions, idle, "Recover", AnimatorConditionMode.If, false) &&
+                   HasAnimatorTransition(machine.anyStateTransitions, die, "Die", AnimatorConditionMode.If, false) &&
+                   idle.transitions.Length == 2 && walk.transitions.Length == 2 &&
+                   throwState.transitions.Length == 1 && die.transitions.Length == 0 &&
+                   machine.anyStateTransitions.Length == 1 &&
+                   !machine.anyStateTransitions[0].canTransitionToSelf;
         }
 
         private static bool HasMinimumExitDistance(
@@ -2446,6 +3199,8 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeGameSession[] sessions = FindComponents<PrototypeGameSession>(scene);
                 PrototypePlayerController[] playerControllers =
                     FindComponents<PrototypePlayerController>(scene);
+                PrototypePlayerAnimationPresenter[] playerAnimationPresenters =
+                    FindComponents<PrototypePlayerAnimationPresenter>(scene);
                 PrototypeBombPresenter[] bombPresenters =
                     FindComponents<PrototypeBombPresenter>(scene);
                 PrototypeDestructibleWallPresenter[] destructibleWallPresenters =
@@ -2513,6 +3268,12 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"TestSandbox must contain exactly one PrototypePlayerController; found {playerControllers.Length}.");
+                }
+                if (playerAnimationPresenters.Length != 1)
+                {
+                    errors.Add(
+                        "TestSandbox must contain exactly one " +
+                        $"PrototypePlayerAnimationPresenter; found {playerAnimationPresenters.Length}.");
                 }
                 if (bombPresenters.Length != 1)
                 {
@@ -2731,16 +3492,44 @@ namespace BombSwap.Editor.ContentValidation
                 if (playerControllers.Length == 1 && sessions.Length == 1 && contexts.Length == 1)
                 {
                     PrototypePlayerController controller = playerControllers[0];
+                    Transform player = contexts[0].PlayerPlaceholder;
                     if (controller.Session != sessions[0] ||
-                        controller.PlayerTransform != contexts[0].PlayerPlaceholder)
+                        controller.PlayerTransform != player)
                     {
-                        errors.Add("TestSandbox player controller has inconsistent scene references.");
+                        errors.Add(
+                            "TestSandbox player controller must reference the canonical player Transform.");
                     }
                     if (float.IsNaN(controller.CellsPerSecond) ||
                         float.IsInfinity(controller.CellsPerSecond) ||
                         controller.CellsPerSecond <= 0f)
                     {
                         errors.Add("TestSandbox player controller speed must be finite and positive.");
+                    }
+                }
+
+                if (playerAnimationPresenters.Length == 1 &&
+                    sessions.Length == 1 && contexts.Length == 1)
+                {
+                    PrototypePlayerAnimationPresenter presenter = playerAnimationPresenters[0];
+                    Transform player = contexts[0].PlayerPlaceholder;
+                    GameObject playerSource = player != null
+                        ? PrefabUtility.GetCorrespondingObjectFromOriginalSource(player.gameObject)
+                        : null;
+                    string playerPrefabPath = AssetDatabase.GetAssetPath(playerSource);
+                    Animator playerAnimator = player != null
+                        ? player.GetComponentInChildren<Animator>(true)
+                        : null;
+                    if (presenter.Session != sessions[0] ||
+                        presenter.Animator != playerAnimator ||
+                        playerAnimator == null ||
+                        !string.Equals(
+                            playerPrefabPath,
+                            PlayerPrefabPath,
+                            StringComparison.Ordinal))
+                    {
+                        errors.Add(
+                            "TestSandbox player animation presenter must reference the session and " +
+                            "Animator on the canonical player prefab.");
                     }
                 }
 
@@ -3017,8 +3806,19 @@ namespace BombSwap.Editor.ContentValidation
         {
             if (!presenter.IsConfigured || context.GridRoot == null)
             {
-                errors.Add("Dungeon door presenter is missing one or more door renderers.");
+                errors.Add(
+                    "Dungeon door presenter is missing a door renderer or secret-crack root.");
                 return;
+            }
+
+            GameObject authoredSecretWallBreakVfx =
+                presenter.SecretWallBreakVfxPrefab;
+            if (authoredSecretWallBreakVfx != null &&
+                authoredSecretWallBreakVfx
+                    .GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            {
+                errors.Add(
+                    "Dungeon door presenter secret-wall VFX requires at least one ParticleSystem.");
             }
 
             Renderer[] doors =
@@ -3027,6 +3827,13 @@ namespace BombSwap.Editor.ContentValidation
                 presenter.EastDoor,
                 presenter.SouthDoor,
                 presenter.WestDoor,
+            };
+            Animator[] doorAnimators =
+            {
+                presenter.NorthDoorAnimator,
+                presenter.EastDoorAnimator,
+                presenter.SouthDoorAnimator,
+                presenter.WestDoorAnimator,
             };
             GameObject[] secretCrackRoots =
             {
@@ -3061,18 +3868,42 @@ namespace BombSwap.Editor.ContentValidation
                     "Dungeon boundary must contain eight split walls, four door panels, and four secret-crack roots.");
                 return;
             }
+            bool validatesDoorPrefabs = IsDungeonPresentationScenePath(
+                context.gameObject.scene.path);
+            GameObject expectedDoorPrefab = validatesDoorPrefabs
+                ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.DoorPrefabPath)
+                : null;
             for (int index = 0; index < doors.Length; index++)
             {
                 Renderer door = doors[index];
-                if (door == null || door.transform.parent != boundary ||
-                    !string.Equals(
-                        door.gameObject.name,
-                        expectedNames[index],
-                        StringComparison.Ordinal) ||
-                    door.GetComponent<Collider>() != null)
+                Animator animator = doorAnimators[index];
+                bool matchesDoor = validatesDoorPrefabs
+                    ? door != null && animator != null && expectedDoorPrefab != null &&
+                      animator.transform.parent == boundary &&
+                      string.Equals(
+                          animator.gameObject.name,
+                          expectedNames[index],
+                          StringComparison.Ordinal) &&
+                      PrefabUtility.GetCorrespondingObjectFromSource(
+                          animator.gameObject) == expectedDoorPrefab &&
+                      animator.GetComponentsInChildren<Renderer>(true).Length == 1 &&
+                      animator.GetComponentInChildren<Renderer>(true) == door &&
+                      animator.GetComponentsInChildren<Collider>(true).Length == 0 &&
+                      animator.GetComponentsInChildren<Rigidbody>(true).Length == 0 &&
+                      HasAnimatorBoolParameter(animator, "IsOpen")
+                    : door != null && door.transform.parent == boundary &&
+                      string.Equals(
+                          door.gameObject.name,
+                          expectedNames[index],
+                          StringComparison.Ordinal) &&
+                      door.GetComponent<Collider>() == null;
+                if (!matchesDoor)
                 {
                     errors.Add(
-                        $"Dungeon {expectedNames[index]} must be a collider-free panel under BoundaryWalls.");
+                        validatesDoorPrefabs
+                            ? $"Dungeon {expectedNames[index]} must use the collider-free Door prefab with one Animator and an IsOpen bool parameter."
+                            : $"Dungeon {expectedNames[index]} must be a collider-free panel under BoundaryWalls.");
                 }
             }
 
@@ -3089,6 +3920,34 @@ namespace BombSwap.Editor.ContentValidation
             for (int index = 0; index < secretCrackRoots.Length; index++)
             {
                 GameObject root = secretCrackRoots[index];
+                if (validatesDoorPrefabs)
+                {
+                    GameObject expectedCrackedPrefab =
+                        AssetDatabase.LoadAssetAtPath<GameObject>(
+                            EnvironmentBlockVisualAuthoring.CrackedBrickBlockPrefabPath);
+                    Transform doorRoot = doorAnimators[index] != null
+                        ? doorAnimators[index].transform
+                        : null;
+                    if (root == null || expectedCrackedPrefab == null ||
+                        root.transform.parent != boundary || root.activeSelf ||
+                        !string.Equals(
+                            root.name,
+                            expectedCrackNames[index],
+                            StringComparison.Ordinal) ||
+                        PrefabUtility.GetCorrespondingObjectFromSource(root) !=
+                            expectedCrackedPrefab ||
+                        root.GetComponentsInChildren<Renderer>(true).Length == 0 ||
+                        root.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                        root.GetComponentsInChildren<Rigidbody>(true).Length != 0 ||
+                        doorRoot == null ||
+                        Vector3.SqrMagnitude(
+                            root.transform.position - doorRoot.position) > 0.000001f)
+                    {
+                        errors.Add(
+                            $"Dungeon {expectedCrackNames[index]} must use the inactive collider-free CrackedBrickBlock prefab at the matching {expectedNames[index]} position.");
+                    }
+                    continue;
+                }
                 Renderer[] renderers = root != null
                     ? root.GetComponentsInChildren<Renderer>(true)
                     : Array.Empty<Renderer>();
@@ -3278,10 +4137,18 @@ namespace BombSwap.Editor.ContentValidation
 
             var authoredWalls = new HashSet<GridPosition>(room.IndestructibleWalls);
             var seenWalls = new HashSet<GridPosition>();
+            bool validatesEnvironmentVisuals = IsDungeonPresentationScenePath(
+                context.gameObject.scene.path);
             for (int index = 0; index < obstacles.childCount; index++)
             {
                 Transform obstacle = obstacles.GetChild(index);
                 GridPosition cell = context.GridSpace.WorldToGrid(obstacle.position);
+                if (validatesEnvironmentVisuals &&
+                    !Mathf.Approximately(obstacle.localPosition.y, 0f))
+                {
+                    errors.Add(
+                        $"Dungeon obstacle {obstacle.name} local Y must be 0.");
+                }
                 if (!seenWalls.Add(cell))
                 {
                     errors.Add($"TestSandbox has duplicate obstacle visuals at {cell}.");
@@ -3300,6 +4167,113 @@ namespace BombSwap.Editor.ContentValidation
                 }
             }
 
+            GameObject brickPrefab = validatesEnvironmentVisuals
+                ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.BrickBlockPrefabPath)
+                : null;
+            GameObject cornerPrefab = validatesEnvironmentVisuals
+                ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.BrickCornerPrefabPath)
+                : null;
+            for (int index = 0;
+                 validatesEnvironmentVisuals && index < obstacles.childCount;
+                 index++)
+            {
+                Transform visual = obstacles.GetChild(index).Find("Visual");
+                if (!IsExpectedVisualPrefab(visual, cornerPrefab))
+                {
+                    errors.Add(
+                        $"TestSandbox obstacle {obstacles.GetChild(index).name} must use the collider-free BrickCorner visual prefab.");
+                }
+            }
+
+            if (validatesEnvironmentVisuals)
+            {
+                Transform floorVisuals =
+                    context.GridRoot.Find("Environment/FloorVisuals");
+                int expectedFloorCount = (room.Width * room.Depth) + 4;
+                if (floorVisuals != null &&
+                    !Mathf.Approximately(
+                        floorVisuals.localPosition.y,
+                        EnvironmentBlockVisualAuthoring.FloorVisualRootY))
+                {
+                    errors.Add(
+                        $"Dungeon FloorVisuals Y must be {EnvironmentBlockVisualAuthoring.FloorVisualRootY}.");
+                }
+                if (floorVisuals == null || floorVisuals.childCount != expectedFloorCount)
+                {
+                    errors.Add(
+                        $"TestSandbox floor must contain {expectedFloorCount} BrickBlock visual cells.");
+                }
+                else
+                {
+                    var actualFloorPositions = new HashSet<Vector3>();
+                    for (int index = 0; index < floorVisuals.childCount; index++)
+                    {
+                        actualFloorPositions.Add(
+                            floorVisuals.GetChild(index).localPosition);
+                        if (!IsExpectedVisualPrefab(floorVisuals.GetChild(index), brickPrefab))
+                        {
+                            errors.Add("TestSandbox floor contains an invalid visual prefab.");
+                            break;
+                        }
+                    }
+                    float cellSize = context.GridSpace.CellSize;
+                    int halfWidth = room.Width / 2;
+                    int halfDepth = room.Depth / 2;
+                    var expectedFloorPositions = new HashSet<Vector3>();
+                    for (int x = -halfWidth; x <= halfWidth; x++)
+                    {
+                        for (int z = -halfDepth; z <= halfDepth; z++)
+                        {
+                            expectedFloorPositions.Add(
+                                new Vector3(x * cellSize, 0f, z * cellSize));
+                        }
+                    }
+                    int edgeX = halfWidth + 1;
+                    int edgeZ = halfDepth + 1;
+                    expectedFloorPositions.Add(new Vector3(0f, 0f, edgeZ * cellSize));
+                    expectedFloorPositions.Add(new Vector3(edgeX * cellSize, 0f, 0f));
+                    expectedFloorPositions.Add(new Vector3(0f, 0f, -edgeZ * cellSize));
+                    expectedFloorPositions.Add(new Vector3(-edgeX * cellSize, 0f, 0f));
+                    if (!actualFloorPositions.SetEquals(expectedFloorPositions))
+                    {
+                        errors.Add(
+                            "TestSandbox floor cells must cover the authored room and all four door positions exactly.");
+                    }
+                }
+
+                Transform boundaryVisuals =
+                    context.GridRoot.Find("Environment/BoundaryVisuals");
+                Transform boundaryBaseVisuals =
+                    context.GridRoot.Find("Environment/BoundaryBaseVisuals");
+                int expectedBoundaryCount =
+                    (2 * (room.Width - 1)) + (2 * (room.Depth - 1)) + 4;
+                if (boundaryVisuals == null ||
+                    boundaryVisuals.childCount != expectedBoundaryCount)
+                {
+                    errors.Add(
+                        $"TestSandbox boundary must contain {expectedBoundaryCount} brick visual cells.");
+                }
+                else
+                {
+                    for (int index = 0; index < boundaryVisuals.childCount; index++)
+                    {
+                        Transform visual = boundaryVisuals.GetChild(index);
+                        if (!IsExpectedVisualPrefab(visual, cornerPrefab))
+                        {
+                            errors.Add("TestSandbox boundary contains an invalid visual prefab.");
+                            break;
+                        }
+                    }
+                }
+                if (boundaryBaseVisuals != null)
+                {
+                    errors.Add(
+                        "TestSandbox must not contain legacy BoundaryBaseVisuals; door support belongs to FloorVisuals.");
+                }
+            }
+
 
             Transform destructibleObstacles =
                 context.GridRoot.Find("Environment/DestructibleObstacles");
@@ -3309,8 +4283,6 @@ namespace BombSwap.Editor.ContentValidation
                 return;
             }
 
-            Material destructibleMaterial = AssetDatabase.LoadAssetAtPath<Material>(
-                DestructibleWallMaterialPath);
             var authoredDestructibleWalls =
                 new HashSet<GridPosition>(room.DestructibleWalls);
             var seenDestructibleWalls = new HashSet<GridPosition>();
@@ -3329,11 +4301,23 @@ namespace BombSwap.Editor.ContentValidation
                 }
 
                 Renderer[] renderers = obstacle.GetComponentsInChildren<Renderer>(true);
-                if (renderers.Length != 4 || destructibleMaterial == null ||
-                    renderers.Any(renderer => renderer.sharedMaterial != destructibleMaterial))
+                Material destructibleMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+                    DestructibleWallMaterialPath);
+                Transform visual = obstacle.Find("Visual");
+                GameObject woodBoxPrefab = validatesEnvironmentVisuals
+                    ? AssetDatabase.LoadAssetAtPath<GameObject>(
+                        EnvironmentBlockVisualAuthoring.WoodBoxPrefabPath)
+                    : null;
+                bool matchesVisual = validatesEnvironmentVisuals
+                    ? renderers.Length > 0 &&
+                      IsExpectedVisualPrefab(visual, woodBoxPrefab)
+                    : renderers.Length == 4 && destructibleMaterial != null &&
+                      renderers.All(renderer =>
+                          renderer.sharedMaterial == destructibleMaterial);
+                if (!matchesVisual)
                 {
                     errors.Add(
-                        $"TestSandbox destructible visual {obstacle.name} must use four segmented blocks and the validated material.");
+                        $"TestSandbox destructible visual {obstacle.name} must contain a visible model.");
                 }
                 if (obstacle.GetComponentsInChildren<Collider>(true).Length != 0)
                 {
@@ -3350,6 +4334,38 @@ namespace BombSwap.Editor.ContentValidation
                         $"TestSandbox is missing a destructible visual for authored wall {wall}.");
                 }
             }
+        }
+
+        private static bool HasAnimatorBoolParameter(
+            Animator animator,
+            string parameterName)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null)
+            {
+                return false;
+            }
+            return animator.parameters.Any(parameter =>
+                parameter.type == AnimatorControllerParameterType.Bool &&
+                string.Equals(
+                    parameter.name,
+                    parameterName,
+                    StringComparison.Ordinal));
+        }
+
+        private static bool IsExpectedVisualPrefab(
+            Transform visual,
+            GameObject expectedPrefab)
+        {
+            if (visual == null || expectedPrefab == null ||
+                PrefabUtility.GetCorrespondingObjectFromSource(visual.gameObject) !=
+                    expectedPrefab ||
+                visual.GetComponentsInChildren<Collider>(true).Length != 0)
+            {
+                return false;
+            }
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            return renderers.Length > 0 && renderers.Any(renderer => renderer.enabled);
         }
 
         private static void ValidateTransformCell(

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PrototypeBossChainBomb
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
   definitionId: prototype-boss-chain
-  fuseSeconds: 2.25
+  fuseSeconds: 2
   range: 2
   explosionShape: 0
   placementCooldownSeconds: 1.5

@@ -53,10 +53,10 @@ MonoBehaviour:
   bombThrowIntervalSeconds: 0.4
   selfDestructForceSeconds: 4.5
   bossSpawn: {x: 0, y: 1}
-  bossPrefab: {fileID: 3692990424253940051, guid: 3b792cdab45b3e444b030bdd9798b725, type: 3}
+  bossPrefab: {fileID: 3535402664322960062, guid: 31d58628e77e5ac469d1ad31af12c02c, type: 3}
   dangerCellPrefab: {fileID: 2260241691694644187, guid: 1f2bdbdb9e127864daf1bf754f6cc360, type: 3}
   throwBombDefinition: {fileID: 11400000, guid: 7dc274bce4780a3428df3fc86d14c2d2, type: 2}
   chainBombDefinition: {fileID: 11400000, guid: 79f727dc0204225489a1bc51d12b6f42, type: 2}
-  visualHeight: 0.6
+  visualHeight: 0
   dangerCellVisualHeight: 0.03
   deathVisualSeconds: 0.2

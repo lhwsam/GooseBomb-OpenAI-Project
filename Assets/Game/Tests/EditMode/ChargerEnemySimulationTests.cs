@@ -95,10 +95,17 @@ namespace BombSwap.Tests.EditMode
             Assert.That(first.State, Is.EqualTo(ChargerEnemyState.Track));
             Assert.That(first.Movement.To, Is.EqualTo(new GridPosition(0, 1)));
             Assert.That(first.Movement.Direction, Is.EqualTo(CardinalDirection.North));
+            Assert.That(charger.MovementTransition.Movement, Is.EqualTo(first.Movement));
+            Assert.That(charger.MovementTransition.StartedAt, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(
+                charger.MovementTransition.EndsAt,
+                Is.EqualTo(LaneAcquireStepInterval));
+            Assert.That(charger.CurrentPosition, Is.EqualTo(GridPositionAtOrigin()));
             Assert.That(charger.Advance().HasActivity, Is.False);
 
             clock.Advance(LaneAcquireStepInterval - TimeSpan.FromTicks(1));
             Assert.That(charger.Advance().HasActivity, Is.False);
+            Assert.That(charger.CurrentPosition, Is.EqualTo(new GridPosition(0, 1)));
             clock.Advance(TimeSpan.FromTicks(1));
             ChargerEnemyAdvanceResult second = charger.Advance();
 
@@ -158,6 +165,7 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(charger.Advance().HasActivity, Is.False);
             Assert.That(charger.State, Is.EqualTo(ChargerEnemyState.Track));
+            Assert.That(charger.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
             clock.Advance(LaneAcquireStepInterval - TimeSpan.FromTicks(1));
             Assert.That(charger.Advance().HasActivity, Is.False);
         }
@@ -186,6 +194,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.HasMovement, Is.False);
             Assert.That(result.ImpactedTarget, Is.False);
             Assert.That(charger.State, Is.EqualTo(ChargerEnemyState.Telegraph));
+            Assert.That(charger.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
             Assert.That(charger.LockedDirection, Is.EqualTo(expectedDirection));
         }
 
@@ -445,6 +454,7 @@ namespace BombSwap.Tests.EditMode
             clock.Advance(TelegraphDuration);
             ChargerEnemyAdvanceResult charge = charger.Advance();
             Assert.That(charge.State, Is.EqualTo(ChargerEnemyState.Charge));
+            Assert.That(charger.LocomotionState, Is.EqualTo(EnemyLocomotionState.Moving));
         }
 
         private static ChargerEnemySimulation CreateSimulation(

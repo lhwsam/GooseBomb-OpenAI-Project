@@ -11,6 +11,10 @@ namespace BombSwap.Core
             new Dictionary<ActorId, GridPosition>();
         private readonly Dictionary<GridPosition, ActorId> actorIdsByPosition =
             new Dictionary<GridPosition, ActorId>();
+        private readonly Dictionary<ActorId, GridPosition> actorMoveReservations =
+            new Dictionary<ActorId, GridPosition>();
+        private readonly Dictionary<GridPosition, ActorId> reservedActorIdsByPosition =
+            new Dictionary<GridPosition, ActorId>();
 
         public GridCellState GetCell(GridPosition position)
         {
@@ -24,7 +28,9 @@ namespace BombSwap.Core
             ValidateTerrain(terrain);
 
             GridCellState current = GetCell(position);
-            if (current.Occupancy != GridOccupancy.None && terrain != GridTerrain.Floor)
+            if ((current.Occupancy != GridOccupancy.None ||
+                    reservedActorIdsByPosition.ContainsKey(position)) &&
+                terrain != GridTerrain.Floor)
             {
                 return false;
             }
@@ -40,7 +46,8 @@ namespace BombSwap.Core
             GridCellState current = GetCell(position);
             if (actorPositions.ContainsKey(actorId) ||
                 !current.IsWalkableTerrain ||
-                current.Occupancy != GridOccupancy.None)
+                current.Occupancy != GridOccupancy.None ||
+                reservedActorIdsByPosition.ContainsKey(position))
             {
                 return false;
             }
@@ -71,6 +78,7 @@ namespace BombSwap.Core
 
             actorPositions.Remove(actorId);
             actorIdsByPosition.Remove(position);
+            ReleaseActorMoveReservation(actorId);
             SetOrRemoveCell(
                 position,
                 new GridCellState(
@@ -88,7 +96,8 @@ namespace BombSwap.Core
         public bool TryAddBomb(GridPosition position)
         {
             GridCellState current = GetCell(position);
-            if (!current.IsWalkableTerrain || current.HasBomb)
+            if (!current.IsWalkableTerrain || current.HasBomb ||
+                (reservedActorIdsByPosition.ContainsKey(position) && !current.HasActor))
             {
                 return false;
             }
@@ -117,23 +126,29 @@ namespace BombSwap.Core
 
         public bool TryMoveActor(ActorId actorId, GridPosition to)
         {
-            return TryMoveActor(actorId, to, false);
+            return TryMoveActor(actorId, to, false, false);
         }
 
         public bool TryMoveActorAllowingBombOverlap(
             ActorId actorId,
             GridPosition to)
         {
-            return TryMoveActor(actorId, to, true);
+            return TryMoveActor(actorId, to, true, false);
         }
 
         private bool TryMoveActor(
             ActorId actorId,
             GridPosition to,
-            bool allowBombOverlap)
+            bool allowBombOverlap,
+            bool isReservationCommit)
         {
             ValidateActorId(actorId);
             if (!actorPositions.TryGetValue(actorId, out GridPosition from))
+            {
+                return false;
+            }
+            if (actorMoveReservations.TryGetValue(actorId, out GridPosition reservedTo) &&
+                (!isReservationCommit || reservedTo != to))
             {
                 return false;
             }
@@ -157,6 +172,7 @@ namespace BombSwap.Core
             }
             if (!destination.IsWalkableTerrain ||
                 destination.HasActor ||
+                IsReservedByAnotherActor(actorId, to) ||
                 (!allowBombOverlap && destination.HasBomb))
             {
                 return false;
@@ -171,6 +187,89 @@ namespace BombSwap.Core
             actorPositions[actorId] = to;
             actorIdsByPosition.Remove(from);
             actorIdsByPosition.Add(to, actorId);
+            return true;
+        }
+
+        public bool TryReserveActorMove(ActorId actorId, GridPosition to)
+        {
+            ValidateActorId(actorId);
+            if (!actorPositions.TryGetValue(actorId, out GridPosition from))
+            {
+                return false;
+            }
+            if (actorMoveReservations.ContainsKey(actorId))
+            {
+                throw new InvalidOperationException("Actor already has a movement reservation.");
+            }
+
+            long distanceX = Math.Abs((long)to.X - from.X);
+            long distanceZ = Math.Abs((long)to.Z - from.Z);
+            if (distanceX + distanceZ != 1L)
+            {
+                throw new ArgumentException(
+                    "Actor movement must reserve one cardinally adjacent cell.",
+                    nameof(to));
+            }
+
+            GridCellState destination = GetCell(to);
+            if (!destination.IsWalkableTerrain ||
+                destination.Occupancy != GridOccupancy.None ||
+                reservedActorIdsByPosition.ContainsKey(to))
+            {
+                return false;
+            }
+
+            actorMoveReservations.Add(actorId, to);
+            reservedActorIdsByPosition.Add(to, actorId);
+            return true;
+        }
+
+        public bool TryCommitReservedActorMove(ActorId actorId)
+        {
+            ValidateActorId(actorId);
+            if (!actorMoveReservations.TryGetValue(actorId, out GridPosition to))
+            {
+                return false;
+            }
+
+            return TryMoveActor(actorId, to, false, true);
+        }
+
+        public bool CompleteActorMove(ActorId actorId)
+        {
+            ValidateActorId(actorId);
+            return ReleaseActorMoveReservation(actorId);
+        }
+
+        public bool TryGetActorMoveReservation(ActorId actorId, out GridPosition position)
+        {
+            ValidateActorId(actorId);
+            return actorMoveReservations.TryGetValue(actorId, out position);
+        }
+
+        public bool IsCellReservedForActorMove(GridPosition position)
+        {
+            return reservedActorIdsByPosition.ContainsKey(position);
+        }
+
+        private bool IsReservedByAnotherActor(ActorId actorId, GridPosition position)
+        {
+            return reservedActorIdsByPosition.TryGetValue(position, out ActorId reservedActorId) &&
+                reservedActorId != actorId;
+        }
+
+        private bool ReleaseActorMoveReservation(ActorId actorId)
+        {
+            if (!actorMoveReservations.TryGetValue(actorId, out GridPosition position))
+            {
+                return false;
+            }
+
+            actorMoveReservations.Remove(actorId);
+            if (!reservedActorIdsByPosition.Remove(position))
+            {
+                throw new InvalidOperationException("Grid movement reservation is inconsistent.");
+            }
             return true;
         }
 

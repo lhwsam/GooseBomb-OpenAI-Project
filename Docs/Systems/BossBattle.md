@@ -131,7 +131,7 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 ## Unity 연결
 
 - `PrototypeGameSession`: Core 전이, 예약 셀, 비행·착탄, 자폭병 생성/강제 점화, 보스/플레이어 피해, 방 클리어.
-- `PrototypeBossPresenter`: 보스 위치 보간, 상태/phase 색, 돌진·착탄·소환·parity 위험 셀. 정확한 이동 목적지 고스트는 비활성이다.
+- `PrototypeBossPresenter`: collider와 Rigidbody가 없는 `BossPig` 프리팹의 보스 위치 보간과 Animator를 담당한다. Telegraph 모션은 연속된 `ParityWave` 행들을 하나의 시각 공격으로 묶은 첫 Telegraph 진입에서만 재생하며, 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 고정 돌진은 Charge, 자폭병 소환은 Summon, 개별 `BossBombLaunched.Sequence`의 짝·홀에 따라 ThrowLeft/ThrowRight를 교대하고 사망은 terminal Die로 변환한다. Root Motion은 사용하지 않으며 상태/phase 색과 돌진·착탄·소환·parity 위험 셀도 유지한다. 정확한 이동 목적지 고스트는 비활성이다.
 - `PrototypeBombPresenter`: 정의별 풀, 보스 포물선 비행, 착탄 뒤 fuse 표시와 폭발 셀.
 - `PrototypeSelfDestructPresenter`: 2페이즈 도중 생성 사건을 받아 동적으로 인스턴스를 만든다.
 - `PrototypeHealthHud`: 체력 10과 phase 1/2/3을 사건 기반으로 표시한다.

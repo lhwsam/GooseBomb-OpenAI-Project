@@ -17,6 +17,6 @@ MonoBehaviour:
   contactDamage: 1
   cellsPerSecond: 2
   directionCommitmentSteps: 2
-  chaserPrefab: {fileID: 5675793016543394093, guid: b8f665f278770cb4b8c7ce4ba430ecb0, type: 3}
-  visualHeight: 0.45
-  deathVisualSeconds: 0.12
+  chaserPrefab: {fileID: 3024171170949062721, guid: 8c116282dc220cc43b8e3b26144d0c16, type: 3}
+  visualHeight: 0
+  deathVisualSeconds: 2.2
