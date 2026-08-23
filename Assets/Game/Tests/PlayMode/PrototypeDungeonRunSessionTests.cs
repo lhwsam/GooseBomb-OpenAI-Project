@@ -411,6 +411,30 @@ namespace BombSwap.Tests.PlayMode
                     westCracks));
         }
 
+        [Test]
+        public void DoorPresenter_PlaysSecretWallBreakVfxAtSecretCrackPosition()
+        {
+            PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter();
+            var crackPosition = new Vector3(3f, 2f, -4f);
+            Vector3 expectedPosition = crackPosition + (Vector3.up * 0.5f);
+            Quaternion expectedRotation = Quaternion.Euler(-90f, 0f, 0f);
+            presenter.NorthSecretCracks.transform.position = crackPosition;
+            presenter.SecretWallBreakVfxPrefab.transform.rotation = expectedRotation;
+
+            GameObject instance = presenter.PlaySecretWallBreak(
+                RoomExitDirection.East,
+                RoomRotation.Clockwise90);
+            _createdGameObjects.Add(instance);
+
+            Assert.That(instance.transform.position, Is.EqualTo(expectedPosition));
+            Assert.That(
+                Quaternion.Angle(instance.transform.rotation, expectedRotation),
+                Is.LessThan(0.001f));
+            Assert.That(
+                instance.GetComponent<ParticleSystem>().isPlaying,
+                Is.True);
+        }
+
         [UnityTest]
         public IEnumerator AnimatedDoorPresenter_AppliesRotatedOpenAndSecretStates()
         {
@@ -2656,7 +2680,15 @@ namespace BombSwap.Tests.PlayMode
                 CreateCrackRoot("EastSecretCracks"),
                 CreateCrackRoot("SouthSecretCracks"),
                 CreateCrackRoot("WestSecretCracks"));
+            presenter.ConfigureSecretWallBreakVfx(CreateSecretWallBreakVfxPrefab());
             return presenter;
+        }
+
+        private GameObject CreateSecretWallBreakVfxPrefab()
+        {
+            GameObject prefab = CreateGameObject("SecretWallBreakVfx");
+            prefab.AddComponent<ParticleSystem>();
+            return prefab;
         }
 
         private Renderer CreateDoorRenderer(string name)

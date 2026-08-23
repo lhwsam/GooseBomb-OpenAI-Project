@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PrototypeBossThrowBomb
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
   definitionId: prototype-boss-throw
-  fuseSeconds: 1.25
+  fuseSeconds: 2
   range: 2
   explosionShape: 0
   placementCooldownSeconds: 1.5

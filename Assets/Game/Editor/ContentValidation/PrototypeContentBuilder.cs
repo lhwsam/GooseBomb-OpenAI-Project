@@ -1228,7 +1228,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = "PrototypeAreaBomb";
             definition.Configure(
                 "prototype-area",
-                1.75f,
+                2f,
                 1,
                 bombPrefab,
                 explosionPrefab,
@@ -1304,7 +1304,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = "PrototypeLineBomb";
             definition.Configure(
                 "prototype-line",
-                2.25f,
+                2f,
                 3,
                 bombPrefab,
                 explosionPrefab,
@@ -1803,7 +1803,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBossThrowBombDefinitionPath,
                     "PrototypeBossThrowBomb",
                     "prototype-boss-throw",
-                    1.25f,
+                    2f,
                     throwBombPrefab,
                     throwExplosionPrefab);
             PrototypeBombDefinitionAsset chainDefinition =
@@ -1811,7 +1811,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBossChainBombDefinitionPath,
                     "PrototypeBossChainBomb",
                     "prototype-boss-chain",
-                    2.25f,
+                    2f,
                     chainBombPrefab,
                     chainExplosionPrefab);
             return new[] { throwDefinition, chainDefinition };
@@ -1869,7 +1869,7 @@ namespace BombSwap.Editor.ContentValidation
             }
             bombDefinition.Configure(
                 "prototype-thrower-blocker",
-                1.5f,
+                2f,
                 1,
                 bombPrefab,
                 explosionPrefab,
@@ -2997,6 +2997,8 @@ namespace BombSwap.Editor.ContentValidation
                 boundaryPresentation.SecretCrackRoots[1],
                 boundaryPresentation.SecretCrackRoots[2],
                 boundaryPresentation.SecretCrackRoots[3]);
+            doorPresenter.ConfigureSecretWallBreakVfx(
+                LoadSecretWallBreakVfxPrefab());
 
             PrototypeDungeonRoomBinder binder =
                 systems.GetComponent<PrototypeDungeonRoomBinder>();
@@ -3518,6 +3520,8 @@ namespace BombSwap.Editor.ContentValidation
                     presentation.SecretCrackRoots[1],
                     presentation.SecretCrackRoots[2],
                     presentation.SecretCrackRoots[3]);
+                presenter.ConfigureSecretWallBreakVfx(
+                    LoadSecretWallBreakVfxPrefab());
                 EditorUtility.SetDirty(presenter);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene, scenePath))
@@ -3533,6 +3537,23 @@ namespace BombSwap.Editor.ContentValidation
                     EditorSceneManager.CloseScene(scene, true);
                 }
             }
+        }
+
+        private static GameObject LoadSecretWallBreakVfxPrefab()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Secret wall break VFX prefab is missing at '{EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath}'.");
+            }
+            if (prefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Secret wall break VFX prefab at '{EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath}' requires at least one ParticleSystem.");
+            }
+            return prefab;
         }
 
         private static DoorVisualPresentation EnsureDoorVisualPrefab(

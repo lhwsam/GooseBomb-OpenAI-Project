@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PrototypeLineBomb
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
   definitionId: prototype-line
-  fuseSeconds: 2.25
+  fuseSeconds: 2
   range: 3
   explosionShape: 2
   placementCooldownSeconds: 2.25

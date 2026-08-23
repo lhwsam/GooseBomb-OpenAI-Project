@@ -827,13 +827,19 @@ namespace BombSwap.Editor.ContentValidation
                     BombExplosionShape.Cross,
                     2,
                     errors);
-            if ((bossThrowDefinition != null &&
-                 bossThrowDefinition.FuseSeconds != 1.25f) ||
+            if ((firstDefinition != null &&
+                 firstDefinition.FuseSeconds != 2f) ||
+                (secondDefinition != null &&
+                 secondDefinition.FuseSeconds != 2f) ||
+                (lineDefinition != null &&
+                 lineDefinition.FuseSeconds != 2f) ||
+                (bossThrowDefinition != null &&
+                 bossThrowDefinition.FuseSeconds != 2f) ||
                 (bossChainDefinition != null &&
-                 bossChainDefinition.FuseSeconds != 2.25f))
+                 bossChainDefinition.FuseSeconds != 2f))
             {
                 errors.Add(
-                    "Prototype boss throw/chain bomb fuses must be 1.25 and 2.25 seconds.");
+                    "Prototype cross, area, line, boss throw, and boss chain bomb fuses must be 2 seconds.");
             }
             ValidateForwardLineBombVisual(errors);
             PrototypeBombLoadoutAsset loadout =
@@ -1545,11 +1551,11 @@ namespace BombSwap.Editor.ContentValidation
                     core.Tuning.LastStandOverheatDuration != TimeSpan.FromSeconds(2.25) ||
                     core.ThrowBombDefinition.Id !=
                         new BombDefinitionId("prototype-boss-throw") ||
-                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(1.25) ||
+                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(2) ||
                     core.ThrowBombDefinition.Range != 2 ||
                     core.ChainBombDefinition.Id !=
                         new BombDefinitionId("prototype-boss-chain") ||
-                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2.25) ||
+                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2) ||
                     core.ChainBombDefinition.Range != 2 ||
                     definition.BossSpawn != new GridPosition(0, 1))
                 {
@@ -1795,7 +1801,7 @@ namespace BombSwap.Editor.ContentValidation
                     core.BombsPerVolley != 3 ||
                     bomb.Id != new BombDefinitionId("prototype-thrower-blocker") ||
                     bomb.ExplosionShape != BombExplosionShape.Cross ||
-                    bomb.FuseDuration != TimeSpan.FromSeconds(1.5) ||
+                    bomb.FuseDuration != TimeSpan.FromSeconds(2) ||
                     bomb.Range != 1 ||
                     room.Id != new RoomDefinitionId("prototype-combat-thrower") ||
                     room.ChaserSpawn != new GridPosition(-2, 2) ||
@@ -3587,8 +3593,20 @@ namespace BombSwap.Editor.ContentValidation
         {
             if (!presenter.IsConfigured || context.GridRoot == null)
             {
-                errors.Add("Dungeon door presenter is missing one or more door renderers.");
+                errors.Add(
+                    "Dungeon door presenter is missing a door renderer, secret-crack root, or secret-wall break VFX prefab.");
                 return;
+            }
+
+            GameObject expectedSecretWallBreakVfx =
+                AssetDatabase.LoadAssetAtPath<GameObject>(
+                    EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath);
+            if (expectedSecretWallBreakVfx == null ||
+                presenter.SecretWallBreakVfxPrefab != expectedSecretWallBreakVfx ||
+                expectedSecretWallBreakVfx.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            {
+                errors.Add(
+                    $"Dungeon door presenter must reference the particle VFX prefab at '{EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath}'.");
             }
 
             Renderer[] doors =

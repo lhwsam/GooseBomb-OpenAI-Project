@@ -459,6 +459,7 @@ namespace BombSwap
 
                 _runtimeSecretDoorDirections.Remove(affectedCell);
                 RemoveSecretDoorImpactCell(affectedCell);
+                doorPresenter.PlaySecretWallBreak(direction, _roomRotation);
                 RefreshDoors();
                 SecretExitRevealed?.Invoke(result);
                 WebGlHarnessReporter.Report(

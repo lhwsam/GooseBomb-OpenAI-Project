@@ -9,6 +9,8 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeDungeonDoorPresenter : MonoBehaviour
     {
+        public const float SecretWallBreakVfxHeightOffset = 0.5f;
+
         private static readonly int IsOpenId = Animator.StringToHash("IsOpen");
 
         private static readonly RoomExitDirection[] LocalDirectionOrder =
@@ -55,6 +57,9 @@ namespace BombSwap
         [SerializeField]
         private GameObject westSecretCracks;
 
+        [SerializeField]
+        private GameObject secretWallBreakVfxPrefab;
+
         private readonly DungeonRoomExitStatus[] _localStatuses =
             new DungeonRoomExitStatus[4];
 
@@ -62,6 +67,7 @@ namespace BombSwap
             northDoor != null && eastDoor != null && southDoor != null && westDoor != null &&
             northSecretCracks != null && eastSecretCracks != null &&
             southSecretCracks != null && westSecretCracks != null &&
+            secretWallBreakVfxPrefab != null &&
             HasConsistentAnimatorConfiguration;
 
         public bool HasAnimatedDoors =>
@@ -91,6 +97,8 @@ namespace BombSwap
         public GameObject SouthSecretCracks => southSecretCracks;
 
         public GameObject WestSecretCracks => westSecretCracks;
+
+        public GameObject SecretWallBreakVfxPrefab => secretWallBreakVfxPrefab;
 
         public void Configure(
             Renderer authoredNorthDoor,
@@ -129,6 +137,52 @@ namespace BombSwap
             ValidateUniqueRenderers();
             ValidateAnimators();
             ValidateUniqueCrackRoots();
+        }
+
+        public void ConfigureSecretWallBreakVfx(GameObject authoredVfxPrefab)
+        {
+            secretWallBreakVfxPrefab = authoredVfxPrefab ??
+                throw new ArgumentNullException(nameof(authoredVfxPrefab));
+            if (secretWallBreakVfxPrefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Secret wall break VFX prefab requires at least one ParticleSystem.");
+            }
+        }
+
+        public GameObject PlaySecretWallBreak(
+            RoomExitDirection graphDirection,
+            RoomRotation roomRotation)
+        {
+            ValidateConfiguration();
+            RoomExitDirection localDirection = FindLocalDirection(
+                graphDirection,
+                roomRotation);
+            Vector3 position =
+                GetSecretCracks(localDirection).transform.position +
+                (Vector3.up * SecretWallBreakVfxHeightOffset);
+            GameObject instance = Instantiate(secretWallBreakVfxPrefab);
+            instance.transform.position = position;
+            ParticleSystem[] particleSystems =
+                instance.GetComponentsInChildren<ParticleSystem>(true);
+            float lifetime = 0f;
+            for (int index = 0; index < particleSystems.Length; index++)
+            {
+                ParticleSystem particleSystem = particleSystems[index];
+                if (!particleSystem.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                particleSystem.Clear(true);
+                particleSystem.Play(true);
+                ParticleSystem.MainModule main = particleSystem.main;
+                lifetime = Mathf.Max(
+                    lifetime,
+                    main.startDelay.constantMax + main.duration +
+                    main.startLifetime.constantMax);
+            }
+            Destroy(instance, Mathf.Max(lifetime, 0.1f));
+            return instance;
         }
 
         public void Apply(
@@ -309,13 +363,32 @@ namespace BombSwap
                 nameof(states));
         }
 
+        private static RoomExitDirection FindLocalDirection(
+            RoomExitDirection graphDirection,
+            RoomRotation roomRotation)
+        {
+            for (int index = 0; index < LocalDirectionOrder.Length; index++)
+            {
+                RoomExitDirection localDirection = LocalDirectionOrder[index];
+                if (RoomRotationUtility.Rotate(localDirection, roomRotation) ==
+                    graphDirection)
+                {
+                    return localDirection;
+                }
+            }
+            throw new ArgumentOutOfRangeException(
+                nameof(graphDirection),
+                graphDirection,
+                "Unknown room exit direction.");
+        }
+
         private void ValidateConfiguration()
         {
             if (!IsConfigured)
             {
                 throw new InvalidOperationException(
                     "PrototypeDungeonDoorPresenter requires four door renderers " +
-                    "and four secret-crack roots.");
+                    "four secret-crack roots, and a secret-wall break VFX prefab.");
             }
             ValidateUniqueRenderers();
             ValidateAnimators();

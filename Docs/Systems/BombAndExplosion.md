@@ -34,7 +34,7 @@
 
 현재 Core의 최소 `BombDefinition`은 안정적인 ID, 폭발 모양, 양수 fuse, 0 이상의 범위를 가진다. `BombWeaponDefinition`이 이 폭발 정의와 설치 쿨타임을 묶어 슬롯 시스템에 제공한다. 정확한 값은 호출자가 주입하며 코드 기본값으로 고정하지 않는다. 구현된 모양은 cardinal 네 방향으로 전파하는 `Cross`, 원점을 포함한 Chebyshev 정사각 영역을 평가하는 `SquareArea`, 설치 순간의 cardinal 방향 한 ray만 전파하는 `ForwardLine`이다. 폭탄별 위력은 아직 없다. 플레이어 자기 피해는 폭탄 정의에 중복 저장하지 않고 폭발 사건을 소비하는 체력 시스템이 현재 고정 피해 1로 적용한다.
 
-TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 던전 보상 후보 `prototype-line`은 `ForwardLine`·fuse 2.25초·범위 3·설치 2.25초다. 자폭병 전용 `prototype-self-destruct-blast`는 `Cross`·fuse 0.75초·범위 2, 투척병 전용 `prototype-thrower-blocker`는 `Cross`·fuse 1.5초·범위 1이다. 보스 전용 `prototype-boss-throw`는 `Cross`·fuse 1.25초·범위 2, `prototype-boss-chain`은 `Cross`·fuse 2.25초·범위 2다. 네 적 폭탄 정의는 플레이어 무기 슬롯·설치 쿨타임을 사용하지 않는다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 모든 수치 집합은 플레이테스트 전까지 `Proposed`다.
+TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 플레이어용 `prototype-cross`·`prototype-area`·`prototype-line`은 모두 fuse 2초를 사용하며, 각각 `Cross`·범위 2·설치 1.5초, `SquareArea`·범위 1·설치 2.5초, `ForwardLine`·범위 3·설치 2.25초다. 자폭병 전용 `prototype-self-destruct-blast`는 `Cross`·fuse 0.75초·범위 2이고, 투척병 전용 `prototype-thrower-blocker`와 보스 전용 `prototype-boss-throw`·`prototype-boss-chain`은 모두 `Cross`·fuse 2초이며 범위는 각각 1·2·2다. 네 적 폭탄 정의는 플레이어 무기 슬롯·설치 쿨타임을 사용하지 않는다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 모든 수치 집합은 플레이테스트 전까지 `Proposed`다.
 
 ## 폭발 전파 규칙
 
