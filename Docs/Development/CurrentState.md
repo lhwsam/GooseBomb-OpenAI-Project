@@ -1,6 +1,7 @@
 # 현재 프로젝트 상태
 
-- 기준일: 2026-08-22
+- 기준일: 2026-08-23
+- 플레이어 이동은 목적지를 예약하고 50% 경계에서 현재 판정 칸을 변경하는 커밋된 한 칸 이동 계약을 사용한다. 입력 해제·방향 변경은 진행 중인 칸 이동을 취소하지 않고 다음 칸부터 적용한다. 세션의 모든 규칙 시뮬레이션은 10ms 고정 스텝으로 함께 진행되어 큰 프레임 delta에서도 특정 Actor만 먼저 여러 번 처리되지 않는다.
 - 단계: Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 960×600 UI 기준의 로비/런타임 UI에 Player Settings 기반 버전 표시, 공통 설정·키보드 리바인딩·AudioMixer·화면 흔들림 강도 계약과 DOTween 로비 버튼 hover/press 피드백을 연결한 상태
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
@@ -357,5 +358,5 @@
 - SelfDestructPig 모델과 전용 Animator를 연결했다. Chase·WarningChase·Telegraph·Detonated Core 상태는 Idle/Run·Telegraph·Detonate 표현으로만 변환되며 기존 fuse와 펄스 튜닝은 유지한다.
 - ThrowerPig 모델과 전용 Animator를 연결했다. Track 이동은 Idle/Walk, Telegraph는 Throw, Recover는 Idle, 사망은 Die 표현으로 변환하며 기존 이동·예고·비행·회복 타이밍은 유지한다.
 - BossPig 모델과 전용 Animator를 연결했다. Telegraph 모션은 연속된 ParityWave의 첫 행에서만 재생하고 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 돌진·소환·사망은 Charge·Summon·Die로 변환한다. 연속 폭탄 발사는 개별 발사 sequence 기준으로 ThrowLeft/ThrowRight를 교대하며 기존 Boss Core 패턴과 타이밍은 유지한다.
-- Chaser·Charger·SelfDestruct·Thrower가 공통 `EnemyLocomotionState`를 Core에서 노출한다. Presenter는 개별 셀 보간 완료가 아니라 Core 이동 의도와 현재 보간을 함께 사용해 Run을 유지하므로 연속 격자 이동 사이의 Idle 전환을 방지한다.
-- 같은 4종 적의 마지막 이동 구간은 Core `EnemyMovementTransition`이 격자 From/To와 시작·종료 게임 시각으로 소유한다. Presenter의 개별 elapsed 타이머를 제거하고 Core 시각으로 위치를 샘플링해 셀 경계의 프레임 선행 정지를 제거했다.
+- Chaser·Charger·SelfDestruct·Thrower는 공통 커밋 이동으로 목적지를 예약하고 50%에서 판정 칸을 바꾸며 100%에서 이동을 완료한다. 이동 중에는 다음 AI 판단이나 Telegraph·Recover 진입을 시작하지 않는다.
+- 같은 4종 적의 연속 위치와 `EnemyLocomotionState`는 Core가 소유한다. Presenter의 위치 보간과 이동 타이머를 제거하고 Core 위치를 직접 표시해 논리 점유·피해 판정·애니메이션을 같은 이동 상태에 맞췄다.

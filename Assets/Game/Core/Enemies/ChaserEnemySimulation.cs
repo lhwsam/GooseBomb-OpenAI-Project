@@ -19,6 +19,7 @@ namespace BombSwap.Core
             new Dictionary<GridPosition, int>();
         private readonly Queue<GridPosition> searchFrontier =
             new Queue<GridPosition>();
+        private readonly CommittedActorMovement movement;
         private TimeSpan nextStepAt;
         private TimeSpan contactEligibleAt;
         private TimeSpan lastObservedTime;
@@ -70,7 +71,7 @@ namespace BombSwap.Core
 
             ActorId = actorId;
             TargetActorId = targetActorId;
-            CurrentPosition = startPosition;
+            movement = new CommittedActorMovement(grid, actorId, startPosition, clock.Now);
             nextStepAt = clock.Now;
             contactEligibleAt = clock.Now;
             lastObservedTime = clock.Now;
@@ -82,7 +83,12 @@ namespace BombSwap.Core
 
         public ActorId TargetActorId { get; }
 
-        public GridPosition CurrentPosition { get; private set; }
+        public GridPosition CurrentPosition => movement.CurrentCell;
+
+        public GridSubcellPosition Position => movement.Position;
+
+        public GridPosition GetCurrentCellAt(TimeSpan gameTime) =>
+            movement.GetCurrentCellAt(gameTime);
 
         public CardinalDirection CurrentDirection { get; private set; }
 
@@ -120,6 +126,12 @@ namespace BombSwap.Core
 
             lastObservedTime = now;
             step = default;
+            movement.Advance(now);
+            if (movement.IsMoving)
+            {
+                locomotionState = EnemyLocomotionState.Moving;
+                return false;
+            }
             if (now < nextStepAt)
             {
                 return false;
@@ -159,7 +171,7 @@ namespace BombSwap.Core
 
             GridPosition from = CurrentPosition;
             GridPosition to = GetTarget(from, direction);
-            if (!grid.TryMoveActor(ActorId, to))
+            if (!movement.TryStart(to, direction, now, Definition.StepInterval))
             {
                 CurrentDirection = CardinalDirection.None;
                 remainingCommittedSteps = 0;
@@ -167,12 +179,9 @@ namespace BombSwap.Core
                 return false;
             }
 
-            CurrentPosition = to;
             contactEligibleAt = nextStepAt;
             remainingCommittedSteps--;
-            locomotionState = ManhattanDistance(CurrentPosition, targetPosition) > 1L
-                ? EnemyLocomotionState.Moving
-                : EnemyLocomotionState.Idle;
+            locomotionState = EnemyLocomotionState.Moving;
             step = new EnemyMovementStep(ActorId, from, to, direction);
             movementTransition = new EnemyMovementTransition(
                 step,
@@ -264,7 +273,8 @@ namespace BombSwap.Core
 
             return position == CurrentPosition ||
                 position == targetPosition ||
-                cell.Occupancy == GridOccupancy.None;
+                (cell.Occupancy == GridOccupancy.None &&
+                 !grid.IsCellReservedForActorMove(position));
         }
 
         private bool ContinuesPlannedShortestRoute(CardinalDirection direction)
@@ -283,7 +293,9 @@ namespace BombSwap.Core
             }
 
             GridCellState cell = grid.GetCell(GetTarget(CurrentPosition, direction));
-            return cell.IsWalkableTerrain && cell.Occupancy == GridOccupancy.None;
+            return cell.IsWalkableTerrain &&
+                cell.Occupancy == GridOccupancy.None &&
+                !grid.IsCellReservedForActorMove(GetTarget(CurrentPosition, direction));
         }
 
         private static long ManhattanDistance(GridPosition left, GridPosition right)

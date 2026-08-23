@@ -21,6 +21,7 @@ namespace BombSwap.Core
             new HashSet<GridPosition>();
         private readonly Queue<GridPosition> acquisitionFrontier =
             new Queue<GridPosition>();
+        private readonly CommittedActorMovement movement;
         private TimeSpan lastObservedTime;
         private TimeSpan stateEndsAt;
         private TimeSpan nextLaneAcquireStepAt;
@@ -76,7 +77,7 @@ namespace BombSwap.Core
 
             ActorId = actorId;
             TargetActorId = targetActorId;
-            CurrentPosition = startPosition;
+            movement = new CommittedActorMovement(grid, actorId, startPosition, clock.Now);
             State = ChargerEnemyState.Track;
             LockedDirection = CardinalDirection.None;
             nextLaneAcquireStepAt = clock.Now;
@@ -89,7 +90,12 @@ namespace BombSwap.Core
 
         public ActorId TargetActorId { get; }
 
-        public GridPosition CurrentPosition { get; private set; }
+        public GridPosition CurrentPosition => movement.CurrentCell;
+
+        public GridSubcellPosition Position => movement.Position;
+
+        public GridPosition GetCurrentCellAt(TimeSpan gameTime) =>
+            movement.GetCurrentCellAt(gameTime);
 
         public ChargerEnemyState State { get; private set; }
 
@@ -113,6 +119,12 @@ namespace BombSwap.Core
             }
 
             lastObservedTime = now;
+            movement.Advance(now);
+            if (movement.IsMoving)
+            {
+                locomotionState = EnemyLocomotionState.Moving;
+                return NoActivity();
+            }
             switch (State)
             {
                 case ChargerEnemyState.Track:
@@ -158,21 +170,24 @@ namespace BombSwap.Core
 
             GridPosition previousPosition = CurrentPosition;
             GridPosition destination = GetTarget(CurrentPosition, moveDirection);
-            if (!grid.TryMoveActor(ActorId, destination))
+            if (!movement.TryStart(
+                    destination,
+                    moveDirection,
+                    now,
+                    Definition.LaneAcquireStepInterval))
             {
                 locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
-            CurrentPosition = destination;
             locomotionState = EnemyLocomotionState.Moving;
-            var movement = new EnemyMovementStep(
+            var movementStep = new EnemyMovementStep(
                 ActorId,
                 previousPosition,
-                CurrentPosition,
+                destination,
                 moveDirection);
             movementTransition = new EnemyMovementTransition(
-                movement,
+                movementStep,
                 now,
                 Definition.LaneAcquireStepInterval);
             return new ChargerEnemyAdvanceResult(
@@ -182,7 +197,7 @@ namespace BombSwap.Core
                 LockedDirection,
                 lockedChargeDistance,
                 false,
-                movement,
+                movementStep,
                 true,
                 false);
         }
@@ -234,23 +249,26 @@ namespace BombSwap.Core
             {
                 return BeginRecover(now, false);
             }
-            if (!grid.TryMoveActor(ActorId, target))
+            if (!movement.TryStart(
+                    target,
+                    LockedDirection,
+                    now,
+                    Definition.ChargeStepInterval))
             {
                 return BeginRecover(now, false);
             }
 
             GridPosition previousPosition = CurrentPosition;
-            CurrentPosition = target;
             locomotionState = EnemyLocomotionState.Moving;
             remainingChargeSteps--;
             nextChargeStepAt = AddWithSaturation(now, Definition.ChargeStepInterval);
-            var movement = new EnemyMovementStep(
+            var movementStep = new EnemyMovementStep(
                 ActorId,
                 previousPosition,
-                CurrentPosition,
+                target,
                 LockedDirection);
             movementTransition = new EnemyMovementTransition(
-                movement,
+                movementStep,
                 now,
                 Definition.ChargeStepInterval);
             return new ChargerEnemyAdvanceResult(
@@ -260,7 +278,7 @@ namespace BombSwap.Core
                 LockedDirection,
                 lockedChargeDistance,
                 false,
-                movement,
+                movementStep,
                 true,
                 false);
         }
@@ -332,7 +350,8 @@ namespace BombSwap.Core
                 GridCellState cell = grid.GetCell(inspected);
                 if (!cell.IsWalkableTerrain ||
                     (inspected != CurrentPosition &&
-                     cell.Occupancy != GridOccupancy.None))
+                     (cell.Occupancy != GridOccupancy.None ||
+                      grid.IsCellReservedForActorMove(inspected))))
                 {
                     direction = CardinalDirection.None;
                     return false;
@@ -418,7 +437,9 @@ namespace BombSwap.Core
         {
             GridCellState cell = grid.GetCell(position);
             return cell.IsWalkableTerrain &&
-                (position == CurrentPosition || cell.Occupancy == GridOccupancy.None);
+                (position == CurrentPosition ||
+                 (cell.Occupancy == GridOccupancy.None &&
+                  !grid.IsCellReservedForActorMove(position)));
         }
 
         private int CountChargeDistance(
@@ -445,7 +466,8 @@ namespace BombSwap.Core
                 }
                 else
                 {
-                    if (cell.Occupancy != GridOccupancy.None)
+                    if (cell.Occupancy != GridOccupancy.None ||
+                        grid.IsCellReservedForActorMove(inspected))
                     {
                         return distance;
                     }

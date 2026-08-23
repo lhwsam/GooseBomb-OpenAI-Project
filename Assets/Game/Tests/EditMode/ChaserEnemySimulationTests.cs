@@ -82,6 +82,12 @@ namespace BombSwap.Tests.EditMode
             Assert.That(step.To, Is.EqualTo(new GridPosition(1, 0)));
             Assert.That(step.Direction, Is.EqualTo(CardinalDirection.North));
             Assert.That(chaser.RemainingCommittedSteps, Is.EqualTo(1));
+            Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(1, -1)));
+
+            clock.Advance(TimeSpan.FromTicks(StepInterval.Ticks / 2));
+            Assert.That(chaser.TryAdvance(out _), Is.False);
+            Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(1, 0)));
+            Assert.That(chaser.Position.Z, Is.EqualTo(-0.5d).Within(0.000001d));
         }
 
         [Test]

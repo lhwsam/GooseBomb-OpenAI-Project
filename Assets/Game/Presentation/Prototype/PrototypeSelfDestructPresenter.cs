@@ -165,12 +165,9 @@ namespace BombSwap
                     CurrentState == SelfDestructEnemyState.Chase ||
                     CurrentState == SelfDestructEnemyState.WarningChase;
                 instance.transform.position = usesMovementTransition
-                    ? PrototypeEnemyMovementSampler.Sample(
-                        session.CurrentSelfDestructMovementTransition,
-                        session.CurrentGameTime,
-                        session.GridSpace,
-                        session.SelfDestructDefinition.VisualHeight,
-                        session.CurrentSelfDestructGridPosition)
+                    ? session.GridSpace.GridToWorld(
+                        session.CurrentSelfDestructMovementPosition) +
+                        (Vector3.up * session.SelfDestructDefinition.VisualHeight)
                     : ToPresentationPosition(session.CurrentSelfDestructGridPosition);
             }
 
@@ -384,11 +381,8 @@ namespace BombSwap
             SetMovingAnimation(
                 (CurrentState == SelfDestructEnemyState.Chase ||
                     CurrentState == SelfDestructEnemyState.WarningChase) &&
-                (PrototypeEnemyMovementSampler.IsActive(
-                        session.CurrentSelfDestructMovementTransition,
-                        session.CurrentGameTime) ||
-                    session.CurrentSelfDestructLocomotionState ==
-                    EnemyLocomotionState.Moving));
+                session.CurrentSelfDestructLocomotionState ==
+                EnemyLocomotionState.Moving);
         }
 
         private void ShowTelegraph()

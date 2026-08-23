@@ -154,12 +154,9 @@ namespace BombSwap
 
             if (_instance != null && !_isShowingDeath)
             {
-                _instance.transform.position = PrototypeEnemyMovementSampler.Sample(
-                    session.CurrentChargerMovementTransition,
-                    session.CurrentGameTime,
-                    session.GridSpace,
-                    session.ChargerDefinition.VisualHeight,
-                    session.CurrentChargerGridPosition);
+                _instance.transform.position = session.GridSpace.GridToWorld(
+                    session.CurrentChargerMovementPosition) +
+                    (Vector3.up * session.ChargerDefinition.VisualHeight);
             }
 
             SyncLocomotionAnimation();
@@ -355,10 +352,7 @@ namespace BombSwap
 
             SetMovingAnimation(
                 session.CurrentChargerState == ChargerEnemyState.Track &&
-                (PrototypeEnemyMovementSampler.IsActive(
-                        session.CurrentChargerMovementTransition,
-                        session.CurrentGameTime) ||
-                    session.CurrentChargerLocomotionState == EnemyLocomotionState.Moving));
+                session.CurrentChargerLocomotionState == EnemyLocomotionState.Moving);
         }
 
         private void InitializeColor()

@@ -151,12 +151,9 @@ namespace BombSwap
 
             if (instance != null && !isShowingDeath)
             {
-                instance.transform.position = PrototypeEnemyMovementSampler.Sample(
-                    session.CurrentThrowerMovementTransition,
-                    session.CurrentGameTime,
-                    session.GridSpace,
-                    session.ThrowerDefinition.VisualHeight,
-                    session.CurrentThrowerGridPosition);
+                instance.transform.position = session.GridSpace.GridToWorld(
+                    session.CurrentThrowerMovementPosition) +
+                    (Vector3.up * session.ThrowerDefinition.VisualHeight);
             }
             SyncLocomotionAnimation();
             if (!isShowingDeath && IsTelegraphVisible && !session.IsPaused)
@@ -342,10 +339,7 @@ namespace BombSwap
 
             SetMovingAnimation(
                 session.CurrentThrowerState == ThrowerEnemyState.Track &&
-                (PrototypeEnemyMovementSampler.IsActive(
-                        session.CurrentThrowerMovementTransition,
-                        session.CurrentGameTime) ||
-                    session.CurrentThrowerLocomotionState == EnemyLocomotionState.Moving));
+                session.CurrentThrowerLocomotionState == EnemyLocomotionState.Moving);
         }
 
         private void ShowTelegraphs(IReadOnlyList<GridPosition> targets)

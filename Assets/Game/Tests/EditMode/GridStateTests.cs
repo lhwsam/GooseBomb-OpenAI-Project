@@ -181,6 +181,60 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void ReservedDestination_BlocksOtherActorsAndBombsUntilMoveCompletes()
+        {
+            GridPosition destination = Position.Offset(1, 0);
+            GridPosition otherStart = destination.Offset(1, 0);
+            var grid = CreateFloorGrid();
+            grid.TrySetTerrain(destination, GridTerrain.Floor);
+            grid.TrySetTerrain(otherStart, GridTerrain.Floor);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.True);
+            Assert.That(grid.TryAddActor(OtherActor, otherStart), Is.True);
+
+            Assert.That(grid.TryReserveActorMove(Actor, destination), Is.True);
+            Assert.That(grid.IsCellReservedForActorMove(destination), Is.True);
+            Assert.That(grid.TryMoveActor(Actor, destination), Is.False);
+            Assert.That(grid.TryMoveActor(OtherActor, destination), Is.False);
+            Assert.That(grid.TryAddBomb(destination), Is.False);
+            Assert.That(grid.TryCommitReservedActorMove(Actor), Is.True);
+            Assert.That(grid.TryGetActorPosition(Actor, out GridPosition stored), Is.True);
+            Assert.That(stored, Is.EqualTo(destination));
+            Assert.That(grid.CompleteActorMove(Actor), Is.True);
+            Assert.That(grid.IsCellReservedForActorMove(destination), Is.False);
+        }
+
+        [Test]
+        public void RemovingMovingActor_ReleasesItsDestinationReservation()
+        {
+            GridPosition destination = Position.Offset(1, 0);
+            var grid = CreateFloorGrid();
+            grid.TrySetTerrain(destination, GridTerrain.Floor);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.True);
+            Assert.That(grid.TryReserveActorMove(Actor, destination), Is.True);
+
+            Assert.That(grid.TryRemoveActor(Actor), Is.True);
+
+            Assert.That(grid.IsCellReservedForActorMove(destination), Is.False);
+            Assert.That(grid.TryAddBomb(destination), Is.True);
+        }
+
+        [Test]
+        public void ReservedDestination_RejectsNonWalkableTerrainChange()
+        {
+            GridPosition destination = Position.Offset(1, 0);
+            var grid = CreateFloorGrid();
+            grid.TrySetTerrain(destination, GridTerrain.Floor);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.True);
+            Assert.That(grid.TryReserveActorMove(Actor, destination), Is.True);
+
+            Assert.That(
+                grid.TrySetTerrain(destination, GridTerrain.IndestructibleWall),
+                Is.False);
+            Assert.That(grid.GetCell(destination).Terrain, Is.EqualTo(GridTerrain.Floor));
+            Assert.That(grid.TryCommitReservedActorMove(Actor), Is.True);
+        }
+
+        [Test]
         public void TryMoveActor_PreservesBombLeftInSourceCell()
         {
             GridPosition destination = Position.Offset(0, 1);

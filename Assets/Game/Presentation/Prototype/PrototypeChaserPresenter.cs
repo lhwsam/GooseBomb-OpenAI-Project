@@ -129,12 +129,9 @@ namespace BombSwap
 
             if (_instance != null && !_isShowingDeath)
             {
-                _instance.transform.position = PrototypeEnemyMovementSampler.Sample(
-                    session.CurrentChaserMovementTransition,
-                    session.CurrentGameTime,
-                    session.GridSpace,
-                    session.ChaserDefinition.VisualHeight,
-                    session.CurrentChaserGridPosition);
+                _instance.transform.position = session.GridSpace.GridToWorld(
+                    session.CurrentChaserMovementPosition) +
+                    (Vector3.up * session.ChaserDefinition.VisualHeight);
             }
 
             SyncLocomotionAnimation();
@@ -268,9 +265,6 @@ namespace BombSwap
             }
 
             SetMovingAnimation(
-                PrototypeEnemyMovementSampler.IsActive(
-                    session.CurrentChaserMovementTransition,
-                    session.CurrentGameTime) ||
                 session.CurrentChaserLocomotionState == EnemyLocomotionState.Moving);
         }
 
