@@ -904,6 +904,7 @@ namespace BombSwap.Tests.PlayMode
                 Vector2Int.zero,
                 false,
                 includePresenter: true,
+                includeBombAnimator: true,
                 fuseSeconds: 0.08f,
                 explosionVisualSeconds: 0.4f);
             yield return null;
@@ -915,13 +916,28 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_presenter.ActiveBombVisualCount, Is.EqualTo(1));
             Assert.That(_presenter.HasBombVisual(placedId), Is.True);
+            Animator pooledBombAnimator = System.Array.Find(
+                _presenter.PresentationRoot.GetComponentsInChildren<Animator>(true),
+                animator => animator.gameObject.activeInHierarchy);
+            Assert.That(pooledBombAnimator, Is.Not.Null);
+            Assert.That(pooledBombAnimator.enabled, Is.True);
 
             yield return new WaitForSecondsRealtime(0.15f);
 
             Assert.That(_presenter.ActiveBombVisualCount, Is.Zero);
             Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(5));
+            Assert.That(pooledBombAnimator.enabled, Is.False);
 
-            yield return new WaitForSecondsRealtime(0.45f);
+            PressAndRelease(Key.Z);
+            yield return null;
+
+            Animator reusedBombAnimator = System.Array.Find(
+                _presenter.PresentationRoot.GetComponentsInChildren<Animator>(true),
+                animator => animator.gameObject.activeInHierarchy);
+            Assert.That(reusedBombAnimator, Is.SameAs(pooledBombAnimator));
+            Assert.That(reusedBombAnimator.enabled, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.55f);
 
             Assert.That(_presenter.ActiveExplosionVisualCount, Is.Zero);
         }
@@ -2090,6 +2106,7 @@ namespace BombSwap.Tests.PlayMode
             bool includeBlocker,
             bool includeProbe = false,
             bool includePresenter = false,
+            bool includeBombAnimator = false,
             bool includeHealthPresenter = false,
             bool includeChaserPresenter = false,
             bool includeWeaponHud = false,
@@ -2188,6 +2205,11 @@ namespace BombSwap.Tests.PlayMode
             _inputActions = CreateInputActions();
             _keyboard = InputSystem.AddDevice<Keyboard>();
             _bombPrefab = new GameObject("BombVisualPrefab");
+            if (includeBombAnimator)
+            {
+                Animator animator = _bombPrefab.AddComponent<Animator>();
+                animator.enabled = false;
+            }
             _bombPrefab.SetActive(false);
             _explosionPrefab = new GameObject("ExplosionVisualPrefab");
             _explosionPrefab.SetActive(false);

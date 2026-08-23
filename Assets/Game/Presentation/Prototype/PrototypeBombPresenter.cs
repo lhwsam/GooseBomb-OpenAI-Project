@@ -32,6 +32,8 @@ namespace BombSwap
             new Dictionary<BombDefinitionId, Stack<GameObject>>();
         private readonly Dictionary<BombDefinitionId, Stack<GameObject>> _availableExplosions =
             new Dictionary<BombDefinitionId, Stack<GameObject>>();
+        private readonly Dictionary<GameObject, Animator[]> _bombAnimators =
+            new Dictionary<GameObject, Animator[]>();
         private readonly List<TimedExplosionVisual> _activeExplosions =
             new List<TimedExplosionVisual>();
         private readonly List<ActiveBossFlightVisual> _activeBossFlights =
@@ -135,6 +137,7 @@ namespace BombSwap
             for (int index = 0; index < _activeBossFlights.Count; index++)
             {
                 ActiveBossFlightVisual flight = _activeBossFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
                 flight.Instance.SetActive(false);
                 GetBombPool(flight.DefinitionId).Push(flight.Instance);
             }
@@ -142,6 +145,7 @@ namespace BombSwap
             for (int index = 0; index < _activeThrowerFlights.Count; index++)
             {
                 ActiveThrowerFlightVisual flight = _activeThrowerFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
                 flight.Instance.SetActive(false);
                 GetBombPool(flight.DefinitionId).Push(flight.Instance);
             }
@@ -234,6 +238,7 @@ namespace BombSwap
                 ? GetPlacementRotation(snapshot.PlacementDirection)
                 : Quaternion.identity;
             instance.SetActive(true);
+            SetBombAnimatorsEnabled(instance, true);
             _activeBombs.Add(
                 snapshot.Id,
                 new ActiveBombVisual(instance, snapshot.DefinitionId));
@@ -332,6 +337,7 @@ namespace BombSwap
                     Space.World);
                 if (progress >= 1f)
                 {
+                    SetBombAnimatorsEnabled(visual.Instance, false);
                     visual.Instance.SetActive(false);
                     GetBombPool(visual.DefinitionId).Push(visual.Instance);
                     _activeThrowerFlights.RemoveAt(index);
@@ -370,6 +376,7 @@ namespace BombSwap
                     out ActiveBombVisual bombVisual))
             {
                 _activeBombs.Remove(explosion.BombId);
+                SetBombAnimatorsEnabled(bombVisual.Instance, false);
                 bombVisual.Instance.SetActive(false);
                 GetBombPool(bombVisual.DefinitionId).Push(bombVisual.Instance);
             }
@@ -457,6 +464,25 @@ namespace BombSwap
             instance.name = instanceName;
             instance.SetActive(false);
             return instance;
+        }
+
+        private void SetBombAnimatorsEnabled(GameObject instance, bool enabled)
+        {
+            if (!_bombAnimators.TryGetValue(instance, out Animator[] animators))
+            {
+                animators = instance.GetComponentsInChildren<Animator>(true);
+                _bombAnimators.Add(instance, animators);
+            }
+            for (int index = 0; index < animators.Length; index++)
+            {
+                Animator animator = animators[index];
+                animator.enabled = enabled;
+                if (enabled && animator.runtimeAnimatorController != null)
+                {
+                    animator.Rebind();
+                    animator.Update(0f);
+                }
+            }
         }
 
         private readonly struct ActiveBombVisual

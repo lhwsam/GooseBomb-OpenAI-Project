@@ -137,15 +137,15 @@ namespace BombSwap.Editor.ContentValidation
         public const string PrototypeCombatThrowerDefinitionPath =
             "Assets/Game/Content/Rooms/PrototypeCombatThrower.asset";
         public const string BombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Player/NormalBomb.prefab";
         public const string ExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/ExplosionCellPlaceholder.prefab";
         public const string AreaBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/AreaBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Player/RangeBomb.prefab";
         public const string AreaExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/AreaExplosionCellPlaceholder.prefab";
         public const string LineBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/LineBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab";
         public const string LineExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/LineExplosionCellPlaceholder.prefab";
         public const string BossThrowBombPrefabPath =
@@ -885,7 +885,7 @@ namespace BombSwap.Editor.ContentValidation
                 errors.Add(
                     "Prototype cross, area, line, boss throw, and boss chain bomb fuses must be 2 seconds.");
             }
-            ValidateForwardLineBombVisual(errors);
+            ValidatePlayerBombVisuals(errors);
             PrototypeBombLoadoutAsset loadout =
                 AssetDatabase.LoadAssetAtPath<PrototypeBombLoadoutAsset>(
                     PrototypeBombLoadoutPath);
@@ -973,28 +973,44 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static void ValidateForwardLineBombVisual(ICollection<string> errors)
+        private static void ValidatePlayerBombVisuals(ICollection<string> errors)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LineBombPrefabPath);
-            Material material = AssetDatabase.LoadAssetAtPath<Material>(
-                "Assets/Game/Content/Materials/Prototype/LineBomb.mat");
-            if (prefab == null)
+            string[] prefabPaths =
             {
-                return;
-            }
+                BombPrefabPath,
+                AreaBombPrefabPath,
+                LineBombPrefabPath,
+            };
+            string[] expectedNames =
+            {
+                "NormalBomb",
+                "RangeBomb",
+                "StraightBomb",
+            };
+            for (int index = 0; index < prefabPaths.Length; index++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    prefabPaths[index]);
+                if (prefab == null)
+                {
+                    continue;
+                }
 
-            Transform body = prefab.transform.Find("DirectionBody");
-            Transform tip = prefab.transform.Find("DirectionTip");
-            Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>(true);
-            if (prefab.name != "LineBombPlaceholder" ||
-                prefab.transform.childCount != 2 ||
-                body == null || tip == null ||
-                renderers.Length != 2 || material == null ||
-                renderers.Any(renderer => renderer.sharedMaterial != material) ||
-                prefab.GetComponentsInChildren<Collider>(true).Length != 0)
-            {
-                errors.Add(
-                    "Prototype line-bomb prefab must be an asymmetric collider-free two-part visual using LineBomb material.");
+                Renderer[] renderers =
+                    prefab.GetComponentsInChildren<Renderer>(true);
+                Animator[] animators =
+                    prefab.GetComponentsInChildren<Animator>(true);
+                if (prefab.name != expectedNames[index] ||
+                    renderers.Length == 0 ||
+                    animators.Length != 1 ||
+                    animators[0].runtimeAnimatorController == null ||
+                    animators[0].applyRootMotion ||
+                    prefab.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                    prefab.GetComponentsInChildren<Rigidbody>(true).Length != 0)
+                {
+                    errors.Add(
+                        $"Player bomb prefab '{prefabPaths[index]}' must use its animated collider-free visual with root motion disabled.");
+                }
             }
         }
 

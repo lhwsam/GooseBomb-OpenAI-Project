@@ -36,6 +36,8 @@
 
 TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 플레이어용 `prototype-cross`·`prototype-area`·`prototype-line`은 모두 fuse 2초를 사용하며, 각각 `Cross`·범위 2·설치 1.5초, `SquareArea`·범위 1·설치 2.5초, `ForwardLine`·범위 3·설치 2.25초다. 자폭병 전용 `prototype-self-destruct-blast`는 `Cross`·fuse 0.75초·범위 2이고, 투척병 전용 `prototype-thrower-blocker`와 보스 전용 `prototype-boss-throw`·`prototype-boss-chain`은 모두 `Cross`·fuse 2초이며 범위는 각각 1·2·2다. 네 적 폭탄 정의는 플레이어 무기 슬롯·설치 쿨타임을 사용하지 않는다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 모든 수치 집합은 플레이테스트 전까지 `Proposed`다.
 
+플레이어 설치 폭탄의 표현 프리팹은 `Assets/Game/Content/Prefabs/Bomb/Player`가 권위 경로다. `prototype-cross`는 `NormalBomb.prefab`, `prototype-area`는 `RangeBomb.prefab`, `prototype-line`은 `StraightBomb.prefab`을 사용한다. 세 프리팹의 Animator·모델 Transform은 표현 전용이며 논리 셀 점유와 fuse는 각 `PrototypeBombDefinitionAsset`이 계속 소유한다.
+
 ## 폭발 전파 규칙
 
 각 방향은 원점에서 가까운 셀부터 평가한다.
