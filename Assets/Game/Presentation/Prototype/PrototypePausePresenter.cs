@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace BombSwap
@@ -9,13 +10,23 @@ namespace BombSwap
     public sealed class PrototypePausePresenter : MonoBehaviour
     {
         private PrototypeGameSession _session;
+        private PrototypeUserSettingsRuntime _settingsRuntime;
         private GameObject _canvasObject;
+        private GameObject _menuObject;
         private TextMeshProUGUI _statusLabel;
+        private Button _resumeButton;
+        private Button _settingsButton;
+        private PrototypeSettingsPanelPresenter _settingsPanel;
         private bool _isSubscribed;
 
         public PrototypeGameSession Session => _session;
 
         public bool IsVisible { get; private set; }
+
+        public bool IsSettingsOpen =>
+            _settingsPanel != null && _settingsPanel.IsOpen;
+
+        public PrototypeSettingsPanelPresenter SettingsPanel => _settingsPanel;
 
         public int ShowCount { get; private set; }
 
@@ -42,6 +53,7 @@ namespace BombSwap
 
             Unsubscribe();
             _session = session;
+            _settingsRuntime = session.GetComponent<PrototypeUserSettingsRuntime>();
             if (isActiveAndEnabled)
             {
                 Subscribe();
@@ -55,7 +67,6 @@ namespace BombSwap
             {
                 return;
             }
-
             Subscribe();
             SetVisible(_session.IsPaused);
         }
@@ -72,7 +83,6 @@ namespace BombSwap
             {
                 return;
             }
-
             _session.PauseStateChanged += OnPauseStateChanged;
             _isSubscribed = true;
         }
@@ -83,7 +93,6 @@ namespace BombSwap
             {
                 return;
             }
-
             _session.PauseStateChanged -= OnPauseStateChanged;
             _isSubscribed = false;
         }
@@ -93,13 +102,27 @@ namespace BombSwap
             SetVisible(isPaused);
         }
 
+        public bool TryHandlePauseCommand()
+        {
+            if (!IsSettingsOpen)
+            {
+                return false;
+            }
+            if (_settingsPanel.ConsumeCancelCommand())
+            {
+                return true;
+            }
+            _settingsPanel.Close();
+            return true;
+        }
+
         private void SetVisible(bool visible)
         {
             if (visible)
             {
                 EnsureUi();
+                ShowPauseMenu();
             }
-
             if (_canvasObject != null)
             {
                 _canvasObject.SetActive(visible);
@@ -131,61 +154,127 @@ namespace BombSwap
                 "PrototypePauseCanvas",
                 typeof(RectTransform),
                 typeof(Canvas),
-                typeof(CanvasScaler));
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
             _canvasObject.transform.SetParent(transform, false);
             Canvas canvas = _canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 250;
-            CanvasScaler scaler = _canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            PrototypeUiFactory.ConfigureCanvasScaler(
+                _canvasObject.GetComponent<CanvasScaler>());
+            PrototypeUiFactory.EnsureEventSystem();
 
-            RectTransform backdrop = CreateRect("Backdrop", _canvasObject.transform);
-            backdrop.anchorMin = Vector2.zero;
-            backdrop.anchorMax = Vector2.one;
-            backdrop.offsetMin = Vector2.zero;
-            backdrop.offsetMax = Vector2.zero;
+            RectTransform backdrop = PrototypeUiFactory.CreateRect(
+                "Backdrop",
+                _canvasObject.transform);
+            SetAnchors(backdrop, Vector2.zero, Vector2.one);
             Image backdropImage = backdrop.gameObject.AddComponent<Image>();
-            backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 0.72f);
-            backdropImage.raycastTarget = false;
+            backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 0.76f);
+
+            _menuObject = PrototypeUiFactory.CreateRect("PauseMenu", backdrop).gameObject;
+            SetAnchors(
+                _menuObject.GetComponent<RectTransform>(),
+                new Vector2(0.22f, 0.2f),
+                new Vector2(0.78f, 0.8f));
 
             TextMeshProUGUI title = PrototypeUiFactory.CreateText(
                 "Title",
-                backdrop,
+                _menuObject.transform,
                 56f,
                 TextAlignmentOptions.Center,
                 FontStyles.Bold,
                 TextWrappingModes.Normal);
-            title.rectTransform.anchorMin = new Vector2(0.1f, 0.48f);
-            title.rectTransform.anchorMax = new Vector2(0.9f, 0.68f);
-            title.rectTransform.offsetMin = Vector2.zero;
-            title.rectTransform.offsetMax = Vector2.zero;
+            SetAnchors(title.rectTransform, new Vector2(0.05f, 0.65f), new Vector2(0.95f, 0.92f));
             title.text = "PAUSED";
             title.color = new Color(0.35f, 0.82f, 1f, 1f);
 
+            _resumeButton = CreateButton(
+                "ResumeButton", _menuObject.transform, "게임 계속", 27f,
+                new Vector2(0.18f, 0.42f), new Vector2(0.82f, 0.58f));
+            _resumeButton.onClick.AddListener(ResumeGame);
+
+            _settingsButton = CreateButton(
+                "SettingsButton", _menuObject.transform, "설정", 27f,
+                new Vector2(0.18f, 0.22f), new Vector2(0.82f, 0.38f));
+            _settingsButton.interactable = _settingsRuntime != null;
+            _settingsButton.onClick.AddListener(OpenSettings);
+
             _statusLabel = PrototypeUiFactory.CreateText(
-                "Resume",
-                backdrop,
-                26f,
+                "ResumeHint",
+                _menuObject.transform,
+                19f,
                 TextAlignmentOptions.Center,
                 FontStyles.Normal,
                 TextWrappingModes.Normal);
-            _statusLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.34f);
-            _statusLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.48f);
-            _statusLabel.rectTransform.offsetMin = Vector2.zero;
-            _statusLabel.rectTransform.offsetMax = Vector2.zero;
-            _statusLabel.text = "ESC / GAMEPAD START - RESUME";
+            SetAnchors(_statusLabel.rectTransform, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.17f));
+            _statusLabel.text = "ESC - 게임 계속";
             _statusLabel.color = Color.white;
+
+            if (_settingsRuntime != null)
+            {
+                _settingsPanel = PrototypeSettingsPanelFactory.Create(
+                    backdrop,
+                    "PauseSettingsPanel");
+                _settingsPanel.Configure(_settingsRuntime, ShowPauseMenu);
+            }
         }
 
-        private static RectTransform CreateRect(string objectName, Transform parent)
+        private void ResumeGame()
         {
-            var child = new GameObject(objectName, typeof(RectTransform));
-            child.transform.SetParent(parent, false);
-            return child.GetComponent<RectTransform>();
+            _session.ResumeFromPause();
         }
 
+        private void OpenSettings()
+        {
+            if (_settingsPanel == null)
+            {
+                return;
+            }
+            _menuObject.SetActive(false);
+            _settingsPanel.Open();
+        }
+
+        private void ShowPauseMenu()
+        {
+            if (_settingsPanel != null)
+            {
+                _settingsPanel.HideImmediately();
+            }
+            if (_menuObject != null)
+            {
+                _menuObject.SetActive(true);
+            }
+            if (_resumeButton != null && EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(_resumeButton.gameObject);
+            }
+        }
+
+        private static Button CreateButton(
+            string objectName,
+            Transform parent,
+            string label,
+            float fontSize,
+            Vector2 min,
+            Vector2 max)
+        {
+            Button button = PrototypeUiFactory.CreateButton(
+                objectName,
+                parent,
+                label,
+                fontSize,
+                new Color(0.1f, 0.17f, 0.25f, 1f),
+                new Color(0.2f, 0.46f, 0.65f, 1f));
+            SetAnchors(button.GetComponent<RectTransform>(), min, max);
+            return button;
+        }
+
+        private static void SetAnchors(RectTransform rect, Vector2 min, Vector2 max)
+        {
+            rect.anchorMin = min;
+            rect.anchorMax = max;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
     }
 }

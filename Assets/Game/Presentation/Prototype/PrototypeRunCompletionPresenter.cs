@@ -384,10 +384,7 @@ namespace BombSwap
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 300;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
 
             RectTransform backdrop = PrototypeUiFactory.CreateRect(
                 "Backdrop",
@@ -397,7 +394,7 @@ namespace BombSwap
             backdrop.offsetMin = Vector2.zero;
             backdrop.offsetMax = Vector2.zero;
             Image backdropImage = backdrop.gameObject.AddComponent<Image>();
-            backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 0.82f);
+            backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 1f);
             backdropImage.raycastTarget = false;
 
             TextMeshProUGUI title = PrototypeUiFactory.CreateText(
@@ -468,7 +465,7 @@ namespace BombSwap
             _statusLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.25f);
             _statusLabel.rectTransform.offsetMin = Vector2.zero;
             _statusLabel.rectTransform.offsetMax = Vector2.zero;
-            _statusLabel.text = "R / 게임패드 Select로 즉시 다시 시작";
+            _statusLabel.text = "R 키로 즉시 다시 시작";
             _statusLabel.color = new Color(0.78f, 0.84f, 0.92f, 1f);
 
             EventSystem eventSystem = PrototypeUiFactory.EnsureEventSystem();

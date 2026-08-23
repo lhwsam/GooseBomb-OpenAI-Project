@@ -100,6 +100,11 @@ namespace BombSwap
                 return;
             }
 
+            if (inputActions != null)
+            {
+                PrototypeUserSettingsStorage.ApplyInputOverrides(inputActions);
+            }
+
             if (!TryResolveActions())
             {
                 enabled = false;
