@@ -32,4 +32,4 @@ TMP Font Asset과 같은 이름의 Material Preset을 지정하고, 그라데이
 
 외부 패키지에서 실제 게임에 채택한 자산만 프로젝트 UI 경계로 연결한다. 테스트용 샘플 씬과 데모 스크립트는 빌드 씬이나 게임 어셈블리에 연결하지 않는다.
 
-공개 first-party scene과 prefab에는 `Assets/ThirdParty` Sprite를 직접 저장하지 않는다. 로비와 pause의 선택 이미지는 `PrototypeOptionalUiSkinApplicator`와 로컬 `ThirdPartyUiSkin.asset`으로 연결하며, 상세 Import·Export 절차는 `Docs/Systems/ThirdPartyAssets.md`를 따른다.
+로비와 pause는 권한이 확인된 `Assets/ThirdParty` UI Sprite를 각 `Image.sprite`에 직접 연결할 수 있다. 외부 Sprite를 넣은 Image에는 반드시 `PrototypeOptionalSpriteFallback`을 추가해 package가 없는 clone의 기능 Image는 유지하고 순수 장식은 숨긴다. material·prefab·script 등 Sprite 이외의 외부 타입은 first-party scene과 prefab에 직접 저장하지 않는다. 상세 Import·Export 절차는 `Docs/Systems/ThirdPartyAssets.md`를 따른다.

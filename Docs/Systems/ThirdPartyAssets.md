@@ -1,14 +1,14 @@
 # 서드파티 자산과 로컬 패키지 계약
 
 - 상태: `Accepted`
-- 기준일: 2026-08-23
+- 기준일: 2026-08-24
 - 관련: [ADR-0005](../ADR/0005-ThirdParty-Adapter.md), [ADR-0009](../ADR/0009-Local-ThirdParty-Asset-Distribution.md), [인게임 UI 프리팹](InGameUiPrefabs.md)
 
 ## 저장 경계
 
 | 위치 | Git | 책임 |
 |---|---:|---|
-| `Assets/Game` | 추적 | 프로젝트 소유 코드·콘텐츠·공개 대체 UI |
+| `Assets/Game` | 추적 | 프로젝트 소유 코드·콘텐츠·직접 UI Sprite 참조와 공개 대체 UI |
 | `Assets/ThirdParty`와 `Assets/ThirdParty.meta` | 제외 | 공급자 원본과 로컬 통합 profile |
 | `Assets/Feel`과 `Assets/Feel.meta` | 제외 | 유료 FEEL extension. 현재 프로젝트에서는 제거 상태 |
 | `Assets/Plugins/Demigiant/DOTweenPro`와 Pro README | 제외 | 유료 DOTween Pro extension. 현재 first-party 직접 사용 없음 |
@@ -19,7 +19,7 @@
 | `ExternalAssets/UI-Packages/README.md` | 추적 | Import·Export 절차 |
 | `ExternalAssets/VFX-Packages/README.md` | 추적 | VFX 취득·복구·공개 대체 절차 |
 
-`Assets/Game`의 scene, prefab, material, ScriptableObject는 `Assets/ThirdParty`, FEEL, DOTween Pro, `Assets/Arts/VFX`를 직접 직렬화 참조하지 않는다. 외부 에셋을 사용하지 않는 clone도 기능 검증을 수행할 수 있어야 한다.
+`Assets/Game`의 scene과 prefab은 선택 UI에 사용하는 `Sprite`만 `Assets/ThirdParty`로 직접 직렬화 참조할 수 있다. 해당 `Image`에는 반드시 `PrototypeOptionalSpriteFallback`을 함께 둔다. material, prefab, MonoBehaviour, AudioClip 등 다른 서드파티 타입과 FEEL, DOTween Pro, `Assets/Arts/VFX`의 직접 참조는 허용하지 않는다. 외부 에셋이 없는 clone도 컴파일·기능 검증·WebGL 빌드를 수행할 수 있어야 한다.
 
 ## 코드 extension 분리
 
@@ -36,43 +36,41 @@
 - 현재 `Assets/Game`에는 이 VFX prefab의 직접 참조가 없다. package가 없어도 prototype 기능과 공개 대체 표현은 유지된다.
 - 이력 재작성 전 복구 package는 저장소 밖에만 보관한다. `.unitypackage`는 사용 권한을 만들지 않으며 수신자별 license·seat 조건을 먼저 확인한다.
 
-## 선택 UI 스킨
+## 선택 UI Sprite 직접 연결
 
-로비와 pause의 외부 UI 이미지는 다음 역할로만 연결한다.
+로비와 pause의 외부 이미지는 각 `Image.sprite`에 직접 연결한다. scene·prefab YAML에는 외부 Sprite의 GUID와 file ID만 저장되며, 원본 texture나 `.meta` 파일 자체는 공개 Git에 포함하지 않는다. 권한 있는 작업자가 동일 GUID를 가진 내부 `.unitypackage`를 Import하면 Edit Mode에서도 참조가 자동 복구된다. 패키지가 없는 clone의 Inspector에서는 `Missing` 또는 빈 Sprite로 보일 수 있으며 이는 허용된 상태다.
 
-- 로비 배경
-- 좌·우 선택 화살표
-- 설정 panel 프레임
-- 설정 tab·초기화 button 프레임
-- 설정 slider 배경·fill
+외부 Sprite를 연결한 모든 `Image`에는 `PrototypeOptionalSpriteFallback`을 붙인다.
 
-Git에 저장하는 scene과 prefab은 Sprite가 없는 공개 대체 상태다. 일반 Image는 현재 색을 사용하는 단색 사각형으로 남고, Sprite가 없으면 의미가 없는 선택 화살표만 `Image.enabled = false`다. RectTransform, 색상, Image 타입과 버튼 기능은 유지한다.
+- 기능 배경·panel·button은 `hideWhenMissing = false`를 사용한다. 외부 Sprite가 없으면 선택적인 first-party `fallbackSprite`를 적용하거나, fallback이 비어 있으면 기존 Image 색과 기본 quad를 유지한다.
+- Sprite 자체가 의미인 화살표 같은 장식은 `hideWhenMissing = true`를 사용해 런타임에서 숨긴다.
+- 컴포넌트는 RectTransform, 색상, Image Type, 버튼 listener와 계층을 바꾸지 않는다.
+- 이름·태그·계층 검색과 역할 enum은 사용하지 않는다.
 
-`PrototypeOptionalUiSkinApplicator`는 Inspector에 저장된 `Image` 참조와 역할만 사용한다. `Awake`에서 `Resources/BombSwap/ThirdPartyUiSkin`을 한 번 읽고 존재하는 Sprite를 런타임 인스턴스에 적용한다. 계층 이름을 바꾸거나 UI를 이동해도 바인딩이 유지되면 동작한다. package가 없거나 역할이 누락되면 해당 Image만 공개 대체 상태를 사용한다.
+이 구조는 새 UI 타입마다 코드를 수정하지 않는다. 디자이너가 Image를 추가하고 Sprite와 폴백 정책을 Inspector에서 정하면 된다. 이미 배포한 package 안의 Sprite를 새 위치에 사용하는 변경은 scene·prefab만 커밋한다. 새 원본 파일을 추가하거나 slicing·pivot·border처럼 `.meta`가 바뀌면 그때만 내부 package를 갱신하고 팀원에게 다시 전달한다.
 
-로컬 profile의 권위 경로는 다음이다.
-
-`Assets/ThirdParty/BombSwap/Resources/BombSwap/ThirdPartyUiSkin.asset`
-
-이 profile은 공개 Git이 아니라 내부 `.unitypackage`에 포함한다. Inspector에서 Sprite 역할을 교체할 수 있으며 first-party scene과 prefab에는 외부 GUID가 저장되지 않는다.
+`PrototypeOptionalUiSkinApplicator`, `PrototypeOptionalUiSkin`과 `ThirdPartyUiSkin.asset`은 2026-08-24 이전 role 기반 연결을 직접 참조 방식으로 옮기기 위한 legacy migration 호환물이다. 새 UI 저작에는 사용하지 않는다.
 
 ## Editor 절차
 
-### 최초 Import 또는 매핑 갱신
+### 최초 Import 또는 Sprite 변경
 
 1. 수신자와 프로젝트가 해당 에셋을 사용할 권한이 있는지 확인한다.
 2. Unity에서 전달받은 `.unitypackage`를 Import한다.
-3. profile이 없거나 기본 역할을 복구해야 하면 `Bomb Swap > Third Party > Create or Update Local UI Skin`을 실행한다.
-4. `ThirdPartyUiSkin.asset`의 역할별 Sprite를 Inspector에서 확인한다.
-5. `Bomb Swap > Third Party > Validate Public References`를 실행한다.
-6. 로비와 pause를 Play Mode에서 확인한다.
+3. 로비 scene 또는 pause prefab을 열어 외부 Sprite가 자동 복구됐는지 확인한다.
+4. 이미지를 바꿀 때는 해당 `Image.sprite`에 원하는 Sprite를 직접 드래그한다.
+5. 같은 GameObject에 `PrototypeOptionalSpriteFallback`이 있고 `hideWhenMissing` 정책이 맞는지 확인한다.
+6. `Bomb Swap > Third Party > Validate Public References`를 실행한다.
+7. 960×600 Edit Mode와 Play Mode에서 로비와 pause를 확인한다.
+
+과거 role 기반 자산을 한 번만 전환해야 할 때는 package가 설치된 상태에서 `Bomb Swap > Third Party > Migrate Lobby and Pause to Direct Sprite References`를 사용한다. `Legacy` 하위 skin 메뉴는 새 작업에 사용하지 않는다.
 
 ### 내부 패키지 내보내기
 
 1. Play Mode를 끈다.
-2. 공개 대체 참조 검증을 통과시킨다.
-3. local profile이 완전한지 확인한다.
-4. `Bomb Swap > Third Party > Export Local Assets Package`를 실행한다.
+2. 직접 Sprite·폴백 참조 검증을 통과시킨다.
+3. package에 포함할 원본과 `.meta`가 완전한지 확인한다.
+4. 새 원본이나 import 설정이 변경된 경우에만 `Bomb Swap > Third Party > Export Local Assets Package`를 실행한다.
 5. 생성된 `ExternalAssets/UI-Packages/BombSwap-ThirdParty-*.unitypackage`의 SHA-256을 전달 기록에 남긴다.
 6. 저장소나 공개 파일 서버가 아닌 승인된 비공개 경로로 전달한다.
 
@@ -80,9 +78,10 @@ Git에 저장하는 scene과 prefab은 Sprite가 없는 공개 대체 상태다.
 
 ## 검증 계약
 
-- `PrototypeContentValidator`는 모든 `Assets/Game` 직접 의존성에 `Assets/ThirdParty`, FEEL, DOTween Pro, `Assets/Arts/VFX`가 없는지 검사한다.
-- 로비는 17개, pause는 16개의 명시적 Sprite 바인딩과 공개 대체 상태를 검사한다.
-- PlayMode는 profile 부재 시 화살표 숨김·기능 Image 유지와 profile 존재 시 역할별 Sprite 적용을 검사한다.
+- `PrototypeContentValidator`는 `Assets/Game`에서 허용된 외부 UI Sprite를 제외한 `Assets/ThirdParty` 타입, FEEL, DOTween Pro, `Assets/Arts/VFX` 직접 의존성이 없는지 검사한다.
+- 로비는 17개, pause는 16개 이상의 직접 Sprite 슬롯, 각 Image의 폴백 컴포넌트와 legacy applicator 부재를 검사한다.
+- package가 설치된 상태에서 외부 Sprite를 직접 참조하는 Image에 폴백 컴포넌트가 빠지면 검증이 실패한다.
+- PlayMode는 Sprite 부재 시 장식 숨김·기능 Image 유지·first-party fallback 적용과 Sprite 존재 시 원본 유지 동작을 검사한다.
 - 외부 package가 없는 공개 clone에서 Full 검증이 통과해야 한다.
 - package 포함 최종 렌더링은 960×600 Game View와 실제 WebGL에서 별도로 확인한다.
 - 무료 DOTween Core만 있는 clean checkout에서 compile·PlayMode·WebGL을 통과해야 한다.

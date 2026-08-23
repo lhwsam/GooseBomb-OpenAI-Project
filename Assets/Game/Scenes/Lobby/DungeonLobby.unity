@@ -393,6 +393,7 @@ GameObject:
   - component: {fileID: 36765803}
   - component: {fileID: 36765802}
   - component: {fileID: 36765801}
+  - component: {fileID: 36765805}
   m_Layer: 0
   m_Name: ResetButton
   m_TagString: Untagged
@@ -505,7 +506,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 3bd6ce96b069bc34b8ba9db8d39a9036, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -523,6 +524,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 36765799}
   m_CullTransparentMesh: 1
+--- !u!114 &36765805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 36765799}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &41859239
 GameObject:
   m_ObjectHideFlags: 0
@@ -1849,7 +1864,6 @@ GameObject:
   - component: {fileID: 241204041}
   - component: {fileID: 241204040}
   - component: {fileID: 241204039}
-  - component: {fileID: 241204042}
   m_Layer: 0
   m_Name: LobbyCanvas
   m_TagString: Untagged
@@ -1942,70 +1956,6 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 300
   m_TargetDisplay: 0
---- !u!114 &241204042
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 241204037}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f3b3e4110e4c1764a8cb2f6c33a518d8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalUiSkinApplicator
-  bindings:
-  - role: 0
-    target: {fileID: 1912050729}
-    hideWhenMissing: 0
-  - role: 1
-    target: {fileID: 573489629}
-    hideWhenMissing: 1
-  - role: 2
-    target: {fileID: 836146499}
-    hideWhenMissing: 1
-  - role: 1
-    target: {fileID: 1103787145}
-    hideWhenMissing: 1
-  - role: 2
-    target: {fileID: 922748147}
-    hideWhenMissing: 1
-  - role: 3
-    target: {fileID: 1373009025}
-    hideWhenMissing: 0
-  - role: 4
-    target: {fileID: 618209288}
-    hideWhenMissing: 0
-  - role: 4
-    target: {fileID: 298352909}
-    hideWhenMissing: 0
-  - role: 4
-    target: {fileID: 36765803}
-    hideWhenMissing: 0
-  - role: 5
-    target: {fileID: 1401411823}
-    hideWhenMissing: 0
-  - role: 6
-    target: {fileID: 776125346}
-    hideWhenMissing: 0
-  - role: 5
-    target: {fileID: 1307934787}
-    hideWhenMissing: 0
-  - role: 6
-    target: {fileID: 1745793497}
-    hideWhenMissing: 0
-  - role: 5
-    target: {fileID: 575053144}
-    hideWhenMissing: 0
-  - role: 6
-    target: {fileID: 700388743}
-    hideWhenMissing: 0
-  - role: 5
-    target: {fileID: 438964662}
-    hideWhenMissing: 0
-  - role: 6
-    target: {fileID: 1230190645}
-    hideWhenMissing: 0
 --- !u!1 &248426660
 GameObject:
   m_ObjectHideFlags: 0
@@ -2329,6 +2279,7 @@ GameObject:
   - component: {fileID: 298352909}
   - component: {fileID: 298352908}
   - component: {fileID: 298352911}
+  - component: {fileID: 298352912}
   m_Layer: 0
   m_Name: AudioTabButton
   m_TagString: Untagged
@@ -2420,7 +2371,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 3bd6ce96b069bc34b8ba9db8d39a9036, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2459,6 +2410,20 @@ MonoBehaviour:
   startColor: {r: 0.7372549, g: 0.7372549, b: 0.7372549, a: 1}
   targetColor: {r: 1, g: 1, b: 1, a: 1}
   hoverVisualTargets: []
+--- !u!114 &298352912
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 298352906}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &320167399
 GameObject:
   m_ObjectHideFlags: 0
@@ -3111,6 +3076,7 @@ GameObject:
   - component: {fileID: 438964663}
   - component: {fileID: 438964662}
   - component: {fileID: 438964661}
+  - component: {fileID: 438964664}
   m_Layer: 0
   m_Name: ScreenShakeSlider
   m_TagString: Untagged
@@ -3209,7 +3175,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3227,6 +3193,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 438964659}
   m_CullTransparentMesh: 1
+--- !u!114 &438964664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438964659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &445289412
 GameObject:
   m_ObjectHideFlags: 0
@@ -3781,6 +3761,7 @@ GameObject:
   - component: {fileID: 573489628}
   - component: {fileID: 573489630}
   - component: {fileID: 573489629}
+  - component: {fileID: 573489631}
   m_Layer: 0
   m_Name: Arrow_Left
   m_TagString: Untagged
@@ -3814,7 +3795,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 573489627}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -3827,7 +3808,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 1380205173, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3845,6 +3826,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 573489627}
   m_CullTransparentMesh: 1
+--- !u!114 &573489631
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 573489627}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 1
 --- !u!1 &575053141
 GameObject:
   m_ObjectHideFlags: 0
@@ -3857,6 +3852,7 @@ GameObject:
   - component: {fileID: 575053145}
   - component: {fileID: 575053144}
   - component: {fileID: 575053143}
+  - component: {fileID: 575053146}
   m_Layer: 0
   m_Name: SfxVolumeSlider
   m_TagString: Untagged
@@ -3955,7 +3951,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3973,6 +3969,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 575053141}
   m_CullTransparentMesh: 1
+--- !u!114 &575053146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 575053141}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &607640179
 GameObject:
   m_ObjectHideFlags: 0
@@ -4183,6 +4193,7 @@ GameObject:
   - component: {fileID: 618209288}
   - component: {fileID: 618209287}
   - component: {fileID: 618209290}
+  - component: {fileID: 618209291}
   m_Layer: 0
   m_Name: ControlsTabButton
   m_TagString: Untagged
@@ -4274,7 +4285,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 3bd6ce96b069bc34b8ba9db8d39a9036, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4313,6 +4324,20 @@ MonoBehaviour:
   startColor: {r: 0.7372549, g: 0.7372549, b: 0.7372549, a: 1}
   targetColor: {r: 1, g: 1, b: 1, a: 1}
   hoverVisualTargets: []
+--- !u!114 &618209291
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 618209285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &635480904
 GameObject:
   m_ObjectHideFlags: 0
@@ -4707,6 +4732,7 @@ GameObject:
   - component: {fileID: 700388742}
   - component: {fileID: 700388744}
   - component: {fileID: 700388743}
+  - component: {fileID: 700388745}
   m_Layer: 0
   m_Name: Fill
   m_TagString: Untagged
@@ -4753,7 +4779,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4771,6 +4797,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 700388741}
   m_CullTransparentMesh: 1
+--- !u!114 &700388745
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700388741}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &776125344
 GameObject:
   m_ObjectHideFlags: 0
@@ -4782,6 +4822,7 @@ GameObject:
   - component: {fileID: 776125345}
   - component: {fileID: 776125347}
   - component: {fileID: 776125346}
+  - component: {fileID: 776125348}
   m_Layer: 0
   m_Name: Fill
   m_TagString: Untagged
@@ -4828,7 +4869,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4846,6 +4887,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 776125344}
   m_CullTransparentMesh: 1
+--- !u!114 &776125348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 776125344}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &804922970
 GameObject:
   m_ObjectHideFlags: 0
@@ -5411,6 +5466,7 @@ GameObject:
   - component: {fileID: 836146498}
   - component: {fileID: 836146500}
   - component: {fileID: 836146499}
+  - component: {fileID: 836146501}
   m_Layer: 0
   m_Name: Arrow_Right
   m_TagString: Untagged
@@ -5444,7 +5500,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 836146497}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -5457,7 +5513,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 373192665, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -5475,6 +5531,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 836146497}
   m_CullTransparentMesh: 1
+--- !u!114 &836146501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 836146497}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 1
 --- !u!1 &843811211
 GameObject:
   m_ObjectHideFlags: 0
@@ -5695,6 +5765,7 @@ GameObject:
   - component: {fileID: 922748146}
   - component: {fileID: 922748148}
   - component: {fileID: 922748147}
+  - component: {fileID: 922748149}
   m_Layer: 0
   m_Name: Arrow_Right
   m_TagString: Untagged
@@ -5728,7 +5799,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 922748145}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -5741,7 +5812,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 373192665, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -5759,6 +5830,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 922748145}
   m_CullTransparentMesh: 1
+--- !u!114 &922748149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 922748145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 1
 --- !u!1 &934088052
 GameObject:
   m_ObjectHideFlags: 0
@@ -5917,6 +6002,7 @@ GameObject:
   - component: {fileID: 1103787144}
   - component: {fileID: 1103787146}
   - component: {fileID: 1103787145}
+  - component: {fileID: 1103787147}
   m_Layer: 0
   m_Name: Arrow_Left
   m_TagString: Untagged
@@ -5950,7 +6036,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1103787143}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -5963,7 +6049,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 1380205173, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -5981,6 +6067,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1103787143}
   m_CullTransparentMesh: 1
+--- !u!114 &1103787147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1103787143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 1
 --- !u!1 &1129067523
 GameObject:
   m_ObjectHideFlags: 0
@@ -6440,6 +6540,7 @@ GameObject:
   - component: {fileID: 1230190644}
   - component: {fileID: 1230190646}
   - component: {fileID: 1230190645}
+  - component: {fileID: 1230190647}
   m_Layer: 0
   m_Name: Fill
   m_TagString: Untagged
@@ -6486,7 +6587,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6504,6 +6605,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1230190643}
   m_CullTransparentMesh: 1
+--- !u!114 &1230190647
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1230190643}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &1285890951
 GameObject:
   m_ObjectHideFlags: 0
@@ -6717,6 +6832,7 @@ GameObject:
   - component: {fileID: 1307934788}
   - component: {fileID: 1307934787}
   - component: {fileID: 1307934786}
+  - component: {fileID: 1307934789}
   m_Layer: 0
   m_Name: BgmVolumeSlider
   m_TagString: Untagged
@@ -6815,7 +6931,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6833,6 +6949,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1307934784}
   m_CullTransparentMesh: 1
+--- !u!114 &1307934789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1307934784}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &1371055053
 GameObject:
   m_ObjectHideFlags: 0
@@ -6982,6 +7112,7 @@ GameObject:
   - component: {fileID: 1373009026}
   - component: {fileID: 1373009025}
   - component: {fileID: 1373009024}
+  - component: {fileID: 1373009027}
   m_Layer: 0
   m_Name: SettingsPanel
   m_TagString: Untagged
@@ -7094,7 +7225,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 1921596363, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -7112,6 +7243,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1373009022}
   m_CullTransparentMesh: 1
+--- !u!114 &1373009027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1373009022}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &1381280442
 GameObject:
   m_ObjectHideFlags: 0
@@ -7267,6 +7412,7 @@ GameObject:
   - component: {fileID: 1401411824}
   - component: {fileID: 1401411823}
   - component: {fileID: 1401411822}
+  - component: {fileID: 1401411825}
   m_Layer: 0
   m_Name: MasterVolumeSlider
   m_TagString: Untagged
@@ -7365,7 +7511,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -7383,6 +7529,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1401411820}
   m_CullTransparentMesh: 1
+--- !u!114 &1401411825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1401411820}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &1429659105
 GameObject:
   m_ObjectHideFlags: 0
@@ -9462,6 +9622,7 @@ GameObject:
   - component: {fileID: 1745793496}
   - component: {fileID: 1745793498}
   - component: {fileID: 1745793497}
+  - component: {fileID: 1745793499}
   m_Layer: 0
   m_Name: Fill
   m_TagString: Untagged
@@ -9508,7 +9669,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9526,6 +9687,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1745793495}
   m_CullTransparentMesh: 1
+--- !u!114 &1745793499
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1745793495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &1746970299
 GameObject:
   m_ObjectHideFlags: 0
@@ -10444,6 +10619,7 @@ GameObject:
   - component: {fileID: 1912050728}
   - component: {fileID: 1912050730}
   - component: {fileID: 1912050729}
+  - component: {fileID: 1912050731}
   m_Layer: 0
   m_Name: BackgroundShade
   m_TagString: Untagged
@@ -10492,7 +10668,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: acdd784d1bf0aef42b6b6e83666983f5, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -10510,6 +10686,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1912050727}
   m_CullTransparentMesh: 1
+--- !u!114 &1912050731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1912050727}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0
 --- !u!1 &1981416893
 GameObject:
   m_ObjectHideFlags: 0

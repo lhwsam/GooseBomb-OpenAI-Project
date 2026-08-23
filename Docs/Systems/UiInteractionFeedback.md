@@ -33,6 +33,7 @@
 - `colorTarget`은 선택적 `Graphic` 참조이며 TMP 텍스트를 포함한다. Inspector에서 `startColor`와 `targetColor`를 버튼별로 조정할 수 있고, 참조가 없으면 해당 버튼은 scale만 전환한다. 로비의 시작·설정 버튼은 참조가 비어 있을 때 각 버튼의 자식 TMP 라벨을 런타임 fallback으로 사용한다.
 - `hoverVisualTargets`는 선택적 자식 GameObject 목록이며 Inspector의 직렬화 참조만 사용한다. 런타임에는 이름·태그·계층 검색 fallback이 없다. 로비의 시작·설정 버튼은 각 좌우 화살표 두 개를 명시적으로 참조해야 하며 Editor validator가 누락과 버튼 계층 밖 참조를 거부한다.
 - 로비 시작 시 `StartRunButton`은 키보드·게임패드 Submit을 위해 EventSystem 선택을 유지하지만, 첫 포인터·탐색·Submit 입력 전에는 선택 시각 효과를 숨겨 Normal 상태로 표시한다.
+- 오디오 후보 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`는 hover·선택 이동이 아니라 interactable Button의 확정 click과 UI Submit에 같은 소리로 사용한다. 현재 clip 저작만 완료했고 재생 presenter와 AudioSource/SFX Mixer route는 아직 연결하지 않았다.
 - hit 영역을 고정해야 하거나 Layout Group 영향에서 시각 요소를 분리할 UI는 버튼 아래에 `Visual` 자식을 만들고 그 자식을 `visualTarget`으로 지정한다.
 - Editor authoring과 validator는 버튼 자신 또는 그 하위 `RectTransform`만 유효한 대상으로 인정하며, 디자이너가 지정한 하위 대상과 이름이 `Visual`인 직접 자식을 보존한다.
 - Inspector에서 hover·pressed 배율과 두 시간을 버튼별로 조정할 수 있다. 로비 공통값으로 되돌리려면 `Bomb Swap > UI > Apply Button Feedback To Lobby`를 실행한다.

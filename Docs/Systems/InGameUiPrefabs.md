@@ -1,7 +1,7 @@
 # 인게임 UI 프리팹 저작 계약
 
 - 상태: `Accepted`
-- 기준일: 2026-08-23
+- 기준일: 2026-08-24
 - 대상: 무기 HUD, 체력 HUD, 던전 미니맵, 일시정지 화면
 - 관련: [로비와 공통 TMP UI](../Development/LobbySlice.md), [사용자 설정](UserSettingsAndAudio.md), [서드파티 자산](ThirdPartyAssets.md), [최소 미니맵](../Development/MinimalMinimapSlice.md)
 
@@ -46,22 +46,23 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 
 배경, 메뉴, `PAUSED` TMP, 계속·설정 Button과 `SettingsPanel` 전체를 프리팹에서 수정한다. 별도 `ESC - 게임 계속` 안내 문구는 사용하지 않으며 `PrototypePauseView.statusLabel`은 이전 프리팹 호환을 위한 선택 참조다. `PAUSED` TMP의 선택 가능한 `PrototypePauseTitleWave`는 DOTween의 unscaled 단일 phase와 즉시 TMP 메시 갱신으로 보이는 글자를 차례로 올렸다가 원위치시킨다. 컴포넌트 기본 전체 주기는 1초이고 현재 pause 프리팹의 디자이너 저작값은 느린 연출을 위한 2초다. 마지막 글자 뒤 한 글자 간격만 쉰다. pause 중 여섯 글자만 갱신하며 별도 GameObject·material 인스턴스나 frame 반복 할당을 만들지 않는다. 컴포넌트를 비활성화하면 tween과 callback을 정리하고 원래 정점을 복원하므로 정지 제목으로 되돌릴 때 프리팹 계층이나 글자를 나눌 필요가 없다. pause Canvas는 첫 일시정지 때 지연 생성하며 세션과 같은 scene 수명을 가진다. presenter는 Button listener, 선택 상태, 표시 전환과 설정 runtime 연결만 담당한다.
 
-pause 프리팹의 외부 Sprite 슬롯은 `PrototypeOptionalUiSkinApplicator`의 16개 명시적 `Image` 바인딩이다. Git에는 Sprite가 없는 공개 대체 상태를 저장하고, 로컬 package가 있으면 인스턴스 생성 시 role profile을 한 번 적용한다. package 유무가 pause 입력·설정 기능에 영향을 주면 안 된다.
+pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직접 직렬화되어 있다. 각 슬롯은 같은 GameObject의 `PrototypeOptionalSpriteFallback`으로 package 부재를 처리하며 legacy role applicator는 사용하지 않는다. package가 있으면 Prefab Mode에서 Sprite를 바로 보고 교체할 수 있고, package가 없으면 기능 Image는 기본 표현을 유지하며 장식 화살표만 숨긴다. package 유무가 pause 입력·설정 기능에 영향을 주면 안 된다.
 
 ## 디자이너 작업 절차
 
 1. Play Mode를 끈다.
 2. 위 네 프리팹 중 하나를 Prefab Mode로 연다.
 3. RectTransform, Image, TMP, Button, sprite, material과 장식 자식을 수정한다.
-4. root View Inspector에서 필수 참조가 유지됐는지 확인한다.
-5. 960×600 Game View에서 HUD 겹침과 픽셀 선명도를 확인한다.
-6. gameplay scene을 재생해 실제 값 변화와 pause 설정 이동을 확인한다.
+4. `Assets/ThirdParty` Sprite를 직접 넣었다면 같은 Image에 `PrototypeOptionalSpriteFallback`을 추가하고 기능 Image는 유지, 순수 장식은 숨김 정책을 선택한다.
+5. root View Inspector에서 필수 참조가 유지됐는지 확인한다.
+6. 960×600 Game View에서 HUD 겹침과 픽셀 선명도를 확인한다.
+7. gameplay scene을 재생해 실제 값 변화와 pause 설정 이동을 확인한다.
 
 `Bomb Swap > UI > Create Missing In-Game UI Prefabs and Wire Scenes`는 누락 프리팹만 기본 형태로 만들고 scene 참조를 복구한다. 이미 존재하는 프리팹의 계층이나 시각값은 다시 생성하거나 덮어쓰지 않는다.
 
 ## 검증 계약
 
-- Editor validator는 네 프리팹의 View·필수 참조, pause의 공개 대체 Sprite 바인딩과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
+- Editor validator는 네 프리팹의 View·필수 참조, pause의 직접 Sprite·per-Image 폴백과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
 - PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 미니맵 snapshot 갱신, pause 열기·설정 이동·닫기를 확인한다.
 - 실제 WebGL에서는 960×600 Canvas, 브라우저 축소, 키보드·마우스 포커스, pause 중 unscaled UI 입력과 Console/page error를 확인한다.
 
