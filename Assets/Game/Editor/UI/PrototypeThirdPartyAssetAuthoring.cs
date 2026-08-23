@@ -70,7 +70,7 @@ namespace BombSwap.Editor.UI
         internal static readonly Vector2 SettingsPanelSpritePixelSize =
             new Vector2(87f, 77f);
 
-        [MenuItem("Bomb Swap/Third Party/Create or Update Local UI Skin")]
+        [MenuItem("Bomb Swap/Third Party/Legacy/Create or Update Local UI Skin")]
         private static void CreateOrUpdateLocalSkinFromMenu()
         {
             EnsureNotPlaying();
@@ -82,7 +82,7 @@ namespace BombSwap.Editor.UI
                 "This asset remains inside the ignored third-party package.");
         }
 
-        [MenuItem("Bomb Swap/Third Party/Configure Public UI Fallbacks")]
+        [MenuItem("Bomb Swap/Third Party/Legacy/Configure Public UI Fallbacks")]
         private static void ConfigurePublicFallbacksFromMenu()
         {
             EnsureNotPlaying();
@@ -107,8 +107,9 @@ namespace BombSwap.Editor.UI
             }
 
             Debug.Log(
-                "Public first-party assets contain no direct private vendor " +
-                "dependencies and optional UI bindings use public fallbacks.");
+                "Private source files remain outside Git, direct UI Sprite " +
+                "references use fallback components, and unsupported vendor " +
+                "dependencies were not found.");
         }
 
         [MenuItem(
@@ -153,16 +154,6 @@ namespace BombSwap.Editor.UI
                     $"Third-party source folder is missing: {ThirdPartyRoot}");
             }
 
-            PrototypeOptionalUiSkin skin =
-                AssetDatabase.LoadAssetAtPath<PrototypeOptionalUiSkin>(
-                    LocalSkinAssetPath);
-            if (skin == null || !skin.HasValidEntries)
-            {
-                throw new InvalidOperationException(
-                    $"Create and validate the local UI skin at " +
-                    $"'{LocalSkinAssetPath}' before export.");
-            }
-
             string outputDirectory = Path.GetFullPath(
                 Path.Combine(
                     Application.dataPath,
@@ -188,31 +179,8 @@ namespace BombSwap.Editor.UI
                 throw new ArgumentNullException(nameof(errors));
             }
 
-            string[] assetPaths = AssetDatabase.GetAllAssetPaths();
-            foreach (string ownerPath in assetPaths)
-            {
-                if (!ownerPath.StartsWith(
-                        "Assets/Game/",
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                string[] dependencies =
-                    AssetDatabase.GetDependencies(ownerPath, false);
-                for (int index = 0;
-                     index < dependencies.Length;
-                     index++)
-                {
-                    string dependency = dependencies[index];
-                    if (IsPrivateVendorAsset(dependency))
-                    {
-                        errors.Add(
-                            $"Public asset '{ownerPath}' directly references " +
-                            $"private vendor asset '{dependency}'.");
-                    }
-                }
-            }
+            PrototypeDirectThirdPartyUiAuthoring
+                .ValidateSupportedDependencies(errors);
         }
 
         internal static void ValidateNoObsoleteVendorDefines(
@@ -290,32 +258,15 @@ namespace BombSwap.Editor.UI
                 throw new ArgumentNullException(nameof(errors));
             }
 
-            PrototypePauseView pause =
-                AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
-                    PrototypeInGameUiPrefabAuthoring.PausePrefabPath);
-            ValidateApplicator(
-                pause != null
-                    ? pause.GetComponent<PrototypeOptionalUiSkinApplicator>()
-                    : null,
-                false,
-                PrototypeInGameUiPrefabAuthoring.PausePrefabPath,
-                errors);
+            PrototypeDirectThirdPartyUiAuthoring
+                .ValidateDirectSpriteSlots(errors);
         }
 
         internal static bool HasPublicSettingsPanelConfiguration(
             Image image)
         {
-            if (image == null ||
-                image.sprite != null ||
-                image.type != Image.Type.Simple ||
-                image.preserveAspect)
-            {
-                return false;
-            }
-
-            return TryGetIntegerSettingsPanelScale(
-                image.rectTransform,
-                out _);
+            return PrototypeDirectThirdPartyUiAuthoring
+                .HasSettingsPanelConfiguration(image);
         }
 
         internal static bool HasExpectedBindings(

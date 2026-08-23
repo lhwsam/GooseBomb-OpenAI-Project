@@ -666,29 +666,27 @@ namespace BombSwap.Editor.ContentValidation
                         Image settingsPanelImage = presenter.SettingsPanel != null
                             ? presenter.SettingsPanel.GetComponent<Image>()
                             : null;
-                        if (!PrototypeThirdPartyAssetAuthoring
-                                .HasPublicSettingsPanelConfiguration(
+                        if (!PrototypeDirectThirdPartyUiAuthoring
+                                .HasSettingsPanelConfiguration(
                                     settingsPanelImage))
                         {
                             errors.Add(
                                 "Lobby settings panel must keep an integer-scaled " +
-                                "Simple public fallback without a third-party sprite. " +
+                                "Simple Image configuration. " +
                                 "Designer-authored RectTransform layout is preserved.");
                         }
 
-                        PrototypeOptionalUiSkinApplicator skinApplicator =
-                            presenter.LobbyCanvas != null
-                                ? presenter.LobbyCanvas.GetComponent<
-                                    PrototypeOptionalUiSkinApplicator>()
-                                : null;
-                        if (!PrototypeThirdPartyAssetAuthoring
-                                .HasExpectedBindings(
-                                    skinApplicator,
-                                    true))
+                        if (!PrototypeDirectThirdPartyUiAuthoring
+                                .HasExpectedDirectSpriteSlots(
+                                    presenter.LobbyCanvas != null
+                                        ? presenter.LobbyCanvas.gameObject
+                                        : null,
+                                    PrototypeDirectThirdPartyUiAuthoring
+                                        .MinimumLobbySlots))
                         {
                             errors.Add(
-                                "Lobby optional UI skin must use explicit public " +
-                                "fallback bindings without direct third-party references.");
+                                "Lobby direct Sprite slots must use per-Image " +
+                                "runtime fallbacks without a legacy role applicator.");
                         }
                     }
                 }

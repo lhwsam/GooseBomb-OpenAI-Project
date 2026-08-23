@@ -82,11 +82,12 @@ namespace BombSwap.Tests.EditMode
         private static GridState CreateGrid()
         {
             var grid = new GridState();
+            GridPosition otherStart = Destination.Offset(0, 1);
             grid.TrySetTerrain(Start, GridTerrain.Floor);
             grid.TrySetTerrain(Destination, GridTerrain.Floor);
-            grid.TrySetTerrain(Start.Offset(0, 1), GridTerrain.Floor);
+            grid.TrySetTerrain(otherStart, GridTerrain.Floor);
             Assert.That(grid.TryAddActor(Actor, Start), Is.True);
-            Assert.That(grid.TryAddActor(OtherActor, Start.Offset(0, 1)), Is.True);
+            Assert.That(grid.TryAddActor(OtherActor, otherStart), Is.True);
             return grid;
         }
     }

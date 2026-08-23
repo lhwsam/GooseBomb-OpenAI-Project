@@ -26,7 +26,7 @@ WebGL을 열자마자 던전 simulation을 시작하지 않고 게임 이름과 
 - 로비의 초기 Canvas 계층은 공통 factory로 한 번 저작해 씬에 저장한다. 무기 HUD·체력 HUD·미니맵·pause는 [공유 인게임 UI 프리팹](../Systems/InGameUiPrefabs.md)에서 사람이 직접 저작하고 presenter가 scene 수명에 맞춰 한 번 인스턴스화한다. 보상·회복·비밀방·결과 화면은 기존 런타임 표현 경계를 유지한다.
 - 모든 first-party `CanvasScaler`는 `PrototypeUiFactory`의 960×600 공통 기준, `ScaleWithScreenSize`, `MatchWidthOrHeight = 0.5`를 사용한다. 네이티브 WebGL 크기에서는 UI scale이 1이고, 브라우저 표시 축소는 hosting shell이 담당한다.
 - 로비는 키보드, 게임패드 UI Submit, 마우스 클릭을 받는다.
-- 공개 씬은 외부 Sprite를 직접 참조하지 않는 단색 대체 상태다. 권한이 있는 개발자가 로컬 package를 Import하면 `PrototypeOptionalUiSkinApplicator`가 `BlackandWhiteUI_117` 등 역할별 Sprite를 런타임 인스턴스에 적용한다. 설정 panel은 87×77 원본의 디자이너 저작 정수 6배 522×462 `Simple` Image 크기를 유지하며, 선택 스킨은 RectTransform·색상·Image 타입을 변경하지 않는다. Unity Game View를 `0.8x`처럼 비정수 배율로 축소한 미리보기는 픽셀 샘플을 다시 보간하므로 선명도 판정은 `1x` 또는 실제 960×600 WebGL canvas에서 한다.
+- 권한이 있는 개발자가 로컬 package를 Import하면 씬에 저장된 GUID로 `BlackandWhiteUI_117` 등 외부 Sprite가 Edit Mode에서 직접 복구된다. 각 외부 Sprite Image의 `PrototypeOptionalSpriteFallback`은 package가 없는 공개 clone에서 기능 Image를 유지하고 순수 장식만 숨긴다. 설정 panel은 87×77 원본의 디자이너 저작 정수 6배 522×462 `Simple` Image 크기를 유지하며, Sprite 교체와 폴백은 RectTransform·색상·Image 타입을 변경하지 않는다. Unity Game View를 `0.8x`처럼 비정수 배율로 축소한 미리보기는 픽셀 샘플을 다시 보간하므로 선명도 판정은 `1x` 또는 실제 960×600 WebGL canvas에서 한다.
 - 로비의 `ControlsPage`는 씬 저작 ScrollRect와 최하단 `ResetButton`을 유지한다. presenter는 이 Button을 명시적 직렬화 참조로 사용해 키보드 override만 초기화하며 이미지·RectTransform·스크롤 content를 런타임에 재배치하지 않는다. `SettingsStatusText`는 제거하고 중복 키는 해당 키 Button 안의 `이미 사용 중` 경고색과 짧은 좌우 흔들림으로 알린다.
 - 로비의 비활성 설정 패널을 포함한 모든 Button은 [UI 상호작용 피드백](../Systems/UiInteractionFeedback.md)의 공통 DOTween 컴포넌트를 가진다. 기본 hover/키보드 선택은 `1.06`, 누름은 `0.96`이며 pause 영향 없이 전환한다. 현재 씬은 기존 계층을 보존해 버튼 root를 확대하지만, 디자이너는 hit 영역을 고정해야 하는 버튼에 별도 `Visual` 자식을 지정할 수 있다. 게임 시작·설정 버튼은 각각 지정된 TMP 라벨만 `startColor`에서 `targetColor`로 전환하며 버튼 배경은 변경하지 않는다. 두 버튼은 좌우 화살표를 Inspector 직렬화 참조로 소유하고 hover·키보드 선택·누름에 함께 표시하며 이름 기반 검색은 사용하지 않는다. 최초 로비에서는 키보드·게임패드 Submit 대상을 시작 버튼으로 유지하되 실제 입력 전까지 선택 시각 효과를 숨긴다.
 - 로비와 pause는 [사용자 설정 계약](../Systems/UserSettingsAndAudio.md)의 같은 settings presenter를 사용한다. 로비 패널은 씬에 배치하고 pause 패널은 공유 pause 프리팹 안에 저작해 첫 pause 때 인스턴스화한다.
@@ -58,5 +58,5 @@ DungeonLobby (run 없음)
 
 ## 범위 밖
 
-- 해상도·render scale·UI scale 설정, 저장된 런 이어하기/세이브 슬롯, 언어 선택, 계정, 온라인 기능, 메타 성장, 완성된 로비 아트·애니메이션·음악. WebGL의 CSS 표시 크기는 hosting shell이 반응형으로 처리하고 설정의 fullscreen은 Unity 요청만 제공한다.
+- 해상도·render scale·UI scale 설정, 저장된 런 이어하기/세이브 슬롯, 언어 선택, 계정, 온라인 기능, 메타 성장, 완성된 로비 아트·애니메이션과 BGM 최종 청감 승인·AudioSource 연결. WebGL의 CSS 표시 크기는 hosting shell이 반응형으로 처리하고 설정의 fullscreen은 Unity 요청만 제공한다. 로비 BGM 후보 clip의 계약은 [사용자 설정과 오디오](../Systems/UserSettingsAndAudio.md)를 따른다.
 - `DungGeunMo`·`DNFBitBitv2` 이외 대체 폰트와 다국어 fallback 정책. 실제 로컬라이징을 시작할 때 별도 결정한다.

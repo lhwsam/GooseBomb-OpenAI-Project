@@ -82,6 +82,17 @@ namespace BombSwap.Editor.ContentValidation
                 $"'{SettingsAssetPath}'. This asset is excluded from Git.");
         }
 
+        [MenuItem("Bomb Swap/Local Setup/Reset Player Bomb VFX to Public Fallback")]
+        public static void ResetPlayerBombVfxToPublicFallback()
+        {
+            SynchronizePlayerBombVfx(null);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "[LocalLicensedVfxSetup] Cleared local particle children from player bomb " +
+                "prefabs. The empty SparksEffect anchors are the public fallback.");
+        }
+
+
         [MenuItem("Bomb Swap/Local Setup/Validate Licensed VFX")]
         public static void ValidateMenu()
         {
@@ -228,13 +239,17 @@ namespace BombSwap.Editor.ContentValidation
                             anchor.GetChild(childIndex).gameObject);
                     }
 
-                    var instance = (GameObject)PrefabUtility.InstantiatePrefab(
-                        sparksEffectPrefab,
-                        anchor);
-                    instance.name = "Particle";
-                    instance.transform.localPosition = Vector3.zero;
-                    instance.transform.localRotation = Quaternion.identity;
-                    instance.transform.localScale = Vector3.one;
+                    if (sparksEffectPrefab != null)
+                    {
+                        var instance = (GameObject)PrefabUtility.InstantiatePrefab(
+                            sparksEffectPrefab,
+                            anchor);
+                        instance.name = "Particle";
+                        instance.transform.localPosition = Vector3.zero;
+                        instance.transform.localRotation = Quaternion.identity;
+                        instance.transform.localScale = Vector3.one;
+                    }
+
                     PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
                 }
                 finally

@@ -41,7 +41,7 @@ namespace BombSwap.Tests.EditMode
 
             Assert.Throws<InvalidOperationException>(() =>
                 accumulator.AddElapsed(TimeSpan.FromMilliseconds(50), 4));
-            Assert.That(accumulator.Remainder, Is.Zero);
+            Assert.That(accumulator.Remainder, Is.EqualTo(TimeSpan.Zero));
         }
     }
 }

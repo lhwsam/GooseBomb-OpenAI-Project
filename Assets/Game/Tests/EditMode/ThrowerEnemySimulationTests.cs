@@ -283,7 +283,11 @@ namespace BombSwap.Tests.EditMode
             clock.Advance(RecoveryDuration);
             Assert.That(simulation.Advance().State, Is.EqualTo(ThrowerEnemyState.Track));
 
-            for (int index = 0; index < 4; index++)
+            for (int guard = 0;
+                 guard < 32 &&
+                 (simulation.CurrentPosition != simulation.CurrentFiringAnchor ||
+                  simulation.LocomotionState == EnemyLocomotionState.Moving);
+                 guard++)
             {
                 ThrowerEnemyAdvanceResult movement = simulation.Advance();
                 if (!movement.HasMovement)
@@ -292,6 +296,9 @@ namespace BombSwap.Tests.EditMode
                 }
             }
 
+            Assert.That(
+                simulation.CurrentPosition,
+                Is.EqualTo(simulation.CurrentFiringAnchor));
             Assert.That(simulation.State, Is.EqualTo(ThrowerEnemyState.Track));
             Assert.That(simulation.HasOutstandingBomb, Is.True);
             Assert.That(simulation.Advance().HasActivity, Is.False);
