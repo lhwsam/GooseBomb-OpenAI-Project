@@ -3352,7 +3352,7 @@ MonoBehaviour:
   eastSecretCracks: {fileID: 1163178160}
   southSecretCracks: {fileID: 2103338632}
   westSecretCracks: {fileID: 215112425}
-  secretWallBreakVfxPrefab: {fileID: 1025285306637258, guid: d8f0099df63275647a8bcf646df1ca00, type: 3}
+  secretWallBreakVfxPrefab: {fileID: 0}
 --- !u!114 &549228495
 MonoBehaviour:
   m_ObjectHideFlags: 0

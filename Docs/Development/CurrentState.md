@@ -114,7 +114,7 @@
 - `PrototypeDungeonRunNavigator`가 열린 문·대상 콘텐츠·로드 가능성을 검증한 pending 전환을 만들고 기대한 씬 로드 뒤에만 Core 이동을 단일 commit하도록 구현.
 - `PrototypeDungeonRunHost`가 run session·navigator만 전용 root에서 지속하고 중복 bootstrap 중 primary 한 개만 남기도록 구현.
 - `PrototypeDungeonRoomBinder`가 pending 입장 방향과 전투방 배정 회전을 session `Awake` 전에 적용하고, 논리 출구 셀의 바깥 방향 입력을 graph travel 요청으로 연결하도록 구현.
-- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태를 표시한다. `SecretWall`에서는 바깥 장식 문 renderer를 숨기고 논리 출구 셀의 Collider 없는 금 간 root를 표시하며, 공개 뒤와 재진입 시에는 금 간 표현과 일반 문을 모두 숨겨 빈 통로를 유지한다. 실제 폭발로 처음 공개되는 순간에는 대응 `SecretCracks` world position보다 Y축으로 `0.5` 높은 위치에서 `DustExplosion.prefab`을 한 번 재생하고 프리팹에 저작된 `(-90, 0, 0)` 회전은 유지한다.
+- `PrototypeDungeonDoorPresenter`가 회전된 그래프 방향을 저작된 네 문으로 역매핑하고 `Inactive`·`Locked`·`Open`·`SecretWall` 상태를 표시한다. `SecretWall`에서는 바깥 장식 문 renderer를 숨기고 논리 출구 셀의 Collider 없는 금 간 root를 표시하며, 공개 뒤와 재진입 시에는 금 간 표현과 일반 문을 모두 숨겨 빈 통로를 유지한다. 실제 폭발로 처음 공개되는 순간에는 대응 `SecretCracks` world position보다 Y축으로 `0.5` 높은 위치에서 효과를 한 번 재생한다. 공개 clone은 first-party 절차형 particle fallback을 사용하고, 권한 있는 로컬 작업자는 별도 VFX prefab을 연결해 같은 위치·회전 계약을 확인할 수 있다.
 - 다섯 전투방을 graph binder로 연결하고, 중앙 문 틈을 가진 8개 분할 외벽·collider 없는 네 문 패널을 Editor builder로 저작.
 - 실제 `PrototypeDungeonSpecialRoomCatalog.asset`과 `DungeonStart`·`DungeonReward`·`DungeonBossAnte`·`DungeonBoss` placeholder 씬을 생성하고 Build Settings의 첫 enabled 씬을 `DungeonStart`로 고정.
 - 연결된 Editor에서 콘텐츠 validator와 Development WebGL BuildReport를 남기는 `ConnectedWebGLBuildHarness`를 구현하고, Playwright가 안전 시작방 이동→실제 graph scene commit→회전 전투방 입력·폭탄을 검증하도록 smoke를 갱신.

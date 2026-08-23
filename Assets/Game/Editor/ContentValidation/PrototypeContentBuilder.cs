@@ -2997,8 +2997,7 @@ namespace BombSwap.Editor.ContentValidation
                 boundaryPresentation.SecretCrackRoots[1],
                 boundaryPresentation.SecretCrackRoots[2],
                 boundaryPresentation.SecretCrackRoots[3]);
-            doorPresenter.ConfigureSecretWallBreakVfx(
-                LoadSecretWallBreakVfxPrefab());
+            doorPresenter.ConfigureSecretWallBreakVfx(null);
 
             PrototypeDungeonRoomBinder binder =
                 systems.GetComponent<PrototypeDungeonRoomBinder>();
@@ -3520,8 +3519,7 @@ namespace BombSwap.Editor.ContentValidation
                     presentation.SecretCrackRoots[1],
                     presentation.SecretCrackRoots[2],
                     presentation.SecretCrackRoots[3]);
-                presenter.ConfigureSecretWallBreakVfx(
-                    LoadSecretWallBreakVfxPrefab());
+                presenter.ConfigureSecretWallBreakVfx(null);
                 EditorUtility.SetDirty(presenter);
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene, scenePath))
@@ -3537,23 +3535,6 @@ namespace BombSwap.Editor.ContentValidation
                     EditorSceneManager.CloseScene(scene, true);
                 }
             }
-        }
-
-        private static GameObject LoadSecretWallBreakVfxPrefab()
-        {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-                EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath);
-            if (prefab == null)
-            {
-                throw new InvalidOperationException(
-                    $"Secret wall break VFX prefab is missing at '{EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath}'.");
-            }
-            if (prefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
-            {
-                throw new InvalidOperationException(
-                    $"Secret wall break VFX prefab at '{EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath}' requires at least one ParticleSystem.");
-            }
-            return prefab;
         }
 
         private static DoorVisualPresentation EnsureDoorVisualPrefab(

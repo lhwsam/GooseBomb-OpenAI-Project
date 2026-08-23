@@ -88,7 +88,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 11개 던전 scene의 `FloorVisuals`는 local Y `-1`에서 방 내부 바닥 셀에 더해 네 방향 문 위치에도 `BrickBlock.prefab` 바닥 블록을 하나씩 둔다. 문 지지는 별도 `BoundaryBaseVisuals`가 아니라 이 네 바닥 블록이 담당한다.
 - 11개 던전 scene의 `InteriorObstacles` 자식은 논리 셀 XZ를 유지하면서 local Y `0`에 배치한다. 과거 primitive Cube 중심 배치에 사용한 Y `0.5`는 3D 프리팹 표현에 재사용하지 않는다.
 - `DungeonRoomExitStatus.SecretWall`일 때만 해당 root가 활성화되고 바깥 장식 문 renderer는 숨긴다. 폭발로 공개되면 root도 숨겨 빈 통로를 남기며, 같은 방에 재진입해도 원래 Secret 연결에는 일반 문을 복원하지 않는다. 문·root의 활성 여부는 표현이고 연결 공개 상태는 Core run state가 소유한다.
-- 비밀 연결이 실제 폭발로 처음 공개될 때는 해당 `SecretCracks` root의 world position보다 Y축으로 `0.5` 높은 위치에서 `DustExplosion.prefab`을 한 번 재생한다. 프리팹에 저작된 `(-90, 0, 0)` 회전은 유지하며, 재진입과 상태 재적용에서는 다시 재생하지 않는다.
+- 비밀 연결이 실제 폭발로 처음 공개될 때는 해당 `SecretCracks` root의 world position보다 Y축으로 `0.5` 높은 위치에서 효과를 한 번 재생한다. 공개 clone은 외부 패키지 없이 first-party 절차형 particle fallback을 사용한다. 권한 있는 로컬 작업자가 별도 VFX prefab을 연결하면 그 프리팹의 저작 회전을 유지하며, 재진입과 상태 재적용에서는 어느 경로도 다시 재생하지 않는다.
 - 미공개 Secret 출구의 저작 출구 셀은 계속 `Floor`다. `PrototypeDungeonRoomBinder`가 이 셀과 Secret 연결 방향을 매핑하고, 확정 폭발의 `AffectedCells`가 셀에 닿으면 같은 run의 해당 연결만 공개한다. 공개 전 바깥 이동은 지형이 아니라 `DungeonRoomExitStatus.SecretWall` 경계 상태가 막는다.
 - `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 Collider 접촉이 아니라 확정 `PlayerMovementStep`으로만 수집한다.
 - cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.

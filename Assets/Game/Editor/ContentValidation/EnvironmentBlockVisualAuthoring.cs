@@ -19,10 +19,6 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Environment/Door.prefab";
         public const string CrackedBrickBlockPrefabPath =
             "Assets/Game/Content/Prefabs/Environment/CrackedBrickBlock.prefab";
-        public const string SecretWallBreakVfxPrefabPath =
-            "Assets/Arts/VFX/UnityTechnologies/ParticlePack/EffectExamples/" +
-            "Fire & Explosion Effects/Prefabs/DustExplosion.prefab";
-
         public static void Synchronize(
             Transform gridRoot,
             PrototypeCombatRoomDefinitionAsset definition,

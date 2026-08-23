@@ -16,7 +16,8 @@ Asset Store VFX 원본과 그 원본을 직접 참조하는 프로젝트 저작 
 Import 후에는 다음을 확인한다.
 
 1. `Assets/Arts/VFX/EffectPrefab/bomb`의 prefab이 missing material 없이 열린다.
-2. `Bomb Swap > Third Party > Validate Public References`가 `Assets/Game`의 VFX 직접 참조 0건을 보고한다.
-3. VFX를 공개 Git으로 옮기려면 vendor material·texture를 first-party 자산으로 교체하고 별도 검증한다.
+2. 로컬 관찰을 위해 씬이나 prefab에 VFX를 임시 연결했다면 해당 변경은 커밋하지 않는다.
+3. `PrototypeContentValidator`가 `Assets/Game`의 private vendor 직접 참조 0건을 보고하는지 확인한다.
+4. VFX를 공개 Git으로 옮기려면 vendor material·texture를 first-party 자산으로 교체하고 별도 검증한다.
 
-현재 `Assets/Game`은 이 로컬 VFX 경로를 직접 참조하지 않으므로 package가 없어도 prototype 기능 검증과 WebGL 빌드가 가능해야 한다.
+현재 `Assets/Game`은 이 로컬 VFX 경로를 직접 참조하지 않는다. package가 없을 때 비밀문 파괴는 first-party 절차형 particle fallback을 사용하므로 prototype 기능 검증과 WebGL 빌드가 가능해야 한다.

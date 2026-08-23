@@ -67,7 +67,6 @@ namespace BombSwap
             northDoor != null && eastDoor != null && southDoor != null && westDoor != null &&
             northSecretCracks != null && eastSecretCracks != null &&
             southSecretCracks != null && westSecretCracks != null &&
-            secretWallBreakVfxPrefab != null &&
             HasConsistentAnimatorConfiguration;
 
         public bool HasAnimatedDoors =>
@@ -141,13 +140,13 @@ namespace BombSwap
 
         public void ConfigureSecretWallBreakVfx(GameObject authoredVfxPrefab)
         {
-            secretWallBreakVfxPrefab = authoredVfxPrefab ??
-                throw new ArgumentNullException(nameof(authoredVfxPrefab));
-            if (secretWallBreakVfxPrefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            if (authoredVfxPrefab != null &&
+                authoredVfxPrefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
             {
                 throw new InvalidOperationException(
                     "Secret wall break VFX prefab requires at least one ParticleSystem.");
             }
+            secretWallBreakVfxPrefab = authoredVfxPrefab;
         }
 
         public GameObject PlaySecretWallBreak(
@@ -161,7 +160,9 @@ namespace BombSwap
             Vector3 position =
                 GetSecretCracks(localDirection).transform.position +
                 (Vector3.up * SecretWallBreakVfxHeightOffset);
-            GameObject instance = Instantiate(secretWallBreakVfxPrefab);
+            GameObject instance = secretWallBreakVfxPrefab != null
+                ? Instantiate(secretWallBreakVfxPrefab)
+                : CreateFallbackSecretWallBreakVfx();
             instance.transform.position = position;
             ParticleSystem[] particleSystems =
                 instance.GetComponentsInChildren<ParticleSystem>(true);
@@ -182,6 +183,43 @@ namespace BombSwap
                     main.startLifetime.constantMax);
             }
             Destroy(instance, Mathf.Max(lifetime, 0.1f));
+            return instance;
+        }
+
+        private static GameObject CreateFallbackSecretWallBreakVfx()
+        {
+            var instance = new GameObject("SecretWallBreakVfxFallback");
+            ParticleSystem particleSystem = instance.AddComponent<ParticleSystem>();
+            particleSystem.Stop(
+                true,
+                ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            ParticleSystem.MainModule main = particleSystem.main;
+            main.duration = 0.35f;
+            main.loop = false;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.2f, 0.45f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.25f, 2.25f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.2f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(0.38f, 0.3f, 0.2f, 0.9f),
+                new Color(0.72f, 0.62f, 0.46f, 0.75f));
+            main.maxParticles = 20;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+            ParticleSystem.EmissionModule emission = particleSystem.emission;
+            emission.enabled = true;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[]
+            {
+                new ParticleSystem.Burst(0f, 14),
+            });
+
+            ParticleSystem.ShapeModule shape = particleSystem.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Hemisphere;
+            shape.radius = 0.3f;
+
             return instance;
         }
 
@@ -388,7 +426,7 @@ namespace BombSwap
             {
                 throw new InvalidOperationException(
                     "PrototypeDungeonDoorPresenter requires four door renderers " +
-                    "four secret-crack roots, and a secret-wall break VFX prefab.");
+                    "and four secret-crack roots.");
             }
             ValidateUniqueRenderers();
             ValidateAnimators();

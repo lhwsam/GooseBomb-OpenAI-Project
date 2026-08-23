@@ -19,6 +19,14 @@ namespace BombSwap.Editor.ContentValidation
 {
     public static class PrototypeContentValidator
     {
+        private static readonly string[] PrivateVendorAssetRoots =
+        {
+            "Assets/ThirdParty/",
+            "Assets/Feel/",
+            "Assets/Plugins/Demigiant/DOTweenPro/",
+            "Assets/Arts/VFX/",
+        };
+
         public const string LobbyScenePath =
             "Assets/Game/Scenes/Lobby/DungeonLobby.unity";
         public const string GameFontAssetPath =
@@ -279,6 +287,42 @@ namespace BombSwap.Editor.ContentValidation
             ValidateStandaloneBossPlaytestScene(errors);
             ValidateStandaloneThrowerPlaytestScene(errors);
             ValidateBuildSettings(errors);
+            ValidatePublicAssetDependencies(errors);
+        }
+
+        private static void ValidatePublicAssetDependencies(
+            ICollection<string> errors)
+        {
+            string[] assetGuids = AssetDatabase.FindAssets(
+                string.Empty,
+                new[] { "Assets/Game" });
+            for (int assetIndex = 0; assetIndex < assetGuids.Length; assetIndex++)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(assetGuids[assetIndex]);
+                if (string.IsNullOrEmpty(assetPath) ||
+                    AssetDatabase.IsValidFolder(assetPath))
+                {
+                    continue;
+                }
+
+                string[] dependencies = AssetDatabase.GetDependencies(
+                    assetPath,
+                    true);
+                for (int dependencyIndex = 0;
+                     dependencyIndex < dependencies.Length;
+                     dependencyIndex++)
+                {
+                    string dependency = dependencies[dependencyIndex];
+                    if (PrivateVendorAssetRoots.Any(root =>
+                            dependency.StartsWith(
+                                root,
+                                StringComparison.OrdinalIgnoreCase)))
+                    {
+                        errors.Add(
+                            $"Public asset '{assetPath}' directly references private vendor asset '{dependency}'.");
+                    }
+                }
+            }
         }
 
         private static void ValidatePlayerPrefab(ICollection<string> errors)
@@ -3594,19 +3638,18 @@ namespace BombSwap.Editor.ContentValidation
             if (!presenter.IsConfigured || context.GridRoot == null)
             {
                 errors.Add(
-                    "Dungeon door presenter is missing a door renderer, secret-crack root, or secret-wall break VFX prefab.");
+                    "Dungeon door presenter is missing a door renderer or secret-crack root.");
                 return;
             }
 
-            GameObject expectedSecretWallBreakVfx =
-                AssetDatabase.LoadAssetAtPath<GameObject>(
-                    EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath);
-            if (expectedSecretWallBreakVfx == null ||
-                presenter.SecretWallBreakVfxPrefab != expectedSecretWallBreakVfx ||
-                expectedSecretWallBreakVfx.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            GameObject authoredSecretWallBreakVfx =
+                presenter.SecretWallBreakVfxPrefab;
+            if (authoredSecretWallBreakVfx != null &&
+                authoredSecretWallBreakVfx
+                    .GetComponentsInChildren<ParticleSystem>(true).Length == 0)
             {
                 errors.Add(
-                    $"Dungeon door presenter must reference the particle VFX prefab at '{EnvironmentBlockVisualAuthoring.SecretWallBreakVfxPrefabPath}'.");
+                    "Dungeon door presenter secret-wall VFX requires at least one ParticleSystem.");
             }
 
             Renderer[] doors =

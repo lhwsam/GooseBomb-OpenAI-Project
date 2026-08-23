@@ -435,6 +435,29 @@ namespace BombSwap.Tests.PlayMode
                 Is.True);
         }
 
+        [Test]
+        public void DoorPresenter_UsesFallbackWhenSecretWallBreakVfxIsNotAssigned()
+        {
+            PrototypeDungeonDoorPresenter presenter = CreateDoorPresenter(
+                configureSecretWallBreakVfx: false);
+            var crackPosition = new Vector3(-2f, 1f, 4f);
+            presenter.WestSecretCracks.transform.position = crackPosition;
+
+            GameObject instance = presenter.PlaySecretWallBreak(
+                RoomExitDirection.West,
+                RoomRotation.None);
+            _createdGameObjects.Add(instance);
+
+            Assert.That(instance.name, Does.StartWith("SecretWallBreakVfxFallback"));
+            Assert.That(
+                instance.transform.position,
+                Is.EqualTo(
+                    crackPosition +
+                    (Vector3.up *
+                     PrototypeDungeonDoorPresenter.SecretWallBreakVfxHeightOffset)));
+            Assert.That(instance.GetComponent<ParticleSystem>().isPlaying, Is.True);
+        }
+
         [UnityTest]
         public IEnumerator AnimatedDoorPresenter_AppliesRotatedOpenAndSecretStates()
         {
@@ -2662,7 +2685,8 @@ namespace BombSwap.Tests.PlayMode
             return gameObject;
         }
 
-        private PrototypeDungeonDoorPresenter CreateDoorPresenter()
+        private PrototypeDungeonDoorPresenter CreateDoorPresenter(
+            bool configureSecretWallBreakVfx = true)
         {
             GameObject root = CreateGameObject("DungeonDoorPresenter");
             PrototypeDungeonDoorPresenter presenter =
@@ -2680,7 +2704,11 @@ namespace BombSwap.Tests.PlayMode
                 CreateCrackRoot("EastSecretCracks"),
                 CreateCrackRoot("SouthSecretCracks"),
                 CreateCrackRoot("WestSecretCracks"));
-            presenter.ConfigureSecretWallBreakVfx(CreateSecretWallBreakVfxPrefab());
+            if (configureSecretWallBreakVfx)
+            {
+                presenter.ConfigureSecretWallBreakVfx(
+                    CreateSecretWallBreakVfxPrefab());
+            }
             return presenter;
         }
 
