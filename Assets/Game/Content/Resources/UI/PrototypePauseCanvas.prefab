@@ -126,7 +126,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 225943437412425482}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -139,7 +139,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 373192665, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -291,7 +291,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -502,6 +502,7 @@ GameObject:
   - component: {fileID: 3722013572969364982}
   - component: {fileID: 542456229533891705}
   - component: {fileID: 1855802264835458640}
+  - component: {fileID: 2736192685950428849}
   m_Layer: 0
   m_Name: PrototypePauseCanvas
   m_TagString: Untagged
@@ -611,6 +612,67 @@ MonoBehaviour:
   resumeButton: {fileID: 3977321696504947923}
   settingsButton: {fileID: 8787973970368294811}
   settingsPanel: {fileID: 1664860784734774172}
+--- !u!114 &2736192685950428849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 743809964224635662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3b3e4110e4c1764a8cb2f6c33a518d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalUiSkinApplicator
+  bindings:
+  - role: 1
+    target: {fileID: 8804111853048627934}
+    hideWhenMissing: 1
+  - role: 2
+    target: {fileID: 2424825211949027191}
+    hideWhenMissing: 1
+  - role: 1
+    target: {fileID: 8211909582226484057}
+    hideWhenMissing: 1
+  - role: 2
+    target: {fileID: 2611487823641110744}
+    hideWhenMissing: 1
+  - role: 3
+    target: {fileID: 4568997537576326501}
+    hideWhenMissing: 0
+  - role: 4
+    target: {fileID: 2448801629244449526}
+    hideWhenMissing: 0
+  - role: 4
+    target: {fileID: 5872729406010140251}
+    hideWhenMissing: 0
+  - role: 4
+    target: {fileID: 6064267828458751302}
+    hideWhenMissing: 0
+  - role: 5
+    target: {fileID: 8672703608176895701}
+    hideWhenMissing: 0
+  - role: 6
+    target: {fileID: 6700497931590351875}
+    hideWhenMissing: 0
+  - role: 5
+    target: {fileID: 3759998566802741988}
+    hideWhenMissing: 0
+  - role: 6
+    target: {fileID: 3391785011193707729}
+    hideWhenMissing: 0
+  - role: 5
+    target: {fileID: 4988928062357330801}
+    hideWhenMissing: 0
+  - role: 6
+    target: {fileID: 7591870124117964859}
+    hideWhenMissing: 0
+  - role: 5
+    target: {fileID: 2414794346267747382}
+    hideWhenMissing: 0
+  - role: 6
+    target: {fileID: 678834288485537514}
+    hideWhenMissing: 0
 --- !u!1 &779081695898902786
 GameObject:
   m_ObjectHideFlags: 0
@@ -806,7 +868,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1073201322945510014}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -819,7 +881,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 1380205173, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1216,7 +1278,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1936,7 +1998,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4966,7 +5028,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -5792,7 +5854,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 3bd6ce96b069bc34b8ba9db8d39a9036, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6145,7 +6207,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 3bd6ce96b069bc34b8ba9db8d39a9036, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6683,7 +6745,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6345011443252789371}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -6696,7 +6758,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 373192665, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6773,7 +6835,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -6899,7 +6961,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -7542,7 +7604,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7554695583056167926}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -7555,7 +7617,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 1380205173, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -8889,7 +8951,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 3bd6ce96b069bc34b8ba9db8d39a9036, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9029,7 +9091,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -800246836, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9217,7 +9279,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 1921596363, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9492,7 +9554,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1974263907, guid: c2df949dca55dc848beed87228c16597, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

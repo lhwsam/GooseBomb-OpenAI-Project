@@ -3,7 +3,7 @@
 - 상태: `Accepted`
 - 기준일: 2026-08-23
 - 대상: 무기 HUD, 체력 HUD, 던전 미니맵, 일시정지 화면
-- 관련: [로비와 공통 TMP UI](../Development/LobbySlice.md), [사용자 설정](UserSettingsAndAudio.md), [최소 미니맵](../Development/MinimalMinimapSlice.md)
+- 관련: [로비와 공통 TMP UI](../Development/LobbySlice.md), [사용자 설정](UserSettingsAndAudio.md), [서드파티 자산](ThirdPartyAssets.md), [최소 미니맵](../Development/MinimalMinimapSlice.md)
 
 ## 목적
 
@@ -44,7 +44,9 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 
 ### 일시정지
 
-배경, 메뉴, `PAUSED` TMP, 계속·설정 Button과 `SettingsPanel` 전체를 프리팹에서 수정한다. 별도 `ESC - 게임 계속` 안내 문구는 사용하지 않으며 `PrototypePauseView.statusLabel`은 이전 프리팹 호환을 위한 선택 참조다. `PAUSED` TMP의 선택 가능한 `PrototypePauseTitleWave`는 DOTween의 unscaled 단일 phase와 즉시 TMP 메시 갱신으로 보이는 글자를 차례로 올렸다가 원위치시킨다. 기본 전체 주기는 1초이고 마지막 글자 뒤 한 글자 간격만 쉰다. pause 중 여섯 글자만 갱신하며 별도 GameObject·material 인스턴스나 frame 반복 할당을 만들지 않는다. 컴포넌트를 비활성화하면 tween과 callback을 정리하고 저작 정점을 즉시 복원하므로 정지 제목으로 되돌릴 때 프리팹 계층이나 글자를 나눌 필요가 없다. pause Canvas는 첫 일시정지 때 지연 생성하며 세션과 같은 scene 수명을 가진다. presenter는 Button listener, 선택 상태, 표시 전환과 설정 runtime 연결만 담당한다.
+배경, 메뉴, `PAUSED` TMP, 계속·설정 Button과 `SettingsPanel` 전체를 프리팹에서 수정한다. 별도 `ESC - 게임 계속` 안내 문구는 사용하지 않으며 `PrototypePauseView.statusLabel`은 이전 프리팹 호환을 위한 선택 참조다. `PAUSED` TMP의 선택 가능한 `PrototypePauseTitleWave`는 DOTween의 unscaled 단일 phase와 즉시 TMP 메시 갱신으로 보이는 글자를 차례로 올렸다가 원위치시킨다. 컴포넌트 기본 전체 주기는 1초이고 현재 pause 프리팹의 디자이너 저작값은 느린 연출을 위한 2초다. 마지막 글자 뒤 한 글자 간격만 쉰다. pause 중 여섯 글자만 갱신하며 별도 GameObject·material 인스턴스나 frame 반복 할당을 만들지 않는다. 컴포넌트를 비활성화하면 tween과 callback을 정리하고 원래 정점을 복원하므로 정지 제목으로 되돌릴 때 프리팹 계층이나 글자를 나눌 필요가 없다. pause Canvas는 첫 일시정지 때 지연 생성하며 세션과 같은 scene 수명을 가진다. presenter는 Button listener, 선택 상태, 표시 전환과 설정 runtime 연결만 담당한다.
+
+pause 프리팹의 외부 Sprite 슬롯은 `PrototypeOptionalUiSkinApplicator`의 16개 명시적 `Image` 바인딩이다. Git에는 Sprite가 없는 공개 대체 상태를 저장하고, 로컬 package가 있으면 인스턴스 생성 시 role profile을 한 번 적용한다. package 유무가 pause 입력·설정 기능에 영향을 주면 안 된다.
 
 ## 디자이너 작업 절차
 
@@ -59,7 +61,7 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 
 ## 검증 계약
 
-- Editor validator는 네 프리팹의 View·필수 참조와 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
+- Editor validator는 네 프리팹의 View·필수 참조, pause의 공개 대체 Sprite 바인딩과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
 - PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 미니맵 snapshot 갱신, pause 열기·설정 이동·닫기를 확인한다.
 - 실제 WebGL에서는 960×600 Canvas, 브라우저 축소, 키보드·마우스 포커스, pause 중 unscaled UI 입력과 Console/page error를 확인한다.
 

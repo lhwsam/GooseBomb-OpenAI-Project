@@ -171,6 +171,8 @@ namespace BombSwap.Editor.ContentValidation
             ValidateAudioMixer(errors);
             ValidateInGameUiPrefabs(errors);
             ValidateLobbyScene(errors);
+            PrototypeThirdPartyAssetAuthoring.ValidatePublicDependencies(errors);
+            PrototypeThirdPartyAssetAuthoring.ValidateOptionalUiBindings(errors);
             ValidateInputActions(errors);
             ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);
@@ -368,17 +370,29 @@ namespace BombSwap.Editor.ContentValidation
                         Image settingsPanelImage = presenter.SettingsPanel != null
                             ? presenter.SettingsPanel.GetComponent<Image>()
                             : null;
-                        if (!LobbySettingsPanelSpriteAuthoring
-                                .HasPixelPerfectConfiguration(settingsPanelImage) ||
-                            !LobbySettingsPanelSpriteAuthoring
-                                .HasPixelPerfectImporterConfiguration())
+                        if (!PrototypeThirdPartyAssetAuthoring
+                                .HasPublicSettingsPanelConfiguration(
+                                    settingsPanelImage))
                         {
                             errors.Add(
-                                $"Lobby settings panel must use " +
-                                $"{LobbySettingsPanelSpriteAuthoring.SpriteName} " +
-                                "as an integer-scaled Simple pixel image with " +
-                                "Point, no mipmaps, uncompressed, Clamp import settings. " +
+                                "Lobby settings panel must keep an integer-scaled " +
+                                "Simple public fallback without a third-party sprite. " +
                                 "Designer-authored RectTransform layout is preserved.");
+                        }
+
+                        PrototypeOptionalUiSkinApplicator skinApplicator =
+                            presenter.LobbyCanvas != null
+                                ? presenter.LobbyCanvas.GetComponent<
+                                    PrototypeOptionalUiSkinApplicator>()
+                                : null;
+                        if (!PrototypeThirdPartyAssetAuthoring
+                                .HasExpectedBindings(
+                                    skinApplicator,
+                                    true))
+                        {
+                            errors.Add(
+                                "Lobby optional UI skin must use explicit public " +
+                                "fallback bindings without direct third-party references.");
                         }
                     }
                 }

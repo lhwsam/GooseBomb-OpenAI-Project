@@ -25,7 +25,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(wave, Is.Not.Null);
                 Assert.That(wave.Target, Is.Not.Null);
                 Assert.That(wave.Target.gameObject, Is.SameAs(wave.gameObject));
-                Assert.That(wave.CycleDuration, Is.EqualTo(1f).Within(0.001f));
+                Assert.That(wave.CycleDuration, Is.EqualTo(2f).Within(0.001f));
                 Assert.That(wave.TrailingPauseSteps, Is.EqualTo(1f).Within(0.001f));
 
                 wave.enabled = false;

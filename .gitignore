@@ -21,7 +21,9 @@
 *.log
 /[Aa]rtifacts/
 
-# Local vendor downloads. Import approved assets into Assets/ThirdParty instead.
+# Licensed/local third-party Unity assets and their private transfer packages.
+/[Aa]ssets/[Tt]hird[Pp]arty/
+/[Aa]ssets/[Tt]hird[Pp]arty.meta
 /ExternalAssets/UI-Packages/*
 !/ExternalAssets/UI-Packages/README.md
 

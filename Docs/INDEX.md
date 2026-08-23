@@ -22,6 +22,7 @@
 | 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
 | 플레이테스트 운영 | [Playtesting](Playtesting/) | 관찰 프로토콜, 익명 세션 기록, 유지·변경·제거 판정 |
 | WebGL 제약 | [WebGL](WebGL/) | 빌드, 호스팅, 성능, 브라우저 호환 |
+| 서드파티 원본 배포 | [ThirdPartyAssets](Systems/ThirdPartyAssets.md) | Git 제외, 로컬 unitypackage, 공개 대체 UI와 참조 검증 |
 | AI 작업 절차 | [AI](AI/) | 세션 시작, 작업 계약, 리뷰, 인계 |
 | 실제 튜닝 값 | 검증된 ScriptableObject | 코드와 문서는 값의 의도와 범위를 설명 |
 
@@ -73,6 +74,7 @@
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
 | 검증 실행 | `Testing/VerificationHarness.md`, `Testing/TestMatrix.md` |
 | 패키지·Unity 업그레이드 | `Development/PackageInventory.md`, `Migrations/` |
+| 서드파티 에셋 Import·Export·공개 저장소 준비 | `Systems/ThirdPartyAssets.md`, ADR-0005, ADR-0009 |
 | AI 세션 인계 | `AI/SessionStart.md`, `AI/HandoffTemplate.md` |
 
 ## 디렉터리 지도

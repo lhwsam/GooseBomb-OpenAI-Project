@@ -17,6 +17,8 @@
 | Timeline | 1.8.12 | 설치됨 | 보스/연출 필요가 확인될 때 검토 |
 | Feel | Asset 폴더 | 피드백/VFX | Presentation 어댑터 뒤에서만 사용, vendor 수정 금지 |
 
+`Assets/ThirdParty`의 공급자 원본은 Unity Package Manager 패키지가 아니며 Git에서 제외한다. 팀 내부 전달, 공개 대체 UI와 참조 검증은 [서드파티 자산과 로컬 패키지](../Systems/ThirdPartyAssets.md) 및 [ADR-0009](../ADR/0009-Local-ThirdParty-Asset-Distribution.md)를 따른다.
+
 ## 변경 규칙
 
 - 새 패키지는 현재 문제와 대안, WebGL 지원, 빌드 크기, 유지보수 비용을 기록한 뒤 추가한다.
