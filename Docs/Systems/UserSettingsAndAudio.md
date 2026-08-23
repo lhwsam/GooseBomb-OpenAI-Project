@@ -1,7 +1,7 @@
 # 사용자 설정, 오디오와 화면 흔들림
 
 - 상태: 설정 저장·공통 UI·키보드 리바인딩 `Accepted`
-- 상태: 로비·던전·보스 적응형 BGM 재생 `Accepted`, UI 버튼 클릭 SFX 후보 클립 `Proposed`, gameplay SFX와 폭발 화면 흔들림 연출 `Deferred`
+- 상태: 캐릭터 발소리와 로비·던전·보스 적응형 BGM 재생 `Accepted`, UI 버튼 클릭 SFX 후보 클립 `Proposed`, 나머지 gameplay SFX와 폭발 화면 흔들림 연출 `Deferred`
 - 기준일: 2026-08-24
 - 코드 소유: `BombSwap.Unity`의 `PrototypeUserSettingsRuntime`, `PrototypeUserSettingsStorage`, `PrototypeSettingsPanelPresenter`, `PrototypeBgmPresenter`, `PrototypeBgmMixPolicy`
 
@@ -43,7 +43,10 @@
 - 권위 에셋은 `Assets/Game/Content/Audio/BombSwapAudioMixer.mixer`다.
 - Mixer는 `Master` 아래 `BGM`, `SFX` 그룹을 가지며 `MasterVolume`, `BgmVolume`, `SfxVolume`을 노출한다.
 - UI의 선형 0~1 값은 `20 * log10(value)`로 변환하고 0은 -80 dB로 처리한다.
-- BGM `AudioSource`는 BGM 그룹, 폭탄·피격·적 공격 `AudioSource`는 SFX 그룹으로 route한다. 적응형 stem gain은 각 `AudioSource.volume`에만 적용하고 사용자 `BgmVolume` Mixer 파라미터를 덮어쓰지 않는다.
+- BGM `AudioSource`는 BGM 그룹, 폭탄·피격·적 공격과 발소리 `AudioSource`는 SFX 그룹으로 route한다. 적응형 stem gain은 각 `AudioSource.volume`에만 적용하고 사용자 `BgmVolume` Mixer 파라미터를 덮어쓰지 않는다.
+- 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹은 루트에 `CharacterFootstepAudio`와 SFX 그룹으로 route한 AudioSource를 하나씩 가진다. 이동 Animation Clip의 발 접지 프레임에 저작한 `PlayFootstep` Animation Event가 재생 시점을 결정하며 Core 이동 주기나 별도 타이머는 사용하지 않는다.
+- Animator가 중첩 FBX `Visual`에 있으므로 `CharacterFootstepAudio`는 실행 시 Animator GameObject에 `CharacterFootstepAnimationEventRelay`를 한 번 추가한다. Relay는 이벤트를 부모 프리팹 루트의 재생기로 전달한다. FBX를 unpack하거나 모델 계층을 복제하지 않는다.
+- 플레이어는 `Assets/Arts/Sound/FootStep/Player`, 적과 보스는 `Assets/Arts/Sound/FootStep/Enemy`의 네 clip 중 직전 clip을 제외해 무작위 재생한다. 플레이어는 2D, 적은 지면에서 떨어진 카메라 AudioListener까지 포함하는 기본 볼륨 `0.8`·`minDistance 12`·`maxDistance 35`의 logarithmic 3D 감쇠를 사용하고 적 AudioSource의 동시 재생은 최대 4개로 제한한다. 피치에는 작은 표현 변화만 적용하며 일시정지 중에는 재생하지 않는다.
 - BGM의 런타임 권위 데이터는 `Assets/Game/Content/Audio/PrototypeBgmCatalog.asset`이다. 정확히 여덟 개 clip과 BGM 출력 그룹, 1초 crossfade, 0.5 pause gain, 0.25초 pause duck 전환, 0.1초 DSP 예약 여유를 소유한다. full-mix 미리보기 세 파일은 런타임에서 참조하지 않는다.
 - 로비 BGM은 `Assets/Game/Content/Audio/Music/BGM_Lobby_GooseExodus_8Bit_Loop.wav`다. D 단조, 96 BPM, 32마디·80초, 44.1 kHz stereo 16-bit PCM이며 마지막 A장조 도미넌트가 다음 재생의 첫 D 단조로 해결된다. 합성 source는 `Tools/Audio/GenerateLobbyBgm.py`이고 고정 seed와 순환 delay로 같은 파일을 재현한다.
 - 던전 BGM은 D 단조, 116 BPM, 32마디·약 66.207초, 44.1 kHz stereo 16-bit PCM의 공통 timeline을 사용한다. 합성 source `Tools/Audio/GenerateDungeonCombatBgm.py`는 2,919,724 frame으로 정렬된 `BGM_Dungeon_PowderCorridor_BaseLayer_8Bit_Loop.wav`, `CombatLayer`, `DangerLayer`, `SanctuaryLayer` 네 stem을 함께 만든다.
@@ -58,7 +61,7 @@
 - WebGL autoplay 정책 때문에 첫 Input System button press 전에는 재생을 예약하지 않는다. 첫 gesture 뒤 현재 family를 시작하고 Development build에 `bgm-audio-started`를 한 번 기록한다. 이 marker는 DSP 예약 시점 도달을 뜻할 뿐 실제 가청 출력·음량 밸런스·브라우저 장치 상태를 증명하지 않는다.
 - UI 버튼 클릭 SFX 후보는 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`다. 44.1 kHz mono 16-bit PCM, 6,394 frame·약 0.145초이며 짧은 부리 snap·기계식 저음 body·작은 C♯→D 확인 pulse로 구성한다. `Tools/Audio/GenerateUiButtonClickSfx.py`가 고정 seed로 같은 파일을 재현한다. 향후 연결 시 BGM이 아니라 SFX Mixer 그룹으로 route하고 hover가 아닌 interactable Button의 확정 click/Submit에만 재생한다.
 - BGM clip의 처음과 끝은 digital zero이며 `AudioSource.loop`로 전체 clip을 반복한다. catalog validator는 44.1 kHz stereo와 family별 정확한 sample 수, 여덟 clip의 고유성, full-mix 미리보기 비참조를 검사한다. UI SFX도 양 끝을 digital zero로 마감하지만 반복하지 않고 click마다 한 번만 재생한다.
-- BGM 연결은 구현됐지만 최종 청감·상대 stem gain·브라우저별 실제 출력 승인은 해당 화면·room과 실제 WebGL에서 사람이 판단한다. UI 버튼 클릭 SFX와 gameplay SFX의 실제 `AudioSource` 연결은 아직 없다. `audio-unlocked`와 `bgm-audio-started` marker만으로 가청 오디오 통과를 기록하지 않는다.
+- BGM과 발소리 연결은 구현됐지만 최종 청감·상대 stem gain·발소리 음량·브라우저별 실제 출력 승인은 해당 화면·room과 실제 WebGL에서 사람이 판단한다. UI 버튼 클릭 SFX와 발소리를 제외한 gameplay SFX의 실제 `AudioSource` 연결은 아직 없다. `audio-unlocked`와 `bgm-audio-started` marker만으로 가청 오디오 통과를 기록하지 않는다.
 
 ## 화면 흔들림 계약
 
@@ -82,7 +85,7 @@
 
 ## 검증
 
-- PlayMode: 수치 clamp·dB 변환·화면 흔들림 배율, PlayerPrefs round-trip, binding override round-trip, 손상 JSON 복구.
+- PlayMode: 수치 clamp·dB 변환·화면 흔들림 배율, PlayerPrefs round-trip, binding override round-trip, 손상 JSON 복구, 발소리 무작위 비반복·Animation Event relay·일시정지 차단.
 - scene 통합: 로비의 Mixer 그룹/파라미터·키보드 8개·gamepad 문구 부재, 로비/일시정지의 같은 설정 panel, 설정 중 `Esc`와 실제 pause 수명.
 - PlayMode: room/clear별 던전 mix, boss phase mix, DSP 다음 마디 계산, Boss room의 던전 정책 오사용 거부.
 - Editor validator: AudioMixer 그룹/노출 파라미터, BGM catalog의 8개 clip·sample alignment·미리보기 비참조, 대상 17개 scene의 root presenter 정확히 한 개·catalog 참조·직렬화 `AudioSource` 부재.
