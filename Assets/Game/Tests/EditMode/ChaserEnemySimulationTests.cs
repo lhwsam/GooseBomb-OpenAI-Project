@@ -115,6 +115,9 @@ namespace BombSwap.Tests.EditMode
                 PlayerActor,
                 new GridPosition(0, 0));
             Assert.That(chaser.TryAdvance(out EnemyMovementStep first), Is.True);
+            Assert.That(chaser.MovementTransition.Movement, Is.EqualTo(first));
+            Assert.That(chaser.MovementTransition.StartedAt, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(chaser.MovementTransition.EndsAt, Is.EqualTo(StepInterval));
             Assert.That(first.Direction, Is.EqualTo(CardinalDirection.North));
             Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
             Assert.That(grid.TryAddActor(PlayerActor, new GridPosition(4, 0)), Is.True);
@@ -261,6 +264,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(chaser.TryAdvance(out _), Is.False);
             Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(2, 2)));
             Assert.That(chaser.CurrentDirection, Is.EqualTo(CardinalDirection.None));
+            Assert.That(chaser.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
             Assert.That(chaser.RemainingCommittedSteps, Is.Zero);
         }
 
@@ -275,6 +279,7 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(chaser.TryAdvance(out _), Is.False);
             Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(0, -1)));
+            Assert.That(chaser.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
             Assert.That(chaser.CanDealContactDamage, Is.True);
         }
 

@@ -46,13 +46,8 @@ namespace BombSwap
         private int colorPropertyId;
         private Color normalColor;
         private Vector3 baseScale;
-        private Vector3 visualStart;
-        private Vector3 visualTarget;
-        private float visualElapsed;
-        private float visualDuration;
         private float deathRemaining;
         private float pulsePhase;
-        private bool isInterpolating;
         private bool isShowingDeath;
 
         public PrototypeGameSession Session => session;
@@ -154,7 +149,6 @@ namespace BombSwap
             telegraphCells.Clear();
             ActiveTelegraphCellCount = 0;
             IsInitialized = false;
-            isInterpolating = false;
             isShowingDeath = false;
         }
 
@@ -165,21 +159,22 @@ namespace BombSwap
                 return;
             }
 
-            if (isInterpolating && instance != null)
+            if (instance != null && !isShowingDeath)
             {
-                visualElapsed += Time.deltaTime;
-                float progress = Mathf.Clamp01(visualElapsed / visualDuration);
-                instance.transform.position = Vector3.LerpUnclamped(
-                    visualStart,
-                    visualTarget,
-                    progress);
-                if (progress >= 1f)
-                {
-                    instance.transform.position = visualTarget;
-                    isInterpolating = false;
-                    SetMovingAnimation(false);
-                }
+                bool usesMovementTransition =
+                    CurrentState == SelfDestructEnemyState.Chase ||
+                    CurrentState == SelfDestructEnemyState.WarningChase;
+                instance.transform.position = usesMovementTransition
+                    ? PrototypeEnemyMovementSampler.Sample(
+                        session.CurrentSelfDestructMovementTransition,
+                        session.CurrentGameTime,
+                        session.GridSpace,
+                        session.SelfDestructDefinition.VisualHeight,
+                        session.CurrentSelfDestructGridPosition)
+                    : ToPresentationPosition(session.CurrentSelfDestructGridPosition);
             }
+
+            SyncLocomotionAnimation();
 
             if (!isShowingDeath &&
                 instance != null &&
@@ -257,10 +252,8 @@ namespace BombSwap
             }
             baseScale = instance.transform.localScale;
             InitializeColor();
-            visualDuration = 1f / definition.ChaseCellsPerSecond;
-            visualTarget = ToPresentationPosition(session.CurrentSelfDestructGridPosition);
-            visualStart = visualTarget;
-            instance.transform.position = visualTarget;
+            instance.transform.position = ToPresentationPosition(
+                session.CurrentSelfDestructGridPosition);
             instance.SetActive(session.IsSelfDestructAlive);
             CurrentState = session.CurrentSelfDestructState;
             ApplyAnimationState(CurrentState);
@@ -287,21 +280,14 @@ namespace BombSwap
             if (result.HasMovement)
             {
                 MoveCount++;
-                visualStart = instance.transform.position;
-                visualTarget = ToPresentationPosition(result.Movement.To);
-                visualElapsed = 0f;
-                visualDuration = Mathf.Max(
-                    (float)result.MovementDuration.TotalSeconds,
-                    Mathf.Epsilon);
-                isInterpolating = true;
-                Vector3 facing = visualTarget - visualStart;
+                Vector3 facing = ToPresentationPosition(result.Movement.To) -
+                    ToPresentationPosition(result.Movement.From);
                 facing.y = 0f;
                 if (facing.sqrMagnitude > 0.0001f)
                 {
                     instance.transform.rotation =
                         Quaternion.LookRotation(facing.normalized, Vector3.up);
                 }
-                SetMovingAnimation(true);
             }
             if (result.HasStateTransition)
             {
@@ -309,12 +295,8 @@ namespace BombSwap
                 CurrentState = result.State;
                 if (CurrentState == SelfDestructEnemyState.Telegraph)
                 {
-                    isInterpolating = false;
-                    visualTarget = ToPresentationPosition(
+                    instance.transform.position = ToPresentationPosition(
                         session.CurrentSelfDestructGridPosition);
-                    visualStart = visualTarget;
-                    visualElapsed = 0f;
-                    instance.transform.position = visualTarget;
                 }
                 ApplyAnimationState(CurrentState);
                 ApplyStateVisual(CurrentState);
@@ -341,7 +323,6 @@ namespace BombSwap
             }
 
             DeathCount++;
-            isInterpolating = false;
             HideTelegraph();
             instance.transform.localScale = baseScale;
             ApplyColor(deathColor);
@@ -386,12 +367,28 @@ namespace BombSwap
 
         private void SetMovingAnimation(bool isMoving)
         {
-            if (animator != null &&
-                (CurrentState == SelfDestructEnemyState.Chase ||
-                    CurrentState == SelfDestructEnemyState.WarningChase))
+            if (animator != null)
             {
                 animator.SetBool(IsMovingParameterId, isMoving);
             }
+        }
+
+        private void SyncLocomotionAnimation()
+        {
+            if (isShowingDeath)
+            {
+                SetMovingAnimation(false);
+                return;
+            }
+
+            SetMovingAnimation(
+                (CurrentState == SelfDestructEnemyState.Chase ||
+                    CurrentState == SelfDestructEnemyState.WarningChase) &&
+                (PrototypeEnemyMovementSampler.IsActive(
+                        session.CurrentSelfDestructMovementTransition,
+                        session.CurrentGameTime) ||
+                    session.CurrentSelfDestructLocomotionState ==
+                    EnemyLocomotionState.Moving));
         }
 
         private void ShowTelegraph()

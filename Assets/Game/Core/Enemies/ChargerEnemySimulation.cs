@@ -27,6 +27,8 @@ namespace BombSwap.Core
         private TimeSpan nextChargeStepAt;
         private int lockedChargeDistance;
         private int remainingChargeSteps;
+        private EnemyLocomotionState locomotionState;
+        private EnemyMovementTransition movementTransition;
 
         public ChargerEnemySimulation(
             GridState grid,
@@ -91,6 +93,10 @@ namespace BombSwap.Core
 
         public ChargerEnemyState State { get; private set; }
 
+        public EnemyLocomotionState LocomotionState => locomotionState;
+
+        public EnemyMovementTransition MovementTransition => movementTransition;
+
         public CardinalDirection LockedDirection { get; private set; }
 
         public int LockedChargeDistance => lockedChargeDistance;
@@ -134,6 +140,7 @@ namespace BombSwap.Core
                 Definition.LaneAcquireStepInterval);
             if (!grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition))
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
             if (TryGetClearChargeDirection(
@@ -145,6 +152,7 @@ namespace BombSwap.Core
             }
             if (!TryGetLaneAcquisitionStep(targetPosition, out CardinalDirection moveDirection))
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
@@ -152,15 +160,21 @@ namespace BombSwap.Core
             GridPosition destination = GetTarget(CurrentPosition, moveDirection);
             if (!grid.TryMoveActor(ActorId, destination))
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
             CurrentPosition = destination;
+            locomotionState = EnemyLocomotionState.Moving;
             var movement = new EnemyMovementStep(
                 ActorId,
                 previousPosition,
                 CurrentPosition,
                 moveDirection);
+            movementTransition = new EnemyMovementTransition(
+                movement,
+                now,
+                Definition.LaneAcquireStepInterval);
             return new ChargerEnemyAdvanceResult(
                 ActorId,
                 State,
@@ -180,6 +194,7 @@ namespace BombSwap.Core
         {
             ChargerEnemyState previous = State;
             State = ChargerEnemyState.Telegraph;
+            locomotionState = EnemyLocomotionState.Idle;
             LockedDirection = direction;
             lockedChargeDistance = CountChargeDistance(direction, targetPosition);
             remainingChargeSteps = lockedChargeDistance;
@@ -196,6 +211,7 @@ namespace BombSwap.Core
 
             ChargerEnemyState previous = State;
             State = ChargerEnemyState.Charge;
+            locomotionState = EnemyLocomotionState.Moving;
             nextChargeStepAt = now;
             stateEndsAt = TimeSpan.Zero;
             return Transition(previous);
@@ -225,6 +241,7 @@ namespace BombSwap.Core
 
             GridPosition previousPosition = CurrentPosition;
             CurrentPosition = target;
+            locomotionState = EnemyLocomotionState.Moving;
             remainingChargeSteps--;
             nextChargeStepAt = AddWithSaturation(now, Definition.ChargeStepInterval);
             var movement = new EnemyMovementStep(
@@ -232,6 +249,10 @@ namespace BombSwap.Core
                 previousPosition,
                 CurrentPosition,
                 LockedDirection);
+            movementTransition = new EnemyMovementTransition(
+                movement,
+                now,
+                Definition.ChargeStepInterval);
             return new ChargerEnemyAdvanceResult(
                 ActorId,
                 State,
@@ -253,6 +274,7 @@ namespace BombSwap.Core
 
             ChargerEnemyState previous = State;
             State = ChargerEnemyState.Track;
+            locomotionState = EnemyLocomotionState.Idle;
             LockedDirection = CardinalDirection.None;
             lockedChargeDistance = 0;
             remainingChargeSteps = 0;
@@ -265,6 +287,7 @@ namespace BombSwap.Core
         {
             ChargerEnemyState previous = State;
             State = ChargerEnemyState.Recover;
+            locomotionState = EnemyLocomotionState.Idle;
             lockedChargeDistance = 0;
             remainingChargeSteps = 0;
             stateEndsAt = AddWithSaturation(now, Definition.RecoverDuration);

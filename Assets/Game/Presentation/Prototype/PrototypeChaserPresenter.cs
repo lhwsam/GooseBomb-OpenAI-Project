@@ -28,12 +28,7 @@ namespace BombSwap
         private MaterialPropertyBlock _propertyBlock;
         private int _colorPropertyId;
         private Color _normalColor;
-        private Vector3 _visualStart;
-        private Vector3 _visualTarget;
-        private float _visualElapsed;
-        private float _visualDuration;
         private float _deathEndsAt;
-        private bool _isInterpolating;
         private bool _isShowingDeath;
 
         public PrototypeGameSession Session => session;
@@ -122,7 +117,6 @@ namespace BombSwap
             }
             _animator = null;
             IsInitialized = false;
-            _isInterpolating = false;
             _isShowingDeath = false;
         }
 
@@ -133,21 +127,17 @@ namespace BombSwap
                 return;
             }
 
-            if (_isInterpolating && _instance != null)
+            if (_instance != null && !_isShowingDeath)
             {
-                _visualElapsed += Time.deltaTime;
-                float progress = Mathf.Clamp01(_visualElapsed / _visualDuration);
-                _instance.transform.position = Vector3.LerpUnclamped(
-                    _visualStart,
-                    _visualTarget,
-                    progress);
-                if (progress >= 1f)
-                {
-                    _instance.transform.position = _visualTarget;
-                    _isInterpolating = false;
-                    SetMovingAnimation(false);
-                }
+                _instance.transform.position = PrototypeEnemyMovementSampler.Sample(
+                    session.CurrentChaserMovementTransition,
+                    session.CurrentGameTime,
+                    session.GridSpace,
+                    session.ChaserDefinition.VisualHeight,
+                    session.CurrentChaserGridPosition);
             }
+
+            SyncLocomotionAnimation();
 
             if (_isShowingDeath && Time.unscaledTime >= _deathEndsAt)
             {
@@ -186,10 +176,8 @@ namespace BombSwap
                 _animator.SetBool(IsMovingParameterId, false);
             }
             InitializeColor();
-            _visualDuration = 1f / definition.CellsPerSecond;
-            _visualTarget = ToPresentationPosition(session.CurrentChaserGridPosition);
-            _visualStart = _visualTarget;
-            _instance.transform.position = _visualTarget;
+            _instance.transform.position = ToPresentationPosition(
+                session.CurrentChaserGridPosition);
             _instance.SetActive(session.IsChaserAlive);
             IsInitialized = true;
         }
@@ -207,17 +195,13 @@ namespace BombSwap
             }
 
             MoveCount++;
-            _visualStart = _instance.transform.position;
-            _visualTarget = ToPresentationPosition(step.To);
-            _visualElapsed = 0f;
-            _isInterpolating = true;
-            Vector3 facing = _visualTarget - _visualStart;
+            Vector3 facing = ToPresentationPosition(step.To) -
+                ToPresentationPosition(step.From);
             facing.y = 0f;
             if (facing.sqrMagnitude > 0.0001f)
             {
                 _instance.transform.rotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
             }
-            SetMovingAnimation(true);
         }
 
         private void OnPlayerDamaged(PlayerDamageResult damage)
@@ -248,7 +232,6 @@ namespace BombSwap
             }
 
             DeathCount++;
-            _isInterpolating = false;
             if (_animator != null)
             {
                 _animator.SetBool(IsMovingParameterId, false);
@@ -274,6 +257,21 @@ namespace BombSwap
             {
                 _animator.SetBool(IsMovingParameterId, isMoving);
             }
+        }
+
+        private void SyncLocomotionAnimation()
+        {
+            if (_isShowingDeath)
+            {
+                SetMovingAnimation(false);
+                return;
+            }
+
+            SetMovingAnimation(
+                PrototypeEnemyMovementSampler.IsActive(
+                    session.CurrentChaserMovementTransition,
+                    session.CurrentGameTime) ||
+                session.CurrentChaserLocomotionState == EnemyLocomotionState.Moving);
         }
 
         private void InitializeColor()

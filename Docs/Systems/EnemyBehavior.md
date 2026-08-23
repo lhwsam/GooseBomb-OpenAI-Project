@@ -125,3 +125,12 @@ AI Inference 런타임은 사용하지 않는다. 재현 가능한 상태 머신
 - 전용 Development WebGL에서 서로 다른 `thrower-telegraph-x-*` 3개 뒤 `thrower-bomb-launched`와 `thrower-bomb-armed-definition-prototype-thrower-blocker`가 각각 3번 발생하고 하나 이상 `thrower-bomb-detonated-by-chain`으로 이어지는 순서를 검증한다. 이 표식은 규칙 연결을 증명하지만 예고 가독성·압박·재미를 판정하지 않는다.
 
 다음 판단은 전용 Lanes 씬에서 사용자 요청으로 단축한 0.3초 예고가 위협적이면서도 다음 퇴로 선택을 바꿀 최소 가독성을 유지하는지, 1.5초 fuse·범위 1이 회피와 의도적 연쇄 둘 다 가능하게 하는지, 가장 가까운 1칸을 유지하면서 측면 2칸이 바뀌는 사격 anchor 순환이 반복 포격을 줄이는지를 사람 플레이로 확인하는 것이다. 지지될 때만 메인 던전 카탈로그 편성과 기존 Lanes 조합을 별도 수직 슬라이스로 진행한다. 범용 다중 적 ID 발급과 동일 목적 셀 경합 정책은 여러 동일 적을 실제로 추가할 때까지 보류한다.
+
+## 공통 이동 표현 계약
+
+- `EnemyLocomotionState`는 Transform 보간 여부가 아니라 Core가 소유하는 현재 행동의 이동 의도를 나타낸다.
+- 이동을 허용하는 행동 phase에서 실제 이동이 성공하면 `Moving`을 저장하고 다음 cadence까지 유지한다. 경로·점유·목표 부재로 이동 시도가 실패하거나 목적지 대기 및 명시적 비이동 phase에 들어가면 `Idle`로 전환한다. Charger의 Charge 진입은 즉시 첫 charge step을 예약하므로 `Moving` 의도이며, Presenter는 전용 Charge 애니메이션을 우선한다.
+- Presenter는 한 칸 보간 중이거나 Core 이동 의도가 유지되는 동안 Run을 유지한다. 한 칸 보간 완료만으로 Idle로 전환하지 않는다.
+- Telegraph·Recover·Detonated·사망 같은 명시적 비이동 상태는 남은 보간과 관계없이 각 적의 전용 애니메이션을 우선한다.
+- 각 적 simulation은 마지막 확정 이동의 `From`, `To`, `StartedAt`, `EndsAt`을 `EnemyMovementTransition`으로 소유한다. 시간은 주입된 게임 시계가 권위이며, Presenter는 별도 elapsed를 누적하지 않고 현재 게임 시각으로 transition 진행률을 샘플링해 Transform만 갱신한다.
+- transition은 논리 점유를 지연하지 않는다. Core의 정수 격자 위치는 이동 판단 시 즉시 `To`로 확정되고, transition은 그 결과를 프레임 독립적으로 표현하기 위한 읽기 전용 구간이다.

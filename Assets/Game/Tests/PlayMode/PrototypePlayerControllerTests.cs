@@ -1059,12 +1059,19 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.EnemyActiveCount, Is.EqualTo(1));
             Assert.That(_chaserPresenter.MoveCount, Is.EqualTo(1));
             Assert.That(_chaserPresenter.IsEnemyVisible, Is.True);
+            Assert.That(_session.CurrentChaserMovementTransition.IsValid, Is.True);
+            Assert.That(_chaserPresenter.Animator.GetBool("IsMoving"), Is.True);
 
             yield return new WaitForSecondsRealtime(0.55f);
 
             Assert.That(_chaserPresenter.Instance.transform.position.x, Is.EqualTo(1f).Within(0.02f));
             Assert.That(_chaserPresenter.Instance.transform.position.y, Is.EqualTo(0.45f).Within(0.02f));
             Assert.That(_chaserPresenter.Instance.transform.position.z, Is.EqualTo(0f).Within(0.02f));
+            Assert.That(
+                _session.CurrentChaserMovementTransition.GetProgress(
+                    _session.CurrentGameTime),
+                Is.EqualTo(1d));
+            Assert.That(_chaserPresenter.Animator.GetBool("IsMoving"), Is.False);
         }
 
         [UnityTest]

@@ -38,13 +38,8 @@ namespace BombSwap
         private int colorPropertyId;
         private Color normalColor;
         private Vector3 baseScale;
-        private Vector3 movementStart;
-        private Vector3 movementTarget;
-        private float movementElapsed;
-        private float movementDuration;
         private float pulsePhase;
         private float deathRemaining;
-        private bool isInterpolating;
         private bool isShowingDeath;
 
         public PrototypeGameSession Session => session;
@@ -144,7 +139,6 @@ namespace BombSwap
             animator = null;
             telegraphCells.Clear();
             IsInitialized = false;
-            isInterpolating = false;
             isShowingDeath = false;
         }
 
@@ -155,21 +149,16 @@ namespace BombSwap
                 return;
             }
 
-            if (isInterpolating && instance != null)
+            if (instance != null && !isShowingDeath)
             {
-                movementElapsed += Time.deltaTime;
-                float progress = Mathf.Clamp01(movementElapsed / movementDuration);
-                instance.transform.position = Vector3.LerpUnclamped(
-                    movementStart,
-                    movementTarget,
-                    progress);
-                if (progress >= 1f)
-                {
-                    instance.transform.position = movementTarget;
-                    isInterpolating = false;
-                    SetMovingAnimation(false);
-                }
+                instance.transform.position = PrototypeEnemyMovementSampler.Sample(
+                    session.CurrentThrowerMovementTransition,
+                    session.CurrentGameTime,
+                    session.GridSpace,
+                    session.ThrowerDefinition.VisualHeight,
+                    session.CurrentThrowerGridPosition);
             }
+            SyncLocomotionAnimation();
             if (!isShowingDeath && IsTelegraphVisible && !session.IsPaused)
             {
                 pulsePhase = Mathf.Repeat(pulsePhase + (Time.deltaTime * pulseHz), 1f);
@@ -219,9 +208,8 @@ namespace BombSwap
             }
             baseScale = instance.transform.localScale;
             InitializeColor();
-            movementTarget = ToPresentationPosition(session.CurrentThrowerGridPosition);
-            movementStart = movementTarget;
-            instance.transform.position = movementTarget;
+            instance.transform.position = ToPresentationPosition(
+                session.CurrentThrowerGridPosition);
             instance.SetActive(session.IsThrowerAlive);
 
             ApplyAnimationState(session.CurrentThrowerState);
@@ -248,21 +236,14 @@ namespace BombSwap
             if (result.HasMovement)
             {
                 MoveCount++;
-                movementStart = instance.transform.position;
-                movementTarget = ToPresentationPosition(result.Movement.To);
-                movementElapsed = 0f;
-                movementDuration = Mathf.Max(
-                    (float)result.MovementDuration.TotalSeconds,
-                    Mathf.Epsilon);
-                isInterpolating = true;
-                Vector3 facing = movementTarget - movementStart;
+                Vector3 facing = ToPresentationPosition(result.Movement.To) -
+                    ToPresentationPosition(result.Movement.From);
                 facing.y = 0f;
                 if (facing.sqrMagnitude > 0.0001f)
                 {
                     instance.transform.rotation =
                         Quaternion.LookRotation(facing.normalized, Vector3.up);
                 }
-                SetMovingAnimation(true);
             }
             if (!result.HasStateTransition)
             {
@@ -293,7 +274,6 @@ namespace BombSwap
             }
 
             DeathCount++;
-            isInterpolating = false;
             if (animator != null)
             {
                 animator.SetBool(IsMovingParameterId, false);
@@ -346,10 +326,26 @@ namespace BombSwap
 
         private void SetMovingAnimation(bool isMoving)
         {
-            if (animator != null && session.CurrentThrowerState == ThrowerEnemyState.Track)
+            if (animator != null)
             {
                 animator.SetBool(IsMovingParameterId, isMoving);
             }
+        }
+
+        private void SyncLocomotionAnimation()
+        {
+            if (isShowingDeath)
+            {
+                SetMovingAnimation(false);
+                return;
+            }
+
+            SetMovingAnimation(
+                session.CurrentThrowerState == ThrowerEnemyState.Track &&
+                (PrototypeEnemyMovementSampler.IsActive(
+                        session.CurrentThrowerMovementTransition,
+                        session.CurrentGameTime) ||
+                    session.CurrentThrowerLocomotionState == EnemyLocomotionState.Moving));
         }
 
         private void ShowTelegraphs(IReadOnlyList<GridPosition> targets)

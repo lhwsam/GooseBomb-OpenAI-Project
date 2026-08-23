@@ -253,6 +253,8 @@ namespace BombSwap
 
         public bool IsPaused => _isPaused;
 
+        public TimeSpan CurrentGameTime => _clock != null ? _clock.Now : TimeSpan.Zero;
+
         public GridPosition CurrentGridPosition =>
             _movement != null ? _movement.CurrentPosition : default;
 
@@ -287,6 +289,12 @@ namespace BombSwap
         public GridPosition CurrentChaserGridPosition =>
             _chaser != null ? _chaser.CurrentPosition : default;
 
+        public EnemyLocomotionState CurrentChaserLocomotionState =>
+            IsChaserAlive ? _chaser.LocomotionState : EnemyLocomotionState.Idle;
+
+        public EnemyMovementTransition CurrentChaserMovementTransition =>
+            _chaser != null ? _chaser.MovementTransition : default;
+
         public bool IsChaserAlive => _chaserHealth != null && !_chaserHealth.IsDead;
 
         public bool HasCharger => _hasCharger;
@@ -298,6 +306,12 @@ namespace BombSwap
 
         public ChargerEnemyState CurrentChargerState =>
             _charger != null ? _charger.State : ChargerEnemyState.Track;
+
+        public EnemyLocomotionState CurrentChargerLocomotionState =>
+            IsChargerAlive ? _charger.LocomotionState : EnemyLocomotionState.Idle;
+
+        public EnemyMovementTransition CurrentChargerMovementTransition =>
+            _charger != null ? _charger.MovementTransition : default;
 
         public CardinalDirection CurrentChargerLockedDirection =>
             _charger != null ? _charger.LockedDirection : CardinalDirection.None;
@@ -347,6 +361,14 @@ namespace BombSwap
                 ? _selfDestruct.State
                 : SelfDestructEnemyState.Chase;
 
+        public EnemyLocomotionState CurrentSelfDestructLocomotionState =>
+            IsSelfDestructAlive
+                ? _selfDestruct.LocomotionState
+                : EnemyLocomotionState.Idle;
+
+        public EnemyMovementTransition CurrentSelfDestructMovementTransition =>
+            _selfDestruct != null ? _selfDestruct.MovementTransition : default;
+
         public float CurrentSelfDestructWarningProgress =>
             _selfDestruct != null ? (float)_selfDestruct.WarningProgress : 0f;
 
@@ -367,6 +389,12 @@ namespace BombSwap
 
         public ThrowerEnemyState CurrentThrowerState =>
             _thrower != null ? _thrower.State : ThrowerEnemyState.Track;
+
+        public EnemyLocomotionState CurrentThrowerLocomotionState =>
+            IsThrowerAlive ? _thrower.LocomotionState : EnemyLocomotionState.Idle;
+
+        public EnemyMovementTransition CurrentThrowerMovementTransition =>
+            _thrower != null ? _thrower.MovementTransition : default;
 
         public GridPosition CurrentThrowerLockedTarget =>
             _thrower != null ? _thrower.LockedTarget : default;
