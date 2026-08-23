@@ -48,6 +48,7 @@
 | 작업 | 추가로 읽을 문서 |
 |---|---|
 | 입력·플레이어 명령 | `Systems/InputAndCommands.md`, `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
+| 플레이어 4방향 이동·응답성 회귀 | `Development/PlayerMovementResponsivenessRegression.md`, `Development/ContinuousPlayerMovementSlice.md`, `Systems/GridAndMovement.md`, `Systems/InputAndCommands.md` |
 | 폭탄·폭발 규칙 | `Systems/BombAndExplosion.md`, `Systems/GridAndMovement.md`, ADR-0001~0003 |
 | 방향성 직선 폭탄 | `Development/DirectionalLineBombSlice.md`, `Systems/BombAndExplosion.md`, `Systems/WeaponSlotsAndCooldown.md` |
 | 두 폭탄·쿨타임 | `Systems/WeaponSlotsAndCooldown.md`, `Development/ActiveBombSlotPersistenceSlice.md`, `ProtoType_v0.2.md` 가설 B·C |

@@ -5,6 +5,9 @@ namespace BombSwap.Core
 {
     public sealed class PlayerMovementSimulation
     {
+        private const double DistanceTolerance = 0.000000001d;
+        private const int MaxBoundaryCrossingsPerAdvance = 4096;
+
         private readonly struct CellBoundaryCrossing
         {
             public CellBoundaryCrossing(TimeSpan crossedAt, GridPosition cell)
@@ -19,7 +22,8 @@ namespace BombSwap.Core
 
         private readonly GridState grid;
         private readonly IGameClock clock;
-        private readonly List<PlayerMovementStep> lastCellSteps = new List<PlayerMovementStep>(1);
+        private readonly List<PlayerMovementStep> lastCellSteps =
+            new List<PlayerMovementStep>(4);
         private readonly List<CellBoundaryCrossing> lastBoundaryCrossings =
             new List<CellBoundaryCrossing>(4);
         private TimeSpan lastObservedTime;
@@ -27,14 +31,7 @@ namespace BombSwap.Core
         private GridPosition lastAdvanceStartedCell;
         private BombId passThroughBombId;
         private GridPosition passThroughPosition;
-        private GridPosition movementFrom;
-        private GridPosition movementTo;
         private CardinalDirection movementDirection;
-        private TimeSpan movementStartedAt;
-        private TimeSpan movementEndsAt;
-        private bool hasCommittedDestination;
-        private bool hasPendingDirectionIntent;
-        private bool releaseAfterPendingIntent;
 
         public PlayerMovementSimulation(
             GridState grid,
@@ -51,27 +48,24 @@ namespace BombSwap.Core
             }
             if (clock.Now < TimeSpan.Zero)
             {
-                throw new ArgumentOutOfRangeException(nameof(clock), clock.Now, "Game time cannot be negative.");
+                throw new ArgumentOutOfRangeException(
+                    nameof(clock),
+                    clock.Now,
+                    "Game time cannot be negative.");
             }
-            if (double.IsNaN(cellsPerSecond) || double.IsInfinity(cellsPerSecond) || cellsPerSecond <= 0d)
+            if (double.IsNaN(cellsPerSecond) ||
+                double.IsInfinity(cellsPerSecond) ||
+                cellsPerSecond <= 0d)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(cellsPerSecond),
                     cellsPerSecond,
                     "Movement speed must be finite and positive.");
             }
-            double stepSeconds = 1d / cellsPerSecond;
-            if (stepSeconds < TimeSpan.FromTicks(1).TotalSeconds ||
-                stepSeconds > TimeSpan.MaxValue.TotalSeconds)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(cellsPerSecond),
-                    cellsPerSecond,
-                    "Movement speed must produce a representable positive step duration.");
-            }
             if (!grid.TryAddActor(actorId, startPosition))
             {
-                throw new InvalidOperationException($"Player cannot occupy the starting cell {startPosition}.");
+                throw new InvalidOperationException(
+                    $"Player cannot occupy the starting cell {startPosition}.");
             }
 
             ActorId = actorId;
@@ -79,7 +73,6 @@ namespace BombSwap.Core
             Position = GridSubcellPosition.AtCellCenter(startPosition);
             FacingDirection = CardinalDirection.North;
             CellsPerSecond = cellsPerSecond;
-            StepDuration = TimeSpan.FromSeconds(stepSeconds);
             lastObservedTime = clock.Now;
             lastAdvanceStartedAt = clock.Now;
             lastAdvanceStartedCell = startPosition;
@@ -91,7 +84,6 @@ namespace BombSwap.Core
         public CardinalDirection MoveDirection { get; private set; }
         public CardinalDirection FacingDirection { get; private set; }
         public double CellsPerSecond { get; }
-        public TimeSpan StepDuration { get; }
         public bool IsMoving { get; private set; }
         public CardinalDirection CurrentMovementDirection =>
             IsMoving ? movementDirection : CardinalDirection.None;
@@ -103,23 +95,17 @@ namespace BombSwap.Core
         public void SetMoveDirection(CardinalDirection direction)
         {
             ValidateDirection(direction);
-            if (direction == CardinalDirection.None &&
-                !IsMoving &&
-                hasPendingDirectionIntent)
+            if (direction == MoveDirection)
             {
-                releaseAfterPendingIntent = true;
                 return;
             }
 
+            ReleaseUnusedReservation();
             MoveDirection = direction;
+            IsMoving = false;
             if (direction != CardinalDirection.None)
             {
-                if (!IsMoving)
-                {
-                    FacingDirection = direction;
-                    hasPendingDirectionIntent = true;
-                    releaseAfterPendingIntent = false;
-                }
+                FacingDirection = direction;
             }
         }
 
@@ -128,60 +114,118 @@ namespace BombSwap.Core
             TimeSpan now = clock.Now;
             if (now < lastObservedTime)
             {
-                throw new InvalidOperationException("Game clock moved backwards during player movement.");
+                throw new InvalidOperationException(
+                    "Game clock moved backwards during player movement.");
             }
 
+            TimeSpan elapsed = now - lastObservedTime;
             lastCellSteps.Clear();
             lastBoundaryCrossings.Clear();
             lastAdvanceStartedAt = lastObservedTime;
             lastAdvanceStartedCell = CurrentPosition;
             GridSubcellPosition initialPosition = Position;
-            TimeSpan cursor = lastObservedTime;
-            int completedStepCount = 0;
+            LastAdvanceDirection = CardinalDirection.None;
+
+            if (MoveDirection == CardinalDirection.None)
+            {
+                ReleaseUnusedReservation();
+                IsMoving = false;
+                lastObservedTime = now;
+                return false;
+            }
+
+            double remainingDistance = elapsed.TotalSeconds * CellsPerSecond;
+            if (double.IsNaN(remainingDistance) || double.IsInfinity(remainingDistance))
+            {
+                throw new InvalidOperationException("Player movement distance was not finite.");
+            }
+
+            CardinalDirection direction = MoveDirection;
+            movementDirection = direction;
+            double consumedDistance = 0d;
+            int boundaryCrossingCount = 0;
             while (true)
             {
-                if (!IsMoving)
+                if (!CanLeaveCurrentCell())
                 {
-                    if (MoveDirection == CardinalDirection.None)
-                    {
-                        if (completedStepCount == 0)
-                        {
-                            LastAdvanceDirection = CardinalDirection.None;
-                        }
-                        break;
-                    }
-
-                    bool beganMove = TryBeginMove(MoveDirection, cursor);
-                    if (hasPendingDirectionIntent)
-                    {
-                        hasPendingDirectionIntent = false;
-                        if (releaseAfterPendingIntent)
-                        {
-                            MoveDirection = CardinalDirection.None;
-                        }
-                        releaseAfterPendingIntent = false;
-                    }
-                    if (!beganMove)
-                    {
-                        if (completedStepCount == 0)
-                        {
-                            LastAdvanceDirection = CardinalDirection.None;
-                        }
-                        break;
-                    }
-                }
-
-                LastAdvanceDirection = movementDirection;
-                if (now < movementEndsAt)
-                {
-                    UpdateCommittedMove(now);
+                    ReleaseUnusedReservation();
+                    IsMoving = false;
                     break;
                 }
 
-                cursor = movementEndsAt;
-                UpdateCommittedMove(cursor);
-                completedStepCount++;
-                if (completedStepCount >= 4096)
+                GridPosition target = GetTarget(CurrentPosition, direction);
+                if (!TryEnsureReservation(target))
+                {
+                    double distanceToCenter = GetDistanceToCurrentCenter(
+                        Position,
+                        CurrentPosition,
+                        direction);
+                    if (remainingDistance <= DistanceTolerance ||
+                        distanceToCenter <= DistanceTolerance)
+                    {
+                        IsMoving = false;
+                        break;
+                    }
+
+                    double distance = Math.Min(remainingDistance, distanceToCenter);
+                    MoveBy(direction, distance);
+                    consumedDistance += distance;
+                    remainingDistance -= distance;
+                    IsMoving = remainingDistance <= DistanceTolerance &&
+                        distance + DistanceTolerance < distanceToCenter;
+                    break;
+                }
+
+                IsMoving = true;
+                if (remainingDistance <= DistanceTolerance)
+                {
+                    break;
+                }
+
+                double distanceToBoundary = GetDistanceToBoundary(
+                    Position,
+                    CurrentPosition,
+                    direction);
+                if (remainingDistance + DistanceTolerance < distanceToBoundary)
+                {
+                    MoveBy(direction, remainingDistance);
+                    consumedDistance += remainingDistance;
+                    remainingDistance = 0d;
+                    break;
+                }
+
+                if (distanceToBoundary > 0d)
+                {
+                    MoveBy(direction, distanceToBoundary);
+                    consumedDistance += distanceToBoundary;
+                    remainingDistance = Math.Max(0d, remainingDistance - distanceToBoundary);
+                }
+
+                GridPosition from = CurrentPosition;
+                if (!grid.TryCommitReservedActorMove(ActorId))
+                {
+                    ReleaseUnusedReservation();
+                    IsMoving = false;
+                    break;
+                }
+
+                CurrentPosition = target;
+                lastCellSteps.Add(new PlayerMovementStep(from, target, direction));
+                lastBoundaryCrossings.Add(new CellBoundaryCrossing(
+                    GetCrossingTime(consumedDistance),
+                    target));
+                if (HasBombPassThrough && from == passThroughPosition)
+                {
+                    ClearBombPassThrough();
+                }
+                if (!grid.CompleteActorMove(ActorId))
+                {
+                    throw new InvalidOperationException(
+                        "Committed player movement had no destination reservation.");
+                }
+
+                boundaryCrossingCount++;
+                if (boundaryCrossingCount >= MaxBoundaryCrossingsPerAdvance)
                 {
                     throw new InvalidOperationException(
                         "Player movement exceeded the per-advance cell safety limit.");
@@ -189,7 +233,12 @@ namespace BombSwap.Core
             }
 
             lastObservedTime = now;
-            return Position != initialPosition;
+            bool positionChanged = Position != initialPosition;
+            if (positionChanged)
+            {
+                LastAdvanceDirection = direction;
+            }
+            return positionChanged;
         }
 
         public GridPosition GetCurrentCellAt(TimeSpan gameTime)
@@ -217,37 +266,34 @@ namespace BombSwap.Core
 
         public void CancelMovement()
         {
-            if (IsMoving && !grid.CompleteActorMove(ActorId))
-            {
-                throw new InvalidOperationException(
-                    "Cancelled player movement had no destination reservation.");
-            }
-
+            ReleaseUnusedReservation();
             IsMoving = false;
             LastAdvanceDirection = CardinalDirection.None;
             MoveDirection = CardinalDirection.None;
-            hasPendingDirectionIntent = false;
-            releaseAfterPendingIntent = false;
         }
 
         public void ClearMoveIntent()
         {
+            ReleaseUnusedReservation();
+            IsMoving = false;
             MoveDirection = CardinalDirection.None;
-            hasPendingDirectionIntent = false;
-            releaseAfterPendingIntent = false;
         }
 
         public void GrantBombPassThrough(BombSnapshot bomb)
         {
             if (!bomb.Id.IsValid)
             {
-                throw new ArgumentException("Bomb snapshot must identify an active bomb.", nameof(bomb));
+                throw new ArgumentException(
+                    "Bomb snapshot must identify an active bomb.",
+                    nameof(bomb));
             }
             if (bomb.OwnerId != ActorId)
             {
-                throw new InvalidOperationException("Only the bomb owner can receive placement-cell pass-through.");
+                throw new InvalidOperationException(
+                    "Only the bomb owner can receive placement-cell pass-through.");
             }
-            if (bomb.Position != CurrentPosition || !grid.GetCell(CurrentPosition).HasBomb)
+            if (bomb.Position != CurrentPosition ||
+                !grid.GetCell(CurrentPosition).HasBomb)
             {
                 throw new InvalidOperationException(
                     "Pass-through can only be granted at the owner's current bomb cell.");
@@ -274,100 +320,121 @@ namespace BombSwap.Core
             }
         }
 
-        private bool TryBeginMove(CardinalDirection direction, TimeSpan startedAt)
+        private bool CanLeaveCurrentCell()
         {
             GridCellState source = grid.GetCell(CurrentPosition);
             if (HasBombPassThrough && !source.HasBomb)
             {
                 ClearBombPassThrough();
             }
-            if (source.HasBomb && (!HasBombPassThrough || passThroughPosition != CurrentPosition))
-            {
-                return false;
-            }
 
-            GridPosition target = GetTarget(CurrentPosition, direction);
-            if (!grid.TryReserveActorMove(ActorId, target))
-            {
-                return false;
-            }
-
-            movementFrom = CurrentPosition;
-            movementTo = target;
-            movementDirection = direction;
-            FacingDirection = direction;
-            movementStartedAt = startedAt;
-            movementEndsAt = AddWithSaturation(startedAt, StepDuration);
-            hasCommittedDestination = false;
-            IsMoving = true;
-            return true;
+            return !source.HasBomb ||
+                (HasBombPassThrough && passThroughPosition == CurrentPosition);
         }
 
-        private void UpdateCommittedMove(TimeSpan now)
+        private bool TryEnsureReservation(GridPosition target)
         {
-            double progress = GetMovementProgress(now);
-            Position = Lerp(movementFrom, movementTo, progress);
-            if (!hasCommittedDestination && progress >= 0.5d)
+            if (grid.TryGetActorMoveReservation(ActorId, out GridPosition reserved))
             {
-                if (!grid.TryCommitReservedActorMove(ActorId))
+                if (reserved != target)
                 {
                     throw new InvalidOperationException(
-                        "Reserved player movement could not cross its cell boundary.");
+                        "Player movement reservation does not match the active direction.");
                 }
-
-                CurrentPosition = movementTo;
-                hasCommittedDestination = true;
-                lastBoundaryCrossings.Add(new CellBoundaryCrossing(
-                    AddWithSaturation(
-                        movementStartedAt,
-                        TimeSpan.FromTicks(
-                            (StepDuration.Ticks / 2) + (StepDuration.Ticks % 2))),
-                    movementTo));
-                if (HasBombPassThrough && movementFrom == passThroughPosition)
-                {
-                    ClearBombPassThrough();
-                }
+                return true;
             }
-            if (progress < 1d)
+
+            return grid.TryReserveActorMove(ActorId, target);
+        }
+
+        private void ReleaseUnusedReservation()
+        {
+            if (!grid.TryGetActorMoveReservation(ActorId, out _))
             {
                 return;
-            }
-            if (!hasCommittedDestination)
-            {
-                throw new InvalidOperationException(
-                    "Completed player movement never committed its destination cell.");
             }
             if (!grid.CompleteActorMove(ActorId))
             {
                 throw new InvalidOperationException(
-                    "Completed player movement had no destination reservation.");
+                    "Player movement reservation could not be released.");
             }
-
-            Position = GridSubcellPosition.AtCellCenter(movementTo);
-            lastCellSteps.Add(new PlayerMovementStep(movementFrom, movementTo, movementDirection));
-            IsMoving = false;
         }
 
-        private double GetMovementProgress(TimeSpan now)
+        private TimeSpan GetCrossingTime(double consumedDistance)
         {
-            if (now <= movementStartedAt)
-            {
-                return 0d;
-            }
-            if (now >= movementEndsAt)
-            {
-                return 1d;
-            }
-
-            return (now - movementStartedAt).TotalSeconds /
-                (movementEndsAt - movementStartedAt).TotalSeconds;
+            double seconds = consumedDistance / CellsPerSecond;
+            TimeSpan offset = TimeSpan.FromSeconds(seconds);
+            return AddWithSaturation(lastAdvanceStartedAt, offset);
         }
 
-        private static GridSubcellPosition Lerp(GridPosition from, GridPosition to, double progress)
+        private void MoveBy(CardinalDirection direction, double distance)
         {
-            return new GridSubcellPosition(
-                from.X + ((to.X - from.X) * progress),
-                from.Z + ((to.Z - from.Z) * progress));
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    Position = new GridSubcellPosition(Position.X, Position.Z + distance);
+                    break;
+                case CardinalDirection.East:
+                    Position = new GridSubcellPosition(Position.X + distance, Position.Z);
+                    break;
+                case CardinalDirection.South:
+                    Position = new GridSubcellPosition(Position.X, Position.Z - distance);
+                    break;
+                case CardinalDirection.West:
+                    Position = new GridSubcellPosition(Position.X - distance, Position.Z);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Movement requires a non-zero cardinal direction.");
+            }
+        }
+
+        private static double GetDistanceToBoundary(
+            GridSubcellPosition position,
+            GridPosition current,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return Math.Max(0d, current.Z + 0.5d - position.Z);
+                case CardinalDirection.East:
+                    return Math.Max(0d, current.X + 0.5d - position.X);
+                case CardinalDirection.South:
+                    return Math.Max(0d, position.Z - (current.Z - 0.5d));
+                case CardinalDirection.West:
+                    return Math.Max(0d, position.X - (current.X - 0.5d));
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Movement requires a non-zero cardinal direction.");
+            }
+        }
+
+        private static double GetDistanceToCurrentCenter(
+            GridSubcellPosition position,
+            GridPosition current,
+            CardinalDirection direction)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    return position.Z < current.Z ? current.Z - position.Z : 0d;
+                case CardinalDirection.East:
+                    return position.X < current.X ? current.X - position.X : 0d;
+                case CardinalDirection.South:
+                    return position.Z > current.Z ? position.Z - current.Z : 0d;
+                case CardinalDirection.West:
+                    return position.X > current.X ? position.X - current.X : 0d;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "Movement requires a non-zero cardinal direction.");
+            }
         }
 
         private void ClearBombPassThrough()
@@ -376,7 +443,9 @@ namespace BombSwap.Core
             passThroughPosition = default;
         }
 
-        private static GridPosition GetTarget(GridPosition current, CardinalDirection direction)
+        private static GridPosition GetTarget(
+            GridPosition current,
+            CardinalDirection direction)
         {
             switch (direction)
             {
@@ -404,7 +473,8 @@ namespace BombSwap.Core
 
         private static void ValidateDirection(CardinalDirection direction)
         {
-            if (direction < CardinalDirection.None || direction > CardinalDirection.West)
+            if (direction < CardinalDirection.None ||
+                direction > CardinalDirection.West)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(direction),

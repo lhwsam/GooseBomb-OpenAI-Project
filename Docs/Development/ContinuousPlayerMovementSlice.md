@@ -2,14 +2,14 @@
 
 - 상태: 구현·자동 검증 완료, 수동 체감 재확인 대기
 - 근거 세션: [PT-20260814-01](../Playtesting/Results/PT-20260814-01.md)
-- 대체 계약: [방향 전환 응답성 수직 슬라이스](MovementTurnResponsivenessSlice.md)의 0.2초 step·pending turn
+- 폐기한 플레이어 대안: [방향 전환 응답성 수직 슬라이스](MovementTurnResponsivenessSlice.md)의 0.2초 step·pending turn
 - 적용 계층: `BombSwap.Core` 플레이어 이동, `BombSwap.Unity` 세션·표현, WebGL 개발 검증 하네스
 
 ## 목표와 관찰 가능한 결과
 
 - 기본 속도 5 cells/s는 유지하되 입력 반영을 0.2초 셀 cadence로 제한하지 않는다.
-- 이동 키를 누르는 동안 매 Unity frame의 경과 시간만큼 Core 위치가 진행한다.
-- 이동 키를 놓으면 이미 확정된 한 칸을 마저 재생하지 않고 다음 관찰 frame부터 위치가 멈춘다.
+- 이동 키를 누르는 동안 매 10ms simulation step의 경과 시간 × cells/s만큼 Core 위치가 진행한다.
+- 이동 키를 놓으면 이미 확정된 한 칸을 마저 재생하지 않고 다음 10ms simulation step부터 위치가 멈춘다.
 - `상 → 우 → 상 → 우 → 상 → 우`를 frame마다 바꾸면 각 방향이 같은 순서의 실제 위치 변화로 나타난다.
 - 세션은 이동 계산 직전에 Input Action의 최신 값을 다시 샘플링한다. 같은 대각선 입력이 유지되는 동안에는 마지막으로 전환한 축을 고정하고, 입력 벡터가 바뀔 때만 축 우선순위를 다시 계산한다.
 - 벽·폭탄·actor 점유와 설치자 한정 폭탄 셀 탈출은 기존 정수 `GridState`가 계속 판정한다.
@@ -21,19 +21,29 @@
 - 수정 전 PlayMode 회귀에서 키 해제 시 표시 위치는 `z=0.292967051`이었지만 0.15초 뒤 `z=1.0`까지 계속 이동해 실패했다.
 - 1개 pending turn은 짧은 겹침 입력 하나를 보존했지만 빠른 반복 입력을 하나로 합치고, `Move(None)`에서 지우면 짧은 단타를 잃는 구조적 상충을 만들었다.
 
+## 2026-08-24 통합 회귀와 복구
+
+- `9f4cf04 refactor: unify actor tile movement`가 적의 committed tile 정책을 플레이어에도 적용해 시작한 한 칸을 0.2초 동안 끝까지 완료하도록 변경했다.
+- 이 변경은 4방향 단일 축 선택을 유지하지만, 키 해제 즉시 정지와 frame별 직교 방향 전환 계약을 위반한다.
+- 새 테스트 기대값이 회귀 동작을 허용하도록 함께 변경되어 테스트 통과만으로 이 계약을 증명할 수 없다.
+- 수정 범위와 회귀 검증은 [플레이어 4방향 이동 응답성 회귀 인계](PlayerMovementResponsivenessRegression.md)가 소유한다.
+- 플레이어 전용 연속 이동을 복구해 해제·전환 시 예약을 즉시 풀고, 셀 경계에서만 점유를 원자적으로 전이한 뒤 다음 접근 셀을 다시 예약한다. 적의 committed 이동은 유지한다.
+- 10ms simulation step이 없는 frame에서는 입력을 확정하지 않고 실제 step 직전에만 최신 frame intent를 관찰해 짧은 탭 유실을 막는다.
+- `10 cells/s + 0.2초 반복 대기` 임시 칸 이동 후보는 사람 플레이에서 `Rejected`되어 제거했다. 기본 `5 cells/s` 연속 이동과 기존 테스트 기대값이 현재 계약이며 판정 근거는 [플레이어 4방향 이동 응답성 회귀 인계](PlayerMovementResponsivenessRegression.md)가 소유한다.
+
 ## 상태 소유와 불변식
 
 - `GridSubcellPosition`은 셀 단위 `double X/Z` 연속 위치이며 `BombSwap.Core`가 권위 상태로 소유한다.
 - `PlayerMovementSimulation.CurrentPosition`은 폭탄·폭발·적·점유 판정용 정수 셀이고 `Position`은 그 셀 사이의 이동 진행도를 소유한다.
-- 셀 경계를 통과할 때만 `GridState.TryMoveActor`로 정수 점유를 원자적으로 전이한다. 목적 셀이 막히면 현재 셀 중심보다 벽 쪽으로 진행하지 않는다.
+- 접근 중인 다음 셀만 예약하고, 셀 경계를 통과할 때만 `GridState.TryCommitReservedActorMove`로 정수 점유를 원자적으로 전이한 뒤 예약을 완료한다. 목적 셀이 막히면 현재 셀 중심보다 벽 쪽으로 진행하지 않는다.
 - 이동 거리는 주입된 게임 시계의 경과 시간과 cells/s로 계산한다. Transform, Rigidbody, Unity 물리 순서는 규칙 입력이 아니다.
 - `PrototypePlayerController`는 별도 이동 타이머나 목적 셀 보간을 소유하지 않고 Core의 `GridSubcellPosition`을 월드 XZ로 변환해 표시한다.
 - 큰 frame에서도 통과한 각 셀 경계를 순서대로 검사해 벽·폭탄을 건너뛰지 않는다.
 
 ## 범위와 비목표
 
-- 변경 허용: Core 플레이어 이동·연속 위치 값, Unity 세션·표현, 관련 EditMode·PlayMode 테스트, WebGL probe/smoke, 소유 문서.
-- 변경 금지: Input Actions 에셋, 씬·프리팹, 폭탄·폭발·적 cadence, 패키지·ProjectSettings, 기본 5 cells/s 튜닝 값.
+- 변경 허용: Core 플레이어 이동·연속 위치 값, Unity 세션·표현, 관련 EditMode·PlayMode 테스트, WebGL probe/smoke, 소유 문서와 플레이 가능한 16개 씬의 `cellsPerSecond=5` 복구.
+- 변경 금지: Input Actions 에셋, 그 밖의 씬·프리팹 저작, 폭탄·폭발·적 cadence, 패키지·ProjectSettings, 기본 5 cells/s 이외 튜닝 값.
 - 비목표: 플레이어 충돌 반경, 코너 스냅 허용 폭, 게임패드 deadzone, 가속·감속 곡선, 대각선 이동.
 
 ## 자동 검증 계약
@@ -45,10 +55,11 @@
 
 ## 현재 검증 결과
 
-- 수정 전 해제 회귀: 실패. 해제 위치 `z=0.292967051`에서 멈추지 않고 `z=1.0`까지 진행.
-- 수정 후 Core 대상: `PlayerMovementSimulationTests` 18개 통과, 실패 0.
-- 수정 후 Unity 연결 대상: `PrototypePlayerControllerTests` 19개 통과, 실패 0.
-- 전체 EditMode 159개, PlayMode 64개, 콘텐츠 validator와 Unity Console 오류 0을 통과했다.
+- 2026-08-24 최종 복구: 플레이 가능한 16개 씬을 Unity Editor로 `cellsPerSecond=5`에 맞춘 뒤 Unity 컴파일에 성공했고, 기존 기대값을 바꾸지 않은 전체 EditMode `363/363`이 통과했다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223646-232.json`.
+- 전체 PlayMode는 `172/186` 통과했다. 플레이어 이동·입력 응답성 실패는 0이고 남은 14개는 별도 보스 fuse·scene binder/run host·적/폭발/방 클리어 회귀다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223924-646.json`.
+- 최종 문서 반영 뒤 StaticOnly가 통과했다. 증거 `Artifacts/Verification/20260824-074531-static/summary.json`.
+- 최신 Development WebGL 재시도는 기존 로비 제목, 투척병 Animator, 보스 chain fuse와 공개 에셋의 private vendor 직접 참조 validator 오류로 빌드 전에 차단됐다. 증거 `Artifacts/Verification/20260824-074450-connected-web/webgl-build-status.txt`; WebGL과 browser smoke는 미실행이다.
+- 2026-08-14 최초 복구 당시 수정 전 해제 회귀는 `z=0.292967051`에서 멈추지 않고 `z=1.0`까지 진행했으며, 수정 후 Core 대상 18개·Unity 연결 대상 19개와 당시 전체 EditMode 159개·PlayMode 64개가 통과했다.
 - Development WebGL 빌드 성공: 140,634,127 bytes, 266.945초, 오류 0. TextMeshPro IL2CPP 대형 메서드 분할 경고 3건은 기존 범주다.
 - 실제 Edge headless에서 기존 폭탄·피해·3방 전환과 `North/East` 단타 6회의 release 전 실제 motion, 마지막 방 자기 폭발 피해, resize, browser Console/page error 0을 확인했다.
 - 증거: `Artifacts/Verification/20260814-151702-continuous-movement-web-connected/` (Git 제외).

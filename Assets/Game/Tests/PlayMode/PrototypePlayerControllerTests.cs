@@ -334,7 +334,7 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(GridOccupancy.None));
 
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.02f);
             Assert.That(_session.CurrentMovementPosition.Z, Is.GreaterThan(0d));
 
             QueueKeyboardState();
@@ -394,7 +394,7 @@ namespace BombSwap.Tests.PlayMode
 
             QueueKeyboardState(Key.W, Key.Escape);
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.02f);
 
             Assert.That(_session.IsPaused, Is.False);
             Assert.That(pausePresenter.IsVisible, Is.False);
@@ -481,7 +481,7 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
 
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.02f);
 
             Assert.That(_session.CurrentMovementPosition.Z, Is.GreaterThan(0d));
             Assert.That(_player.position.x, Is.EqualTo(0f).Within(0.001f));
@@ -494,26 +494,28 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ReleasedDirection_FinishesCommittedCellThenStops()
+        public IEnumerator ReleasedDirection_StopsPresentationWithoutFinishingCommittedCell()
         {
             CreateRuntime(Vector2Int.zero, false);
             yield return null;
 
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.02f);
+            Assert.That(_player.position.z, Is.GreaterThan(0f));
             QueueKeyboardState();
-            yield return new WaitForSecondsRealtime(0.25f);
+            float releasedPosition = _player.position.z;
+
+            yield return new WaitForSecondsRealtime(0.15f);
 
             Assert.That(
                 _player.position.z,
-                Is.EqualTo(1f).Within(0.02f),
-                "Releasing movement must finish the already committed cell step.");
-            Assert.That(_session.CurrentGridPosition, Is.EqualTo(new GridPosition(0, 1)));
+                Is.EqualTo(releasedPosition).Within(0.02f),
+                "Releasing movement should stop the authoritative presentation on the next frame.");
             Assert.That(_session.IsPlayerMoving, Is.False);
         }
 
         [UnityTest]
-        public IEnumerator OverlappingPerpendicularInput_AppliesAtNextCellStep()
+        public IEnumerator OverlappingPerpendicularInput_ChangesMotionOnConsecutiveFrames()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
@@ -527,16 +529,22 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
 
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.02f);
             QueueKeyboardState(Key.W, Key.D);
-            yield return new WaitForSecondsRealtime(0.25f);
+            yield return new WaitForSecondsRealtime(0.02f);
+            QueueKeyboardState(Key.W);
+            yield return new WaitForSecondsRealtime(0.02f);
             QueueKeyboardState();
 
-            Assert.That(directions, Has.Count.GreaterThanOrEqualTo(2));
             Assert.That(directions[0], Is.EqualTo(CardinalDirection.North));
-            Assert.That(directions[1], Is.EqualTo(CardinalDirection.East));
+            int eastIndex = directions.IndexOf(CardinalDirection.East);
+            int northReturnIndex = directions.FindIndex(
+                eastIndex + 1,
+                direction => direction == CardinalDirection.North);
+            Assert.That(eastIndex, Is.GreaterThan(0));
+            Assert.That(northReturnIndex, Is.GreaterThan(eastIndex));
             Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(0d));
-            Assert.That(_session.CurrentMovementPosition.Z, Is.EqualTo(1d).Within(0.001d));
+            Assert.That(_session.CurrentMovementPosition.Z, Is.GreaterThan(0d));
         }
 
         [UnityTest]
@@ -546,26 +554,30 @@ namespace BombSwap.Tests.PlayMode
             yield return null;
 
             QueueKeyboardState(Key.W);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.02f);
             QueueKeyboardState(Key.W, Key.D);
-            float deadline = Time.realtimeSinceStartup + 0.5f;
-            while (_session.CurrentMovementPosition.X <= 0d &&
+            yield return new WaitForSecondsRealtime(0.02f);
+
+            double eastStart = _session.CurrentMovementPosition.X;
+            double northStart = _session.CurrentMovementPosition.Z;
+            float deadline = Time.realtimeSinceStartup + 0.2f;
+            while (_session.CurrentMovementPosition.X <= eastStart &&
                 Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
 
-            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(0d));
+            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(eastStart));
             Assert.That(
                 _session.CurrentMovementPosition.Z,
-                Is.EqualTo(1d).Within(0.000001d),
-                "The queued east input must apply only after the north cell step completes.");
+                Is.EqualTo(northStart).Within(0.000001d),
+                "Holding the diagonal should continue on the latest pressed axis.");
 
             QueueKeyboardState();
         }
 
         [UnityTest]
-        public IEnumerator RapidAlternatingTaps_DoNotTurnInsideCommittedCell()
+        public IEnumerator RapidAlternatingTaps_ApplyEachDirectionOnTheNextFrame()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
@@ -582,18 +594,16 @@ namespace BombSwap.Tests.PlayMode
             for (int index = 0; index < keys.Length; index++)
             {
                 QueueKeyboardState(keys[index]);
-                yield return null;
+                yield return new WaitForSecondsRealtime(0.02f);
                 QueueKeyboardState();
                 yield return null;
             }
 
-            Assert.That(directions, Is.Not.Empty);
-            Assert.That(directions, Has.All.EqualTo(CardinalDirection.North));
-            Assert.That(_session.CurrentMovementPosition.X, Is.Zero.Within(0.000001d));
+            AssertDirectionsAppearInOrder(directions, keys.Length);
         }
 
         [UnityTest]
-        public IEnumerator RapidAlternatingSubframeTaps_DoNotCreateDiagonalMovement()
+        public IEnumerator RapidAlternatingSubframeTaps_MoveOnEveryFollowingFrame()
         {
             CreateRuntime(Vector2Int.zero, false);
             var directions = new List<CardinalDirection>();
@@ -611,15 +621,15 @@ namespace BombSwap.Tests.PlayMode
             {
                 QueueKeyboardState(keys[index]);
                 QueueKeyboardState();
-                yield return null;
+                yield return new WaitForSecondsRealtime(0.02f);
             }
             yield return null;
 
-            Assert.That(
-                _session.CurrentMovementPosition.X == 0d ||
-                _session.CurrentMovementPosition.Z == 0d,
-                Is.True,
-                "A committed cell step must stay on one cardinal axis.");
+            AssertDirectionsAppearInOrder(directions, keys.Length);
+
+            GridSubcellPosition stopped = _session.CurrentMovementPosition;
+            yield return new WaitForSecondsRealtime(0.1f);
+            Assert.That(_session.CurrentMovementPosition, Is.EqualTo(stopped));
         }
 
         [UnityTest]
@@ -2974,7 +2984,7 @@ namespace BombSwap.Tests.PlayMode
                 _loadout,
                 _vitals,
                 _chaserDefinition,
-                10f,
+                PrototypeGameSession.DefaultCellsPerSecond,
                 0.05f,
                 _chargerDefinition,
                 _armoredDefinition,
@@ -3096,6 +3106,31 @@ namespace BombSwap.Tests.PlayMode
             }
             _root.SetActive(true);
             _reader.SetInputFocus(true);
+        }
+
+        private static void AssertDirectionsAppearInOrder(
+            IReadOnlyList<CardinalDirection> actualDirections,
+            int expectedCount)
+        {
+            int cursor = 0;
+            for (int index = 0; index < expectedCount; index++)
+            {
+                CardinalDirection expected = index % 2 == 0
+                    ? CardinalDirection.North
+                    : CardinalDirection.East;
+                while (cursor < actualDirections.Count &&
+                    actualDirections[cursor] != expected)
+                {
+                    cursor++;
+                }
+
+                Assert.That(
+                    cursor,
+                    Is.LessThan(actualDirections.Count),
+                    $"Missing observed {expected} intent at alternating tap {index}. " +
+                    $"Actual: {string.Join(", ", actualDirections)}");
+                cursor++;
+            }
         }
 
         private static T LoadUiPrefab<T>(string resourcePath)

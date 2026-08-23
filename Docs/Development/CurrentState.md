@@ -157,7 +157,7 @@
 - 플레이어 일자형 폭탄 표현은 설치 당시 확정한 한 방향에만 같은 불기둥을 재생하고, 실제 도달 거리 1~4칸을 같은 speed modifier 규칙으로 표시한다. 바로 앞이 막히면 중심 폭발만 재생한다.
 - 투척병 폭탄과 보스 일반·연쇄 투척 폭탄은 비행과 논리 폭발 규칙을 유지하면서, 폭발 시 플레이어 십자 폭탄과 같은 중심·방향별 불기둥 풀을 사용한다.
 - 플레이어 범위 폭탄은 Core가 확정한 3×3 영향 셀마다 `vfx_Explosion_Grid`를 Y 0.5 높이에서 최소 1초 동안 풀링 재생한다. 고정 벽·Void는 제외되고 파괴 가능한 벽 셀은 포함된다.
-- 플레이어 연속 위치와 이동 방향은 매 Unity frame Core에서 갱신된다. 마지막 유효 cardinal 입력은 이동 해제 뒤에도 바라보기로 유지되고 막힌 방향 입력도 갱신한다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
+- 플레이어 이동은 기본 `5 cells/s`의 4방향 연속 정책이다. 실제 10ms simulation step마다 `elapsed × cellsPerSecond`만큼 현재 cardinal 한 축을 진행하고, 키 해제·방향 변경은 다음 step부터 적용하며 셀 중심 완료를 강제하지 않는다. 접근할 다음 셀만 예약하고 사용하지 않는 예약은 즉시 취소하며, 셀 경계를 통과할 때 `GridState.TryCommitReservedActorMove`로 `CurrentGridPosition`의 정수 점유를 원자적으로 전이하고 `PlayerMovementStep`을 발행한다. 마지막 유효 cardinal은 바라보기로 유지되고 막힌 방향 입력도 이를 갱신한다. 적의 한 칸 확정 완료 정책은 유지한다.
 - `PlayerHealthSimulation`은 검증된 초기 현재 체력, 폭발 ID별 처리 여부, 체력 하한, 상한 회복, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발·적 접촉·보스 패턴은 원본 source를 구분해 보존하면서 같은 무적을 공유하고, 회복은 무적 상태를 바꾸지 않는다. `PrototypeGameSession`은 적용된 피해·회복과 사망만 표현 이벤트로 발행한다. `DungeonPlayerHealthState`는 적용 결과를 run snapshot에 기록하고 room binder가 다음 session에 복원한다. 무적 시각과 처리 폭발 ID는 방을 넘기지 않는다.
 - `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 모든 방, `ROOM TOKENS`는 우상단에서 현재 런 값을 표시하고, 보스 panel은 보스 활성 방에서만 보이며 보스 취약 상태는 의도적으로 표시하지 않는다.
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·재계획 시점 BFS·최단 경로를 벗어나지 않는 최대 두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 이동으로 새 인접이 생기면 같은 0.5초 도착 시각 이후에만 접촉 가능하며, 그 전에 플레이어가 이탈하면 피해가 없다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급하며 경로가 없으면 기다린다.
@@ -186,6 +186,7 @@
 
 ## 진행 중
 
+- [플레이어 4방향 이동 응답성 회귀](PlayerMovementResponsivenessRegression.md)의 `10 cells/s + 0.2초 반복 대기` 임시 committed tile 후보는 사람 플레이에서 `Rejected`되어 제거했다. 기본 `5 cells/s` 연속 이동과 기존 테스트 기대값을 복구하면서 `GridState` 예약·원자적 점유, 10ms step 직전 입력 관찰과 적의 한 칸 확정 이동은 보존했다. 자동 이동 계약은 복구됐고 짧은 탭·셀 중간 전환·빠른 `상→우` 반복·벽 모서리 체감의 사람 재확인이 남아 있다.
 - [로비와 공통 TMP UI](LobbySlice.md)는 씬·DungGeunMo 기본/DNFBitBitv2 선택 폰트·[픽셀 외곽선/그라데이션](../Systems/PixelFontRendering.md)·첫 build scene·결과 화면 복귀와 [공통 사용자 설정](../Systems/UserSettingsAndAudio.md)을 직렬화했다. 실제 WebGL에서 최종 색·두께를 고르는 디자인 확인, 완성 아트, 실제 BGM/SFX, 폭발 화면 흔들림과 실제 물리 게임패드의 메뉴 조작감은 후속 사람 검증 범위다.
 - [퇴로 차단 투척병 수직 슬라이스](ThrowerVerticalSlice.md)의 규칙·독립/던전 콘텐츠·EditMode/PlayMode를 3발 volley와 연속 사격의 측면 2칸 순환으로 확장하고 Legacy Lanes 자리에 메인 편성했다. 입장 거리 5칸만 확보한 뒤에도 spawn 즉시 Telegraph와 첫 적 폭탄의 추격자 자동 처치가 확인되어, 별도 staging→첫 anchor 4칸 선행 이동과 추격자/목표 재배치를 적용했다. 남은 게이트는 수정 배치의 준비 신호, 0.3초 중앙/측면 세 예고, 다음 공격의 측면 변화, 의도적 연쇄 및 다음 Pillars 난이도를 사람 플레이로 확인하는 것이다.
 - [프로토타입 준비도 감사](PrototypeReadinessAudit.md)의 GDD 필수 구현 뒤 실제 플레이에서 설치→외곽 도주→대기 반복, 적 역할 중복, 약한 보스 선행 설치 요구가 관찰됐다. [전투·적 AI·레벨·보스 개선 제안](../GameDesign/CombatEnemyLevelBossImprovementProposal.md)을 `Proposed` 후속 백로그로 기록하고 독립 수직 슬라이스 순서로 검증한다.
@@ -203,14 +204,16 @@
 
 ## 바로 다음 권장 작업
 
-1. 표준 `DungeonStart` seed 0에서 시작방 왼쪽 문으로 들어가 플레이어 `(4,0)`, 추격자 `(2,2)`, 투척병 staging `(2,-3)`을 확인한다. 첫 사격 anchor `(3,0)`까지 네 번 이동한 뒤 Telegraph하는 과정이 실제 준비 신호로 읽히고, 첫 적 폭탄 전에 초록 추격자가 자동 사망하지 않는지 본 뒤 전체 run의 세 예고·회피/연쇄·다음 Pillars 난이도를 기록한다.
-2. 필요하면 Editor 메뉴 `Bomb Swap > Playtest > Play Thrower Lanes Room`의 독립 씬으로 규칙 오류와 조작감 수치 문제를 재현한다. 목표 잠금·착탄·연쇄 계약이 깨진 경우만 즉시 수정하고 0.3초 예고·1.5초 fuse·범위 1·1 cell/s는 관찰 근거가 있을 때 한 범주씩 조정한다.
-3. 사람 결과가 지지되면 프로토타입 전투 콘텐츠 범위를 동결하고 GDD 필수 가설의 반복 세션으로 이동한다. 지지되지 않으면 Legacy Lanes 복귀를 카탈로그/Build Settings 한 단위로 검토하되 투척병 독립 슬라이스는 보존한다.
+1. [플레이어 4방향 이동 응답성 회귀](PlayerMovementResponsivenessRegression.md)의 복구된 연속 이동을 키보드로 재확인한다. 짧은 입력 해제 즉시 정지, 셀 중간 직교 전환, 빠른 `상→우` 6회, `W` 유지 중 짧은 `D` 탭 뒤 `W` 복귀와 벽·폭탄 경계의 예약 안전성을 기록한다.
+2. 이동과 별개인 콘텐츠 validator 차단과 보스 일반탄/연쇄탄 fuse 순서, room/binder 저작 불일치, 적·폭발·방 클리어 기준선 14건을 분리해 수정한 뒤 전체 PlayMode를 다시 실행한다.
+3. validator가 통과하는 고정 build에서 WebGL keyboard/gamepad smoke를 다시 실행한다.
+4. 통합 회귀가 해소된 고정 build에서 표준 `DungeonStart` seed 0의 투척병 준비 신호·세 예고·friendly fire와 다음 Pillars 난이도를 사람 플레이로 기록한다.
+5. 사람 결과가 지지되면 프로토타입 전투 콘텐츠 범위를 동결하고 GDD 필수 가설의 반복 세션으로 이동한다. 지지되지 않으면 Legacy Lanes 복귀를 카탈로그/Build Settings 한 단위로 검토하되 투척병 독립 슬라이스는 보존한다.
 
 ## 알려진 위험과 미정
 
-- `feat/3d-art-assets`를 `codex/ui-design-continued`에 병합한 직후 정적 계약과 EditMode `362/362`는 통과했지만, 전체 PlayMode는 `145/161` 통과했다. 실패 16건은 새 committed movement와 기존 PlayMode 기대값 불일치, `DungeonStart`의 room/binder 저작 불일치, boss throw/chain bomb fuse 순서 불일치와 그 후속 cascade를 포함한다. 오디오 런타임 연결 전에 이 통합 회귀를 별도 작업으로 해소하고 전체 PlayMode를 다시 실행해야 한다.
-- 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. P01은 수정 WebGL에서 일반 키 해제 즉시 정지, 빠른 `상→우` 반복과 벽 모서리 직교 전환이 자연스러움을 확인했다. 보고된 결함의 재현 계약은 `Supported`로 갱신했지만 최종 속도와 코너 보정 수치는 한 사람의 세션만으로 확정하지 않는다.
+- 복구 뒤 전체 EditMode는 `363/363`으로 후보에서 실패하던 8개 기존 계약도 기대값 변경 없이 통과했다. 전체 PlayMode는 `172/186`이며 이동·입력 응답성 실패는 0이지만 기존 보스 fuse·scene binder/run host·적/폭발/방 클리어 14건 때문에 Full 통과로 보고하지 않는다.
+- 권위 이동 계약은 기본 5 cells/s, cardinal 단일 축, Core 10ms 고정 step 연속 위치와 셀 경계 정수 점유 전이다. `10 cells/s + 0.2초 반복 대기` 후보는 `Rejected`되어 제거했으며 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 추가하지 않았다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`, 선택적 자폭병 `ActorId(6)`, 선택적 투척병 `ActorId(7)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 설치 방향 앞쪽 범위 3 직선 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 직선 후보는 기존 긴 십자 수치를 유지해 영향 셀이 크게 줄었으므로 복도 정렬 이점보다 약함이 먼저 느껴지는지 확인해야 한다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 함께 관찰한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
 - 전투방당 `+1`, Secret cache `+3`과 `ROOM TOKENS`는 GDD의 작은 클리어·발견 보상을 관찰하기 위한 소비처 없는 `Proposed` 임시 점수다. 상점·아이템 드롭·메타 재화·저장과 최종 경제 밸런스를 뜻하지 않으며 실제 반복 동기를 높이는지는 사람 플레이테스트가 필요하다.
@@ -234,6 +237,10 @@
 - 게임패드 binding 구조와 합성 Input System 장치의 왼쪽 스틱·D-pad 네 방향, South/West/Start/Select 의미 명령 변환을 자동 검증했다. WebGL에서는 표준 가상 장치 연결부터 스틱·D-pad 해제, 이동 중 분리의 즉시 정지·위치 안정성과 동일 index 재연결 입력 복구, South의 Core 폭탄 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱 500ms 차단과 Start 재개 뒤 유지 스틱 한 셀 적용, Select의 실패 런 재시작까지 자동 검증했다. pause 메뉴의 South는 선택된 UI 버튼 Submit으로 유지한다. 실제 목표 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이와 새 직교 축 우선 조작감은 수동 플레이가 남아 있다.
 
 ## 최근 검증
+
+- 업데이트된 인수인계에 따라 플레이어만 `9f4cf04^`/`a05cee3` 시점의 반응형 연속 정책으로 복구하고, 현재 예약 API·10ms 고정 simulation·적의 한 칸 확정 이동은 유지했다. 기본값과 플레이 가능한 16개 씬의 `cellsPerSecond`는 Unity Editor로 `5`에 맞췄고 Unity 컴파일에 성공했다. 기존 기대값을 수정하지 않은 전체 EditMode `363/363`이 통과했고, 전체 PlayMode `172/186`에서 플레이어 이동·입력 응답성 실패는 0이며 남은 14개는 별도 기존 회귀다. StaticOnly도 통과했다. Development WebGL 재시도는 기존 로비 제목·투척병 Animator·보스 chain fuse·public→private vendor 직접 참조 validator 오류로 빌드 전에 중단돼 browser smoke는 미실행이다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223646-232.json`, `20260823-223924-646.json`, `Artifacts/Verification/20260824-074531-static/summary.json`, `Artifacts/Verification/20260824-074450-connected-web/webgl-build-status.txt`.
+
+- 플레이어 이동 응답성 복구에서 수정 전 Core 대상 24개 중 6개 실패를 재현했고 최종 대상 25/25, 전체 EditMode 363/363이 통과했다. 전체 PlayMode는 164개 중 151개 통과, 이동·pause 응답성 실패 0이며 남은 13개는 기존 보스 fuse·scene binder/run host·추격자/자폭병·폭발/방 클리어 회귀다. StaticOnly과 정리 후 Unity Console Error/Warning 0을 확인했다. Development WebGL은 기존 콘텐츠 validator가 로비 제목, 투척병 Animator, 보스 chain fuse와 private vendor 직접 참조를 차단해 빌드 전에 종료됐으므로 WebGL/browser 통과로 보고하지 않는다. 증거 `Artifacts/Verification/ConnectedTests/20260823-193239-872.json`, `20260823-193259-112.json`, `20260823-193610-090.json`, `Artifacts/Verification/20260824-044313-static/summary.json`, `Artifacts/Verification/20260824-044000-player-movement-web/webgl-build-status.txt`.
 
 - 직접 UI Sprite 마이그레이션에서 로비 17개·pause 16개 슬롯과 per-Image 폴백을 검증했고, 공개 참조 validator가 금지된 vendor 의존성 없이 통과했다. 신규 폴백 PlayMode 4/4와 전체 PlayMode 155/155가 실패·건너뜀 0으로 통과했으며 StaticOnly 증거는 `Artifacts/Verification/20260824-022428-static/`이다. 연결된 Unity 6000.5.3f1의 12씬 Development WebGL 빌드는 128,634,328 bytes·621.059초·오류 0·경고 348건으로 성공했다. 실제 Edge browser smoke도 로비 설정·pause 설정·전체 seed-0 경로를 포함한 51/51, Console/page error 0으로 통과했으며 증거는 `Artifacts/Verification/20260824-023158-connected-web/`이다.
 
