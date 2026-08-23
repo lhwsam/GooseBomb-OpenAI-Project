@@ -1,7 +1,7 @@
 # 사용자 설정, 오디오와 화면 흔들림
 
 - 상태: 설정 저장·공통 UI·키보드 리바인딩 `Accepted`
-- 상태: 로비·던전 전투·보스 BGM과 UI 버튼 클릭 SFX 후보 클립 `Proposed`, 실제 AudioSource 연결·gameplay SFX와 폭발 화면 흔들림 연출 `Deferred`
+- 상태: 캐릭터 발소리 연결 `Accepted`, 로비·던전 전투·보스 BGM과 UI 버튼 클릭 SFX 후보 클립 `Proposed`, 나머지 gameplay SFX와 폭발 화면 흔들림 연출 `Deferred`
 - 기준일: 2026-08-24
 - 코드 소유: `BombSwap.Unity`의 `PrototypeUserSettingsRuntime`, `PrototypeUserSettingsStorage`, `PrototypeSettingsPanelPresenter`
 
@@ -44,6 +44,9 @@
 - Mixer는 `Master` 아래 `BGM`, `SFX` 그룹을 가지며 `MasterVolume`, `BgmVolume`, `SfxVolume`을 노출한다.
 - UI의 선형 0~1 값은 `20 * log10(value)`로 변환하고 0은 -80 dB로 처리한다.
 - 향후 BGM AudioSource는 BGM 그룹, 폭탄·피격·적 공격 AudioSource는 SFX 그룹으로 route해야 한다.
+- 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹은 루트에 `CharacterFootstepAudio`와 SFX 그룹으로 route한 AudioSource를 하나씩 가진다. 이동 Animation Clip의 발 접지 프레임에 저작한 `PlayFootstep` Animation Event가 재생 시점을 결정하며 Core 이동 주기나 별도 타이머는 사용하지 않는다.
+- Animator가 중첩 FBX `Visual`에 있으므로 `CharacterFootstepAudio`는 실행 시 Animator GameObject에 `CharacterFootstepAnimationEventRelay`를 한 번 추가한다. Relay는 이벤트를 부모 프리팹 루트의 재생기로 전달한다. FBX를 unpack하거나 모델 계층을 복제하지 않는다.
+- 플레이어는 `Assets/Arts/Sound/FootStep/Player`, 적과 보스는 `Assets/Arts/Sound/FootStep/Enemy`의 네 clip 중 직전 clip을 제외해 무작위 재생한다. 플레이어는 2D, 적은 지면에서 떨어진 카메라 AudioListener까지 포함하는 기본 볼륨 `0.8`·`minDistance 12`·`maxDistance 35`의 logarithmic 3D 감쇠를 사용하고 적 AudioSource의 동시 재생은 최대 4개로 제한한다. 피치에는 작은 표현 변화만 적용하며 일시정지 중에는 재생하지 않는다.
 - 로비 BGM 후보는 `Assets/Game/Content/Audio/Music/BGM_Lobby_GooseExodus_8Bit_Loop.wav`다. D 단조, 96 BPM, 32마디·80초, 44.1 kHz stereo 16-bit PCM이며 마지막 A장조 도미넌트가 다음 재생의 첫 D 단조로 해결된다. 합성 source는 `Tools/Audio/GenerateLobbyBgm.py`이고 고정 seed와 순환 delay로 같은 파일을 재현한다.
 - 던전 BGM 후보는 D 단조, 116 BPM, 32마디·약 66.207초, 44.1 kHz stereo 16-bit PCM의 공통 timeline을 사용한다. 합성 source `Tools/Audio/GenerateDungeonCombatBgm.py`는 2,919,724 frame으로 정렬된 `BGM_Dungeon_PowderCorridor_BaseLayer_8Bit_Loop.wav`, `CombatLayer`, `DangerLayer`, `SanctuaryLayer` 네 stem을 함께 만든다.
 - `BaseLayer`는 저음 drone·얇은 chord pad·희박한 D–F–A–C♯ 동기로 시작방, 이미 클리어한 방과 비전투 이동의 연속성을 소유한다. `CombatLayer`는 chord stab·8분음표 bass ostinato·drum·경고 주제를, `DangerLayer`는 off-beat fuse pulse·가속 tick·warning tritone을, `SanctuaryLayer`는 같은 화성 위의 sine pad·bell answer를 소유한다. 각 layer는 gameplay SFX가 아니라 방 상태에 적응하는 BGM stem이다.
@@ -53,7 +56,7 @@
 - 같은 합성 source `Tools/Audio/GenerateBossBattleBgm.py`는 full mix와 sample-aligned layer 세 개를 함께 만든다. `BGM_BossBattle_OverheatedThrone_BaseLayer_8Bit_Loop.wav`는 기계 리듬·bass·주제를, `BGM_BossBattle_OverheatedThrone_GrandLayer_8Bit_Loop.wav`는 저음 organ·chip choir·octave fanfare·war drum을, `BGM_BossBattle_OverheatedThrone_DangerLayer_8Bit_Loop.wav`는 fuse tick·warning tritone·parity sweep·last-stand double-time을 소유한다. 네 파일은 2,646,000 frame으로 같고 동일 DSP 시각에 시작하는 것을 전제로 한다.
 - UI 버튼 클릭 SFX 후보는 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`다. 44.1 kHz mono 16-bit PCM, 6,394 frame·약 0.145초이며 짧은 부리 snap·기계식 저음 body·작은 C♯→D 확인 pulse로 구성한다. `Tools/Audio/GenerateUiButtonClickSfx.py`가 고정 seed로 같은 파일을 재현한다. 향후 연결 시 BGM이 아니라 SFX Mixer 그룹으로 route하고 hover가 아닌 interactable Button의 확정 click/Submit에만 재생한다.
 - BGM 후보 clip의 처음과 끝은 digital zero이며 `AudioSource.loop`로 전체 clip을 반복한다. UI SFX도 양 끝을 digital zero로 마감하지만 반복하지 않고 click마다 한 번만 재생한다. 최종 청감·음량 승인은 해당 화면·room과 실제 WebGL에서 판단한다.
-- 버튼 클릭 SFX를 제외한 gameplay SFX clip과 실제 AudioSource 연결은 아직 없으므로 게임 안에서 소리가 난다고 보고하지 않는다. `audio-unlocked` 개발 marker도 실제 소리를 증명하지 않는다.
+- 발소리를 제외한 gameplay SFX clip과 실제 AudioSource 연결은 아직 없으므로 해당 효과가 게임 안에서 소리 난다고 보고하지 않는다. `audio-unlocked` 개발 marker도 실제 소리를 증명하지 않는다.
 
 ## 화면 흔들림 계약
 
@@ -77,7 +80,7 @@
 
 ## 검증
 
-- PlayMode: 수치 clamp·dB 변환·화면 흔들림 배율, PlayerPrefs round-trip, binding override round-trip, 손상 JSON 복구.
+- PlayMode: 수치 clamp·dB 변환·화면 흔들림 배율, PlayerPrefs round-trip, binding override round-trip, 손상 JSON 복구, 발소리 무작위 비반복·Animation Event relay·일시정지 차단.
 - scene 통합: 로비의 Mixer 그룹/파라미터·키보드 8개·gamepad 문구 부재, 로비/일시정지의 같은 설정 panel, 설정 중 `Esc`와 실제 pause 수명.
 - Editor validator: AudioMixer 그룹/노출 파라미터, 로비와 모든 던전/TestSandbox scene의 설정 runtime 참조.
 - WebGL: 로비와 pause에서 panel 표시, 키 변경 후 게임 입력 반영, reload 뒤 유지, slider와 fullscreen 요청, Console/page error, 실제 clip 연결 뒤 사용자 gesture 이후 가청 BGM/SFX.

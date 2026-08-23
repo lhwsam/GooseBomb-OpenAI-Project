@@ -9,6 +9,8 @@
 
 ## 완료
 
+- 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹에 SFX Mixer 기반 발소리 AudioSource를 연결했다. 이동 클립의 `PlayFootstep` Animation Event는 중첩 FBX Animator에 런타임으로 붙는 relay를 거쳐 프리팹 루트의 `CharacterFootstepAudio`로 전달되며, 플레이어·적 전용 4개 clip 비반복 무작위 재생, 적 3D 거리 감쇠·4 voice 상한, 일시정지 차단을 적용한다. Charger와 Boss의 Walk·Charge 두 이동 클립 모두 같은 경로를 사용한다.
+
 - GDD v0.2와 프로토타입 검증 부록 v0.2 작성.
 - 프로젝트 Unity 버전, 패키지, 렌더 파이프라인, 입력, Build Settings, WebGL 기본 설정 조사.
 - 루트 `AGENTS.md`와 문서 권위/세션 시작 규칙 정의.
