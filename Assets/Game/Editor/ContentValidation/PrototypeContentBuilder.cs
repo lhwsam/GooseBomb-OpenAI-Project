@@ -147,6 +147,8 @@ namespace BombSwap.Editor.ContentValidation
         public static string CreateMissingPrototypeContent()
         {
             TMP_FontAsset gameFont = ConfigureGameDefaultFont();
+            PrototypeInGameUiPrefabAuthoring.PrefabSet inGameUiPrefabs =
+                PrototypeInGameUiPrefabAuthoring.EnsurePrefabAssets();
             InputActionAsset inputActions = CreateInputActionsIfMissing();
             AudioMixer audioMixer = LoadRequiredAsset<AudioMixer>(
                 PrototypeContentValidator.AudioMixerPath);
@@ -409,6 +411,8 @@ namespace BombSwap.Editor.ContentValidation
                 bombRewardCatalog,
                 true,
                 true);
+            PrototypeInGameUiPrefabAuthoring.WireAllGameScenes(
+                inGameUiPrefabs);
             EnsureBuildSettings();
             AssetDatabase.SaveAssets();
 
@@ -891,6 +895,9 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinition);
+            PrototypeInGameUiPrefabAuthoring.WireScene(
+                PrototypeContentValidator.ArmoredPanicPlaytestScenePath,
+                PrototypeInGameUiPrefabAuthoring.EnsurePrefabAssets());
             AssetDatabase.SaveAssets();
             return created
                 ? $"Created standalone Armor playtest scene at '{PrototypeContentValidator.ArmoredPanicPlaytestScenePath}'."
@@ -922,6 +929,9 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinition);
+            PrototypeInGameUiPrefabAuthoring.WireScene(
+                PrototypeContentValidator.SelfDestructGatesPlaytestScenePath,
+                PrototypeInGameUiPrefabAuthoring.EnsurePrefabAssets());
             AssetDatabase.SaveAssets();
             return created
                 ? $"Created standalone Self-Destruct Gates playtest scene at '{PrototypeContentValidator.SelfDestructGatesPlaytestScenePath}'."
@@ -953,6 +963,9 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinition);
+            PrototypeInGameUiPrefabAuthoring.WireScene(
+                PrototypeContentValidator.BossBattlePlaytestScenePath,
+                PrototypeInGameUiPrefabAuthoring.EnsurePrefabAssets());
             AssetDatabase.SaveAssets();
             return created
                 ? $"Created standalone Boss Battle playtest scene at '{PrototypeContentValidator.BossBattlePlaytestScenePath}'."
@@ -985,6 +998,9 @@ namespace BombSwap.Editor.ContentValidation
                 armoredDefinition,
                 bossDefinition,
                 roomDefinition);
+            PrototypeInGameUiPrefabAuthoring.WireScene(
+                PrototypeContentValidator.ThrowerLanesPlaytestScenePath,
+                PrototypeInGameUiPrefabAuthoring.EnsurePrefabAssets());
             AssetDatabase.SaveAssets();
             return created
                 ? $"Created standalone Thrower Lanes playtest scene at '{PrototypeContentValidator.ThrowerLanesPlaytestScenePath}'."

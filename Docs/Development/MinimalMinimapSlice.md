@@ -40,7 +40,7 @@ PrototypeDungeonMinimapPresenter
 
 ## 시각 범위
 
-- 기준 해상도 1280×720, 우측 상단 `ROOM TOKENS` 아래에 배치한다.
+- 기준 UI 해상도 960×600, 우측 상단 `ROOM TOKENS` 아래에 배치한다.
 - 고정 패널 안에서 알려진 방 좌표 범위를 중앙 정렬하고 작은 그래프는 확대하지 않는다.
 - 연결선을 먼저 그리고 방을 나중에 그려 교차점과 방 중심을 구분한다.
 - `C`, `V`, `?` 문자와 색을 함께 사용해 색만으로 상태를 구분하지 않는다.
@@ -72,7 +72,7 @@ PrototypeDungeonMinimapPresenter
 ## 구현과 검증 근거
 
 - Core `DungeonRunState.CreateMinimapSnapshot()`이 현재·방문·직접 인접 방과 확인된 연결만 안정 순서의 read-only snapshot으로 만든다. snapshot은 방 종류와 미방문 방 너머 연결을 노출하지 않는다.
-- `PrototypeDungeonMinimapPresenter`는 persistent 별도 상태나 frame polling 없이 시작 scene 초기화와 실제 `RoomCommitted` 뒤 Core snapshot을 다시 그린다. Core X는 화면 오른쪽, Z는 화면 위쪽으로 유지한다.
+- `PrototypeDungeonMinimapPresenter`는 persistent 별도 상태나 frame polling 없이 시작 scene 초기화와 실제 `RoomCommitted` 뒤 Core snapshot을 다시 그린다. 패널·제목·범례·Map 영역과 노드 style은 [공유 미니맵 프리팹](../Systems/InGameUiPrefabs.md)이 소유하고, 실제 방·연결 자식만 snapshot에 따라 생성한다. Core X는 화면 오른쪽, Z는 화면 위쪽으로 유지한다.
 - Editor builder와 validator가 Build Settings의 던전·TestSandbox 열 scene에 presenter를 하나씩 저작하고 해당 scene의 room binder 참조가 같은지 검증한다.
 - 연결된 Unity 6000.5.3f1에서 EditMode `299/299`, PlayMode `124/124`, 콘텐츠 validator와 Console Error `0`을 확인했다. Core 제한 정보·불변 컬렉션과 실제 scene 전환 뒤 현재/방문/발견 상태·HUD 간격을 포함한다.
 - Development WebGL 10 scene 빌드는 `137,969,901 bytes`, `538.069초`, 오류 `0`으로 성공했다. Edge 기본 smoke `33/33`은 시작 `2/1`, Recovery `8/7`, 보스 전실 `9/8` 방/연결 marker와 완료·실패 뒤 시작 지도 초기화, Console/page error `0`을 확인했다. 가상 Gamepad smoke도 `14/14`, 오류 `0`으로 통과했다.

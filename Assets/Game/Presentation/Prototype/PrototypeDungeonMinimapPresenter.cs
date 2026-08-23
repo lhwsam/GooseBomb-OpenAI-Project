@@ -14,28 +14,20 @@ namespace BombSwap
         public static readonly Vector2 DefaultPanelSize =
             new Vector2(270f, 230f);
 
-        private static readonly Color PanelColor =
-            new Color(0.02f, 0.025f, 0.04f, 0.86f);
-        private static readonly Color ConnectionColor =
-            new Color(0.46f, 0.54f, 0.66f, 0.9f);
-        private static readonly Color DiscoveredColor =
-            new Color(0.19f, 0.23f, 0.31f, 1f);
-        private static readonly Color VisitedColor =
-            new Color(0.14f, 0.62f, 0.84f, 1f);
-        private static readonly Color CurrentColor =
-            new Color(1f, 0.72f, 0.12f, 1f);
-
-        private const float MaximumCellPitch = 38f;
-        private const float RoomSize = 26f;
-        private const float ConnectionThickness = 5f;
-
         [SerializeField]
         private PrototypeDungeonRoomBinder roomBinder;
 
-        private GameObject _canvasObject;
+        [SerializeField]
+        private PrototypeDungeonMinimapView viewPrefab;
+
+        private PrototypeDungeonMinimapView _viewInstance;
         private RectTransform _mapRoot;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
+
+        public PrototypeDungeonMinimapView ViewPrefab => viewPrefab;
+
+        public PrototypeDungeonMinimapView ViewInstance => _viewInstance;
 
         public bool IsInitialized { get; private set; }
 
@@ -59,16 +51,38 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredRoomBinder));
         }
 
+        public void Configure(
+            PrototypeDungeonRoomBinder authoredRoomBinder,
+            PrototypeDungeonMinimapView authoredViewPrefab)
+        {
+            Configure(authoredRoomBinder);
+            BindViewPrefab(authoredViewPrefab);
+        }
+
+        public void BindViewPrefab(
+            PrototypeDungeonMinimapView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeDungeonMinimapPresenter before changing its view prefab.");
+            }
+
+            viewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RunHost == null)
+            if (roomBinder == null || roomBinder.RunHost == null ||
+                viewPrefab == null || !viewPrefab.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "PrototypeDungeonMinimapPresenter requires an initialized dungeon room binder.");
+                    "PrototypeDungeonMinimapPresenter requires an initialized dungeon room binder and a configured view prefab.");
             }
 
             roomBinder.RunHost.RoomCommitted += OnRoomCommitted;
@@ -124,7 +138,7 @@ namespace BombSwap
 
             DungeonMinimapSnapshot snapshot =
                 roomBinder.RunHost.RunSession.RunState.CreateMinimapSnapshot();
-            if (!_canvasObject)
+            if (_viewInstance == null)
             {
                 CreateUi();
             }
@@ -142,61 +156,15 @@ namespace BombSwap
 
         private void CreateUi()
         {
-            _canvasObject = new GameObject(
-                "PrototypeDungeonMinimapCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            _canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = _canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 109;
-            CanvasScaler scaler = _canvasObject.GetComponent<CanvasScaler>();
-            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
+            _viewInstance = Instantiate(viewPrefab, transform, false);
+            _viewInstance.name = viewPrefab.name;
+            if (!_viewInstance.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "Instantiated minimap view is missing required references.");
+            }
 
-            RectTransform panel = CreateRect("MinimapPanel", _canvasObject.transform);
-            panel.anchorMin = Vector2.one;
-            panel.anchorMax = Vector2.one;
-            panel.pivot = Vector2.one;
-            panel.anchoredPosition = DefaultPanelPosition;
-            panel.sizeDelta = DefaultPanelSize;
-            Image background = panel.gameObject.AddComponent<Image>();
-            background.color = PanelColor;
-            background.raycastTarget = false;
-
-            TextMeshProUGUI title = PrototypeUiFactory.CreateText(
-                "Title",
-                panel,
-                18f,
-                TextAlignmentOptions.MidlineLeft,
-                FontStyles.Bold);
-            RectTransform titleRect = title.rectTransform;
-            titleRect.anchorMin = new Vector2(0f, 1f);
-            titleRect.anchorMax = Vector2.one;
-            titleRect.pivot = new Vector2(0.5f, 1f);
-            titleRect.offsetMin = new Vector2(12f, -38f);
-            titleRect.offsetMax = new Vector2(-12f, -8f);
-            title.text = "DUNGEON MAP";
-
-            TextMeshProUGUI legend = PrototypeUiFactory.CreateText(
-                "Legend",
-                panel,
-                13f,
-                TextAlignmentOptions.Center);
-            RectTransform legendRect = legend.rectTransform;
-            legendRect.anchorMin = Vector2.zero;
-            legendRect.anchorMax = new Vector2(1f, 0f);
-            legendRect.pivot = new Vector2(0.5f, 0f);
-            legendRect.offsetMin = new Vector2(12f, 8f);
-            legendRect.offsetMax = new Vector2(-12f, 34f);
-            legend.text = "C CURRENT   V VISITED   ? DISCOVERED";
-            legend.color = new Color(0.78f, 0.82f, 0.9f, 1f);
-
-            _mapRoot = CreateRect("Map", panel);
-            _mapRoot.anchorMin = Vector2.zero;
-            _mapRoot.anchorMax = Vector2.one;
-            _mapRoot.offsetMin = new Vector2(14f, 40f);
-            _mapRoot.offsetMax = new Vector2(-14f, -44f);
+            _mapRoot = _viewInstance.MapRoot;
         }
 
         private void RebuildMap(DungeonMinimapSnapshot snapshot)
@@ -221,10 +189,10 @@ namespace BombSwap
 
             int spanX = maximumX - minimumX;
             int spanZ = maximumZ - minimumZ;
-            float availableWidth = DefaultPanelSize.x - 28f;
-            float availableHeight = DefaultPanelSize.y - 84f;
+            float availableWidth = Mathf.Max(1f, _mapRoot.rect.width);
+            float availableHeight = Mathf.Max(1f, _mapRoot.rect.height);
             float pitch = Mathf.Min(
-                MaximumCellPitch,
+                _viewInstance.MaximumCellPitch,
                 availableWidth / Math.Max(1, spanX + 1),
                 availableHeight / Math.Max(1, spanZ + 1));
             float centerX = (minimumX + maximumX) * 0.5f;
@@ -258,10 +226,15 @@ namespace BombSwap
             rect.anchoredPosition = (from + to) * 0.5f;
             bool horizontal = Mathf.Abs(to.x - from.x) > Mathf.Abs(to.y - from.y);
             rect.sizeDelta = horizontal
-                ? new Vector2(Mathf.Abs(to.x - from.x), ConnectionThickness)
-                : new Vector2(ConnectionThickness, Mathf.Abs(to.y - from.y));
+                ? new Vector2(
+                    Mathf.Abs(to.x - from.x),
+                    _viewInstance.ConnectionThickness)
+                : new Vector2(
+                    _viewInstance.ConnectionThickness,
+                    Mathf.Abs(to.y - from.y));
             Image image = rect.gameObject.AddComponent<Image>();
-            image.color = ConnectionColor;
+            image.color = _viewInstance.ConnectionColor;
+            image.sprite = _viewInstance.ConnectionSprite;
             image.raycastTarget = false;
         }
 
@@ -274,9 +247,12 @@ namespace BombSwap
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(RoomSize, RoomSize);
+            rect.sizeDelta = new Vector2(
+                _viewInstance.RoomSize,
+                _viewInstance.RoomSize);
             Image image = rect.gameObject.AddComponent<Image>();
             image.color = GetRoomColor(room.State);
+            image.sprite = _viewInstance.RoomSprite;
             image.raycastTarget = false;
 
             TextMeshProUGUI label = PrototypeUiFactory.CreateText(
@@ -312,16 +288,16 @@ namespace BombSwap
                 (position.Z - centerZ) * pitch);
         }
 
-        private static Color GetRoomColor(DungeonMinimapRoomState state)
+        private Color GetRoomColor(DungeonMinimapRoomState state)
         {
             switch (state)
             {
                 case DungeonMinimapRoomState.Discovered:
-                    return DiscoveredColor;
+                    return _viewInstance.DiscoveredColor;
                 case DungeonMinimapRoomState.Visited:
-                    return VisitedColor;
+                    return _viewInstance.VisitedColor;
                 case DungeonMinimapRoomState.Current:
-                    return CurrentColor;
+                    return _viewInstance.CurrentColor;
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(state),

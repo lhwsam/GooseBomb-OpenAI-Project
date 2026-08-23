@@ -9,17 +9,13 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeHealthHud : MonoBehaviour
     {
-        private static readonly Color PanelColor =
-            new Color(0.02f, 0.025f, 0.04f, 0.86f);
-        private static readonly Color PlayerHealthColor =
-            new Color(0.92f, 0.18f, 0.16f, 1f);
-        private static readonly Color BossHealthColor =
-            new Color(0.84f, 0.24f, 0.62f, 1f);
-
         [SerializeField]
         private PrototypeGameSession session;
 
-        private GameObject _canvasObject;
+        [SerializeField]
+        private PrototypeHealthHudView viewPrefab;
+
+        private PrototypeHealthHudView _viewInstance;
         private GameObject _bossPanelObject;
         private Image _playerHealthFill;
         private Image _bossHealthFill;
@@ -30,6 +26,10 @@ namespace BombSwap
         private bool _isSubscribed;
 
         public PrototypeGameSession Session => session;
+
+        public PrototypeHealthHudView ViewPrefab => viewPrefab;
+
+        public PrototypeHealthHudView ViewInstance => _viewInstance;
 
         public bool IsInitialized { get; private set; }
 
@@ -74,16 +74,37 @@ namespace BombSwap
             session = gameSession ?? throw new ArgumentNullException(nameof(gameSession));
         }
 
+        public void Configure(
+            PrototypeGameSession gameSession,
+            PrototypeHealthHudView authoredViewPrefab)
+        {
+            Configure(gameSession);
+            BindViewPrefab(authoredViewPrefab);
+        }
+
+        public void BindViewPrefab(PrototypeHealthHudView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeHealthHud before changing its view prefab.");
+            }
+
+            viewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (session == null)
+            if (session == null || viewPrefab == null ||
+                !viewPrefab.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "PrototypeHealthHud requires a game-session reference.");
+                    "PrototypeHealthHud requires a game session and a configured view prefab.");
             }
 
             _roomBinder = GetComponent<PrototypeDungeonRoomBinder>();
@@ -252,122 +273,20 @@ namespace BombSwap
 
         private void CreateUi()
         {
-            _canvasObject = new GameObject(
-                "PrototypeHealthHudCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            _canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = _canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 110;
-            CanvasScaler scaler = _canvasObject.GetComponent<CanvasScaler>();
-            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
+            _viewInstance = Instantiate(viewPrefab, transform, false);
+            _viewInstance.name = viewPrefab.name;
+            if (!_viewInstance.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "Instantiated health HUD view is missing required references.");
+            }
 
-            RectTransform playerPanel = CreatePanel(
-                "PlayerHealthPanel",
-                _canvasObject.transform,
-                new Vector2(0f, 1f),
-                new Vector2(0f, 1f),
-                new Vector2(0f, 1f),
-                new Vector2(24f, -24f),
-                new Vector2(310f, 78f));
-            _playerHealthLabel = CreateLabel(playerPanel, 21f);
-            _playerHealthFill = CreateBar(playerPanel, PlayerHealthColor);
-
-            RectTransform rewardPanel = CreatePanel(
-                "CombatRewardPanel",
-                _canvasObject.transform,
-                new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(-24f, -24f),
-                new Vector2(250f, 58f));
-            _combatRewardLabel = CreateLabel(rewardPanel, 21f);
-
-            RectTransform bossPanel = CreatePanel(
-                "BossHealthPanel",
-                _canvasObject.transform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -24f),
-                new Vector2(560f, 82f));
-            _bossPanelObject = bossPanel.gameObject;
-            _bossHealthLabel = CreateLabel(bossPanel, 22f);
-            _bossHealthFill = CreateBar(bossPanel, BossHealthColor);
-        }
-
-        private static RectTransform CreatePanel(
-            string objectName,
-            Transform parent,
-            Vector2 anchorMin,
-            Vector2 anchorMax,
-            Vector2 pivot,
-            Vector2 anchoredPosition,
-            Vector2 size)
-        {
-            RectTransform panel = CreateRect(objectName, parent);
-            panel.anchorMin = anchorMin;
-            panel.anchorMax = anchorMax;
-            panel.pivot = pivot;
-            panel.anchoredPosition = anchoredPosition;
-            panel.sizeDelta = size;
-            Image background = panel.gameObject.AddComponent<Image>();
-            background.color = PanelColor;
-            background.raycastTarget = false;
-            return panel;
-        }
-
-        private static TextMeshProUGUI CreateLabel(
-            RectTransform panel,
-            float fontSize)
-        {
-            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
-                "Label",
-                panel,
-                fontSize,
-                TextAlignmentOptions.MidlineLeft,
-                FontStyles.Bold);
-            RectTransform rect = label.rectTransform;
-            rect.anchorMin = new Vector2(0f, 0.38f);
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(14f, 0f);
-            rect.offsetMax = new Vector2(-14f, -2f);
-            return label;
-        }
-
-        private static Image CreateBar(RectTransform panel, Color fillColor)
-        {
-            RectTransform backgroundRect = CreateRect("Bar", panel);
-            backgroundRect.anchorMin = new Vector2(0f, 0f);
-            backgroundRect.anchorMax = new Vector2(1f, 0.32f);
-            backgroundRect.offsetMin = new Vector2(14f, 12f);
-            backgroundRect.offsetMax = new Vector2(-14f, 0f);
-            Image background = backgroundRect.gameObject.AddComponent<Image>();
-            background.color = new Color(0.04f, 0.05f, 0.08f, 1f);
-            background.raycastTarget = false;
-
-            RectTransform fillRect = CreateRect("Fill", backgroundRect);
-            fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = Vector2.one;
-            fillRect.offsetMin = Vector2.zero;
-            fillRect.offsetMax = Vector2.zero;
-            Image fill = fillRect.gameObject.AddComponent<Image>();
-            fill.color = fillColor;
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fill.fillAmount = 1f;
-            fill.raycastTarget = false;
-            return fill;
-        }
-
-        private static RectTransform CreateRect(string objectName, Transform parent)
-        {
-            var child = new GameObject(objectName, typeof(RectTransform));
-            child.transform.SetParent(parent, false);
-            return child.GetComponent<RectTransform>();
+            _bossPanelObject = _viewInstance.BossPanel;
+            _playerHealthFill = _viewInstance.PlayerHealthFill;
+            _bossHealthFill = _viewInstance.BossHealthFill;
+            _playerHealthLabel = _viewInstance.PlayerHealthLabel;
+            _bossHealthLabel = _viewInstance.BossHealthLabel;
+            _combatRewardLabel = _viewInstance.CombatRewardLabel;
         }
 
         private static float GetFraction(int currentHealth, int maxHealth)

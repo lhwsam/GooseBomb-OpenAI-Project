@@ -55,11 +55,11 @@
 
 ## UI 저작과 수명
 
-- 공통 생성 경계는 `PrototypeSettingsPanelFactory`이며 TMP `DungGeunMo`와 960×600 reference Canvas 규칙을 따른다.
+- `PrototypeSettingsPanelFactory`는 누락 UI를 만드는 초기 저작 도구이며 TMP `DungGeunMo`와 960×600 reference Canvas 규칙을 따른다. 실제 실행에서는 로비 scene과 pause 프리팹에 저장된 `PrototypeSettingsPanelPresenter`를 사용한다.
 - 로비 설정 패널은 `DungeonLobby` 씬에 직렬화해 디자이너가 RectTransform, Image, TMP와 Button을 직접 수정할 수 있다.
 - 로비 조작 페이지는 ScrollRect이며 디자이너가 저작한 viewport, content 크기와 자식 배치를 presenter가 변경하지 않는다. 최하단 초기화 Button은 런타임 이름 검색 대신 presenter의 직렬화 참조로 연결한다.
 - 기존 `SettingsStatusText`는 사용하지 않는다. 키 변경 대기 상태는 해당 키 값 라벨에 표시하고 중복 알림은 같은 버튼의 라벨·RectTransform에 한정한다.
-- 일시정지 설정 패널은 기존 pause overlay와 함께 런타임 생성하지만 같은 factory와 presenter를 사용한다.
+- 일시정지 설정 패널은 [공유 pause 프리팹](InGameUiPrefabs.md) 안에 저작한다. 첫 pause 때 overlay 프리팹을 인스턴스화하고 현재 scene의 설정 runtime만 연결한다.
 - 설정 화면은 gamepad binding 문구를 만들지 않지만 기존 Input Action의 gamepad control scheme을 제거하지 않는다.
 
 ## 이어하기 보류
