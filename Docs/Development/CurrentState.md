@@ -357,3 +357,5 @@
 - SelfDestructPig 모델과 전용 Animator를 연결했다. Chase·WarningChase·Telegraph·Detonated Core 상태는 Idle/Run·Telegraph·Detonate 표현으로만 변환되며 기존 fuse와 펄스 튜닝은 유지한다.
 - ThrowerPig 모델과 전용 Animator를 연결했다. Track 이동은 Idle/Walk, Telegraph는 Throw, Recover는 Idle, 사망은 Die 표현으로 변환하며 기존 이동·예고·비행·회복 타이밍은 유지한다.
 - BossPig 모델과 전용 Animator를 연결했다. Telegraph 모션은 연속된 ParityWave의 첫 행에서만 재생하고 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 돌진·소환·사망은 Charge·Summon·Die로 변환한다. 연속 폭탄 발사는 개별 발사 sequence 기준으로 ThrowLeft/ThrowRight를 교대하며 기존 Boss Core 패턴과 타이밍은 유지한다.
+- Chaser·Charger·SelfDestruct·Thrower가 공통 `EnemyLocomotionState`를 Core에서 노출한다. Presenter는 개별 셀 보간 완료가 아니라 Core 이동 의도와 현재 보간을 함께 사용해 Run을 유지하므로 연속 격자 이동 사이의 Idle 전환을 방지한다.
+- 같은 4종 적의 마지막 이동 구간은 Core `EnemyMovementTransition`이 격자 From/To와 시작·종료 게임 시각으로 소유한다. Presenter의 개별 elapsed 타이머를 제거하고 Core 시각으로 위치를 샘플링해 셀 경계의 프레임 선행 정지를 제거했다.

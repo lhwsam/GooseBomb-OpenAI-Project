@@ -23,6 +23,8 @@ namespace BombSwap.Core
         private TimeSpan contactEligibleAt;
         private TimeSpan lastObservedTime;
         private int remainingCommittedSteps;
+        private EnemyLocomotionState locomotionState;
+        private EnemyMovementTransition movementTransition;
 
         public ChaserEnemySimulation(
             GridState grid,
@@ -84,6 +86,10 @@ namespace BombSwap.Core
 
         public CardinalDirection CurrentDirection { get; private set; }
 
+        public EnemyLocomotionState LocomotionState => locomotionState;
+
+        public EnemyMovementTransition MovementTransition => movementTransition;
+
         public int RemainingCommittedSteps => remainingCommittedSteps;
 
         public bool CanDealContactDamage
@@ -122,10 +128,12 @@ namespace BombSwap.Core
             nextStepAt = AddWithSaturation(now, Definition.StepInterval);
             if (!grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition))
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return false;
             }
             if (ManhattanDistance(CurrentPosition, targetPosition) <= 1L)
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return false;
             }
 
@@ -140,6 +148,7 @@ namespace BombSwap.Core
             {
                 CurrentDirection = CardinalDirection.None;
                 remainingCommittedSteps = 0;
+                locomotionState = EnemyLocomotionState.Idle;
                 return false;
             }
             else
@@ -154,13 +163,21 @@ namespace BombSwap.Core
             {
                 CurrentDirection = CardinalDirection.None;
                 remainingCommittedSteps = 0;
+                locomotionState = EnemyLocomotionState.Idle;
                 return false;
             }
 
             CurrentPosition = to;
             contactEligibleAt = nextStepAt;
             remainingCommittedSteps--;
+            locomotionState = ManhattanDistance(CurrentPosition, targetPosition) > 1L
+                ? EnemyLocomotionState.Moving
+                : EnemyLocomotionState.Idle;
             step = new EnemyMovementStep(ActorId, from, to, direction);
+            movementTransition = new EnemyMovementTransition(
+                step,
+                now,
+                Definition.StepInterval);
             return true;
         }
 

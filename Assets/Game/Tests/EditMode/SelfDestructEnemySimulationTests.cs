@@ -139,6 +139,9 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.HasMovement, Is.True);
             Assert.That(result.TargetPosition, Is.EqualTo(new GridPosition(0, -3)));
             Assert.That(result.Movement.To, Is.EqualTo(new GridPosition(3, -1)));
+            Assert.That(enemy.MovementTransition.Movement, Is.EqualTo(result.Movement));
+            Assert.That(enemy.MovementTransition.StartedAt, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(enemy.MovementTransition.EndsAt, Is.EqualTo(StepInterval));
             Assert.That(enemy.State, Is.EqualTo(SelfDestructEnemyState.Chase));
         }
 
@@ -215,6 +218,7 @@ namespace BombSwap.Tests.EditMode
             Assert.That(result.HasMovement, Is.False);
             Assert.That(result.ShouldArm, Is.True);
             Assert.That(result.State, Is.EqualTo(SelfDestructEnemyState.Telegraph));
+            Assert.That(enemy.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
             Assert.That(enemy.CurrentPosition, Is.EqualTo(enemyPosition));
         }
 
@@ -387,6 +391,7 @@ namespace BombSwap.Tests.EditMode
 
             Assert.That(result.HasActivity, Is.False);
             Assert.That(enemy.CurrentPosition, Is.EqualTo(enemyPosition));
+            Assert.That(enemy.LocomotionState, Is.EqualTo(EnemyLocomotionState.Idle));
         }
 
         [Test]

@@ -27,6 +27,8 @@ namespace BombSwap.Core
         private TimeSpan warningStartedAt;
         private BombId armedBombId;
         private IReadOnlyList<GridPosition> telegraphCells = NoTelegraphCells;
+        private EnemyLocomotionState locomotionState;
+        private EnemyMovementTransition movementTransition;
 
         public SelfDestructEnemySimulation(
             GridState grid,
@@ -96,6 +98,10 @@ namespace BombSwap.Core
 
         public SelfDestructEnemyState State { get; private set; }
 
+        public EnemyLocomotionState LocomotionState => locomotionState;
+
+        public EnemyMovementTransition MovementTransition => movementTransition;
+
         public bool IsArmed => armedBombId.IsValid;
 
         public BombId ArmedBombId => armedBombId;
@@ -122,11 +128,13 @@ namespace BombSwap.Core
             lastObservedTime = now;
             if (!IsChasing)
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
             if (!grid.TryGetActorPosition(TargetActorId, out GridPosition targetPosition))
             {
+                locomotionState = EnemyLocomotionState.Idle;
                 return NoActivity();
             }
 
@@ -160,6 +168,9 @@ namespace BombSwap.Core
 
             EnemyMovementStep movement = default;
             bool hasMovement = TryMoveToward(targetPosition, out movement);
+            locomotionState = hasMovement
+                ? EnemyLocomotionState.Moving
+                : EnemyLocomotionState.Idle;
             distance = ManhattanDistance(CurrentPosition, targetPosition);
             if (distance <= Definition.WarningDistance)
             {
@@ -177,6 +188,13 @@ namespace BombSwap.Core
 
             TimeSpan movementDuration = GetCurrentStepInterval(now);
             nextChaseStepAt = AddWithSaturation(now, movementDuration);
+            if (hasMovement)
+            {
+                movementTransition = new EnemyMovementTransition(
+                    movement,
+                    now,
+                    movementDuration);
+            }
             return CreateResult(
                 previousState,
                 movement,
@@ -255,6 +273,7 @@ namespace BombSwap.Core
 
             SelfDestructEnemyState previous = State;
             State = SelfDestructEnemyState.Detonated;
+            locomotionState = EnemyLocomotionState.Idle;
             telegraphCells = NoTelegraphCells;
             return new SelfDestructEnemyAdvanceResult(
                 ActorId,
@@ -288,6 +307,7 @@ namespace BombSwap.Core
         {
             SelfDestructEnemyState previous = State;
             State = SelfDestructEnemyState.Telegraph;
+            locomotionState = EnemyLocomotionState.Idle;
             warningStartedAt = default;
             TriggeringExplosionId = triggeringExplosionId;
             return new SelfDestructEnemyAdvanceResult(
