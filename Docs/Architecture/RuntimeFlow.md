@@ -73,7 +73,7 @@ binding과 세부 전이는 `../Systems/InputAndCommands.md`가 소유한다.
 - 일시정지는 Unity Runtime의 `PrototypeGameSession`이 입력 재샘플링과 `Advance` 전에 `Update`를 반환하는 방식으로 구현한다. `Time.timeScale`을 바꾸지 않으므로 pause UI와 브라우저 생명주기는 게임 규칙 시간과 분리된다.
 - Runtime의 관찰 주기는 10ms 고정 step이며 남은 10ms 미만 frame 시간은 다음 `Update`로 이월한다. Core 테스트는 같은 `IGameClock` 경계를 통해 필요한 간격을 직접 주입한다.
 
-현재 승인된 이동 수직 슬라이스는 기본 5 cells/s를 유지하되 별도 한 셀 cadence를 두지 않는다. Runtime이 `Time.deltaTime`을 10ms 단위로 `ManualGameClock`에 전달하면 Core가 이전 관찰 시각 이후의 거리만큼 `GridSubcellPosition`을 진행하고, 셀 경계를 지날 때 정수 점유를 전이한다. 키 해제 중 시간은 다음 입력에 누적하지 않고 Unity 표현은 별도 0.2초 보간 없이 같은 Core 위치를 직접 표시한다. `10 cells/s + 0.2초 반복 대기` 칸 이동 후보는 `Rejected`되어 제거했으며 판정 근거는 [응답성 회귀 인계](../Development/PlayerMovementResponsivenessRegression.md)가 소유한다.
+현재 승인된 이동 수직 슬라이스는 기본 5 cells/s를 유지하되 별도 한 셀 cadence를 두지 않는다. Runtime이 `Time.deltaTime`을 10ms 단위로 `ManualGameClock`에 전달하면 Core가 이전 관찰 시각 이후의 거리만큼 `GridSubcellPosition`을 진행하고, 셀 경계를 지날 때 정수 점유를 전이한다. 키 해제 중 시간은 다음 입력에 누적하지 않고 Unity 표현은 같은 Core 위치를 직접 표시한다.
 
 폭탄과 슬롯 수직 슬라이스도 같은 시계를 사용한다. `BombSimulation`은 정의의 모양에 따라 cardinal 네 ray인 `CrossExplosionResolver`, 각 셀을 독립 평가하는 `SquareAreaExplosionResolver`, 설치 순간의 바라보기 한 ray인 `ForwardLineExplosionResolver`를 선택하고 결과를 같은 지연 연쇄 스케줄러로 합류시킨다. `PlayerMovementSimulation`은 이동 해제와 분리된 마지막 바라보기 방향을 소유하고 세션이 설치 요청에 전달하며, 활성 폭탄은 이 값을 폭발까지 고정한다. 기본 십자는 fuse 2초·범위 2·설치 1.5초, 3×3 광역은 fuse 1.75초·범위 1·설치 2.5초, 직선은 fuse 2.25초·범위 3·설치 2.25초, 교체는 2초, 연쇄 지연은 0.15초다. `PrototypeBombDefinitionAsset`, loadout/reward catalog과 세션 설정이 소유하며 플레이테스트 전까지 `Proposed`다.
 

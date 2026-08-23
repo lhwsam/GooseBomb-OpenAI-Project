@@ -41,10 +41,10 @@
 ## 상태와 전이
 
 - `Move` performed/canceled callback은 방향 변화를 기록한다. `PrototypeGameSession`은 10ms simulation step이 하나 이상 있는 `Update`에서만 그 계산 직전에 `RefreshMoveIntent`를 호출한다. step이 없는 짧은 Unity frame은 pending 방향 변화를 소비하지 않는다.
-- press와 release가 한 Unity frame 안에 모두 처리돼 최종 장치 상태가 `None`이더라도 마지막 짧은 cardinal 탭은 다음 관찰 step 하나의 `Move`로 보존한다. 그다음 관찰 step에는 실제 유지 상태로 복귀하므로 0.2초 시간 버퍼나 다중 명령 backlog를 만들지 않는다.
+- press와 release가 한 Unity frame 안에 모두 처리돼 최종 장치 상태가 `None`이더라도 마지막 짧은 cardinal 탭은 다음 관찰 step 하나의 `Move`로 보존한다. 그다음 관찰 step에는 실제 유지 상태로 복귀하므로 별도 시간 버퍼나 다중 명령 backlog를 만들지 않는다.
 - 입력 벡터가 실제로 바뀐 경우에만 방향 규칙을 다시 평가하므로, 같은 대각선 두 키를 유지해도 선택 축이 frame마다 번갈아 바뀌거나 중복 명령이 발생하지 않는다.
 - 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
-- 입력 어댑터가 발행하는 `Move`는 현재 유지 방향 또는 마지막 관찰 뒤 끝난 짧은 탭이다. 승인된 Core 연속 이동은 별도 0.2초 입력 cadence나 다중 방향 queue 없이 다음 10ms 관찰 step의 이동 축에 이 의도를 적용한다.
+- 입력 어댑터가 발행하는 `Move`는 현재 유지 방향 또는 마지막 관찰 뒤 끝난 짧은 탭이다. 승인된 Core 연속 이동은 별도 입력 cadence나 다중 방향 queue 없이 다음 10ms 관찰 step의 이동 축에 이 의도를 적용한다.
 - 이동 해제는 `Move(None)`으로 표현한다.
 - 설치·교체·pause·재시작은 버튼의 performed 시점에 한 번 발행한다.
 - 살아 있는 활성 세션에서 `Pause`를 받으면 `PrototypeGameSession.IsPaused`를 toggle한다. 진입 시 Core 이동 의도와 입력 어댑터의 유지·같은 frame 짧은 탭을 모두 해제한다.
@@ -83,7 +83,7 @@
 
 ## 미정 사항과 종료 조건
 
-- 동일 크기 두 축에서 새 직교 방향을 우선하는 정책과 10ms step 연속 이동은 PT-20260814-01 결함 수정으로 채택했다. `10 cells/s + 0.2초 반복 대기` 칸 이동 후보는 사람 플레이에서 `Rejected`되어 제거했고 기본 `5 cells/s`를 복구했다. 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 현재 계약에 포함하지 않으며, 최종 체감은 수동 플레이로 재확인한다. 판정 근거는 [응답성 회귀 인계](../Development/PlayerMovementResponsivenessRegression.md)가 소유한다.
+- 동일 크기 두 축에서 새 직교 방향을 우선하는 정책과 기본 5 cells/s의 10ms step 연속 이동을 채택했다. 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 현재 계약에 포함하지 않으며, 최종 체감은 수동 플레이로 재확인한다.
 - 기본 키보드 8개 리바인딩은 구현했다. UI 전용 action map, composite 자체 교체, 게임패드 재배치와 장치별 glyph는 후속 범위다.
 - 게임패드 binding 구조, 합성 Input System 장치 상태→의미 명령, WebGL 표준 가상 장치의 브라우저 API→Emscripten→Unity Input System→명령·분리 정지·재연결 복구·Core 설치·실패·Select 재시작 경로는 자동 검증했다. 실제 목표 물리 컨트롤러의 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이·조작감 수동 플레이가 남아 있다.
 - application focus 상실 시 입력은 해제하지만 자동 pause는 하지 않는다. 설정 메뉴는 로비와 pause에 연결됐으며 UI 전용 action map은 아직 없다.

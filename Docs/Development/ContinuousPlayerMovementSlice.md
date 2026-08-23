@@ -2,34 +2,24 @@
 
 - 상태: 구현·자동 검증 완료, 수동 체감 재확인 대기
 - 근거 세션: [PT-20260814-01](../Playtesting/Results/PT-20260814-01.md)
-- 폐기한 플레이어 대안: [방향 전환 응답성 수직 슬라이스](MovementTurnResponsivenessSlice.md)의 0.2초 step·pending turn
 - 적용 계층: `BombSwap.Core` 플레이어 이동, `BombSwap.Unity` 세션·표현, WebGL 개발 검증 하네스
 
-## 목표와 관찰 가능한 결과
+> 이 문서의 현재 계약과 불변식이 구현 기준이다. 과거 결함과 폐기안은 재구현 지침이 아니며 [플레이어 이동 응답성 회귀 기록](PlayerMovementResponsivenessRegression.md)에서만 추적한다.
 
-- 기본 속도 5 cells/s는 유지하되 입력 반영을 0.2초 셀 cadence로 제한하지 않는다.
+## 현재 계약과 관찰 가능한 결과
+
+- 기본 속도는 5 cells/s이고, 입력 반영에 별도 셀 cadence를 두지 않는다.
 - 이동 키를 누르는 동안 매 10ms simulation step의 경과 시간 × cells/s만큼 Core 위치가 진행한다.
 - 이동 키를 놓으면 이미 확정된 한 칸을 마저 재생하지 않고 다음 10ms simulation step부터 위치가 멈춘다.
-- `상 → 우 → 상 → 우 → 상 → 우`를 frame마다 바꾸면 각 방향이 같은 순서의 실제 위치 변화로 나타난다.
+- `상 → 우 → 상 → 우 → 상 → 우`의 빠른 입력 각각이 관찰 가능한 10ms step에 도달하면 같은 순서의 실제 위치 변화로 나타난다.
 - 세션은 이동 계산 직전에 Input Action의 최신 값을 다시 샘플링한다. 같은 대각선 입력이 유지되는 동안에는 마지막으로 전환한 축을 고정하고, 입력 벡터가 바뀔 때만 축 우선순위를 다시 계산한다.
 - 벽·폭탄·actor 점유와 설치자 한정 폭탄 셀 탈출은 기존 정수 `GridState`가 계속 판정한다.
 
-## 수정 전 결함 증거
+## 결정 경계
 
-- 기존 `PlayerMovementSimulation`은 5 cells/s를 `1 / 5 = 0.2초` step 간격으로 바꾸고 방향도 그 예약 step에서만 소비했다.
-- 기존 `PrototypePlayerController`는 논리 목적 셀이 step 시작에 확정된 뒤 그 위치까지 0.2초 선형 보간했다.
-- 수정 전 PlayMode 회귀에서 키 해제 시 표시 위치는 `z=0.292967051`이었지만 0.15초 뒤 `z=1.0`까지 계속 이동해 실패했다.
-- 1개 pending turn은 짧은 겹침 입력 하나를 보존했지만 빠른 반복 입력을 하나로 합치고, `Move(None)`에서 지우면 짧은 단타를 잃는 구조적 상충을 만들었다.
-
-## 2026-08-24 통합 회귀와 복구
-
-- `9f4cf04 refactor: unify actor tile movement`가 적의 committed tile 정책을 플레이어에도 적용해 시작한 한 칸을 0.2초 동안 끝까지 완료하도록 변경했다.
-- 이 변경은 4방향 단일 축 선택을 유지하지만, 키 해제 즉시 정지와 frame별 직교 방향 전환 계약을 위반한다.
-- 새 테스트 기대값이 회귀 동작을 허용하도록 함께 변경되어 테스트 통과만으로 이 계약을 증명할 수 없다.
-- 수정 범위와 회귀 검증은 [플레이어 4방향 이동 응답성 회귀 인계](PlayerMovementResponsivenessRegression.md)가 소유한다.
-- 플레이어 전용 연속 이동을 복구해 해제·전환 시 예약을 즉시 풀고, 셀 경계에서만 점유를 원자적으로 전이한 뒤 다음 접근 셀을 다시 예약한다. 적의 committed 이동은 유지한다.
-- 10ms simulation step이 없는 frame에서는 입력을 확정하지 않고 실제 step 직전에만 최신 frame intent를 관찰해 짧은 탭 유실을 막는다.
-- `10 cells/s + 0.2초 반복 대기` 임시 칸 이동 후보는 사람 플레이에서 `Rejected`되어 제거했다. 기본 `5 cells/s` 연속 이동과 기존 테스트 기대값이 현재 계약이며 판정 근거는 [플레이어 4방향 이동 응답성 회귀 인계](PlayerMovementResponsivenessRegression.md)가 소유한다.
+- 플레이어는 입력 해제·전환 때 사용하지 않는 예약을 즉시 풀고, 셀 경계에서만 점유를 원자적으로 전이한 뒤 다음 접근 셀을 다시 예약한다.
+- 10ms simulation step이 없는 Unity frame에서는 이동 의도를 확정하지 않고, 실제 step 직전에 최신 frame intent와 같은 frame에서 끝난 마지막 짧은 탭 하나를 관찰한다.
+- 적은 시작한 한 칸을 목적지 중심까지 완료하는 committed 이동을 유지한다. 플레이어 정책을 적에게 적용하거나 적 정책을 플레이어에게 적용하지 않는다.
 
 ## 상태 소유와 불변식
 
@@ -48,8 +38,8 @@
 
 ## 자동 검증 계약
 
-- EditMode: 20~50ms 진행마다 실제 연속 위치가 변하고, 해제 중 시간은 누적되지 않으며, frame별 빠른 방향 반복·큰 frame 경계 순회·벽·폭탄·설치자 탈출이 통과해야 한다.
-- PlayMode: 실제 Input System에서 유지 이동, 해제 즉시 정지, 겹침 직교 전환과 6회 `North/East` 단타가 다음 frame의 실제 Transform 이동으로 관측되어야 한다.
+- EditMode: 20~50ms 진행마다 실제 연속 위치가 변하고, 해제 중 시간은 누적되지 않으며, 연속 step의 빠른 방향 반복·큰 frame 경계 순회·벽·폭탄·설치자 탈출이 통과해야 한다.
+- PlayMode: 실제 Input System에서 유지 이동, 해제 즉시 정지, 겹침 직교 전환과 6회 `North/East` 단타가 다음 10ms 관찰 step의 실제 Transform 이동으로 관측되어야 한다.
 - WebGL: 개발 probe가 입력 명령과 별도로 실제 연속 이동 `move-motion-direction-*`을 기록하고, 마지막 방에서 6회 `North/East` 단타가 모두 release 전에 실제 이동을 만들어야 한다.
 - 전체 회귀: EditMode, PlayMode, 콘텐츠 validator, Unity Console 오류 0, Development WebGL 빌드, 기존 전투·3방 browser smoke가 통과해야 한다.
 
@@ -59,14 +49,6 @@
 - 전체 PlayMode는 `172/186` 통과했다. 플레이어 이동·입력 응답성 실패는 0이고 남은 14개는 별도 보스 fuse·scene binder/run host·적/폭발/방 클리어 회귀다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223924-646.json`.
 - 최종 문서 반영 뒤 StaticOnly가 통과했다. 증거 `Artifacts/Verification/20260824-074531-static/summary.json`.
 - 최신 Development WebGL 재시도는 기존 로비 제목, 투척병 Animator, 보스 chain fuse와 공개 에셋의 private vendor 직접 참조 validator 오류로 빌드 전에 차단됐다. 증거 `Artifacts/Verification/20260824-074450-connected-web/webgl-build-status.txt`; WebGL과 browser smoke는 미실행이다.
-- 2026-08-14 최초 복구 당시 수정 전 해제 회귀는 `z=0.292967051`에서 멈추지 않고 `z=1.0`까지 진행했으며, 수정 후 Core 대상 18개·Unity 연결 대상 19개와 당시 전체 EditMode 159개·PlayMode 64개가 통과했다.
-- Development WebGL 빌드 성공: 140,634,127 bytes, 266.945초, 오류 0. TextMeshPro IL2CPP 대형 메서드 분할 경고 3건은 기존 범주다.
-- 실제 Edge headless에서 기존 폭탄·피해·3방 전환과 `North/East` 단타 6회의 release 전 실제 motion, 마지막 방 자기 폭발 피해, resize, browser Console/page error 0을 확인했다.
-- 증거: `Artifacts/Verification/20260814-151702-continuous-movement-web-connected/` (Git 제외).
-- 후속 frame 재샘플링 회귀: EditMode 244개, PlayMode 88개 통과. 대상 PlayMode 10개에는 변하지 않은 대각선 입력을 여러 frame 유지해도 마지막 전환 축이 고정되는 검사가 포함된다.
-- 후속 Development WebGL 빌드 성공: 141,557,482 bytes, 57.290초, 오류 0. TextMeshPro IL2CPP 대형 메서드 분할 경고 3건은 기존 범주다.
-- 후속 Edge headless에서 `North → West`, 두 키 유지 중 West 고정, West 해제 뒤 North 복귀와 `West/North` 빠른 단타 6회가 모두 실제 motion으로 관측됐고 browser Console/page error는 0이었다.
-- 후속 증거: `Artifacts/Verification/20260814-223500-frame-input-web/` (Git 제외).
 - 자동 검증은 계약 준수를 증명하지만 최종 조작감 개선 판정은 다음 수동 재플레이가 소유한다.
 
 ## 위험과 롤백
