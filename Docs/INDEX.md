@@ -58,6 +58,7 @@
 | 로비·런 시작/복귀·TMP UI·픽셀 폰트·버튼 피드백 | `Development/LobbySlice.md`, `Systems/PixelFontRendering.md`, `Systems/UiInteractionFeedback.md`, `Systems/RunCompletion.md`, ADR-0008, `WebGL/BrowserTestMatrix.md` |
 | 인게임 HUD·미니맵·일시정지 UI 프리팹 편집 | `Systems/InGameUiPrefabs.md`, `Development/LobbySlice.md`, `Systems/UserSettingsAndAudio.md`, `Development/MinimalMinimapSlice.md` |
 | 설정·키 변경·오디오·화면 흔들림 | `Systems/UserSettingsAndAudio.md`, `Systems/InputAndCommands.md`, `Development/LobbySlice.md`, `WebGL/BrowserTestMatrix.md` |
+| BGM 콘텐츠·적응형 stem 재생 | `Systems/UserSettingsAndAudio.md`, `Development/BgmIntegrationSlice.md`, ADR-0010, `Testing/VerificationHarness.md`, `WebGL/BrowserTestMatrix.md` |
 | 플레이어 피해·런 체력·회복방 | `Systems/DamageAndInvulnerability.md`, `Development/RecoveryRoomSlice.md`, `Systems/DungeonGeneration.md` |
 | 최소 미니맵·탐색 정보 | `Development/MinimalMinimapSlice.md`, `Systems/DungeonGeneration.md`, ADR-0007 |
 | 금이 간 벽 비밀방 | `Development/SecretRoomSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |

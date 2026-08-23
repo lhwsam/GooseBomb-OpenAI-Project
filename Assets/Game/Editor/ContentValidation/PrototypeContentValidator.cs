@@ -36,6 +36,8 @@ namespace BombSwap.Editor.ContentValidation
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
         public const string AudioMixerPath =
             "Assets/Game/Content/Audio/BombSwapAudioMixer.mixer";
+        public const string BgmCatalogPath =
+            "Assets/Game/Content/Audio/PrototypeBgmCatalog.asset";
         public const string TestSandboxScenePath = "Assets/Game/Scenes/TestSandbox/TestSandbox.unity";
         public const string TestSandboxLanesScenePath =
             "Assets/Game/Scenes/TestSandbox/TestSandboxLanes.unity";
@@ -67,6 +69,27 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Scenes/Dungeon/DungeonSecret.unity";
         public const string DungeonBossScenePath =
             "Assets/Game/Scenes/Dungeon/DungeonBoss.unity";
+
+        public static readonly string[] BgmScenePaths =
+        {
+            LobbyScenePath,
+            DungeonStartScenePath,
+            DungeonRewardScenePath,
+            DungeonBossAnteScenePath,
+            DungeonRecoveryScenePath,
+            DungeonSecretScenePath,
+            DungeonBossScenePath,
+            TestSandboxScenePath,
+            TestSandboxLanesScenePath,
+            TestSandboxThrowerScenePath,
+            TestSandboxPillarsScenePath,
+            TestSandboxArmorScenePath,
+            TestSandboxGatesScenePath,
+            ArmoredPanicPlaytestScenePath,
+            SelfDestructGatesPlaytestScenePath,
+            BossBattlePlaytestScenePath,
+            ThrowerLanesPlaytestScenePath,
+        };
 
         public static bool IsDungeonPresentationScenePath(string scenePath)
         {
@@ -263,6 +286,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateGameFont(errors);
             PixelFontStyleAuthoring.Validate(errors);
             ValidateAudioMixer(errors);
+            ValidateBgmContent(errors);
             ValidateInGameUiPrefabs(errors);
             ValidateLobbyScene(errors);
             PrototypeThirdPartyAssetAuthoring.ValidatePublicDependencies(errors);
@@ -560,6 +584,107 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         $"Prototype AudioMixer is missing exposed parameter '{requiredParameters[index]}'.");
+                }
+            }
+        }
+
+        private static void ValidateBgmContent(ICollection<string> errors)
+        {
+            PrototypeBgmCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeBgmCatalogAsset>(BgmCatalogPath);
+            if (catalog == null)
+            {
+                errors.Add($"Missing prototype BGM catalog: {BgmCatalogPath}");
+                return;
+            }
+
+            catalog.CollectValidationErrors(errors);
+            AudioClip[] runtimeClips = catalog.GetRuntimeClips();
+            for (int index = 0; index < runtimeClips.Length; index++)
+            {
+                string path = AssetDatabase.GetAssetPath(runtimeClips[index]);
+                if (string.IsNullOrEmpty(path) ||
+                    !path.StartsWith("Assets/Game/Content/Audio/", StringComparison.Ordinal))
+                {
+                    errors.Add(
+                        $"Prototype BGM runtime clip {index} must be a first-party Assets/Game audio asset.");
+                }
+            }
+
+            string[] previewPaths =
+            {
+                "Assets/Game/Content/Audio/Music/BGM_DungeonCombat_PowderCorridor_8Bit_Loop.wav",
+                "Assets/Game/Content/Audio/Music/BGM_DungeonRecovery_PowderCorridor_8Bit_Loop.wav",
+                "Assets/Game/Content/Audio/Music/BGM_BossBattle_OverheatedThrone_8Bit_Loop.wav",
+            };
+            for (int index = 0; index < previewPaths.Length; index++)
+            {
+                AudioClip preview = AssetDatabase.LoadAssetAtPath<AudioClip>(previewPaths[index]);
+                if (runtimeClips.Contains(preview))
+                {
+                    errors.Add(
+                        $"BGM preview mix must remain unreferenced at runtime: {previewPaths[index]}");
+                }
+            }
+
+            for (int sceneIndex = 0; sceneIndex < BgmScenePaths.Length; sceneIndex++)
+            {
+                ValidateBgmScene(BgmScenePaths[sceneIndex], catalog, errors);
+            }
+        }
+
+        private static void ValidateBgmScene(
+            string scenePath,
+            PrototypeBgmCatalogAsset catalog,
+            ICollection<string> errors)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                errors.Add($"Missing BGM target scene: {scenePath}");
+                return;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
+            if (openedForValidation)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                PrototypeBgmPresenter[] presenters =
+                    FindComponents<PrototypeBgmPresenter>(scene);
+                if (presenters.Length != 1)
+                {
+                    errors.Add(
+                        $"BGM target scene '{scenePath}' must contain exactly one PrototypeBgmPresenter, found {presenters.Length}.");
+                    return;
+                }
+
+                PrototypeBgmPresenter presenter = presenters[0];
+                if (presenter.transform.parent != null ||
+                    presenter.gameObject.scene != scene)
+                {
+                    errors.Add(
+                        $"BGM presenter in '{scenePath}' must be a scene root.");
+                }
+                if (presenter.Catalog != catalog)
+                {
+                    errors.Add(
+                        $"BGM presenter in '{scenePath}' must reference {BgmCatalogPath}.");
+                }
+                if (presenter.GetComponents<AudioSource>().Length != 0)
+                {
+                    errors.Add(
+                        $"BGM presenter in '{scenePath}' must create AudioSources at runtime, not serialize them in the scene.");
+                }
+            }
+            finally
+            {
+                if (openedForValidation && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
                 }
             }
         }

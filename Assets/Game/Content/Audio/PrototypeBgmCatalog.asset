@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04a221b5793f4a84bbe2a64a8cc68348, type: 3}
+  m_Name: PrototypeBgmCatalog
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBgmCatalogAsset
+  bgmOutputGroup: {fileID: 4473764239877686353, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  lobby: {fileID: 8300000, guid: b9c70f7a071ef394a8ba43272da56875, type: 3}
+  dungeonBase: {fileID: 8300000, guid: 7c0ac5871295a1b458bfbc7003de8152, type: 3}
+  dungeonCombat: {fileID: 8300000, guid: 7b76b5fbacc2a364abf55c01e6a4c507, type: 3}
+  dungeonDanger: {fileID: 8300000, guid: ec342c3de74df104bb9d3b7ab922d7bc, type: 3}
+  dungeonSanctuary: {fileID: 8300000, guid: 9009d7ac76d56e845b685d94e11ef09c, type: 3}
+  bossBase: {fileID: 8300000, guid: f845fbdfce964bf49987b75726978791, type: 3}
+  bossGrand: {fileID: 8300000, guid: 85868a314fa9b424b801a3efa60b8eb8, type: 3}
+  bossDanger: {fileID: 8300000, guid: c9a042cb7d933a54ba649afc6a72e0f3, type: 3}
+  crossfadeSeconds: 1
+  pauseDuckGain: 0.5
+  pauseDuckFadeSeconds: 0.25
+  scheduleLeadSeconds: 0.1

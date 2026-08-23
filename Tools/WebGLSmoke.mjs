@@ -2162,6 +2162,7 @@ async function main() {
       "pause-resumed",
       "pause-resume",
       "audio-unlocked",
+      "bgm-audio-started",
     ];
     const harnessEvents = await page.evaluate(() =>
       globalThis.__BOMBSWAP_HARNESS_EVENTS__ ?? null);
