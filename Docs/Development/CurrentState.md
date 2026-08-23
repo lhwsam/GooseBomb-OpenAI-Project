@@ -152,6 +152,10 @@
 - 각 던전 씬은 동일한 seed-0 bootstrap을 포함하지만 scene load 뒤 persistent primary host가 중복 bootstrap을 제거한다. Core 이동은 기대한 대상 씬이 실제 로드된 뒤 한 번만 commit된다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다. 광역 폭발은 반경 내 각 셀을 독립 평가해 원점을 포함한 최대 3×3을 만들며 한 셀의 벽이 다른 영역 셀을 가리지 않는다. 직선 폭발은 설치 순간에 고정한 앞쪽 한 cardinal ray만 같은 벽 규칙으로 평가한다.
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다. `IsPaused`일 때는 입력 재샘플링과 `ManualGameClock.Advance` 전에 `Update`를 끝내며, `Time.timeScale`을 바꾸지 않고 모든 논리 진행을 정지한다. 재개 시 현재 유지 방향을 다시 샘플링한다.
+- 플레이어 십자 폭탄 표현은 로컬 VFX 패키지가 연결된 환경에서 Core가 확정한 방향별 연속 영향 셀 수를 사용한다. 폭발 원점보다 월드 Y 0.5 높은 위치에서 중심 폭발 1개와 막히지 않은 방향별 불기둥을 최소 1초 동안 풀링 재생하고, 1~4칸을 `Flames_F` speed modifier `0.25`~`1.0`으로 표시한다. 로컬 VFX가 없으면 기존 셀 placeholder로 대체된다.
+- 플레이어 일자형 폭탄 표현은 설치 당시 확정한 한 방향에만 같은 불기둥을 재생하고, 실제 도달 거리 1~4칸을 같은 speed modifier 규칙으로 표시한다. 바로 앞이 막히면 중심 폭발만 재생한다.
+- 투척병 폭탄과 보스 일반·연쇄 투척 폭탄은 비행과 논리 폭발 규칙을 유지하면서, 폭발 시 플레이어 십자 폭탄과 같은 중심·방향별 불기둥 풀을 사용한다.
+- 플레이어 범위 폭탄은 Core가 확정한 3×3 영향 셀마다 `vfx_Explosion_Grid`를 Y 0.5 높이에서 최소 1초 동안 풀링 재생한다. 고정 벽·Void는 제외되고 파괴 가능한 벽 셀은 포함된다.
 - 플레이어 연속 위치와 이동 방향은 매 Unity frame Core에서 갱신된다. 마지막 유효 cardinal 입력은 이동 해제 뒤에도 바라보기로 유지되고 막힌 방향 입력도 갱신한다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
 - `PlayerHealthSimulation`은 검증된 초기 현재 체력, 폭발 ID별 처리 여부, 체력 하한, 상한 회복, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발·적 접촉·보스 패턴은 원본 source를 구분해 보존하면서 같은 무적을 공유하고, 회복은 무적 상태를 바꾸지 않는다. `PrototypeGameSession`은 적용된 피해·회복과 사망만 표현 이벤트로 발행한다. `DungeonPlayerHealthState`는 적용 결과를 run snapshot에 기록하고 room binder가 다음 session에 복원한다. 무적 시각과 처리 폭발 ID는 방을 넘기지 않는다.
 - `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 모든 방, `ROOM TOKENS`는 우상단에서 현재 런 값을 표시하고, 보스 panel은 보스 활성 방에서만 보이며 보스 취약 상태는 의도적으로 표시하지 않는다.
