@@ -30,8 +30,12 @@
 /[Aa]ssets/[Pp]lugins/[Dd]emigiant/[Dd][Oo][Tt]ween[Pp]ro.meta
 /[Aa]ssets/[Pp]lugins/[Dd]emigiant/readme_[Dd][Oo][Tt]ween[Pp]ro.txt
 /[Aa]ssets/[Pp]lugins/[Dd]emigiant/readme_[Dd][Oo][Tt]ween[Pp]ro.txt.meta
+/[Aa]ssets/[Aa]rts/[Vv][Ff][Xx]/
+/[Aa]ssets/[Aa]rts/[Vv][Ff][Xx].meta
 /ExternalAssets/UI-Packages/*
 !/ExternalAssets/UI-Packages/README.md
+/ExternalAssets/VFX-Packages/*
+!/ExternalAssets/VFX-Packages/README.md
 
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be committed to version control.
 *.blend1

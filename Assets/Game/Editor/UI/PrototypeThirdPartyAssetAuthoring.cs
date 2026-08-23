@@ -22,7 +22,8 @@ namespace BombSwap.Editor.UI
         {
             ThirdPartyRoot + "/",
             "Assets/Feel/",
-            "Assets/Plugins/Demigiant/DOTweenPro/"
+            "Assets/Plugins/Demigiant/DOTweenPro/",
+            "Assets/Arts/VFX/"
         };
 
         private static readonly string[] PrivateVendorAssetPaths =
@@ -30,7 +31,8 @@ namespace BombSwap.Editor.UI
             "Assets/Feel.meta",
             "Assets/Plugins/Demigiant/DOTweenPro.meta",
             "Assets/Plugins/Demigiant/readme_DOTweenPro.txt",
-            "Assets/Plugins/Demigiant/readme_DOTweenPro.txt.meta"
+            "Assets/Plugins/Demigiant/readme_DOTweenPro.txt.meta",
+            "Assets/Arts/VFX.meta"
         };
 
         private const string ObsoleteFeelDefine =

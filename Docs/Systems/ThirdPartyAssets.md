@@ -12,11 +12,14 @@
 | `Assets/ThirdParty`와 `Assets/ThirdParty.meta` | 제외 | 공급자 원본과 로컬 통합 profile |
 | `Assets/Feel`과 `Assets/Feel.meta` | 제외 | 유료 FEEL extension. 현재 프로젝트에서는 제거 상태 |
 | `Assets/Plugins/Demigiant/DOTweenPro`와 Pro README | 제외 | 유료 DOTween Pro extension. 현재 first-party 직접 사용 없음 |
+| `Assets/Arts/VFX`와 `Assets/Arts/VFX.meta` | 제외 | Asset Store VFX 원본과 그 원본을 직접 참조하는 로컬 효과 prefab |
 | `Assets/Plugins/Demigiant/DOTween`, `DemiLib` | 추적 | 재배포 조건을 보존한 무료 DOTween Core 원본 |
 | `ExternalAssets/UI-Packages`의 package 파일 | 제외 | 팀 내부 전달용 `.unitypackage`와 checksum |
+| `ExternalAssets/VFX-Packages`의 package 파일 | 제외 | 권한 확인을 마친 팀원용 VFX 복구 package와 checksum |
 | `ExternalAssets/UI-Packages/README.md` | 추적 | Import·Export 절차 |
+| `ExternalAssets/VFX-Packages/README.md` | 추적 | VFX 취득·복구·공개 대체 절차 |
 
-`Assets/Game`의 scene, prefab, material, ScriptableObject는 `Assets/ThirdParty`, FEEL, DOTween Pro를 직접 직렬화 참조하지 않는다. 외부 에셋을 사용하지 않는 clone도 기능 검증을 수행할 수 있어야 한다.
+`Assets/Game`의 scene, prefab, material, ScriptableObject는 `Assets/ThirdParty`, FEEL, DOTween Pro, `Assets/Arts/VFX`를 직접 직렬화 참조하지 않는다. 외부 에셋을 사용하지 않는 clone도 기능 검증을 수행할 수 있어야 한다.
 
 ## 코드 extension 분리
 
@@ -25,6 +28,13 @@
 - FEEL은 공급자 원본과 비컴파일 콘텐츠를 재배포하지 않는다. 현재 사용처가 없어 프로젝트에서 제거했고 `MOREMOUNTAINS_NICEVIBRATIONS_INSTALLED` define도 사용하지 않는다.
 - 유료 extension은 비공개 `.unitypackage` 전달을 기본 설치 경로로 사용하지 않는다. 필요한 작업자가 공급자/Asset Store의 유효한 seat를 확보한 뒤 직접 설치한다.
 - 빌드된 게임에 포함하는 권리와 Unity 프로젝트 원본을 Git으로 배포하는 권리를 같은 것으로 취급하지 않는다.
+
+## 선택 VFX 원본
+
+- Free Quick Effects Vol. 1과 Unity Particle Pack은 가격이 무료여도 Unity Asset Store 원본이다. 공개 source 저장소에는 넣지 않고 각 작업자가 자신의 Unity 계정으로 공식 package를 취득한다.
+- 현재 `Assets/Arts/VFX/EffectPrefab/bomb`의 프로젝트 저작 prefab은 공급자 material을 직접 참조하므로 같은 로컬 경계에 둔다. 공개 Git에 넣으려면 first-party material·texture로 교체하고 직접 의존성 검증을 통과시킨 뒤 별도 변경으로 이동한다.
+- 현재 `Assets/Game`에는 이 VFX prefab의 직접 참조가 없다. package가 없어도 prototype 기능과 공개 대체 표현은 유지된다.
+- 이력 재작성 전 복구 package는 저장소 밖에만 보관한다. `.unitypackage`는 사용 권한을 만들지 않으며 수신자별 license·seat 조건을 먼저 확인한다.
 
 ## 선택 UI 스킨
 
@@ -70,7 +80,7 @@ Git에 저장하는 scene과 prefab은 Sprite가 없는 공개 대체 상태다.
 
 ## 검증 계약
 
-- `PrototypeContentValidator`는 모든 `Assets/Game` 직접 의존성에 `Assets/ThirdParty`, FEEL, DOTween Pro가 없는지 검사한다.
+- `PrototypeContentValidator`는 모든 `Assets/Game` 직접 의존성에 `Assets/ThirdParty`, FEEL, DOTween Pro, `Assets/Arts/VFX`가 없는지 검사한다.
 - 로비는 17개, pause는 16개의 명시적 Sprite 바인딩과 공개 대체 상태를 검사한다.
 - PlayMode는 profile 부재 시 화살표 숨김·기능 Image 유지와 profile 존재 시 역할별 Sprite 적용을 검사한다.
 - 외부 package가 없는 공개 clone에서 Full 검증이 통과해야 한다.
