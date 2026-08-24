@@ -2,7 +2,6 @@ using System;
 using BombSwap.Core;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace BombSwap
 {
@@ -18,6 +17,9 @@ namespace BombSwap
         private PrototypeDungeonRoomBinder roomBinder;
 
         [SerializeField]
+        private PrototypeInstructionView viewPrefab;
+
+        [SerializeField]
         private int recoveryAmount = DefaultRecoveryAmount;
 
         [SerializeField]
@@ -28,10 +30,15 @@ namespace BombSwap
 
         private GameObject _pickupVisual;
         private TextMeshProUGUI _instructionLabel;
+        private PrototypeInstructionView _viewInstance;
         private GridPosition _corePickupCell;
         private bool _isBlockerRegistered;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
+
+        public PrototypeInstructionView ViewPrefab => viewPrefab;
+
+        public PrototypeInstructionView ViewInstance => _viewInstance;
 
         public int RecoveryAmount => recoveryAmount;
 
@@ -82,16 +89,44 @@ namespace BombSwap
             pickupCell = authoredPickupCell ?? Vector2Int.zero;
         }
 
+        public void Configure(
+            PrototypeDungeonRoomBinder authoredRoomBinder,
+            Material authoredPickupMaterial,
+            PrototypeInstructionView authoredViewPrefab,
+            int authoredRecoveryAmount = DefaultRecoveryAmount,
+            Vector2Int? authoredPickupCell = null)
+        {
+            Configure(
+                authoredRoomBinder,
+                authoredPickupMaterial,
+                authoredRecoveryAmount,
+                authoredPickupCell);
+            BindViewPrefab(authoredViewPrefab);
+        }
+
+        public void BindViewPrefab(PrototypeInstructionView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeRecoveryPickupPresenter before changing its view prefab.");
+            }
+
+            viewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null)
+            if (roomBinder == null || roomBinder.RoomSession == null ||
+                viewPrefab == null || !viewPrefab.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "PrototypeRecoveryPickupPresenter requires a dungeon room binder.");
+                    "PrototypeRecoveryPickupPresenter requires a dungeon room binder and instruction view prefab.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -100,6 +135,7 @@ namespace BombSwap
             if (roomBinder.RoomSession.IsReady)
             {
                 Initialize();
+                RefreshInteractionAvailability();
             }
         }
 
@@ -326,31 +362,15 @@ namespace BombSwap
 
         private void CreateInstructionUi()
         {
-            GameObject canvasObject = new GameObject(
-                "RecoveryPickupCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 110;
-            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
+            _viewInstance = Instantiate(viewPrefab, transform, false);
+            _viewInstance.name = viewPrefab.name;
+            if (!_viewInstance.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "Instantiated recovery instruction view is missing required references.");
+            }
 
-            _instructionLabel = PrototypeUiFactory.CreateText(
-                "RecoveryPickupInstruction",
-                canvasObject.transform,
-                22f,
-                TextAlignmentOptions.Center,
-                FontStyles.Bold);
-            RectTransform rect = _instructionLabel.rectTransform;
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = new Vector2(0f, -110f);
-            rect.sizeDelta = new Vector2(1100f, 58f);
-            _instructionLabel.color = PickupColor;
+            _instructionLabel = _viewInstance.InstructionLabel;
         }
 
         private static GridPosition ToCorePosition(Vector2Int cell)
