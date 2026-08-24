@@ -7,13 +7,18 @@ namespace BombSwap.Editor.ContentValidation
 {
     internal static class EnvironmentBlockVisualAuthoring
     {
+        public const float FloorVisualRootY = -1f;
+
         public const string BrickBlockPrefabPath =
             "Assets/Game/Content/Prefabs/Environment/BrickBlock.prefab";
         public const string BrickCornerPrefabPath =
             "Assets/Game/Content/Prefabs/Environment/BrickCorner.prefab";
         public const string WoodBoxPrefabPath =
             "Assets/Game/Content/Prefabs/Environment/WoodBox.prefab";
-
+        public const string DoorPrefabPath =
+            "Assets/Game/Content/Prefabs/Environment/Door.prefab";
+        public const string CrackedBrickBlockPrefabPath =
+            "Assets/Game/Content/Prefabs/Environment/CrackedBrickBlock.prefab";
         public static void Synchronize(
             Transform gridRoot,
             PrototypeCombatRoomDefinitionAsset definition,
@@ -26,7 +31,7 @@ namespace BombSwap.Editor.ContentValidation
                 throw new InvalidOperationException("GridRoot is missing Environment.");
 
             SynchronizeFloor(environment, room, definition.CellSize, brick);
-            SynchronizeBoundary(environment, room, definition.CellSize, brick, corner);
+            SynchronizeBoundary(environment, room, definition.CellSize, corner);
             SynchronizeInterior(environment, corner);
             SynchronizeDestructibles(environment, woodBox);
         }
@@ -45,6 +50,9 @@ namespace BombSwap.Editor.ContentValidation
             SetRenderersEnabled(floor, false, includeChildren: false);
 
             Transform visuals = GetOrCreateRoot(environment, "FloorVisuals");
+            Vector3 floorVisualRootPosition = visuals.localPosition;
+            floorVisualRootPosition.y = FloorVisualRootY;
+            visuals.localPosition = floorVisualRootPosition;
             var expectedNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
             int halfWidth = room.Width / 2;
             int halfDepth = room.Depth / 2;
@@ -62,6 +70,12 @@ namespace BombSwap.Editor.ContentValidation
                         Quaternion.identity);
                 }
             }
+            int edgeX = halfWidth + 1;
+            int edgeZ = halfDepth + 1;
+            EnsureExpectedVisual(prefab, visuals, expectedNames, "Floor_Door_North", new Vector3(0f, 0f, edgeZ * cellSize), Quaternion.identity);
+            EnsureExpectedVisual(prefab, visuals, expectedNames, "Floor_Door_East", new Vector3(edgeX * cellSize, 0f, 0f), Quaternion.identity);
+            EnsureExpectedVisual(prefab, visuals, expectedNames, "Floor_Door_South", new Vector3(0f, 0f, -edgeZ * cellSize), Quaternion.identity);
+            EnsureExpectedVisual(prefab, visuals, expectedNames, "Floor_Door_West", new Vector3(-edgeX * cellSize, 0f, 0f), Quaternion.identity);
             RemoveUnexpectedChildren(visuals, expectedNames);
         }
 
@@ -69,7 +83,6 @@ namespace BombSwap.Editor.ContentValidation
             Transform environment,
             CombatRoomDefinition room,
             float cellSize,
-            GameObject brick,
             GameObject corner)
         {
             Transform logicalBoundary = environment.Find("BoundaryWalls");
@@ -89,18 +102,13 @@ namespace BombSwap.Editor.ContentValidation
 
             Transform visuals = GetOrCreateRoot(environment, "BoundaryVisuals");
             var expectedNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
-            Transform bases = GetOrCreateRoot(environment, "BoundaryBaseVisuals");
-            var expectedBaseNames = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            RemoveChild(environment, "BoundaryBaseVisuals");
             int edgeX = (room.Width / 2) + 1;
             int edgeZ = (room.Depth / 2) + 1;
             EnsureExpectedVisual(corner, visuals, expectedNames, "Corner_NorthWest", new Vector3(-edgeX * cellSize, 0f, edgeZ * cellSize), Quaternion.identity);
             EnsureExpectedVisual(corner, visuals, expectedNames, "Corner_NorthEast", new Vector3(edgeX * cellSize, 0f, edgeZ * cellSize), Quaternion.Euler(0f, 90f, 0f));
             EnsureExpectedVisual(corner, visuals, expectedNames, "Corner_SouthEast", new Vector3(edgeX * cellSize, 0f, -edgeZ * cellSize), Quaternion.Euler(0f, 180f, 0f));
             EnsureExpectedVisual(corner, visuals, expectedNames, "Corner_SouthWest", new Vector3(-edgeX * cellSize, 0f, -edgeZ * cellSize), Quaternion.Euler(0f, 270f, 0f));
-            EnsureExpectedVisual(brick, bases, expectedBaseNames, "Base_NorthWest", new Vector3(-edgeX * cellSize, 0f, edgeZ * cellSize), Quaternion.identity);
-            EnsureExpectedVisual(brick, bases, expectedBaseNames, "Base_NorthEast", new Vector3(edgeX * cellSize, 0f, edgeZ * cellSize), Quaternion.identity);
-            EnsureExpectedVisual(brick, bases, expectedBaseNames, "Base_SouthEast", new Vector3(edgeX * cellSize, 0f, -edgeZ * cellSize), Quaternion.identity);
-            EnsureExpectedVisual(brick, bases, expectedBaseNames, "Base_SouthWest", new Vector3(-edgeX * cellSize, 0f, -edgeZ * cellSize), Quaternion.identity);
 
             for (int x = -edgeX + 1; x < edgeX; x++)
             {
@@ -110,8 +118,6 @@ namespace BombSwap.Editor.ContentValidation
                 }
                 EnsureExpectedVisual(corner, visuals, expectedNames, $"NorthWall_{x}", new Vector3(x * cellSize, 0f, edgeZ * cellSize), Quaternion.identity);
                 EnsureExpectedVisual(corner, visuals, expectedNames, $"SouthWall_{x}", new Vector3(x * cellSize, 0f, -edgeZ * cellSize), Quaternion.Euler(0f, 180f, 0f));
-                EnsureExpectedVisual(brick, bases, expectedBaseNames, $"Base_North_{x}", new Vector3(x * cellSize, 0f, edgeZ * cellSize), Quaternion.identity);
-                EnsureExpectedVisual(brick, bases, expectedBaseNames, $"Base_South_{x}", new Vector3(x * cellSize, 0f, -edgeZ * cellSize), Quaternion.identity);
             }
             for (int z = -edgeZ + 1; z < edgeZ; z++)
             {
@@ -121,11 +127,8 @@ namespace BombSwap.Editor.ContentValidation
                 }
                 EnsureExpectedVisual(corner, visuals, expectedNames, $"EastWall_{z}", new Vector3(edgeX * cellSize, 0f, z * cellSize), Quaternion.Euler(0f, 90f, 0f));
                 EnsureExpectedVisual(corner, visuals, expectedNames, $"WestWall_{z}", new Vector3(-edgeX * cellSize, 0f, z * cellSize), Quaternion.Euler(0f, 270f, 0f));
-                EnsureExpectedVisual(brick, bases, expectedBaseNames, $"Base_East_{z}", new Vector3(edgeX * cellSize, 0f, z * cellSize), Quaternion.identity);
-                EnsureExpectedVisual(brick, bases, expectedBaseNames, $"Base_West_{z}", new Vector3(-edgeX * cellSize, 0f, z * cellSize), Quaternion.identity);
             }
             RemoveUnexpectedChildren(visuals, expectedNames);
-            RemoveUnexpectedChildren(bases, expectedBaseNames);
         }
 
         private static void SynchronizeInterior(Transform environment, GameObject prefab)

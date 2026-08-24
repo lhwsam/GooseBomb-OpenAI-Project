@@ -47,7 +47,7 @@ Input System
 현재 `prototype-long-cross` 정의와 청록색 placeholder의 GUID를 보존한 채 Unity `AssetDatabase`로 다음 이름에 이동한다.
 
 - 정의: `PrototypeLineBomb.asset`, 안정 ID `prototype-line`, shape `ForwardLine`
-- 폭탄 prefab: `LineBombPlaceholder.prefab`
+- 폭탄 prefab: `Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab`
 - 폭발 prefab: `LineExplosionCellPlaceholder.prefab`
 - material: `LineBomb.mat`, `LineExplosion.mat`
 

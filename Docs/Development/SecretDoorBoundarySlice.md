@@ -31,7 +31,7 @@
 - 문 앞 저작 출구 셀은 항상 `Floor`다. 플레이어·폭탄이 점유할 수 있고, 바깥 방향 이동 요청만 공개 전 거부된다.
 - `BombExplosion.AffectedCells`에 문 앞 출구 셀이 포함되면 폭발이 문 면에 도달한 것으로 판정한다. `DestroyedWalls`에는 비밀문이 포함되지 않는다.
 - 한 폭발이 여러 비밀문 impact cell에 닿으면 각 연결을 안정된 폭발 셀 순서로 독립 공개한다.
-- 금 간 표현 root는 대응하는 일반 door renderer와 같은 world position을 사용하고 Collider를 갖지 않는다. `SecretWall`에서는 금 간 표현만, 공개 뒤에는 기존 `Open` 문만 보인다.
+- 금 간 표현 root는 대응하는 일반 door renderer와 같은 world position을 사용하고 Collider를 갖지 않는다. `SecretWall`에서는 금 간 표현만 보이고, 공개 뒤와 방 재진입 시에는 금 간 표현과 일반 문을 모두 숨겨 빈 통로를 유지한다.
 - 공개 상태는 `DungeonRunState`, 폭발 footprint는 `BombExplosion`, 방별 셀→출구 방향 매핑은 `PrototypeDungeonRoomBinder`, 시각 상태는 door presenter가 소유한다.
 
 ## 폭발 영향 오브젝트 확장 기준

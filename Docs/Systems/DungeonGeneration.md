@@ -28,7 +28,7 @@
 - 조회 API는 방, 정렬된 이웃, 최단 경로와 거리를 제공한다. 반환 컬렉션은 read-only이며 호출자가 생성 결과를 변경할 수 없다.
 - `DungeonGraph`는 연결된 두 노드의 XZ 좌표에서 `RoomExitDirection`을 계산하고, 현재 방과 방향으로 이웃을 조회한다. 연결되지 않은 노드나 정의되지 않은 방향은 상태를 만들지 않는다.
 - `DungeonRunState`는 시작방부터 현재·직전 방, 방문·클리어, Secret 연결별 공개와 Secret cache 소비를 소유한다. 일반 전투방과 보스방은 첫 입장 뒤 클리어 전까지 퇴실을 막고, 클리어한 전투방은 재방문 때 다시 잠그지 않는다. 일반 전투방 최초 클리어는 현재 런의 `RoomRewardTokenCount`를 1 올리고 Secret cache는 한 번만 3을 올린다. `CombatRewardTokenCount`는 기존 호출부를 위한 동일 합계 alias다.
-- `DungeonRunState.CreateMinimapSnapshot()`은 방문 방, 방문 방의 직접 인접 방과 적어도 한쪽 끝을 방문한 공개 연결만 read-only로 복사한다. 미공개 Secret 방·연결은 숨기고, 한 Secret 연결을 공개하면 해당 방과 그 연결만 보인다. 현재·방문·발견 상태와 정수 XZ 좌표만 제공하고 미방문 방 종류·그 너머 연결은 숨긴다. 반환 순서는 graph 순서를 따른다.
+- `DungeonRunState.CreateMinimapSnapshot()`은 방문 방, 방문 방의 직접 인접 방과 적어도 한쪽 끝을 방문한 공개 연결만 read-only로 복사한다. 미공개 Secret 방·연결은 숨기고, 한 Secret 연결을 공개하면 해당 방과 그 연결만 보인다. 현재·방문 방에는 첫 입장부터 알려진 `RoomType`을 제공하지만 발견만 한 방에는 종류를 제공하지 않으며 그 너머 연결도 숨긴다. 반환 순서는 graph 순서를 따른다.
 - 현재 방의 문 조회는 북·동·남·서 고정 순서로 연결 없음 `Inactive`, 미공개 Secret 연결 `SecretWall`, 미클리어 전투·보스방 연결 `Locked`, 이동 가능한 연결 `Open`을 반환한다. Secret 공개는 전투방 클리어 잠금을 우회하지 않는다. 연결 상태는 대상 방 ID를 포함하며 read-only snapshot이다.
 - `DungeonCombatRoomAssigner`는 그래프 seed에서 topology와 분리된 고정 salt RNG를 만들고, 안정 ID로 정렬한 전투방 카탈로그를 `prototype-combat-assignment-v1`로 배정한다.
 - `DungeonCombatRoomLayout`은 모든 전투 노드의 room definition ID, 0/90/180/270도 시계 방향 회전과 그래프가 요구하는 활성 출구를 read-only snapshot으로 소유한다.
@@ -41,7 +41,7 @@
 - `DungeonPlayerHealthState`는 run의 최대·현재 체력을 소유한다. persistent host가 검증된 player-vitals 데이터로 새 상태를 만들고 room binder가 새 방 session을 현재 체력으로 초기화하며, 적용된 피해를 즉시 되돌려 기록한다. 이동과 scene load는 체력을 바꾸지 않고 새 run만 최대 체력으로 시작한다.
 - `DungeonRunState`는 정확히 한 개인 Recovery 노드의 소비 여부를 run 수명으로 소유한다. 현재 Recovery 노드에서 최대 체력이 아닐 때만 회복과 소비를 함께 확정하며 재입장이나 scene 재로드로 다시 생성하지 않는다.
 - `DungeonRunState`는 Secret 연결별 공개와 Secret 노드의 cache 소비를 run 수명으로 소유한다. Unity binder가 매핑한 문 앞 출구 셀이 실제 폭발 `AffectedCells`에 포함됐을 때만 해당 연결을 공개하고, 현재 Secret 방에서만 양수 cache 토큰을 한 번 지급한다.
-- Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 우상단 `ROOM TOKENS` snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
+- Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 토큰 아이콘 옆에 접두 문구 없는 숫자 snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
 - `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
 
 현재 필수 주 경로는 다음과 같다.
@@ -73,7 +73,7 @@ Secret post-pass:             Combat ─┐
 12. Core 탐색 상태가 그래프 연결·클리어·Secret 공개 여부에서 네 방향 문의 `Inactive`·`SecretWall`·`Locked`·`Open` snapshot을 계산한다.
 13. Unity binder가 미공개 Secret 연결의 문 앞 출구 `Floor` 셀을 방향에 매핑하고 실제 `BombExplosion.AffectedCells`가 그 셀에 닿으면 해당 연결만 공개한다. `DestroyedWalls`와 일반 파괴벽 전파 규칙은 사용하지 않는다.
 14. Unity navigator가 대상 콘텐츠·씬을 검증하고 실제 로드 완료 뒤 Core 이동을 단일 commit한다.
-15. room commit 또는 Secret 공개 뒤 미니맵 presenter가 Core snapshot을 읽어 현재·방문·직접 인접 공개 방과 확인된 연결만 우측 상단에 다시 그린다.
+15. room commit 또는 Secret 공개 뒤 미니맵 presenter가 Core snapshot을 읽어 현재·방문·직접 인접 공개 방과 확인된 연결만 우측 상단에 다시 그린다. 방문 방 종류는 아이콘으로 표시하고 미방문 frontier는 물음표 아이콘으로 유지한다.
 16. Unity room binder와 door presenter가 배정 결과와 문 상태에 맞춰 회전된 room geometry, 금 간 벽과 활성·비활성 문을 표현한다.
 17. 첫 `BombReward` 진입에서 논리 셀 후보 선택을 run loadout에 기록하고, 성공한 슬롯 교체와 함께 이후 방 session에 다시 주입한다.
 18. 방 session은 run 현재 체력으로 시작하고 적용된 피해 결과를 같은 run 상태에 즉시 기록한다.
@@ -93,7 +93,7 @@ Secret post-pass:             Combat ─┐
 - 보스 주 경로 밖 전투방이 최소 하나 존재하고 그 경로도 폭탄 보상을 지난다.
 - 모든 cardinal 좌표 인접은 `Normal` 또는 `Secret` 연결로 명시된다. normal 연결만 보면 기존 progression은 tree이고 Secret만 2~3개의 Combat을 잇는다.
 - 노드 ID는 1부터 연속이고 연결·이웃 순서는 안정적이다.
-- 미니맵에는 방문 방과 그 직접 이웃 중 공개된 연결만 보인다. 미공개 Secret 방·연결은 보이지 않고 한 입구를 공개해도 다른 Secret 입구는 독립적으로 숨는다. 현재 방은 정확히 하나이고 새 run은 시작방과 첫 이웃·한 normal 연결만 공개한다.
+- 미니맵에는 방문 방과 그 직접 이웃 중 공개된 연결만 보인다. 미공개 Secret 방·연결은 보이지 않고 한 입구를 공개해도 다른 Secret 입구는 독립적으로 숨는다. 현재 방은 정확히 하나이고 새 run은 시작방과 첫 이웃·한 normal 연결만 공개한다. 방문 방만 종류를 노출하며 발견 상태의 방은 실제 종류와 무관하게 종류 정보가 없다.
 - 생성 알고리즘 변경 시 버전을 함께 바꾸며 seed 0 golden snapshot을 조용히 변경하지 않는다.
 - 안전방은 클리어 상태를 만들지 않으며 일반 전투방과 보스방만 클리어할 수 있다.
 - 전투 보상 토큰은 일반 전투방 하나당 최초 클리어에서만 정확히 1 증가하며 보스·안전방·terminal 클리어 요청은 값을 바꾸지 않는다.

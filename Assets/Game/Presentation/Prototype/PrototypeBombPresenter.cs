@@ -10,6 +10,15 @@ namespace BombSwap
     {
         public const int DefaultBombPoolSize = 8;
         public const int DefaultExplosionPoolSize = 32;
+        public const float BombFuseVisualReferenceSeconds = 2f;
+        public const float CrossExplosionVisualSeconds = 1f;
+        public const float CrossExplosionVisualHeight = 0.5f;
+        public const string PlayerCrossBombDefinitionId = "prototype-cross";
+        public const string PlayerLineBombDefinitionId = "prototype-line";
+        public const string ThrowerBombDefinitionId = "prototype-thrower-blocker";
+        public const string BossThrowBombDefinitionId = "prototype-boss-throw";
+        public const string BossChainBombDefinitionId = "prototype-boss-chain";
+        public const string PlayerAreaBombDefinitionId = "prototype-area";
 
         [SerializeField]
         private PrototypeGameSession session;
@@ -32,6 +41,20 @@ namespace BombSwap
             new Dictionary<BombDefinitionId, Stack<GameObject>>();
         private readonly Dictionary<BombDefinitionId, Stack<GameObject>> _availableExplosions =
             new Dictionary<BombDefinitionId, Stack<GameObject>>();
+        private readonly Dictionary<GameObject, Animator[]> _bombAnimators =
+            new Dictionary<GameObject, Animator[]>();
+        private readonly Dictionary<GameObject, ParticleSystem> _straightFlames =
+            new Dictionary<GameObject, ParticleSystem>();
+        private readonly Dictionary<GameObject, ParticleSystem[]> _particleSystems =
+            new Dictionary<GameObject, ParticleSystem[]>();
+        private readonly Dictionary<GameObject, float[]> _particleSimulationSpeeds =
+            new Dictionary<GameObject, float[]>();
+        private readonly Stack<GameObject> _availableCrossCenters =
+            new Stack<GameObject>();
+        private readonly Stack<GameObject> _availableCrossStraights =
+            new Stack<GameObject>();
+        private readonly Stack<GameObject> _availableAreaGridExplosions =
+            new Stack<GameObject>();
         private readonly List<TimedExplosionVisual> _activeExplosions =
             new List<TimedExplosionVisual>();
         private readonly List<ActiveBossFlightVisual> _activeBossFlights =
@@ -39,6 +62,12 @@ namespace BombSwap
         private readonly List<ActiveThrowerFlightVisual> _activeThrowerFlights =
             new List<ActiveThrowerFlightVisual>(3);
         private bool _initialized;
+        private PrototypeLocalVfxOverrides _localVfxOverrides;
+        private GameObject _crossCenterExplosionPrefab;
+        private GameObject _crossStraightExplosionPrefab;
+        private bool _crossExplosionVfxConfiguredExplicitly;
+        private GameObject _areaGridExplosionPrefab;
+        private bool _areaExplosionVfxConfiguredExplicitly;
 
         public PrototypeGameSession Session => session;
 
@@ -95,6 +124,36 @@ namespace BombSwap
             return _activeBombs.ContainsKey(bombId);
         }
 
+        public void ConfigureCrossExplosionVfx(
+            GameObject centerExplosionPrefab,
+            GameObject straightExplosionPrefab)
+        {
+            ValidateParticlePrefab(centerExplosionPrefab, nameof(centerExplosionPrefab));
+            ValidateParticlePrefab(straightExplosionPrefab, nameof(straightExplosionPrefab));
+            if (_activeExplosions.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Cross-explosion VFX cannot change while explosion visuals are active.");
+            }
+
+            _crossCenterExplosionPrefab = centerExplosionPrefab;
+            _crossStraightExplosionPrefab = straightExplosionPrefab;
+            _crossExplosionVfxConfiguredExplicitly = true;
+        }
+
+        public void ConfigureAreaExplosionVfx(GameObject gridExplosionPrefab)
+        {
+            ValidateParticlePrefab(gridExplosionPrefab, nameof(gridExplosionPrefab));
+            if (_activeExplosions.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Area-explosion VFX cannot change while explosion visuals are active.");
+            }
+
+            _areaGridExplosionPrefab = gridExplosionPrefab;
+            _areaExplosionVfxConfiguredExplicitly = true;
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
@@ -113,6 +172,7 @@ namespace BombSwap
             session.ThrowerBombPlaced += OnBombPlaced;
             session.ThrowerBombLaunched += OnThrowerBombLaunched;
             session.BombExploded += OnBombExploded;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -130,11 +190,13 @@ namespace BombSwap
                 session.ThrowerBombPlaced -= OnBombPlaced;
                 session.ThrowerBombLaunched -= OnThrowerBombLaunched;
                 session.BombExploded -= OnBombExploded;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             for (int index = 0; index < _activeBossFlights.Count; index++)
             {
                 ActiveBossFlightVisual flight = _activeBossFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
                 flight.Instance.SetActive(false);
                 GetBombPool(flight.DefinitionId).Push(flight.Instance);
             }
@@ -142,6 +204,7 @@ namespace BombSwap
             for (int index = 0; index < _activeThrowerFlights.Count; index++)
             {
                 ActiveThrowerFlightVisual flight = _activeThrowerFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
                 flight.Instance.SetActive(false);
                 GetBombPool(flight.DefinitionId).Push(flight.Instance);
             }
@@ -167,7 +230,7 @@ namespace BombSwap
                 }
 
                 visual.Instance.SetActive(false);
-                GetExplosionPool(visual.DefinitionId).Push(visual.Instance);
+                ReleaseExplosion(visual);
                 _activeExplosions.RemoveAt(index);
             }
         }
@@ -182,6 +245,20 @@ namespace BombSwap
             if (_initialized)
             {
                 return;
+            }
+
+            _localVfxOverrides = PrototypeLocalVfxOverrides.LoadOptional();
+            if (_crossCenterExplosionPrefab == null && _localVfxOverrides != null)
+            {
+                _crossCenterExplosionPrefab =
+                    _localVfxOverrides.CrossBombCenterExplosionVfxPrefab;
+                _crossStraightExplosionPrefab =
+                    _localVfxOverrides.CrossBombStraightExplosionVfxPrefab;
+            }
+            if (_areaGridExplosionPrefab == null && _localVfxOverrides != null)
+            {
+                _areaGridExplosionPrefab =
+                    _localVfxOverrides.AreaBombGridExplosionVfxPrefab;
             }
 
             for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
@@ -234,9 +311,35 @@ namespace BombSwap
                 ? GetPlacementRotation(snapshot.PlacementDirection)
                 : Quaternion.identity;
             instance.SetActive(true);
+            float fuseAnimationSpeed =
+                BombFuseVisualReferenceSeconds / definition.FuseSeconds;
+            SetBombAnimatorsEnabled(
+                instance,
+                true,
+                fuseAnimationSpeed,
+                session.IsPaused);
+            SetBombParticlePlayback(
+                instance,
+                fuseAnimationSpeed,
+                session.IsPaused);
             _activeBombs.Add(
                 snapshot.Id,
-                new ActiveBombVisual(instance, snapshot.DefinitionId));
+                new ActiveBombVisual(
+                    instance,
+                    snapshot.DefinitionId,
+                    fuseAnimationSpeed));
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            foreach (KeyValuePair<BombId, ActiveBombVisual> entry in _activeBombs)
+            {
+                ActiveBombVisual visual = entry.Value;
+                SetBombAnimatorPlayback(
+                    visual.Instance,
+                    isPaused ? 0f : visual.FuseAnimationSpeed);
+                SetBombParticlesPaused(visual.Instance, isPaused);
+            }
         }
 
         private void OnBossBombLaunched(BossBombFlight flight)
@@ -332,6 +435,7 @@ namespace BombSwap
                     Space.World);
                 if (progress >= 1f)
                 {
+                    SetBombAnimatorsEnabled(visual.Instance, false);
                     visual.Instance.SetActive(false);
                     GetBombPool(visual.DefinitionId).Push(visual.Instance);
                     _activeThrowerFlights.RemoveAt(index);
@@ -370,12 +474,29 @@ namespace BombSwap
                     out ActiveBombVisual bombVisual))
             {
                 _activeBombs.Remove(explosion.BombId);
+                SetBombAnimatorsEnabled(bombVisual.Instance, false);
                 bombVisual.Instance.SetActive(false);
                 GetBombPool(bombVisual.DefinitionId).Push(bombVisual.Instance);
             }
 
             PrototypeBombDefinitionAsset definition =
                 session.GetBombDefinition(explosion.DefinitionId);
+            if (CanPresentCrossExplosion(explosion, definition))
+            {
+                PresentCrossExplosion(explosion, definition);
+                return;
+            }
+            if (CanPresentLineExplosion(explosion, definition))
+            {
+                PresentLineExplosion(explosion, definition);
+                return;
+            }
+            if (CanPresentAreaExplosion(explosion, definition))
+            {
+                PresentAreaExplosion(explosion, definition);
+                return;
+            }
+
             for (int index = 0; index < explosion.AffectedCells.Count; index++)
             {
                 GameObject instance = AcquireExplosion(explosion.DefinitionId, definition);
@@ -385,7 +506,331 @@ namespace BombSwap
                 _activeExplosions.Add(new TimedExplosionVisual(
                     instance,
                     explosion.DefinitionId,
-                    definition.ExplosionVisualSeconds));
+                    definition.ExplosionVisualSeconds,
+                    ExplosionVisualKind.Cell));
+            }
+        }
+
+        private bool CanPresentCrossExplosion(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            return definition.ExplosionShape == BombExplosionShape.Cross &&
+                definition.Range <= 4 &&
+                IsSupportedCrossExplosionOwner(explosion, definition) &&
+                _crossCenterExplosionPrefab != null &&
+                _crossStraightExplosionPrefab != null;
+        }
+
+        private bool IsSupportedCrossExplosionOwner(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            if (explosion.OwnerId == session.PlayerActorId)
+            {
+                return _crossExplosionVfxConfiguredExplicitly ||
+                    definition.DefinitionId == PlayerCrossBombDefinitionId;
+            }
+            if (explosion.OwnerId == session.ThrowerActorId)
+            {
+                return _crossExplosionVfxConfiguredExplicitly ||
+                    definition.DefinitionId == ThrowerBombDefinitionId;
+            }
+            if (explosion.OwnerId == session.BossActorId)
+            {
+                return _crossExplosionVfxConfiguredExplicitly ||
+                    definition.DefinitionId == BossThrowBombDefinitionId ||
+                    definition.DefinitionId == BossChainBombDefinitionId;
+            }
+            return false;
+        }
+
+        private void PresentCrossExplosion(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            PresentExplosionCenter(explosion, definition);
+
+            PresentStraightDirection(explosion, definition, CardinalDirection.North, 0, 1);
+            PresentStraightDirection(explosion, definition, CardinalDirection.East, 1, 0);
+            PresentStraightDirection(explosion, definition, CardinalDirection.South, 0, -1);
+            PresentStraightDirection(explosion, definition, CardinalDirection.West, -1, 0);
+        }
+
+        private bool CanPresentLineExplosion(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            return explosion.OwnerId == session.PlayerActorId &&
+                definition.ExplosionShape == BombExplosionShape.ForwardLine &&
+                definition.Range <= 4 &&
+                (_crossExplosionVfxConfiguredExplicitly ||
+                 definition.DefinitionId == PlayerLineBombDefinitionId) &&
+                _crossCenterExplosionPrefab != null &&
+                _crossStraightExplosionPrefab != null;
+        }
+
+        private bool CanPresentAreaExplosion(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            return explosion.OwnerId == session.PlayerActorId &&
+                definition.ExplosionShape == BombExplosionShape.SquareArea &&
+                (_areaExplosionVfxConfiguredExplicitly ||
+                 definition.DefinitionId == PlayerAreaBombDefinitionId) &&
+                _areaGridExplosionPrefab != null;
+        }
+
+        private void PresentAreaExplosion(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            float visualSeconds = Mathf.Max(
+                definition.ExplosionVisualSeconds,
+                CrossExplosionVisualSeconds);
+            for (int index = 0; index < explosion.AffectedCells.Count; index++)
+            {
+                GameObject instance = AcquireAreaGridExplosion();
+                PrepareParticleInstance(
+                    instance,
+                    GetCrossExplosionWorldPosition(explosion.AffectedCells[index]),
+                    Quaternion.identity);
+                _activeExplosions.Add(new TimedExplosionVisual(
+                    instance,
+                    explosion.DefinitionId,
+                    visualSeconds,
+                    ExplosionVisualKind.AreaGrid));
+            }
+        }
+
+        private void PresentLineExplosion(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            PresentExplosionCenter(explosion, definition);
+            GetDirectionStep(
+                explosion.PlacementDirection,
+                out int stepX,
+                out int stepZ);
+            PresentStraightDirection(
+                explosion,
+                definition,
+                explosion.PlacementDirection,
+                stepX,
+                stepZ);
+        }
+
+        private void PresentExplosionCenter(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition)
+        {
+            GameObject center = AcquireCrossCenter();
+            PrepareParticleInstance(
+                center,
+                GetCrossExplosionWorldPosition(explosion.Origin),
+                Quaternion.identity);
+            _activeExplosions.Add(new TimedExplosionVisual(
+                center,
+                explosion.DefinitionId,
+                Mathf.Max(
+                    definition.ExplosionVisualSeconds,
+                    CrossExplosionVisualSeconds),
+                ExplosionVisualKind.CrossCenter));
+        }
+
+        private void PresentStraightDirection(
+            BombExplosion explosion,
+            PrototypeBombDefinitionAsset definition,
+            CardinalDirection direction,
+            int stepX,
+            int stepZ)
+        {
+            int cellCount = 0;
+            for (int distance = 1; distance <= definition.Range; distance++)
+            {
+                var position = new GridPosition(
+                    explosion.Origin.X + (stepX * distance),
+                    explosion.Origin.Z + (stepZ * distance));
+                if (!explosion.Affects(position))
+                {
+                    break;
+                }
+                cellCount++;
+            }
+            if (cellCount == 0)
+            {
+                return;
+            }
+
+            GameObject straight = AcquireCrossStraight();
+            SetStraightSpeedModifier(straight, cellCount * 0.25f);
+            PrepareParticleInstance(
+                straight,
+                GetCrossExplosionWorldPosition(explosion.Origin),
+                GetPlacementRotation(direction));
+            _activeExplosions.Add(new TimedExplosionVisual(
+                straight,
+                explosion.DefinitionId,
+                Mathf.Max(
+                    definition.ExplosionVisualSeconds,
+                    CrossExplosionVisualSeconds),
+                ExplosionVisualKind.CrossStraight));
+        }
+
+        private static void GetDirectionStep(
+            CardinalDirection direction,
+            out int stepX,
+            out int stepZ)
+        {
+            switch (direction)
+            {
+                case CardinalDirection.North:
+                    stepX = 0;
+                    stepZ = 1;
+                    return;
+                case CardinalDirection.East:
+                    stepX = 1;
+                    stepZ = 0;
+                    return;
+                case CardinalDirection.South:
+                    stepX = 0;
+                    stepZ = -1;
+                    return;
+                case CardinalDirection.West:
+                    stepX = -1;
+                    stepZ = 0;
+                    return;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(direction),
+                        direction,
+                        "A forward-line explosion VFX requires a cardinal direction.");
+            }
+        }
+
+        private GameObject AcquireCrossCenter()
+        {
+            return _availableCrossCenters.Count > 0
+                ? _availableCrossCenters.Pop()
+                : CreatePooledInstance(_crossCenterExplosionPrefab, "CrossExplosionCenterVisual");
+        }
+
+        private Vector3 GetCrossExplosionWorldPosition(GridPosition origin)
+        {
+            return session.GridSpace.GridToWorld(origin) +
+                (Vector3.up * CrossExplosionVisualHeight);
+        }
+
+        private GameObject AcquireCrossStraight()
+        {
+            GameObject instance = _availableCrossStraights.Count > 0
+                ? _availableCrossStraights.Pop()
+                : CreatePooledInstance(_crossStraightExplosionPrefab, "CrossExplosionStraightVisual");
+            if (!_straightFlames.ContainsKey(instance))
+            {
+                ParticleSystem flames = FindParticleSystem(instance, "Flames_F");
+                if (flames == null)
+                {
+                    throw new InvalidOperationException(
+                        "Cross straight explosion VFX requires a child ParticleSystem named 'Flames_F'.");
+                }
+                _straightFlames.Add(instance, flames);
+            }
+            return instance;
+        }
+
+        private GameObject AcquireAreaGridExplosion()
+        {
+            return _availableAreaGridExplosions.Count > 0
+                ? _availableAreaGridExplosions.Pop()
+                : CreatePooledInstance(
+                    _areaGridExplosionPrefab,
+                    "AreaGridExplosionVisual");
+        }
+
+        private void SetStraightSpeedModifier(GameObject instance, float speedModifier)
+        {
+            ParticleSystem.VelocityOverLifetimeModule velocity =
+                _straightFlames[instance].velocityOverLifetime;
+            velocity.speedModifier = speedModifier;
+        }
+
+        private ParticleSystem FindParticleSystem(GameObject instance, string objectName)
+        {
+            ParticleSystem[] systems = GetParticleSystems(instance);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                if (systems[index].name == objectName)
+                {
+                    return systems[index];
+                }
+            }
+            return null;
+        }
+
+        private void PrepareParticleInstance(
+            GameObject instance,
+            Vector3 position,
+            Quaternion rotation)
+        {
+            instance.transform.SetPositionAndRotation(position, rotation);
+            instance.SetActive(true);
+            ParticleSystem[] systems = GetParticleSystems(instance);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                systems[index].Clear(true);
+                systems[index].Play(true);
+            }
+        }
+
+        private void ReleaseExplosion(TimedExplosionVisual visual)
+        {
+            ParticleSystem[] systems = GetParticleSystems(visual.Instance);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                systems[index].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+            visual.Instance.SetActive(false);
+            switch (visual.Kind)
+            {
+                case ExplosionVisualKind.Cell:
+                    GetExplosionPool(visual.DefinitionId).Push(visual.Instance);
+                    break;
+                case ExplosionVisualKind.CrossCenter:
+                    _availableCrossCenters.Push(visual.Instance);
+                    break;
+                case ExplosionVisualKind.CrossStraight:
+                    _availableCrossStraights.Push(visual.Instance);
+                    break;
+                case ExplosionVisualKind.AreaGrid:
+                    _availableAreaGridExplosions.Push(visual.Instance);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private ParticleSystem[] GetParticleSystems(GameObject instance)
+        {
+            if (!_particleSystems.TryGetValue(instance, out ParticleSystem[] systems))
+            {
+                systems = instance.GetComponentsInChildren<ParticleSystem>(true);
+                _particleSystems.Add(instance, systems);
+            }
+            return systems;
+        }
+
+        private static void ValidateParticlePrefab(GameObject prefab, string parameterName)
+        {
+            if (prefab == null)
+            {
+                throw new ArgumentNullException(parameterName);
+            }
+            if (prefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+            {
+                throw new ArgumentException(
+                    "Explosion VFX prefab requires at least one ParticleSystem.",
+                    parameterName);
             }
         }
 
@@ -459,17 +904,103 @@ namespace BombSwap
             return instance;
         }
 
+        private void SetBombAnimatorsEnabled(
+            GameObject instance,
+            bool enabled,
+            float playbackSpeed = 1f,
+            bool paused = false)
+        {
+            if (!_bombAnimators.TryGetValue(instance, out Animator[] animators))
+            {
+                animators = instance.GetComponentsInChildren<Animator>(true);
+                _bombAnimators.Add(instance, animators);
+            }
+            for (int index = 0; index < animators.Length; index++)
+            {
+                Animator animator = animators[index];
+                animator.enabled = enabled;
+                if (enabled && animator.runtimeAnimatorController != null)
+                {
+                    animator.Rebind();
+                    animator.Update(0f);
+                }
+                animator.speed = enabled && !paused ? playbackSpeed : 0f;
+            }
+        }
+
+        private void SetBombAnimatorPlayback(GameObject instance, float playbackSpeed)
+        {
+            if (!_bombAnimators.TryGetValue(instance, out Animator[] animators))
+            {
+                return;
+            }
+            for (int index = 0; index < animators.Length; index++)
+            {
+                if (animators[index].enabled)
+                {
+                    animators[index].speed = playbackSpeed;
+                }
+            }
+        }
+
+        private void SetBombParticlesPaused(GameObject instance, bool paused)
+        {
+            ParticleSystem[] systems = GetParticleSystems(instance);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem system = systems[index];
+                if (paused && system.isPlaying)
+                {
+                    system.Pause(true);
+                }
+                else if (!paused && system.isPaused)
+                {
+                    system.Play(true);
+                }
+            }
+        }
+
+        private void SetBombParticlePlayback(
+            GameObject instance,
+            float playbackSpeed,
+            bool paused)
+        {
+            ParticleSystem[] systems = GetParticleSystems(instance);
+            if (!_particleSimulationSpeeds.TryGetValue(instance, out float[] baseSpeeds))
+            {
+                baseSpeeds = new float[systems.Length];
+                for (int index = 0; index < systems.Length; index++)
+                {
+                    baseSpeeds[index] = systems[index].main.simulationSpeed;
+                }
+                _particleSimulationSpeeds.Add(instance, baseSpeeds);
+            }
+
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                main.simulationSpeed = baseSpeeds[index] * playbackSpeed;
+            }
+            SetBombParticlesPaused(instance, paused);
+        }
+
         private readonly struct ActiveBombVisual
         {
-            public ActiveBombVisual(GameObject instance, BombDefinitionId definitionId)
+            public ActiveBombVisual(
+                GameObject instance,
+                BombDefinitionId definitionId,
+                float fuseAnimationSpeed)
             {
                 Instance = instance;
                 DefinitionId = definitionId;
+                FuseAnimationSpeed = fuseAnimationSpeed;
             }
 
             public GameObject Instance { get; }
 
             public BombDefinitionId DefinitionId { get; }
+
+            public float FuseAnimationSpeed { get; }
         }
 
         private struct TimedExplosionVisual
@@ -477,11 +1008,13 @@ namespace BombSwap
             public TimedExplosionVisual(
                 GameObject instance,
                 BombDefinitionId definitionId,
-                float remainingSeconds)
+                float remainingSeconds,
+                ExplosionVisualKind kind)
             {
                 Instance = instance;
                 DefinitionId = definitionId;
                 RemainingSeconds = remainingSeconds;
+                Kind = kind;
             }
 
             public GameObject Instance { get; }
@@ -489,6 +1022,16 @@ namespace BombSwap
             public BombDefinitionId DefinitionId { get; }
 
             public float RemainingSeconds { get; set; }
+
+            public ExplosionVisualKind Kind { get; }
+        }
+
+        private enum ExplosionVisualKind
+        {
+            Cell = 0,
+            CrossCenter = 1,
+            CrossStraight = 2,
+            AreaGrid = 3,
         }
 
         private struct ActiveBossFlightVisual

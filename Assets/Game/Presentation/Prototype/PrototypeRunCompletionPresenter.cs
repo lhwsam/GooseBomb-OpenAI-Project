@@ -117,6 +117,10 @@ namespace BombSwap
         [SerializeField]
         private BombSwapInputReader inputReader;
 
+        [SerializeField]
+        private PrototypeRunCompletionView viewPrefab;
+
+        private PrototypeRunCompletionView _viewInstance;
         private TextMeshProUGUI _statusLabel;
         private TextMeshProUGUI _failureCauseLabel;
         private Button _restartButton;
@@ -127,6 +131,10 @@ namespace BombSwap
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
         public BombSwapInputReader InputReader => inputReader;
+
+        public PrototypeRunCompletionView ViewPrefab => viewPrefab;
+
+        public PrototypeRunCompletionView ViewInstance => _viewInstance;
 
         public bool IsVisible { get; private set; }
 
@@ -163,6 +171,28 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredRoomBinder));
             inputReader = authoredInputReader ??
                 throw new ArgumentNullException(nameof(authoredInputReader));
+        }
+
+        public void Configure(
+            PrototypeDungeonRoomBinder authoredRoomBinder,
+            BombSwapInputReader authoredInputReader,
+            PrototypeRunCompletionView authoredViewPrefab)
+        {
+            Configure(authoredRoomBinder, authoredInputReader);
+            BindViewPrefab(authoredViewPrefab);
+        }
+
+        public void BindViewPrefab(
+            PrototypeRunCompletionView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeRunCompletionPresenter before changing its view prefab.");
+            }
+
+            viewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
         }
 
         public void RequestRestart()
@@ -235,10 +265,12 @@ namespace BombSwap
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null || inputReader == null)
+            if (roomBinder == null || roomBinder.RoomSession == null ||
+                inputReader == null || viewPrefab == null ||
+                !viewPrefab.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "PrototypeRunCompletionPresenter requires room-binder and input-reader references.");
+                    "PrototypeRunCompletionPresenter requires room-binder, input-reader, and view-prefab references.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -373,130 +405,40 @@ namespace BombSwap
 
         private void CreateUi(bool failed)
         {
-            GameObject canvasObject = new GameObject(
-                "PrototypeRunCompletionCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler),
-                typeof(GraphicRaycaster));
-            canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 300;
-            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
-            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
+            _viewInstance = Instantiate(viewPrefab, transform, false);
+            _viewInstance.name = viewPrefab.name;
+            if (!_viewInstance.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "Instantiated run completion view is missing required references.");
+            }
 
-            RectTransform backdrop = PrototypeUiFactory.CreateRect(
-                "Backdrop",
-                canvasObject.transform);
-            backdrop.anchorMin = Vector2.zero;
-            backdrop.anchorMax = Vector2.one;
-            backdrop.offsetMin = Vector2.zero;
-            backdrop.offsetMax = Vector2.zero;
-            Image backdropImage = backdrop.gameObject.AddComponent<Image>();
-            backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 1f);
-            backdropImage.raycastTarget = false;
-
-            TextMeshProUGUI title = PrototypeUiFactory.CreateText(
-                "Title",
-                backdrop,
-                52f,
-                TextAlignmentOptions.Center,
-                FontStyles.Bold,
-                TextWrappingModes.Normal);
-            title.rectTransform.anchorMin = new Vector2(0.1f, 0.48f);
-            title.rectTransform.anchorMax = new Vector2(0.9f, 0.68f);
-            title.rectTransform.offsetMin = Vector2.zero;
-            title.rectTransform.offsetMax = Vector2.zero;
+            TextMeshProUGUI title = _viewInstance.TitleLabel;
             title.text = failed ? "RUN FAILED" : "FLOOR CLEARED";
             title.color = failed
-                ? new Color(1f, 0.32f, 0.26f, 1f)
-                : new Color(0.22f, 0.95f, 0.5f, 1f);
+                ? _viewInstance.FailedTitleColor
+                : _viewInstance.CompletedTitleColor;
 
+            _failureCauseLabel = _viewInstance.FailureCauseLabel;
+            _failureCauseLabel.gameObject.SetActive(failed);
             if (failed)
             {
-                _failureCauseLabel = CreateText(
-                    "FailureCause",
-                    backdrop,
-                    24f,
-                    FontStyles.Bold);
-                _failureCauseLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.42f);
-                _failureCauseLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.53f);
-                _failureCauseLabel.rectTransform.offsetMin = Vector2.zero;
-                _failureCauseLabel.rectTransform.offsetMax = Vector2.zero;
                 _failureCauseLabel.text =
                     PrototypePlayerDeathCauseFormatter.GetDisplayText(
                         FailureCause.Value);
-                _failureCauseLabel.color = new Color(1f, 0.72f, 0.42f, 1f);
             }
 
-            _restartButton = PrototypeUiFactory.CreateButton(
-                "RestartButton",
-                backdrop,
-                "다시 시작",
-                27f,
-                new Color(0.12f, 0.42f, 0.68f, 1f),
-                new Color(0.2f, 0.66f, 0.92f, 1f));
-            ConfigureButtonRect(
-                _restartButton,
-                new Vector2(0.27f, failed ? 0.27f : 0.31f),
-                new Vector2(0.49f, failed ? 0.38f : 0.42f));
+            _restartButton = _viewInstance.RestartButton;
             _restartButton.onClick.AddListener(RequestRestart);
 
-            _lobbyButton = PrototypeUiFactory.CreateButton(
-                "LobbyButton",
-                backdrop,
-                "로비로 돌아가기",
-                27f,
-                new Color(0.18f, 0.21f, 0.28f, 1f),
-                new Color(0.34f, 0.4f, 0.52f, 1f));
-            ConfigureButtonRect(
-                _lobbyButton,
-                new Vector2(0.51f, failed ? 0.27f : 0.31f),
-                new Vector2(0.73f, failed ? 0.38f : 0.42f));
+            _lobbyButton = _viewInstance.LobbyButton;
             _lobbyButton.onClick.AddListener(RequestReturnToLobby);
 
-            _statusLabel = CreateText(
-                "Status",
-                backdrop,
-                19f,
-                FontStyles.Normal);
-            _statusLabel.rectTransform.anchorMin = new Vector2(0.1f, 0.15f);
-            _statusLabel.rectTransform.anchorMax = new Vector2(0.9f, 0.25f);
-            _statusLabel.rectTransform.offsetMin = Vector2.zero;
-            _statusLabel.rectTransform.offsetMax = Vector2.zero;
+            _statusLabel = _viewInstance.StatusLabel;
             _statusLabel.text = "R 키로 즉시 다시 시작";
-            _statusLabel.color = new Color(0.78f, 0.84f, 0.92f, 1f);
 
             EventSystem eventSystem = PrototypeUiFactory.EnsureEventSystem();
             eventSystem.SetSelectedGameObject(_restartButton.gameObject);
-        }
-
-        private static TextMeshProUGUI CreateText(
-            string objectName,
-            Transform parent,
-            float fontSize,
-            FontStyles fontStyle)
-        {
-            return PrototypeUiFactory.CreateText(
-                objectName,
-                parent,
-                fontSize,
-                TextAlignmentOptions.Center,
-                fontStyle,
-                TextWrappingModes.Normal);
-        }
-
-        private static void ConfigureButtonRect(
-            Button button,
-            Vector2 anchorMin,
-            Vector2 anchorMax)
-        {
-            RectTransform rect = button.GetComponent<RectTransform>();
-            rect.anchorMin = anchorMin;
-            rect.anchorMax = anchorMax;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
         }
 
         private void SetButtonsInteractable(bool interactable)

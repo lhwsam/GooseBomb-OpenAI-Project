@@ -369,19 +369,21 @@ namespace BombSwap
                 return primaryText;
             }
 
-            var composedTitle = new StringBuilder();
+            var composedTitle = new StringBuilder(primaryText);
             for (int index = 0; index < titleParts.Length; index++)
             {
+                if (titleParts[index] == primaryLabel)
+                {
+                    continue;
+                }
+
                 string part = (titleParts[index].text ?? string.Empty).Trim();
                 if (string.IsNullOrEmpty(part))
                 {
                     continue;
                 }
 
-                if (composedTitle.Length > 0)
-                {
-                    composedTitle.Append(' ');
-                }
+                composedTitle.Append(' ');
                 composedTitle.Append(part);
             }
 

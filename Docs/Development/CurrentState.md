@@ -1,14 +1,15 @@
 # 현재 프로젝트 상태
 
-- 기준일: 2026-08-23
-- 플레이어 이동은 목적지를 예약하고 50% 경계에서 현재 판정 칸을 변경하는 커밋된 한 칸 이동 계약을 사용한다. 입력 해제·방향 변경은 진행 중인 칸 이동을 취소하지 않고 다음 칸부터 적용한다. 세션의 모든 규칙 시뮬레이션은 10ms 고정 스텝으로 함께 진행되어 큰 프레임 delta에서도 특정 Actor만 먼저 여러 번 처리되지 않는다.
-- 단계: Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 960×600 UI 기준의 로비/런타임 UI에 Player Settings 기반 버전 표시, 공통 설정·키보드 리바인딩·AudioMixer·화면 흔들림 강도 계약과 DOTween 로비 버튼 hover/press 피드백을 연결한 상태
+- 기준일: 2026-08-24
+- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause·방 안내·런 결과를 960×600 기준으로 분리하고, 직접 UI Sprite+per-Image 폴백과 Git에서 제외한 로컬 서드파티 package 경계를 적용한 상태
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
 이 파일은 현재 스냅샷이다. 과거 작업 일지를 누적하지 않는다.
 
 ## 완료
+
+- 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹에 SFX Mixer 기반 발소리 AudioSource를 연결했다. 이동 클립의 `PlayFootstep` Animation Event는 중첩 FBX Animator에 런타임으로 붙는 relay를 거쳐 프리팹 루트의 `CharacterFootstepAudio`로 전달되며, 플레이어·적 전용 4개 clip 비반복 무작위 재생, 적 3D 거리 감쇠·4 voice 상한, 일시정지 차단을 적용한다. Charger와 Boss의 Walk·Charge 두 이동 클립 모두 같은 경로를 사용한다.
 
 - GDD v0.2와 프로토타입 검증 부록 v0.2 작성.
 - 프로젝트 Unity 버전, 패키지, 렌더 파이프라인, 입력, Build Settings, WebGL 기본 설정 조사.
@@ -18,11 +19,13 @@
 - first-party `Assets/Game` 책임 폴더 구성.
 - 프로젝트 전용 스킬 4종 구현: gameplay change, content authoring, WebGL verify, playtest review.
 - `Tools/Verify.ps1` 기반 StaticOnly/Fast/Full/Web 검증 하네스와 구조화된 산출물 구현.
-- 첫 enabled `DungeonLobby`에서 **Bomb Goose**, 게임 시작·설정을 표시하고 terminal 결과에서 로비 복귀 또는 즉시 재시작을 선택하는 런 수명 경계를 구현했다. 제목은 같은 container 아래 여러 TMP 조각도 지원하고 main menu 상태 라벨은 선택 사항이다. 로비의 Canvas·EventSystem·TMP·Button은 씬에 배치되어 사람이 직접 디자인할 수 있고 presenter는 직렬화 참조와 동작만 소유한다. 다른 `Assets/Game` 런타임 UI도 모두 `TextMeshProUGUI`, Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트, 공통 960×600 CanvasScaler 생성 경계를 사용한다.
+- 첫 enabled `DungeonLobby`에서 **폭탄을 낳는 거위**, 게임 시작·설정을 표시하고 terminal 결과에서 로비 복귀 또는 즉시 재시작을 선택하는 런 수명 경계를 구현했다. 제목은 같은 container 아래 여러 TMP 조각도 지원하고 main menu 상태 라벨은 선택 사항이다. 로비의 Canvas·EventSystem·TMP·Button은 씬에 배치되어 사람이 직접 디자인할 수 있고 presenter는 직렬화 참조와 동작만 소유한다. 무기·체력 HUD, 미니맵, pause, 보상·회복·비밀방 안내와 런 결과는 공유 프리팹으로 분리해 같은 방식으로 직접 디자인할 수 있으며 presenter는 scene 수명과 상태에 맞춰 프리팹을 만들고 값만 반영한다. 플레이어 하트와 미니맵 방·연결처럼 개수가 달라지는 UI도 시각 한 단위를 재사용 자식 프리팹으로 소유한다. 보스 HUD는 저작한 이름, 런타임 phase, `현재 / 최대` 체력을 서로 다른 세 TMP로 표시해 이름의 폰트·그라데이션을 상태 갱신과 분리한다. 미니맵은 방문 전 물음표와 방문 뒤 방 종류 아이콘을 사용하고, 현재/비현재 방은 별도 배경 sprite로 구분한다. 모든 first-party UI는 `TextMeshProUGUI`, Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 공통 960×600 CanvasScaler를 사용한다.
 - Point-filtered Raster TMP를 유지하는 공용 픽셀 외곽선 shader, DungGeunMo/DNFBitBitv2별 material preset, TMP warm gradient preset과 재생성·검증 도구를 구현했다. 외곽선은 0~2 atlas pixel이며 기본 1px이고, 그라데이션은 TMP vertex color로 글자 면에만 적용한다.
-- 로비와 pause가 같은 설정 panel을 사용한다. 키보드 기본 8개 binding의 변경·중복 거부·기본값 복원, Master/BGM/SFX AudioMixer 제어, 화면 흔들림 0~100% 계약과 fullscreen 요청을 제공하며 versioned PlayerPrefs에 저장한다. 로비 조작 page는 씬 저작 ScrollRect이며 최하단 초기화 Button은 키 override만 제거하고 음량·화면 흔들림은 유지한다. `SettingsStatusText`는 제거했고 중복 키는 선택 Button의 `이미 사용 중` 인라인 문구·경고색·짧은 좌우 흔들림으로 알린다. 게임패드 지원은 유지하지만 설정 UI에는 표기하지 않는다.
-- 로비 설정 panel 배경은 `BlackandWhiteUI_117`을 직접 참조한다. 중앙 상단 장식과 내부 명암 픽셀이 함께 늘어나던 9-slice를 제거하고 87×77 원본 전체를 현재 디자이너 저작 정수 6배인 522×462 `Simple` Image로 표시한다. Point filter, mipmap off, compression none, Clamp를 사용하고 복구 도구·validator는 정수 배율과 Image/import 계약만 소유하며 디자이너가 조정한 RectTransform 크기·위치는 덮어쓰지 않는다.
+- 로비와 pause가 같은 설정 panel을 사용한다. 키보드 기본 8개 binding의 변경·중복 거부·기본값 복원, Master/BGM/SFX AudioMixer 제어, 화면 흔들림 0~100% 계약과 fullscreen 요청을 제공하며 versioned PlayerPrefs에 저장한다. 로비 조작 page는 씬 저작 ScrollRect이며 최하단 초기화 Button은 키 override만 제거하고 음량·화면 흔들림은 유지한다. `SettingsStatusText`와 pause의 별도 `ESC - 게임 계속` 안내 문구는 사용하지 않으며, 중복 키는 선택 Button의 `이미 사용 중` 인라인 문구·경고색·짧은 좌우 흔들림으로 알린다. 게임패드 지원은 유지하지만 설정 UI에는 표기하지 않는다.
+- 로비·던전·보스 BGM을 실제 BGM Mixer 경로에 연결했다. scene을 넘는 `PrototypeBgmPresenter`가 첫 사용자 gesture 뒤 로비 1개, 던전 sample-aligned stem 4개, 보스 stem 3개를 DSP 예약하며 room/clear와 boss phase를 다음 마디부터 한 마디 smoothstep crossfade로 반영한다. pause는 timeline 유지 50% duck, 사망·보스 격파는 fade-out한다. catalog와 대상 17개 scene의 단일 root presenter·미리보기 비참조·clip format/sample 수를 Editor validator가 고정한다. StaticOnly과 Unity 재컴파일은 통과했고 BGM 정책 테스트도 연결된 전체 PlayMode에서 통과했다. 실제 WebGL 청감과 `bgm-audio-started` browser 검증은 남아 있다.
+- `Assets/ThirdParty`와 meta는 Git에서 제외하고 팀 내부 `.unitypackage`로 전달한다. 로비 17개와 pause 16개 외부 UI Sprite 슬롯은 각 Image에 직접 저장하고 `PrototypeOptionalSpriteFallback`을 함께 둔다. package Import 시 동일 GUID로 Edit Mode 참조가 자동 복구되며, package가 없는 clone은 기능 Image를 유지하고 순수 장식만 런타임에서 숨긴다. 새 UI 타입에 role enum·profile 코드를 추가하지 않고 Inspector에서 바로 연결하며 이름·태그·계층 검색은 사용하지 않는다. 디자이너가 조정한 RectTransform·색상·Image 타입은 보존한다.
 - 로비의 시작·설정·탭·키 변경·전체 화면·두 초기화·돌아가기 16개 Button에 재사용 가능한 DOTween scale 피드백을 씬 저작했다. hover/키보드 선택 `1.06`, 누름 `0.96`, 0.1초 unscaled 전환을 사용하고 상태마다 이전 Tween을 종료하며 비활성화 시 저작 scale로 복원한다. 별도 자식 visual target과 버튼별 튜닝을 지원하며 게임 시작·설정 버튼은 각 TMP 라벨만 `startColor ↔ targetColor`로 전환하고 배경은 유지한다. 두 메인 메뉴 버튼은 좌우 화살표를 명시적 직렬화 참조로 소유하며 hover·키보드 선택·누름에 함께 표시하고 Normal·Disabled에는 숨긴다. 런타임 이름·태그·계층 검색 fallback은 사용하지 않는다. 최초 로비의 시작 버튼은 Submit 대상 선택을 유지하면서 실제 입력 전에는 선택 시각 효과를 숨긴다.
+- pause `PAUSED` TMP는 한 오브젝트를 유지한 채 first-party `PrototypePauseTitleWave`가 DOTween unscaled 단일 phase와 즉시 TMP 메시 갱신으로 보이는 글자를 현재 프리팹 저작값 2초 주기·끝 대기 1단계로 순서대로 8px 올렸다가 복원한다. TMP 전용 DOTween 모듈이나 Feel 의존성은 추가하지 않았고, 컴포넌트 비활성화 시 tween·callback을 정리하고 원래 정점을 복원한다.
 - Unity command-line Editor validator/WebGL build 도구와 EditMode/PlayMode 하네스 smoke test 구현.
 - Playwright 기반 WebGL 정적 서버·canvas/input/console/gameplay probe 스모크 구현.
 - 표준 가상 Gamepad를 브라우저 `navigator.getGamepads()`와 연결 사건에 주입해 스틱·D-pad·South/West/Start/Select의 WebGL→Input System→의미 명령·pause 차단/유지 스틱 재개·Core 설치·실패·재시작 경로를 검증하는 전용 smoke를 표준 Web tier에 연결.
@@ -54,11 +57,9 @@
 - GDD 20.5의 `prototype-secret-v3` 후처리로 일반 전투방 2~3개와 맞닿는 빈 좌표에 Secret 하나를 결정론적으로 추가했다. 입구별 공개 상태는 Core run state가 소유한다. 금 간 문은 일반 문과 같은 경계 위치에 표시되고 문 앞 출구 셀은 `Floor`로 유지되며, 실제 폭발 `AffectedCells`가 그 셀에 닿으면 파괴벽 결과 없이 해당 문·미니맵만 열린다. `DungeonSecret` 중앙 cache는 한 run에 한 번 `ROOM TOKENS +3`을 지급한다.
 - 폭발 영향 셀과 현재 플레이어 논리 셀을 비교해 자기 폭발 피해 1을 적용하고, 같은 폭발 중복·무적 중 별도 폭발·사망 뒤 명령을 차단.
 - `PrototypePlayerHealthPresenter`가 공유 material을 복제하지 않고 피격 pulse와 사망 색을 표시하도록 TestSandbox에 연결.
-- canonical `PlayerDuck` prefab과 Humanoid Animator를 전투·던전 16개 씬의 플레이어 표현으로 연결하고, `PrototypePlayerAnimationPresenter`가 이동·성공한 폭탄 설치·사망·일시정지를 `IsMoving`·`PlaceBomb`·`Die`와 Animator 재생 속도로 변환하도록 분리했다. 폭탄 설치는 몸통·머리·양팔만 포함한 Avatar Mask의 `Upper Body` override 레이어에서 재생해 이동 중에도 Base Layer의 하체 Run을 유지한다.
 - 안정 `EnemyDefinitionId`, 주입 시계 cadence, 재계획 시점의 결정론적 BFS 거리장, 최단 경로를 벗어나지 않는 최대 두 칸 방향 유지를 소유하는 `ChaserEnemySimulation` 구현.
 - 내구도 1, 폭발 ID별 중복 차단과 단일 치명 결과를 소유하는 `EnemyHealthSimulation` 구현.
 - 검증된 `PrototypeChaserDefinitionAsset`, collider 없는 chaser prefab, 논리 spawn과 `PrototypeChaserPresenter`를 TestSandbox에 연결.
-- Chaser 표현을 canonical `ChaserPig` Humanoid prefab으로 교체하고 `PrototypeChaserPresenter`가 확정 이동 중 `IsMoving`, 적용된 접촉 피해에서 `Attack`, 사망에서 terminal `Die`, pause에서 Animator 재생 속도를 제어하도록 연결했다. Pig Controller는 Idle·Run·Attack·Die 클립과 전이 계약을 소유한다.
 - 추격자 폭발 사망 시 논리 actor 점유를 한 번 제거하고 `EnemyDied`와 단일 `RoomCleared`를 발행하는 첫 유도→처치 루프 구현.
 - cardinal 논리 인접만 추격자 접촉으로 판정한다. 한 칸 이동으로 새 인접이 생기면 0.5초 시각 도착 경계까지 기다리고 그때도 인접한 경우에만 접촉 피해 1을 기존 플레이어 체력·0.75초 무적·피격 표현에 연결한다.
 - `PlayerDamageResult`가 폭발 `BombId`와 적 접촉 `ActorId` 원인을 구분하고, 같은 프레임 폭발 사망 적이 접촉 피해를 남기지 않는 처리 순서 구현.
@@ -72,8 +73,8 @@
 - 보스 무적 구간과 과열당 피해 상한 제거 뒤 P01이 전투를 긍정적으로 평가한 `PT-20260820-05`를 기록했다. 상시 피해 방향은 `Supported`, 전체 보스 가설 F는 행동·정량 자료 부족으로 `Mixed`이며 추가 수치 조정은 고정 WebGL 세션까지 보류한다.
 - `PT-20260820-06`의 `Pillars` 입장 즉시 돌진과 추격자 시각 도착 전 접촉 피해 교정은 수정 빌드에서 같은 참가자의 직접 확인을 받아 프로토타입 기준으로 `Accepted`했다. 최종 조합 난이도와 반복감은 전체 경로에서 회귀 관찰한다.
 - 서로 직교하는 두 방향키가 잠깐 겹칠 때 이전 cardinal 방향 대신 새 방향을 우선하도록 입력 해석을 수정하고 실제 키 겹침·WebGL 브라우저 회귀를 추가.
-- 짧은 탭 pending turn 뒤에도 남은 키 해제 후 이동과 빠른 반복 입력 유실을 재현하고, 플레이어 전용 0.2초 step·pending turn·목적 셀 보간을 frame 연속 이동으로 대체.
-- WebGL에서 key down/up이 같은 Unity frame 안에 처리되면 최종 `None`만 남던 경계를 재현하고, 마지막 짧은 cardinal 탭만 한 frame 보존한 뒤 실제 유지 상태로 복귀하도록 입력 어댑터를 보강.
+- 플레이어 이동을 기본 5 cells/s의 4방향 연속 정책으로 분리하고, 매 10ms simulation step의 `elapsed × cellsPerSecond` 이동·해제/전환 즉시 반영·셀 경계 점유 전이를 구현.
+- WebGL에서 key down/up이 같은 Unity frame 안에 처리되면 최종 `None`만 남던 경계를 재현하고, 마지막 짧은 cardinal 탭만 다음 10ms 관찰 step 하나로 보존한 뒤 실제 유지 상태로 복귀하도록 입력 어댑터를 보강.
 - `BombWeaponLoadout`이 두 폭탄 정의, 활성 슬롯, 슬롯별 설치 쿨타임과 별도 교체 쿨타임을 주입 시계 기준으로 소유하도록 구현.
 - 성공한 설치만 활성 슬롯 쿨타임을 소비하고, 실패한 설치·거부된 교체가 기존 상태를 바꾸지 않으며 비활성 슬롯도 별도 업데이트 없이 회복하는 Core 계약을 구현.
 - 기본 `prototype-cross`와 두 슬롯 로드아웃 ScriptableObject, 정의별 bomb/explosion prefab을 Unity Editor builder로 생성하고 세 TestSandbox 씬에 연결.
@@ -154,9 +155,14 @@
 - 각 던전 씬은 동일한 seed-0 bootstrap을 포함하지만 scene load 뒤 persistent primary host가 중복 bootstrap을 제거한다. Core 이동은 기대한 대상 씬이 실제 로드된 뒤 한 번만 commit된다.
 - 기본 십자 폭발은 `Void`·고정 벽에서 효과 없이 멈추고 파괴 벽은 해당 셀에 효과를 남긴 뒤 바닥으로 바꾸고 멈춘다. 광역 폭발은 반경 내 각 셀을 독립 평가해 원점을 포함한 최대 3×3을 만들며 한 셀의 벽이 다른 영역 셀을 가리지 않는다. 직선 폭발은 설치 순간에 고정한 앞쪽 한 cardinal ray만 같은 벽 규칙으로 평가한다.
 - `PrototypeGameSession`은 공유 `GridState`·`ManualGameClock`으로 이동 후 fuse 폭발 순서를 조정하고 성공한 설치·폭발 결과만 표현 계층에 전달한다. `IsPaused`일 때는 입력 재샘플링과 `ManualGameClock.Advance` 전에 `Update`를 끝내며, `Time.timeScale`을 바꾸지 않고 모든 논리 진행을 정지한다. 재개 시 현재 유지 방향을 다시 샘플링한다.
-- 플레이어 연속 위치와 이동 방향은 매 Unity frame Core에서 갱신된다. 마지막 유효 cardinal 입력은 이동 해제 뒤에도 바라보기로 유지되고 막힌 방향 입력도 갱신한다. `CurrentGridPosition`은 폭탄·폭발·적·점유 판정의 정수 셀 권위를 유지하고, 셀 경계를 통과할 때만 `GridState.TryMoveActor`와 `PlayerMovementStep`이 발생한다.
+- 플레이어 십자 폭탄 표현은 로컬 VFX 패키지가 연결된 환경에서 Core가 확정한 방향별 연속 영향 셀 수를 사용한다. 폭발 원점보다 월드 Y 0.5 높은 위치에서 중심 폭발 1개와 막히지 않은 방향별 불기둥을 최소 1초 동안 풀링 재생하고, 1~4칸을 `Flames_F` speed modifier `0.25`~`1.0`으로 표시한다. 로컬 VFX가 없으면 기존 셀 placeholder로 대체된다.
+- 플레이어 일자형 폭탄 표현은 설치 당시 확정한 한 방향에만 같은 불기둥을 재생하고, 실제 도달 거리 1~4칸을 같은 speed modifier 규칙으로 표시한다. 바로 앞이 막히면 중심 폭발만 재생한다.
+- 투척병 폭탄과 보스 일반·연쇄 투척 폭탄은 비행과 논리 폭발 규칙을 유지하면서, 폭발 시 플레이어 십자 폭탄과 같은 중심·방향별 불기둥 풀을 사용한다.
+- 플레이어 범위 폭탄은 Core가 확정한 3×3 영향 셀마다 `vfx_Explosion_Grid`를 Y 0.5 높이에서 최소 1초 동안 풀링 재생한다. 고정 벽·Void는 제외되고 파괴 가능한 벽 셀은 포함된다.
+- 플레이어 폭탄의 2초 준비 animation clip과 ParticleSystem은 정의별 실제 fuse에 맞춘 배속으로 재생하고 pause 중 논리 시계와 함께 멈춘다. 폭발 후 VFX 풀 유지 시간은 fuse와 분리한다.
+- 플레이어 이동은 기본 `5 cells/s`의 4방향 연속 정책이다. 실제 10ms simulation step마다 `elapsed × cellsPerSecond`만큼 현재 cardinal 한 축을 진행하고, 키 해제·방향 변경은 다음 step부터 적용하며 셀 중심 완료를 강제하지 않는다. 접근할 다음 셀만 예약하고 사용하지 않는 예약은 즉시 취소하며, 셀 경계를 통과할 때 `GridState.TryCommitReservedActorMove`로 `CurrentGridPosition`의 정수 점유를 원자적으로 전이하고 `PlayerMovementStep`을 발행한다. 마지막 유효 cardinal은 바라보기로 유지되고 막힌 방향 입력도 이를 갱신한다. 적의 한 칸 확정 완료 정책은 유지한다.
 - `PlayerHealthSimulation`은 검증된 초기 현재 체력, 폭발 ID별 처리 여부, 체력 하한, 상한 회복, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발·적 접촉·보스 패턴은 원본 source를 구분해 보존하면서 같은 무적을 공유하고, 회복은 무적 상태를 바꾸지 않는다. `PrototypeGameSession`은 적용된 피해·회복과 사망만 표현 이벤트로 발행한다. `DungeonPlayerHealthState`는 적용 결과를 run snapshot에 기록하고 room binder가 다음 session에 복원한다. 무적 시각과 처리 폭발 ID는 방을 넘기지 않는다.
-- `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 모든 방, `ROOM TOKENS`는 우상단에서 현재 런 값을 표시하고, 보스 panel은 보스 활성 방에서만 보이며 보스 취약 상태는 의도적으로 표시하지 않는다.
+- `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·회복·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 최대 체력에 맞춰 공용 하트 프리팹의 `Full/Empty` 칸을 동적으로 재사용·추가하고 기존 `PLAYER HP` 문구와 fill bar를 사용하지 않는다. 토큰 HUD는 아이콘 옆 숫자만 표시한다. 보스 panel은 보스 활성 방에서만 보이며 저작 이름, 런타임 phase, `현재 / 최대` 체력을 서로 다른 세 라벨로 표시한다. 이름 라벨의 문자열·font·색·material과 fill sprite는 보존하고 phase·체력 수치·fill amount만 갱신하며 취약 상태는 의도적으로 표시하지 않는다.
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·재계획 시점 BFS·최단 경로를 벗어나지 않는 최대 두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 이동으로 새 인접이 생기면 같은 0.5초 도착 시각 이후에만 접촉 가능하며, 그 전에 플레이어가 이탈하면 피해가 없다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급하며 경로가 없으면 기다린다.
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 1 cell/s BFS로 가장 가까운 유효 행/열 차선을 획득한다. 정렬 뒤 0.75초 동안 방향·최대 거리를 고정 예고하고 8 cells/s로 돌진한 뒤 1초 회복한다. 수치는 `Proposed`다.
 - 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 장갑 동안 spawn 반경 1을 수비한다. 첫 서로 다른 폭발은 갑옷만 파괴하고 폭발 중심 반대편의 가장 긴 cardinal 가지를 최대 3칸 고정해 `0.6초 예고 → 6 cells/s 질주 → 0.5초 회복 → 3 cells/s 추격`으로 전환하며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
@@ -191,7 +197,7 @@
 - commit `134dd06` post-commit WebGL을 고정한 [비밀방·탐색·보스 전체 경로 플레이테스트](../Playtesting/SecretExplorationRouteProtocol.md)와 [세션 기록 템플릿](../Playtesting/SecretExplorationRouteSessionTemplate.md)을 준비했다. 시도 1의 무힌트 자발 발견과 시도 2의 통제 확인을 분리해 금 간 단서, 무작위 벽 검사, cache `+3`, 미니맵, Recovery와 보스 선행 설치를 같은 경로에서 기록한다.
 - [금이 간 벽 비밀방](SecretRoomSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 금 간 단서가 설명 없이 읽히는지, `+3` cache가 탐색 비용에 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지는 사람 검증이 남아 있다.
 - [GDD 기반 회복방](RecoveryRoomSlice.md)의 구현과 자동 검증을 완료했다. `+2` 회복량, 방 발견성, 보스 직전 우회 가치와 최대 체력 비소비가 실제 플레이에서 자연스러운지는 사람 검증이 남아 있다. 적 처치 확률 드롭은 계속 보류한다.
-- [제한 정보 미니맵](MinimalMinimapSlice.md)의 구현과 자동·WebGL 시각 검증을 완료했다. 실제 플레이에서 길 찾기 피로를 줄이는지, `?` frontier가 선택지를 충분히 알리면서 과도하게 스포일러하지 않는지는 사람 검증이 남아 있다.
+- [제한 정보 미니맵](MinimalMinimapSlice.md)은 미방문 frontier의 종류를 숨기고, 첫 입장 뒤에만 시작·전투·폭탄 보상·회복·Secret·보스 아이콘을 공개한다. 보스 전실은 아이콘을 표시하지 않는다. 아이콘형 UI가 실제 플레이에서 길 찾기 피로를 줄이는지, 물음표 frontier가 선택지를 충분히 알리면서 과도하게 스포일러하지 않는지는 사람 검증이 남아 있다.
 - 최신 5방 WebGL에서 파괴 블록·차선 획득 돌진형·T 교차점 장갑병 panic run·자폭병의 중앙 게이트 한쪽 개방이 폭탄별 설치 위치, 퇴로와 다음 폭발 계획을 실제로 다르게 만드는지 사람 플레이테스트로 비교한다.
 - 수정된 BFS 추격자가 seed-0 수제 방에서 2~3셀 왕복 없이 지속 압박을 만들면서도 폭탄 유도가 가능한지 사람 플레이에서 다시 관찰한다.
 - seed-0 전체 사람 플레이에서 보상 후보에 따른 설치 판단, 새 보스의 예고 가독성·과열 반격 이해와 격파 뒤 종료 인지가 자연스러운지 관찰한다.
@@ -200,13 +206,16 @@
 
 ## 바로 다음 권장 작업
 
-1. 표준 `DungeonStart` seed 0에서 시작방 왼쪽 문으로 들어가 플레이어 `(4,0)`, 추격자 `(2,2)`, 투척병 staging `(2,-3)`을 확인한다. 첫 사격 anchor `(3,0)`까지 네 번 이동한 뒤 Telegraph하는 과정이 실제 준비 신호로 읽히고, 첫 적 폭탄 전에 초록 추격자가 자동 사망하지 않는지 본 뒤 전체 run의 세 예고·회피/연쇄·다음 Pillars 난이도를 기록한다.
-2. 필요하면 Editor 메뉴 `Bomb Swap > Playtest > Play Thrower Lanes Room`의 독립 씬으로 규칙 오류와 조작감 수치 문제를 재현한다. 목표 잠금·착탄·연쇄 계약이 깨진 경우만 즉시 수정하고 0.3초 예고·1.5초 fuse·범위 1·1 cell/s는 관찰 근거가 있을 때 한 범주씩 조정한다.
-3. 사람 결과가 지지되면 프로토타입 전투 콘텐츠 범위를 동결하고 GDD 필수 가설의 반복 세션으로 이동한다. 지지되지 않으면 Legacy Lanes 복귀를 카탈로그/Build Settings 한 단위로 검토하되 투척병 독립 슬라이스는 보존한다.
+1. [프레임 반응형 플레이어 이동](ContinuousPlayerMovementSlice.md)의 복구된 연속 이동을 키보드로 재확인한다. 짧은 입력 해제 즉시 정지, 셀 중간 직교 전환, 빠른 `상→우` 6회, `W` 유지 중 짧은 `D` 탭 뒤 `W` 복귀와 벽·폭탄 경계의 예약 안전성을 기록한다.
+2. 이동과 별개로 남은 run host·추격자·자폭병·폭발·방 클리어 PlayMode 기준선 8건을 분리해 수정한다.
+3. validator가 통과하는 고정 build에서 WebGL keyboard/gamepad smoke를 다시 실행한다.
+4. 통합 회귀가 해소된 고정 build에서 표준 `DungeonStart` seed 0의 투척병 준비 신호·세 예고·friendly fire와 다음 Pillars 난이도를 사람 플레이로 기록한다.
+5. 사람 결과가 지지되면 프로토타입 전투 콘텐츠 범위를 동결하고 GDD 필수 가설의 반복 세션으로 이동한다. 지지되지 않으면 Legacy Lanes 복귀를 카탈로그/Build Settings 한 단위로 검토하되 투척병 독립 슬라이스는 보존한다.
 
 ## 알려진 위험과 미정
 
-- 이동은 현재 기본 5 cells/s의 Core frame 연속 위치와 셀 경계 정수 점유 전이를 사용한다. P01은 수정 WebGL에서 일반 키 해제 즉시 정지, 빠른 `상→우` 반복과 벽 모서리 직교 전환이 자연스러움을 확인했다. 보고된 결함의 재현 계약은 `Supported`로 갱신했지만 최종 속도와 코너 보정 수치는 한 사람의 세션만으로 확정하지 않는다.
+- 전체 EditMode는 `363/363`으로 통과했다. 폭탄 fuse 복구와 준비 VFX 타이밍 테스트를 포함한 전체 PlayMode는 `184/192`이며 보스 일반탄/연쇄탄 순서 예외와 폭탄 VFX 테스트 실패는 0이다. 남은 run host·추격자·자폭병·폭발·방 클리어 8건 때문에 Full 통과로 보고하지 않는다.
+- 권위 이동 계약은 기본 5 cells/s, cardinal 단일 축, Core 10ms 고정 step 연속 위치와 셀 경계 정수 점유 전이다. 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 추가하지 않았다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`, 선택적 자폭병 `ActorId(6)`, 선택적 투척병 `ActorId(7)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 설치 방향 앞쪽 범위 3 직선 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 직선 후보는 기존 긴 십자 수치를 유지해 영향 셀이 크게 줄었으므로 복도 정렬 이점보다 약함이 먼저 느껴지는지 확인해야 한다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 함께 관찰한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
 - 전투방당 `+1`, Secret cache `+3`과 `ROOM TOKENS`는 GDD의 작은 클리어·발견 보상을 관찰하기 위한 소비처 없는 `Proposed` 임시 점수다. 상점·아이템 드롭·메타 재화·저장과 최종 경제 밸런스를 뜻하지 않으며 실제 반복 동기를 높이는지는 사람 플레이테스트가 필요하다.
@@ -217,7 +226,7 @@
 - 자폭병의 일반 2 cells/s·경고 최대 5 cells/s, 연속 경고 1.5초, 경고/조기 점화 거리 3/1, 3→8Hz pulse, 0.75초 fuse, 범위 2 십자와 Gates 유도 anchor `(0,-2)·(0,2)`는 `Proposed`다. 자동 검증은 현재 플레이어 BFS, 경고 진입·이탈·재진입 초기화, 가속·유한 점화, 인접 조기 정지, 표현 정합, 플레이어 폭발 trigger, 기존 연쇄 지연·벽 차단, 자기 사망과 한쪽 문 파괴를 보장한다. 속도·범위 동시 상향 뒤 열린 공간 회피, 장애물 압박, 범위 예측과 원하는 문 유도 여유는 후속 사람 플레이테스트가 필요하다.
 - 투척병의 1 cell/s staging·사격 anchor 이동, 0.3초 세 목표 고정 예고, 동시 3발·0.45초 비행, 0.75초 회복, 1.5초 fuse·범위 1 십자와 Lanes 기반 메인 배치는 `Proposed`다. 자동 검증은 staging이 사격 anchor 밖이고 첫 anchor까지 4칸 선행 이동하는 것, 두 적의 출구 거리, 추격자 시작점과 초기 폭발 footprint 비중첩, 6개 목표의 거리·동률 순서, 측면 순환, 단일 volley, 발별 실패, 공용 연쇄와 자기 소유 면역을 보장한다. 선행 이동이 체감상 충분한 준비 신호인지와 실제 이동 뒤 friendly fire·예고 가독성·공정성·의도적 연쇄는 사람 플레이가 필요하다.
 - commit `134dd06`의 post-commit 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0과 TextMeshPro 대형 메서드 분할 안내 경고 3건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 incremental development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
-- 보스 실제 asset은 체력 10·phase 임계 7/2, 추격 2/3/2, 돌진 3칸, 과열 2.0/1.5/2.25초, 비행 0.45초·투척 간격 0.4초, 자폭병 강제 점화 4.5초를 사용한다. 자동 테스트는 결정론·상한·전환·연결 정확성만 보장한다. placeholder에는 방향 몸짓·착탄 그림자·오디오가 없어 목적지 ghost 제거 뒤 가독성, 정보 중첩, 체력 10의 반복 피로와 실제 위협도는 사람 플레이 전까지 `Proposed`다.
+- 보스 실제 asset은 체력 10·phase 임계 7/2, 추격 2/3/2, 돌진 3칸, 일반탄 fuse 1.25초·연쇄탄 fuse 2.25초, 과열 2.0/1.5/2.25초, 비행 0.45초·투척 간격 0.4초, 자폭병 강제 점화 4.5초를 사용한다. 자동 테스트는 결정론·상한·전환·연결 정확성만 보장한다. placeholder에는 방향 몸짓·착탄 그림자·오디오가 없어 목적지 ghost 제거 뒤 가독성, 정보 중첩, 체력 10의 반복 피로와 실제 위협도는 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하고 공통 설정·키보드 리바인딩을 제공한다. focus 상실 자동 pause, UI 전용 action map과 게임패드 리바인딩은 아직 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적·자폭병·투척병 각 한 개, 자폭 유도 anchor, 투척병 사격/목표 anchor, 고정 벽·1회 파괴 벽을 지원한다. 자폭 유도 anchor는 AI waypoint가 아니라 레벨 의도·폭발 결과 검증용이고 투척병 anchor는 실제 AI 이동·목표 계약이다. Secret 문은 방별 출구 셀→연결 경계 adapter가 폭발 footprint를 소비한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 다종 환경 반응물 registry, 보상·전환 anchor와 room prefab 선택은 아직 없다.
@@ -225,12 +234,24 @@
 - Core 그래프의 기본 4~5 전투방, 단일 선택 가지와 Secret 하나의 2~3 Combat 인접 후보 정책은 `Proposed`다. 제한 정보 미니맵과 미공개 Secret 숨김은 구현했지만, 길 찾기 피로 감소·금 간 단서 발견성·방 반복 체감은 아직 사람 플레이로 판정하지 않았다.
 - 그래프 기반 실제 문 전환, Unity 씬 수명, 첫 보상 정의·활성 슬롯·현재 체력의 run persistence와 완료 뒤 같은 seed의 새 run 재시작은 구현됐다. 다만 두 슬롯이 찬 뒤 교체·버린 무기 보존, 저장·불러오기, 로딩 연출과 슬롯별 쿨타임 등 room-local 세부 상태 persistence는 아직 없다.
 - 개발 browser probe의 `audio-unlocked`는 입력 수신 marker이며 실제 오디오 재생은 아직 검증하지 않았다.
-- 실제 BGM/SFX clip·AudioSource와 카메라 shake 소비자는 아직 없다. 설정과 Mixer/화면 흔들림 배율 계약만 구현했으므로 소리·흔들림이 보인다고 보고하지 않는다.
+- 로비 BGM, 던전의 네 동기화 layer와 전투·회복 full-mix, 보스의 세 동기화 layer 후보 clip에 더해 0.145초 mono 8-bit UI 버튼 클릭 후보 `SFX_UI_ButtonClick_GooseClack_8Bit.wav`를 저작했다. BGM/SFX AudioSource, room/phase crossfade presenter, 버튼 click 재생 연결, 독립 gameplay SFX clip과 카메라 shake 소비자는 아직 없다. 설정과 Mixer/화면 흔들림 배율 계약만 구현했으므로 게임 안에서 소리·흔들림이 보인다고 보고하지 않는다.
 - 저장된 런 이어하기는 `Deferred`다. 현재 `게임 계속`은 pause 중 메모리에 있는 세션 재개일 뿐이며 run snapshot·version migration·손상 복구는 구현하거나 검증하지 않았다.
 - 게임패드 binding 구조와 합성 Input System 장치의 왼쪽 스틱·D-pad 네 방향, South/West/Start/Select 의미 명령 변환을 자동 검증했다. WebGL에서는 표준 가상 장치 연결부터 스틱·D-pad 해제, 이동 중 분리의 즉시 정지·위치 안정성과 동일 index 재연결 입력 복구, South의 Core 폭탄 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱 500ms 차단과 Start 재개 뒤 유지 스틱 한 셀 적용, Select의 실패 런 재시작까지 자동 검증했다. pause 메뉴의 South는 선택된 UI 버튼 Submit으로 유지한다. 실제 목표 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이와 새 직교 축 우선 조작감은 수동 플레이가 남아 있다.
 
 ## 최근 검증
 
+- 체력 HUD를 최대 체력 기반 재사용 하트, 숫자 전용 방 토큰, 별도 보스 이름·phase·체력 라벨로 연결했고 보상·회복·비밀방 안내와 런 완료/실패 화면을 공유 프리팹으로 옮겼다. 미니맵·HUD의 private UI Sprite에는 package 부재용 `PrototypeOptionalSpriteFallback`을 갖추고, CC0 UI 아이콘 세트는 `Assets/Game/Content/UI/Sprites/CC0`에서 라이선스 경계와 `.meta`를 함께 추적한다. 공식 Unity MCP 컴파일과 관련 PlayMode `18/18`, StaticOnly이 통과했다. 전체 콘텐츠 검증과 연결 WebGL은 현재 작업의 UI·VFX 참조 오류 없이 기존 투척병 Humanoid Animator 계약 1건에서 중단됐으므로 WebGL build와 browser smoke는 실행되지 않았다. 증거 `Artifacts/Verification/ConnectedTests/20260824-141543-217.json`, `Artifacts/Verification/20260824-231648-static/summary.json`, `Artifacts/Verification/20260824-231713-connected-web/webgl-build-status.txt`.
+
+- 폭탄별 저작 fuse를 광역 1.75초, 직선 2.25초, 보스 일반 1.25초, 보스 연쇄 2.25초, 투척병 1.5초로 Unity Editor에서 복구했다. 보스 연쇄탄이 일반탄보다 늦게 끝나는 Core 불변식이 다시 성립하고, 2초 준비 animation과 ParticleSystem은 실제 fuse 배속과 pause를 따르며 폭발 후 VFX 유지 시간은 분리했다. 전체 EditMode `363/363`, 전체 PlayMode `184/192`, StaticOnly이 통과했고 새 준비 VFX timing/pause 테스트와 기존 보스 fuse 예외는 실패 0이다. 전체 PlayMode의 나머지 8건은 run host·추격자·자폭병·폭발·방 클리어 기준선이다. 해당 당시 연결 WebGL은 로비 제목·투척병 Animator·UI private vendor 참조 때문에 빌드 전에 중단됐고, 후속 UI 정리 뒤 현재 남은 WebGL 차단은 위 최신 검증의 투척병 Animator 1건이다. 증거 `Artifacts/Verification/ConnectedTests/20260824-132411-511.json`, `Artifacts/Verification/ConnectedTests/20260824-133349-179.json`, `Artifacts/Verification/20260824-223101-connected-web/webgl-build-status.txt`.
+
+- 플레이어를 기본 5 cells/s의 반응형 연속 정책으로 복구하고, 현재 예약 API·10ms 고정 simulation·적의 한 칸 확정 이동은 유지했다. 기본값과 플레이 가능한 16개 씬의 `cellsPerSecond`는 Unity Editor로 `5`에 맞췄고 Unity 컴파일에 성공했다. 해당 당시 전체 EditMode `363/363`이 통과했고 전체 PlayMode `172/186`에서 이동·입력 응답성 실패는 0이었다. 당시 Development WebGL은 로비 제목·투척병 Animator·보스 chain fuse·public→private vendor 직접 참조 validator 오류로 중단됐고, 이 중 보스 chain fuse 차단은 위 최신 폭탄 복구로 해소됐다. 당시 browser smoke는 미실행이다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223646-232.json`, `20260823-223924-646.json`, `Artifacts/Verification/20260824-074531-static/summary.json`, `Artifacts/Verification/20260824-074450-connected-web/webgl-build-status.txt`.
+
+
+- 직접 UI Sprite 마이그레이션에서 로비 17개·pause 16개 슬롯과 per-Image 폴백을 검증했고, 공개 참조 validator가 금지된 vendor 의존성 없이 통과했다. 신규 폴백 PlayMode 4/4와 전체 PlayMode 155/155가 실패·건너뜀 0으로 통과했으며 StaticOnly 증거는 `Artifacts/Verification/20260824-022428-static/`이다. 연결된 Unity 6000.5.3f1의 12씬 Development WebGL 빌드는 128,634,328 bytes·621.059초·오류 0·경고 348건으로 성공했다. 실제 Edge browser smoke도 로비 설정·pause 설정·전체 seed-0 경로를 포함한 51/51, Console/page error 0으로 통과했으며 증거는 `Artifacts/Verification/20260824-023158-connected-web/`이다.
+
+- 로컬 서드파티 UI 원본을 Git 추적에서 분리한 공개 fallback 트리에서 `Assets/Game`→`Assets/ThirdParty` 직접 의존 0건, 콘텐츠 validator 오류 0, 대상 PlayMode `2/2`, 전체 EditMode `344/344`·PlayMode `152/152`, StaticOnly 통과를 확인했다. `Artifacts/Verification/20260823-2205-thirdparty-connected-web/`의 12씬 Development WebGL은 142,062,629 bytes·283.708초·오류 0, 기존 clean shader/vendor 범주의 경고 351건으로 성공했다. Edge keyboard `51/51`, 가상 Gamepad `14/14`, 플레이테스트 로그 2,479건 분석과 두 실행의 Console/page error 0도 통과했다. 로컬 파일 1,841개는 유지한 채 기존 추적 파일 1,695개만 Git에서 제외했으며, 팀 전달본 `BombSwap-ThirdParty-20260823-1255.unitypackage`의 SHA-256은 `9470B3A378599D55A8A12B16A1B7E846BD27A88B6FCACABB508187ED969F7B73`이다. 실제 물리 게임패드와 서드파티 라이선스 권리 확인은 자동 검증 범위 밖이다.
+- pause 제목 파도 효과의 첫 구현은 DOTween phase가 진행돼도 `SetVerticesDirty()`만으로 runtime pause TMP 메시가 다시 생성되지 않아 화면이 멈췄고, 기존 테스트가 자체 `ForceMeshUpdate()`로 결함을 가리고 있었다. 실패 기준선 `Artifacts/Verification/ConnectedTests/20260823-121258-013.json`을 보존하고, runtime의 활성 TMP만 phase 갱신 즉시 `ForceMeshUpdate()`하도록 교정했다. 기본 주기는 `1.6초/끝 대기 2단계`에서 `1초/끝 대기 1단계`로 단축했다. 테스트 자체 강제 갱신 없이 실제 정점 이동을 관찰하는 대상 PlayMode `1/1`, 콘텐츠 validator 오류 0, 전체 EditMode `344/344`·PlayMode `150/150`과 StaticOnly가 통과했다. 증거는 `Artifacts/Verification/ConnectedTests/20260823-121408-421.json`, `Artifacts/Verification/ConnectedTests/20260823-121516-200.json`, `Artifacts/Verification/ConnectedTests/20260823-121641-127.json`, `Artifacts/Verification/20260823-211656-static/summary.json`이다. `Artifacts/Verification/20260823-211700-pause-wave-refresh-connected-web/`의 12씬 Development WebGL은 142,034,707 bytes·95.972초·오류 0, 기존 전체 셰이더·vendor 범주의 경고 351건으로 성공했다. Edge keyboard browser smoke `51/51`은 pause 설정·논리 정지·재개와 전체 던전 회귀를 Console/page error 0으로 통과했고 `webgl-dungeon-paused.png`에 서로 다른 글자 높이의 파도 중간 프레임을 남겼다. pause의 여섯 TMP 글자만 갱신하는 구조이며 별도 Profiler 성능 측정은 아직 수행하지 않았다.
+- 공유 인게임 UI 프리팹 전환 최종 트리에서 콘텐츠 validator 오류 0, StaticOnly, 연결 Unity EditMode `344/344`·PlayMode `149/149`가 실패·건너뜀 0으로 통과했다. `Artifacts/Verification/20260823-003354-connected-web/`의 12씬 Development WebGL은 142,011,061 bytes·268.752초·오류 0, 기존 전체 셰이더·vendor 범주의 경고 351건으로 성공했다. Edge keyboard `51/51`은 로비 설정, 프리팹 기반 무기·체력 HUD·미니맵·pause와 전체 던전·보스·완료·실패·재시작을 통과했고, 가상 Gamepad `14/14`, 플레이테스트 로그 2,494건 분석, 두 실행의 Console/page error 0도 통과했다. 증거는 `Artifacts/Verification/20260823-005632-static/summary.json`, `Artifacts/Verification/ConnectedTests/20260822-153210-410.json`, `Artifacts/Verification/ConnectedTests/20260822-153232-436.json`, `Artifacts/Verification/20260823-003354-connected-web/webgl-build-report.json`, `browser-smoke.json`, `gamepad-smoke.json`이다.
 - 로비 UI 기능 연결을 재점검해 기존 시작·설정·돌아가기 Button, 공통 설정 runtime, 음량·화면 흔들림, 8개 키 binding과 조작 초기화 Button의 직렬화 참조가 모두 완성된 것을 확인했다. 새 씬 저작 `VersionText`만 `PrototypeLobbyPresenter`에 직접 연결하고 Player Settings `Application.version`을 `v.0.1.0`으로 표시했다. 사용자가 저작한 RectTransform·Image·폰트·색상은 변경하지 않았다. 대상 PlayMode `RunHost_ExitsFinishedRunToLobbyAndLobbyStartsCleanRun` 1/1, Console Error 0, StaticOnly은 `Artifacts/Verification/20260822-234542-static/summary.json`에서 통과했다. 전체 콘텐츠 validator의 유일한 오류는 현재 영문 `Bomb`/`Goose` 제목 저작과 한글 게임 제목 계약의 불일치이며, 이번 기능 연결 범위에서는 디자이너 UI를 변경하지 않고 보존했다.
 - `BlackandWhiteUI_117` 설정 panel을 9-slice에서 609×539 `Simple` 정수 7배 표시로 교정했다. Unity 960×600 Game View `1x`에서 모서리·상단 장식·내부 명암 픽셀이 같은 배율로 유지되고 설정 내용이 프레임 안에 남는 것을 직접 확인했다. Editor import/compile과 Play Mode Console Error/Warning은 0이며 StaticOnly은 `Artifacts/Verification/20260822-060904-static/summary.json`에서 통과했다. `0.8x` Game View처럼 비정수 축소된 Editor 미리보기는 선명도 기준으로 사용하지 않는다.
 - 공통 사용자 설정 구현 뒤 콘텐츠 validator 오류 0, StaticOnly, 연결 Unity EditMode `344/344`, 최종 PlayMode `138/138`이 실패·건너뜀 0으로 통과했다. `Artifacts/Verification/20260821-180121-connected-web/`의 최종 12씬 Development WebGL은 140,460,939 bytes·51.987초·오류 0·TextMeshPro 안내 경고 3건으로 성공했다. Edge keyboard `51/51`은 로비/일시정지 공통 설정·음량 slider·pause 유지와 전체 던전 경로를 통과했고, 수정된 가상 Gamepad `14/14`는 Start pause 중 유지 스틱 500ms 정지와 재개를 포함해 Console/page error 0으로 두 번 연속 통과했다. 실제 BGM/SFX clip, 폭발 화면 흔들림 소비자와 저장된 런 이어하기는 이 검증에 포함하지 않았다. 증거 `Artifacts/Verification/20260821-181251-static/summary.json`, `Artifacts/Verification/ConnectedTests/20260821-084747-501.json`, `Artifacts/Verification/ConnectedTests/20260821-091319-948.json`, `Artifacts/Verification/20260821-180121-connected-web/webgl-build-report.json`, `Artifacts/Verification/20260821-180121-connected-web/browser-smoke.json`, `Artifacts/Verification/20260821-180121-connected-web/gamepad-smoke-final.json`, `Artifacts/Verification/20260821-180121-connected-web/gamepad-smoke-final-retry.json`.
@@ -273,16 +294,11 @@
 - 루트 AGENTS 크기: 약 9 KB로 Codex 기본 합산 제한 32 KiB 이내.
 - 공식 Unity MCP 연결과 활성 씬 `Assets/Scenes/SampleScene.unity` 확인.
 - Unity Editor import/compile: 격자·시계·폭탄 Core, Unity 좌표 어댑터와 테스트 스크립트 임포트 후 Console 오류 0.
-- EditMode: 연결된 Unity Test Runner에서 `BombSwap.Core.Tests` 159개 통과, 실패/건너뜀/불확정 0. frame 연속 이동·해제 즉시 정지·빠른 방향 반복·다중 셀 경계·막힌 중심 제한과 기존 전투 규칙, 방 ID·범위·중복·spawn 안전·출구 경계·전체 연결성·두 퇴로·닫힌 유도 경로 테스트 포함.
 - `Tools/Verify.ps1 -Tier Fast`: 실행 중인 동일 프로젝트 Editor 잠금 때문에 별도 batchmode로는 미실행. Unity 컴파일과 EditMode 테스트는 연결된 MCP로 수행.
-- PlayMode 대상 회귀: 공식 Unity MCP로 `PrototypePlayerControllerTests` 19개 통과, 실패/건너뜀/불확정 0. 테스트 어셈블리 내부 리포터로 도메인 리로드 후 결과 확인.
-- PlayMode 전체 회귀: `BombSwap.Unity.Tests` 64개 통과, 실패/건너뜀/불확정 0. 새 직교 방향 우선 8개 사분면, 실제 입력 유지·해제·6회 `North/East` 단타의 Core 연속 위치와 Transform 직접 표시, room asset 연결, 기존 입력·전투·표현 생명주기와 방 전환 설정·마지막 방 무전환 포함.
 - `PrototypeContentValidator`: 세 전투방의 Core 변환·고유 ID, 각 씬의 대응 room/spawn/장애물/전환 참조, Input Actions·폭탄·vitals·추격자·session·카메라·조명과 Build Settings 3방 순서 검증 오류 0.
 - Scene View 다각도 시각 확인: 평행 통로의 두 세로 벽과 엇갈린 기둥의 다섯 장애물, 각 플레이어 spawn 표현을 식별.
 - Development WebGL 3방 빌드 성공: 140,537,511 bytes, 69.669초, 오류 0. 설치된 Sentis·vendor·TextMeshPro 관련 기존 범주의 경고 359개가 보고됐다.
 - 실제 Edge headless browser smoke: load, canvas focus, 기존 `W`·`Z`·`A`·`X`·`Esc` 입력과 접촉/폭발 source·적 사망·방 클리어를 관측하고 중앙 루프→평행 통로→엇갈린 기둥을 한 세션에서 전환, browser Console/page error 0.
-- 프레임 연속 이동 Development WebGL 빌드: 140,634,127 bytes, 266.945초, 오류 0, TextMeshPro IL2CPP 대형 메서드 분할 경고 3건. Edge headless에서 6회 `North/East` 단타가 각각 release 전에 실제 motion을 만들었고, 기존 전투·3방 전환·마지막 방 자기 폭발·resize·browser Console/page error 0을 확인했다.
-- 최신 WebGL 검증 증거: `Artifacts/Verification/20260814-151702-continuous-movement-web-connected/` (Git 제외). 빌드 후 자동 생성된 URP/ProjectSettings/Burst 부산물은 작업 diff에서 제거했다.
 - 공통 정적 서버 리팩터링 뒤 기존 빌드 Edge headless 회귀: load, canvas focus, keyboard, 3방 시퀀스, resize, gameplay probe, browser Console 모두 통과. 증거 `Artifacts/Verification/20260814-111845-shared-server-browser/`.
 - 파괴 가능 블록 연결 후 EditMode 173개와 PlayMode 68개 전체 통과, 실패/건너뜀/불확정 0. 대상 `CombatRoomDefinitionTests` 16개와 파괴 블록 PlayMode 테스트도 별도로 통과했으며 `PrototypeContentValidator`는 방 데이터·씬 시각·재질·presenter 참조를 오류 0으로 검증.
 - Development WebGL 빌드 성공: 140,883,086 bytes, 317.216초, 오류 0, 설치된 패키지·셰이더 기존 범주의 경고 359개. 산출물은 `Artifacts/Verification/20260814-171929-destructible-wall-web-connected/`에 기록.
@@ -331,8 +347,6 @@
 - 한 층 완료·재시작 최종 코드로 전체 EditMode 264/264와 PlayMode 99/99 통과, 실패·건너뜀·불확정 0. 완료 전후 Core run 상태, `R` 입력 변환, 새 session·navigator와 `DungeonStart` 재로드, 기존 입력·전투·씬 수명 회귀를 포함한다. 증거 `Artifacts/Verification/ConnectedTests/20260814-172818-968.json`, `Artifacts/Verification/ConnectedTests/20260814-173121-835.json`.
 - `PrototypeContentValidator`가 `RestartRun`의 Keyboard/Gamepad binding과 여덟 씬의 completion presenter·binder·input 참조를 오류 0으로 확인했다. 최신 정적 검증은 `Artifacts/Verification/20260815-024203-static/`, Unity Console Error는 0이다.
 - 최종 Development WebGL 8개 씬 빌드 성공: 137,690,568 bytes, 64.120초, 오류 0, 기존 TextMeshPro IL2CPP 경고 3. Edge headless smoke 23/23이 전체 seed-0 주 경로·보스 격파 뒤 `FLOOR CLEARED`, `R` 재시작, 새 시작방 준비 2회와 Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-024000-run-completion-web-final/`.
-- 동일 frame 방향 탭 회귀를 포함한 입력 대상 PlayMode 44/44, 전체 EditMode 264/264와 PlayMode 103/103 통과, 실패·건너뜀 0. 일반 해제 정지, 동일 frame press-release 한 frame 보존, 유지 중 직교 탭과 `North/East` 반복을 포함하며 증거는 `Artifacts/Verification/ConnectedTests/20260814-175744-070.json`, `Artifacts/Verification/ConnectedTests/20260814-180007-317.json`, `Artifacts/Verification/ConnectedTests/20260814-180046-845.json`이다.
-- 입력 회귀 최종 Development WebGL 8개 씬 빌드 성공: 137,692,259 bytes, 61.026초, 오류 0. 전체 shader 재컴파일로 기존 Sentis·vendor·TextMeshPro 범주의 경고 351개가 기록됐다. Edge headless smoke 23/23이 `ArrowLeft/ArrowUp` 즉시 press-release 여섯 번의 frame motion·50ms 정지 안정성, 전체 seed-0 경로, 보스 격파·재시작과 Console/page error 0을 확인했다. 증거 `Artifacts/Verification/20260815-030600-subframe-input-web/`, 최종 정적 검증은 `Artifacts/Verification/20260815-030932-static/`이다.
 - 사망 원인 결과 최종 코드로 `DungeonRunStateTests` 13/13, `PrototypeDungeonRunSessionTests` 23/23, 전체 EditMode 266/266와 PlayMode 106/106이 실패·건너뜀 0으로 통과했고 콘텐츠 validator·Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,714,245 bytes, 203.873초, 오류 0, TextMeshPro IL2CPP 경고 3건으로 성공했다. Edge headless smoke 25/25가 전체 seed-0 보스 완료 재시작 뒤 안전방 자기 폭발 5회, `player-died → run-failed → run-failed-cause-bomb-explosion`, `CAUSE: BOMB EXPLOSION` 실패 화면과 두 번째 `R` 재시작, 세 번째 시작방 준비를 확인했으며 Console/page error는 0이다. 증거 `Artifacts/Verification/ConnectedTests/20260814-184605-737.json`, `Artifacts/Verification/ConnectedTests/20260814-184720-099.json`, `Artifacts/Verification/ConnectedTests/20260814-184830-348.json`, `Artifacts/Verification/ConnectedTests/20260814-184847-185.json`, `Artifacts/Verification/20260815-035000-death-cause-web/`, 최종 정적 검증 `Artifacts/Verification/20260815-040447-static/`.
 - 실제 pause 최종 코드로 `PrototypePlayerControllerTests` 35/35, 전체 EditMode 266/266와 PlayMode 107/107이 실패·건너뜀 0으로 통과했고 콘텐츠 validator·Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,725,298 bytes, 63.243초, 오류 0, TextMeshPro IL2CPP 경고 3건으로 성공했다. Edge headless smoke 26/26이 안전방 pause 진입 뒤 400ms 동안 논리 셀·frame motion·폭탄 설치 불변과 재개, `PAUSED` 화면, 기존 전체 seed-0 보스 완료·재시작·자기 폭발 실패 원인·두 번째 재시작, Console/page error 0을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-191350-643.json`, `Artifacts/Verification/ConnectedTests/20260814-191504-198.json`, `Artifacts/Verification/ConnectedTests/20260814-191520-937.json`, `Artifacts/Verification/20260815-041700-pause-web/`.
 - 체력 HUD 최종 코드로 `PrototypePlayerControllerTests` 37/37, 전체 EditMode 266/266와 PlayMode 109/109가 실패·건너뜀 0으로 통과했고 `PrototypeContentValidator`는 여덟 씬의 단일 HUD·session 참조를 포함해 오류 0이었다. Unity Console 오류도 0이다. Development WebGL 8개 씬 빌드는 137,742,803 bytes, 107.893초, 오류 0으로 성공했고 전체 shader 재컴파일로 기존 Sentis·vendor·TextMeshPro 범주의 경고 351건이 기록됐다. Edge headless smoke 26/26이 기존 전체 경로와 pause·완료·실패·재시작 회귀를 통과했고 Console/page error는 0이었다. 실제 캡처에서 좌상단 플레이어 HP, 보스방 상단 보스 HP·phase, overlay와 무기 HUD의 비중첩을 확인했다. 증거 `Artifacts/Verification/ConnectedTests/20260814-193824-384.json`, `Artifacts/Verification/ConnectedTests/20260814-194001-094.json`, `Artifacts/Verification/ConnectedTests/20260814-194027-791.json`, `Artifacts/Verification/20260815-044200-health-hud-web/`, 최종 정적 검증 `Artifacts/Verification/20260815-045106-static/`.
@@ -352,11 +366,3 @@
 - 예고 목적지 보스 이동 최종 트리로 StaticOnly, 연결된 Unity EditMode 303/303·PlayMode 126/126, 콘텐츠 validator와 Unity Console 오류 0이 통과했다. 10씬 Development WebGL은 137,986,563 bytes, 88.935초, 오류 0, 기존 패키지·셰이더 범주의 경고 351건으로 성공했다. Edge 기본 smoke 재시도 34/34는 첫 Telegraph 선행 설치, 네 목적지·권위 이동, 차단 0, 네 피해, 2페이즈·격파·완료·실패·재시작과 Console/page error 0을 확인했고 가상 Gamepad 14/14도 오류 0이었다. 첫 자동 경로의 `(2,0)` 고정 벽 충돌 실패를 보존하고 방 장애물을 우회하도록 교정했다. 증거 `Artifacts/Verification/20260816-035431-static/`, `Artifacts/Verification/ConnectedTests/20260815-185449-706.json`, `Artifacts/Verification/ConnectedTests/20260815-185507-252.json`, `Artifacts/Verification/20260816-035702-boss-movement-connected-web/`.
 - commit `923a9b5`의 플레이테스트 로그 저장 post-commit 검증에서 StaticOnly과 Unity Console Error/Warning 0이 통과했다. 연결된 Unity 6000.5.3f1의 11씬 Development WebGL은 138,132,306 bytes, 14.578초, warning/error 0으로 성공했다. Edge keyboard smoke 39/39가 기존 전체 던전 회귀와 `SAVE TEST LOG` 실제 다운로드를 통과했고, `bombswap/playtest-log@1` 파일의 1,175개 사건이 클릭 직전 메모리 snapshot과 완전히 일치했다. 가상 Gamepad smoke 14/14도 통과했으며 두 브라우저 실행의 Console/page error는 0이다. 증거 `Artifacts/Verification/20260816-062845-playtest-log-web-postcommit/`, 최신 StaticOnly `Artifacts/Verification/20260816-063228-static/`.
 - commit `d9f854a`의 플레이테스트 로그 분석 하네스 post-commit 검증에서 StaticOnly, PowerShell AST, template·정적 서버·analyzer fixture가 통과했고 Unity Console Error/Warning은 0이다. 고정 Development WebGL의 Edge keyboard smoke 39/39가 새로 내려받은 1,184개 사건을 `bombswap/playtest-summary@1`로 분석해 4개 런, 고유 방 9개, Secret·Recovery·보스 격파 경로를 재구성했으며 Console/page error는 0이다. Gamepad 첫 실행은 pause 재개와 `Move(East)` 뒤 실제 east step 대기가 5초 timeout으로 실패했고 원본 report를 보존했다. 독립 재시도는 14/14와 Console/page error 0으로 통과했으므로 이번 analyzer 변경의 회귀로 보지 않지만, 해당 resume-step 대기는 간헐 하네스 위험으로 남긴다. 증거 `Artifacts/Verification/20260816-064439-static/`, `Artifacts/Verification/20260816-064439-playtest-analyzer-postcommit-browser/`.
-# 3D 캐릭터 표현
-
-- PlayerDuck과 ChaserPig에 이어 ChargerPig 모델과 전용 Animator를 연결했다. Charger의 Track/Telegraph/Charge/Recover/Die 표현은 Presenter가 기존 Core 이벤트를 번역하며, 논리 이동과 충돌 규칙은 변경하지 않는다.
-- SelfDestructPig 모델과 전용 Animator를 연결했다. Chase·WarningChase·Telegraph·Detonated Core 상태는 Idle/Run·Telegraph·Detonate 표현으로만 변환되며 기존 fuse와 펄스 튜닝은 유지한다.
-- ThrowerPig 모델과 전용 Animator를 연결했다. Track 이동은 Idle/Walk, Telegraph는 Throw, Recover는 Idle, 사망은 Die 표현으로 변환하며 기존 이동·예고·비행·회복 타이밍은 유지한다.
-- BossPig 모델과 전용 Animator를 연결했다. Telegraph 모션은 연속된 ParityWave의 첫 행에서만 재생하고 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 돌진·소환·사망은 Charge·Summon·Die로 변환한다. 연속 폭탄 발사는 개별 발사 sequence 기준으로 ThrowLeft/ThrowRight를 교대하며 기존 Boss Core 패턴과 타이밍은 유지한다.
-- Chaser·Charger·SelfDestruct·Thrower는 공통 커밋 이동으로 목적지를 예약하고 50%에서 판정 칸을 바꾸며 100%에서 이동을 완료한다. 이동 중에는 다음 AI 판단이나 Telegraph·Recover 진입을 시작하지 않는다.
-- 같은 4종 적의 연속 위치와 `EnemyLocomotionState`는 Core가 소유한다. Presenter의 위치 보간과 이동 타이머를 제거하고 Core 위치를 직접 표시해 논리 점유·피해 판정·애니메이션을 같은 이동 상태에 맞췄다.

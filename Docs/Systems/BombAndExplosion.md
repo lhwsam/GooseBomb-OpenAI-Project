@@ -36,6 +36,10 @@
 
 TestSandbox는 검증된 `PrototypeBombDefinitionAsset`에서 안정 ID, 모양, fuse, 범위, 설치 쿨타임과 bomb/explosion-cell prefab을 읽는다. 현재 `prototype-cross`는 `Cross`·fuse 2초·범위 2·설치 1.5초, `prototype-area`는 `SquareArea`·fuse 1.75초·범위 1·설치 2.5초다. 던전 보상 후보 `prototype-line`은 `ForwardLine`·fuse 2.25초·범위 3·설치 2.25초다. 자폭병 전용 `prototype-self-destruct-blast`는 `Cross`·fuse 0.75초·범위 2, 투척병 전용 `prototype-thrower-blocker`는 `Cross`·fuse 1.5초·범위 1이다. 보스 전용 `prototype-boss-throw`는 `Cross`·fuse 1.25초·범위 2, `prototype-boss-chain`은 `Cross`·fuse 2.25초·범위 2다. 네 적 폭탄 정의는 플레이어 무기 슬롯·설치 쿨타임을 사용하지 않는다. 폭발 데이터와 쿨타임은 Core 정의로 변환되고 표현 참조는 Core에 전달되지 않는다. 모든 수치 집합은 플레이테스트 전까지 `Proposed`다.
 
+플레이어 설치 폭탄의 표현 프리팹은 `Assets/Game/Content/Prefabs/Bomb/Player`가 권위 경로다. `prototype-cross`는 `NormalBomb.prefab`, `prototype-area`는 `RangeBomb.prefab`, `prototype-line`은 `StraightBomb.prefab`을 사용한다. 세 프리팹의 Animator·모델 Transform은 표현 전용이며 논리 셀 점유와 fuse는 각 `PrototypeBombDefinitionAsset`이 계속 소유한다.
+
+세 플레이어 폭탄의 준비 animation clip은 공통 2초 저작 길이를 유지하고, `PrototypeBombPresenter`가 Animator와 준비 ParticleSystem을 `2초 / 실제 fuse` 배속으로 재생해 마지막 frame과 파티클 수명을 논리 기폭 시각에 맞춘다. pause 중에는 두 표현도 논리 시계와 함께 멈추고 재개한다. 연쇄로 fuse가 앞당겨지면 확정된 연쇄 기폭 시각에 설치체를 즉시 회수하며, 폭발 후 VFX의 최소 1초 풀 유지 시간은 fuse와 분리한다.
+
 ## 폭발 전파 규칙
 
 각 방향은 원점에서 가까운 셀부터 평가한다.
@@ -93,7 +97,12 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - `PrototypeGameSession`은 설치 snapshot의 소유자가 현재 셀의 플레이어임을 근거로 한 번의 탈출 권한을 부여하고, 폭발로 폭탄이 제거되면 남은 권한을 종료한다.
 - 확정된 폭발 셀에 현재 플레이어 논리 셀이 포함되면 체력 시스템에 해당 `BombId`의 피해를 한 번 전달하고, 무적 계약을 통과한 결과만 `PlayerDamaged`로 발행한다.
 - 확정된 폭발 셀에 살아 있는 기본 추격자 또는 선택적 돌진형의 논리 셀이 포함되면 각 적 체력 시스템에 해당 `BombId`의 피해를 한 번 전달한다. 두 적은 모두 내구도 1이며 같은 결과에서 사망하면 각 논리 점유가 제거된다.
-- `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 직선 폭탄의 비대칭 설치체를 확정된 방향으로 회전한다. 폭발 셀은 해당 정의의 표시 시간이 끝나면 같은 풀에 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
+- `PrototypeBombPresenter`는 정의 ID별 설치 폭탄과 영향 셀 placeholder 풀을 사용하고, 직선 폭탄의 비대칭 설치체를 확정된 방향으로 회전한다. 공개 플레이어 폭탄 prefab 3종은 빈 `SparksEffect` 앵커를 fallback으로 유지하므로 로컬 VFX 패키지가 없는 clone에서도 Missing 참조 없이 동작한다. 권한 있는 작업자는 `Bomb Swap/Local Setup/Connect Licensed VFX`로 현재 패키지의 준비 파티클 prefab을 앵커 아래 `Particle` 자식으로 연결할 수 있다. 공개 변경을 준비할 때는 `Bomb Swap/Local Setup/Reset Player Bomb VFX to Public Fallback`으로 로컬 자식을 제거하며, 두 메뉴 모두 앵커의 저작 위치·회전을 보존한다. 설치 때 앵커를 Animator와 함께 활성화하고 폭발 때 Animator를 비활성화한다.
+- 같은 로컬 연결 메뉴는 Git 제외 `BombSwapLocalVfxOverrides.asset`에 중심·직선·Grid 폭발 VFX를 연결한다. 공개 프로젝트나 로컬 설정이 없는 환경에서는 기존 영향 셀 placeholder가 계속 대체 표현을 담당한다.
+- 플레이어의 `Cross` 폭발은 로컬 VFX가 연결되어 있으면 폭발 원점보다 월드 Y 0.5 높은 위치의 중심에 `vfx_Explosion`, 실제 Core 폭발 셀이 존재하는 각 방향에 `vfx_Bomb_Straight` 하나를 재생한다. 방향 파티클은 로컬 Z축을 북·동·남·서로 회전하고, 연속 영향 셀 수 1~4를 `Flames_F`의 speed modifier `0.25`~`1.0`으로 변환한다. 벽에 바로 막혀 영향 셀이 0개인 방향은 재생하지 않는다. 이 VFX는 폭발 정의의 기존 0.25초 셀 표시와 별개로 최소 1초 동안 유지해 저작 파티클을 조기에 자르지 않는다. VFX가 연결되지 않았거나 플레이어 외 폭발이면 기존 영향 셀 placeholder 표현을 유지한다. 모든 폭발 표현과 파티클 계층 참조는 풀링·캐시되며 표시 시간이 끝나면 반환한다. 풀을 초과하면 규칙을 누락하지 않고 표현 인스턴스만 확장한다.
+- 플레이어의 `ForwardLine` 폭발도 같은 중심·직선 VFX 풀과 높이·표시 시간을 사용한다. 설치 때 확정된 `PlacementDirection`으로 직선 VFX 하나를 회전하고, 해당 방향의 실제 연속 영향 셀 수만 speed modifier로 변환한다. 바로 앞이 막힌 경우에는 중심 VFX만 재생한다.
+- 투척병의 `prototype-thrower-blocker`와 보스의 `prototype-boss-throw`·`prototype-boss-chain`도 최종 폭발 시 같은 중심·십자 직선 VFX 풀을 사용한다. 비행·착지·fuse·연쇄 규칙은 바꾸지 않고, 각 폭탄의 실제 Core `AffectedCells`가 확정된 뒤 표현만 교체한다.
+- 플레이어의 `prototype-area`는 실제 Core `AffectedCells`의 각 셀마다 `vfx_Explosion_Grid` 하나를 월드 Y 0.5 높은 위치에서 최소 1초 동안 재생한다. 따라서 3×3 범위는 최대 9개이며, `Void`·고정 벽은 생성하지 않고 파괴 가능한 벽 셀은 포함한다. 전용 Grid VFX 풀을 사용하고 로컬 VFX가 없으면 기존 셀 placeholder로 대체한다.
 - `PrototypeDestructibleWallPresenter`는 room asset과 일치하는 정적 시각 셀을 검증하고 `BombExplosion.DestroyedWalls`가 확정된 뒤에만 대응 황갈색 4분할 블록을 비활성화한다. authored 시각이 없는 파괴 결과는 오류다.
 - `PrototypeDungeonRoomBinder`는 현재 방의 미공개 Secret 연결을 문 앞 출구 셀에 매핑한다. `BombExplosion.AffectedCells`가 그 셀에 닿으면 해당 연결만 공개하고 door/minimap 표현을 갱신한다.
 - 자폭병은 Telegraph 시작 시 `ActorId(6)` 소유의 `prototype-self-destruct-blast`를 자기 셀에 직접 설치한다. 이 적 폭탄은 `BombSimulation`의 활성 폭탄과 연쇄 스케줄러에는 포함되지만 플레이어 loadout·설치 쿨타임·`BombPlaced` 입력 성공 사건에는 포함되지 않는다.

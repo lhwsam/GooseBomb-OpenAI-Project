@@ -90,6 +90,13 @@ async function waitForEvent(page, name, options = {}) {
   }, { expectedName: name, expectedCount: count }, { timeout });
 }
 
+async function tapUiNavigationKey(page, key) {
+  await page.keyboard.down(key);
+  await page.waitForTimeout(100);
+  await page.keyboard.up(key);
+  await page.waitForTimeout(100);
+}
+
 async function assertCanvasFitsViewport(page, label) {
   const layout = await page.evaluate(() => {
     const canvas = document.querySelector("#unity-canvas");
@@ -720,61 +727,37 @@ async function main() {
     await waitForEvent(page, "lobby-ready", { timeout: 120_000 });
     fs.mkdirSync(path.dirname(lobbyScreenshotPath), { recursive: true });
     await page.screenshot({ path: lobbyScreenshotPath });
-    const lobbyCanvasBox = await canvas.boundingBox();
-    if (!lobbyCanvasBox) {
-      throw new Error("Lobby settings smoke could not resolve the Unity canvas bounds.");
-    }
-    await canvas.click({
-      position: {
-        x: lobbyCanvasBox.width * 0.5,
-        y: lobbyCanvasBox.height * 0.71,
-      },
-    });
+    await tapUiNavigationKey(page, "ArrowDown");
+    await page.keyboard.press("Enter");
     await waitForEvent(page, "lobby-settings-opened", { timeout: 5_000 });
     await waitForEvent(page, "settings-opened", { timeout: 5_000 });
     await page.screenshot({ path: settingsScreenshotPath });
-    let settingsCanvasBox = await canvas.boundingBox();
-    if (!settingsCanvasBox) {
-      throw new Error("Settings smoke could not resolve the Unity canvas bounds.");
-    }
-    await canvas.click({
-      position: {
-        x: settingsCanvasBox.width * 0.66,
-        y: settingsCanvasBox.height * 0.2,
-      },
-    });
+    await tapUiNavigationKey(page, "ArrowRight");
+    await page.keyboard.press("Enter");
     await waitForEvent(page, "settings-audio-page-opened", { timeout: 5_000 });
-    await canvas.click({
-      position: {
-        x: settingsCanvasBox.width * 0.48,
-        y: settingsCanvasBox.height * 0.4,
-      },
-    });
-    await waitForEvent(page, "settings-master-volume-changed", {
+    await tapUiNavigationKey(page, "ArrowDown");
+    await tapUiNavigationKey(page, "ArrowLeft");
+    await waitForEvent(page, "settings-bgm-volume-changed", {
       timeout: 5_000,
     });
-    settingsCanvasBox = await canvas.boundingBox();
+    const settingsCanvasBox = await canvas.boundingBox();
     if (!settingsCanvasBox) {
       throw new Error("Settings smoke could not resolve the Unity canvas bounds.");
     }
     await canvas.click({
       position: {
         x: settingsCanvasBox.width * 0.5,
-        y: settingsCanvasBox.height * 0.88,
+        y: settingsCanvasBox.height * 0.77,
       },
     });
     await waitForEvent(page, "settings-closed", { timeout: 5_000 });
     checks.push({
       name: "lobby-settings",
       status: "passed",
-      detail: "The keyboard-only settings panel opened, switched to audio/screen controls, changed Master volume, and closed without displaying gamepad bindings.",
+      detail: "The keyboard-only settings panel opened, switched to audio/screen controls, changed BGM volume, and closed without displaying gamepad bindings.",
     });
-    await canvas.click({
-      position: {
-        x: lobbyCanvasBox.width * 0.5,
-        y: lobbyCanvasBox.height * 0.55,
-      },
-    });
+    await tapUiNavigationKey(page, "ArrowUp");
+    await page.keyboard.press("Enter");
     await waitForEvent(page, "lobby-start-requested", { timeout: 5_000 });
     checks.push({
       name: "lobby-start",
@@ -2086,7 +2069,7 @@ async function main() {
       "lobby-settings-opened",
       "settings-opened",
       "settings-audio-page-opened",
-      "settings-master-volume-changed",
+      "settings-bgm-volume-changed",
       "settings-closed",
       "lobby-start-requested",
       "run-lobby-requested",
@@ -2179,6 +2162,7 @@ async function main() {
       "pause-resumed",
       "pause-resume",
       "audio-unlocked",
+      "bgm-audio-started",
     ];
     const harnessEvents = await page.evaluate(() =>
       globalThis.__BOMBSWAP_HARNESS_EVENTS__ ?? null);

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using BombSwap.Core;
 using TMPro;
 using UnityEngine;
@@ -9,27 +11,31 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeHealthHud : MonoBehaviour
     {
-        private static readonly Color PanelColor =
-            new Color(0.02f, 0.025f, 0.04f, 0.86f);
-        private static readonly Color PlayerHealthColor =
-            new Color(0.92f, 0.18f, 0.16f, 1f);
-        private static readonly Color BossHealthColor =
-            new Color(0.84f, 0.24f, 0.62f, 1f);
-
         [SerializeField]
         private PrototypeGameSession session;
 
-        private GameObject _canvasObject;
+        [SerializeField]
+        private PrototypeHealthHudView viewPrefab;
+
+        private PrototypeHealthHudView _viewInstance;
         private GameObject _bossPanelObject;
-        private Image _playerHealthFill;
+        private RectTransform _playerHeartContainer;
+        private PrototypeHealthHeartView _playerHeartPrefab;
+        private readonly List<PrototypeHealthHeartView> _playerHearts = new();
         private Image _bossHealthFill;
-        private TextMeshProUGUI _playerHealthLabel;
-        private TextMeshProUGUI _bossHealthLabel;
+        private TextMeshProUGUI _bossNameLabel;
+        private TextMeshProUGUI _bossPhaseLabel;
+        private TextMeshProUGUI _bossHealthValueLabel;
         private TextMeshProUGUI _combatRewardLabel;
         private PrototypeDungeonRoomBinder _roomBinder;
         private bool _isSubscribed;
+        private string _bossNameText = "BOSS";
 
         public PrototypeGameSession Session => session;
+
+        public PrototypeHealthHudView ViewPrefab => viewPrefab;
+
+        public PrototypeHealthHudView ViewInstance => _viewInstance;
 
         public bool IsInitialized { get; private set; }
 
@@ -48,17 +54,29 @@ namespace BombSwap
         public bool IsBossPanelVisible =>
             _bossPanelObject != null && _bossPanelObject.activeSelf;
 
-        public float PlayerHealthFillFraction =>
-            _playerHealthFill != null ? _playerHealthFill.fillAmount : 0f;
+        public int DisplayedPlayerHeartCount => DisplayedPlayerMaxHealth;
+
+        public int DisplayedFilledPlayerHeartCount => DisplayedPlayerHealth;
+
+        public int InstantiatedPlayerHeartCount => _playerHearts.Count;
 
         public float BossHealthFillFraction =>
             _bossHealthFill != null ? _bossHealthFill.fillAmount : 0f;
 
-        public string PlayerHealthText =>
-            _playerHealthLabel != null ? _playerHealthLabel.text : string.Empty;
+        public string BossNameText =>
+            _bossNameLabel != null ? _bossNameLabel.text : _bossNameText;
 
-        public string BossHealthText =>
-            _bossHealthLabel != null ? _bossHealthLabel.text : string.Empty;
+        public string BossPhaseText =>
+            _bossPhaseLabel != null
+                ? _bossPhaseLabel.text
+                : GetBossPhaseText(DisplayedBossHealth, DisplayedBossPhase);
+
+        public string BossHealthValueText =>
+            _bossHealthValueLabel != null
+                ? _bossHealthValueLabel.text
+                : GetBossHealthValueText(
+                    DisplayedBossHealth,
+                    DisplayedBossMaxHealth);
 
         public string CombatRewardText =>
             _combatRewardLabel != null ? _combatRewardLabel.text : string.Empty;
@@ -74,16 +92,37 @@ namespace BombSwap
             session = gameSession ?? throw new ArgumentNullException(nameof(gameSession));
         }
 
+        public void Configure(
+            PrototypeGameSession gameSession,
+            PrototypeHealthHudView authoredViewPrefab)
+        {
+            Configure(gameSession);
+            BindViewPrefab(authoredViewPrefab);
+        }
+
+        public void BindViewPrefab(PrototypeHealthHudView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeHealthHud before changing its view prefab.");
+            }
+
+            viewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (session == null)
+            if (session == null || viewPrefab == null ||
+                !viewPrefab.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "PrototypeHealthHud requires a game-session reference.");
+                    "PrototypeHealthHud requires a game session and a configured view prefab.");
             }
 
             _roomBinder = GetComponent<PrototypeDungeonRoomBinder>();
@@ -210,11 +249,20 @@ namespace BombSwap
 
         private void RefreshPlayer(int currentHealth, int maxHealth)
         {
+            ValidateHealth(currentHealth, maxHealth, nameof(currentHealth));
             DisplayedPlayerHealth = currentHealth;
             DisplayedPlayerMaxHealth = maxHealth;
-            _playerHealthFill.fillAmount = GetFraction(currentHealth, maxHealth);
-            _playerHealthLabel.text =
-                "PLAYER HP  " + currentHealth + " / " + maxHealth;
+            EnsurePlayerHeartCapacity(maxHealth);
+            for (int index = 0; index < _playerHearts.Count; index++)
+            {
+                bool isUsed = index < maxHealth;
+                PrototypeHealthHeartView heart = _playerHearts[index];
+                heart.gameObject.SetActive(isUsed);
+                if (isUsed)
+                {
+                    heart.SetFilled(index < currentHealth);
+                }
+            }
         }
 
         private void RefreshBoss(
@@ -227,16 +275,15 @@ namespace BombSwap
                 return;
             }
 
+            ValidateHealth(currentHealth, maxHealth, nameof(currentHealth));
             _bossPanelObject.SetActive(true);
             DisplayedBossHealth = currentHealth;
             DisplayedBossMaxHealth = maxHealth;
             DisplayedBossPhase = phase;
             _bossHealthFill.fillAmount = GetFraction(currentHealth, maxHealth);
-            _bossHealthLabel.text = currentHealth > 0
-                ? "BOSS  |  PHASE " + GetPhaseNumber(phase) +
-                  "  |  " + currentHealth + " / " + maxHealth
-                : "BOSS DEFEATED  |  0 / " + maxHealth;
-            _bossHealthLabel.color = Color.white;
+            _bossPhaseLabel.text = GetBossPhaseText(currentHealth, phase);
+            _bossHealthValueLabel.text =
+                GetBossHealthValueText(currentHealth, maxHealth);
         }
 
         private void RefreshCombatRewardTokens(int tokenCount)
@@ -247,127 +294,59 @@ namespace BombSwap
             }
 
             DisplayedCombatRewardTokenCount = tokenCount;
-            _combatRewardLabel.text = "ROOM TOKENS  " + tokenCount;
+            _combatRewardLabel.text =
+                tokenCount.ToString(CultureInfo.InvariantCulture);
         }
 
         private void CreateUi()
         {
-            _canvasObject = new GameObject(
-                "PrototypeHealthHudCanvas",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasScaler));
-            _canvasObject.transform.SetParent(transform, false);
-            Canvas canvas = _canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 110;
-            CanvasScaler scaler = _canvasObject.GetComponent<CanvasScaler>();
-            PrototypeUiFactory.ConfigureCanvasScaler(scaler);
+            _viewInstance = Instantiate(viewPrefab, transform, false);
+            _viewInstance.name = viewPrefab.name;
+            if (!_viewInstance.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "Instantiated health HUD view is missing required references.");
+            }
 
-            RectTransform playerPanel = CreatePanel(
-                "PlayerHealthPanel",
-                _canvasObject.transform,
-                new Vector2(0f, 1f),
-                new Vector2(0f, 1f),
-                new Vector2(0f, 1f),
-                new Vector2(24f, -24f),
-                new Vector2(310f, 78f));
-            _playerHealthLabel = CreateLabel(playerPanel, 21f);
-            _playerHealthFill = CreateBar(playerPanel, PlayerHealthColor);
+            _bossPanelObject = _viewInstance.BossPanel;
+            _playerHeartContainer = _viewInstance.PlayerHeartContainer;
+            _playerHeartPrefab = _viewInstance.PlayerHeartPrefab;
+            _bossHealthFill = _viewInstance.BossHealthFill;
+            _bossNameLabel = _viewInstance.BossNameLabel;
+            _bossPhaseLabel = _viewInstance.BossPhaseLabel;
+            _bossHealthValueLabel = _viewInstance.BossHealthValueLabel;
+            _combatRewardLabel = _viewInstance.CombatRewardLabel;
+            _bossNameText = GetAuthoredBossName(_bossNameLabel.text);
+            _bossNameLabel.text = _bossNameText;
 
-            RectTransform rewardPanel = CreatePanel(
-                "CombatRewardPanel",
-                _canvasObject.transform,
-                new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(-24f, -24f),
-                new Vector2(250f, 58f));
-            _combatRewardLabel = CreateLabel(rewardPanel, 21f);
-
-            RectTransform bossPanel = CreatePanel(
-                "BossHealthPanel",
-                _canvasObject.transform,
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f),
-                new Vector2(0f, -24f),
-                new Vector2(560f, 82f));
-            _bossPanelObject = bossPanel.gameObject;
-            _bossHealthLabel = CreateLabel(bossPanel, 22f);
-            _bossHealthFill = CreateBar(bossPanel, BossHealthColor);
+            PrototypeHealthHeartView[] authoredHearts =
+                _playerHeartContainer.GetComponentsInChildren<
+                    PrototypeHealthHeartView>(true);
+            for (int index = 0; index < authoredHearts.Length; index++)
+            {
+                _playerHearts.Add(authoredHearts[index]);
+            }
         }
 
-        private static RectTransform CreatePanel(
-            string objectName,
-            Transform parent,
-            Vector2 anchorMin,
-            Vector2 anchorMax,
-            Vector2 pivot,
-            Vector2 anchoredPosition,
-            Vector2 size)
+        private void EnsurePlayerHeartCapacity(int maxHealth)
         {
-            RectTransform panel = CreateRect(objectName, parent);
-            panel.anchorMin = anchorMin;
-            panel.anchorMax = anchorMax;
-            panel.pivot = pivot;
-            panel.anchoredPosition = anchoredPosition;
-            panel.sizeDelta = size;
-            Image background = panel.gameObject.AddComponent<Image>();
-            background.color = PanelColor;
-            background.raycastTarget = false;
-            return panel;
-        }
+            if (maxHealth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxHealth));
+            }
 
-        private static TextMeshProUGUI CreateLabel(
-            RectTransform panel,
-            float fontSize)
-        {
-            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
-                "Label",
-                panel,
-                fontSize,
-                TextAlignmentOptions.MidlineLeft,
-                FontStyles.Bold);
-            RectTransform rect = label.rectTransform;
-            rect.anchorMin = new Vector2(0f, 0.38f);
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(14f, 0f);
-            rect.offsetMax = new Vector2(-14f, -2f);
-            return label;
-        }
-
-        private static Image CreateBar(RectTransform panel, Color fillColor)
-        {
-            RectTransform backgroundRect = CreateRect("Bar", panel);
-            backgroundRect.anchorMin = new Vector2(0f, 0f);
-            backgroundRect.anchorMax = new Vector2(1f, 0.32f);
-            backgroundRect.offsetMin = new Vector2(14f, 12f);
-            backgroundRect.offsetMax = new Vector2(-14f, 0f);
-            Image background = backgroundRect.gameObject.AddComponent<Image>();
-            background.color = new Color(0.04f, 0.05f, 0.08f, 1f);
-            background.raycastTarget = false;
-
-            RectTransform fillRect = CreateRect("Fill", backgroundRect);
-            fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = Vector2.one;
-            fillRect.offsetMin = Vector2.zero;
-            fillRect.offsetMax = Vector2.zero;
-            Image fill = fillRect.gameObject.AddComponent<Image>();
-            fill.color = fillColor;
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fill.fillAmount = 1f;
-            fill.raycastTarget = false;
-            return fill;
-        }
-
-        private static RectTransform CreateRect(string objectName, Transform parent)
-        {
-            var child = new GameObject(objectName, typeof(RectTransform));
-            child.transform.SetParent(parent, false);
-            return child.GetComponent<RectTransform>();
+            while (_playerHearts.Count < maxHealth)
+            {
+                PrototypeHealthHeartView heart = Instantiate(
+                    _playerHeartPrefab,
+                    _playerHeartContainer,
+                    false);
+                heart.name = "PlayerHeart" +
+                    (_playerHearts.Count + 1).ToString(
+                        "00",
+                        CultureInfo.InvariantCulture);
+                _playerHearts.Add(heart);
+            }
         }
 
         private static float GetFraction(int currentHealth, int maxHealth)
@@ -375,6 +354,54 @@ namespace BombSwap
             return maxHealth > 0
                 ? Mathf.Clamp01((float)currentHealth / maxHealth)
                 : 0f;
+        }
+
+        private static void ValidateHealth(
+            int currentHealth,
+            int maxHealth,
+            string currentHealthParameterName)
+        {
+            if (maxHealth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxHealth));
+            }
+            if (currentHealth < 0 || currentHealth > maxHealth)
+            {
+                throw new ArgumentOutOfRangeException(currentHealthParameterName);
+            }
+        }
+
+        private static string GetAuthoredBossName(string authoredText)
+        {
+            if (string.IsNullOrWhiteSpace(authoredText))
+            {
+                return "BOSS";
+            }
+
+            int separatorIndex = authoredText.IndexOf('|');
+            string name = separatorIndex >= 0
+                ? authoredText.Substring(0, separatorIndex)
+                : authoredText;
+            name = name.Trim();
+            return name.Length > 0 ? name : "BOSS";
+        }
+
+        private static string GetBossPhaseText(
+            int currentHealth,
+            BossPhase phase)
+        {
+            return currentHealth > 0
+                ? "PHASE " + GetPhaseNumber(phase)
+                : "DEFEATED";
+        }
+
+        private static string GetBossHealthValueText(
+            int currentHealth,
+            int maxHealth)
+        {
+            return currentHealth.ToString(CultureInfo.InvariantCulture) +
+                " / " +
+                maxHealth.ToString(CultureInfo.InvariantCulture);
         }
 
         private static int GetPhaseNumber(BossPhase phase)

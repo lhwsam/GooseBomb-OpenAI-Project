@@ -87,6 +87,9 @@ namespace BombSwap
         [SerializeField]
         private bool bossEnabled;
 
+        [SerializeField]
+        private PrototypePauseView pauseViewPrefab;
+
         private GridState _grid;
         private ManualGameClock _clock;
         private PlayerMovementSimulation _movement;
@@ -239,6 +242,8 @@ namespace BombSwap
 
         public bool IsBossEnabledByDefault => bossEnabled;
 
+        public PrototypePauseView PauseViewPrefab => pauseViewPrefab;
+
         public bool HasChaser => IsCombatEnabledForVisit && !IsBossEnabledForVisit;
 
         public bool HasBoss => IsBossEnabledForVisit;
@@ -288,6 +293,8 @@ namespace BombSwap
         public int MaxHealth => _health != null ? _health.MaxHealth : 0;
 
         public ActorId ChaserActorId => _chaser != null ? _chaser.ActorId : default;
+
+        public ActorId PlayerActorId => PrototypePlayerActorId;
 
         public GridPosition CurrentChaserGridPosition =>
             _chaser != null ? _chaser.CurrentPosition : default;
@@ -586,6 +593,18 @@ namespace BombSwap
             _runtimeCombatEnabled = null;
             _runtimeBossEnabled = null;
             _runtimeInitialPlayerHealth = null;
+        }
+
+        public void BindPauseViewPrefab(PrototypePauseView authoredViewPrefab)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeGameSession before changing its pause view prefab.");
+            }
+
+            pauseViewPrefab = authoredViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredViewPrefab));
         }
 
         public void PrepareRuntimePlayerHealth(int currentHealth)
@@ -1018,8 +1037,6 @@ namespace BombSwap
                 return;
             }
 
-            inputReader.RefreshMoveIntent();
-
             float elapsedSeconds = Time.deltaTime;
             if (elapsedSeconds < 0f || float.IsNaN(elapsedSeconds) || float.IsInfinity(elapsedSeconds))
             {
@@ -1029,6 +1046,12 @@ namespace BombSwap
             int simulationStepCount = _simulationAccumulator.AddElapsed(
                 TimeSpan.FromSeconds(elapsedSeconds),
                 MaxSimulationStepsPerFrame);
+            if (simulationStepCount == 0)
+            {
+                return;
+            }
+
+            inputReader.RefreshMoveIntent();
             for (int stepIndex = 0; stepIndex < simulationStepCount; stepIndex++)
             {
                 AdvanceSimulationStep();
@@ -1572,12 +1595,19 @@ namespace BombSwap
 
         private void EnsurePausePresenter()
         {
+            if (pauseViewPrefab == null ||
+                !pauseViewPrefab.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    "PrototypeGameSession requires a configured pause view prefab.");
+            }
+
             _pausePresenter = GetComponent<PrototypePausePresenter>();
             if (_pausePresenter == null)
             {
                 _pausePresenter = gameObject.AddComponent<PrototypePausePresenter>();
             }
-            _pausePresenter.Configure(this);
+            _pausePresenter.Configure(this, pauseViewPrefab);
         }
 
         private static bool Contains(

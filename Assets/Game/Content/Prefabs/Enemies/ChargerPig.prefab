@@ -9,6 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7943078384769301331}
+  - component: {fileID: 6168000717224200391}
+  - component: {fileID: 7120573779700163115}
   m_Layer: 0
   m_Name: ChargerPig
   m_TagString: Untagged
@@ -32,6 +34,126 @@ Transform:
   - {fileID: 2587907593002144079}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &6168000717224200391
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8498699728700203326}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 12
+  MaxDistance: 35
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &7120573779700163115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8498699728700203326}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b90abfd93e82274eb6fea1417bb1fde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.CharacterFootstepAudio
+  audioSource: {fileID: 6168000717224200391}
+  footstepClips:
+  - {fileID: 8300000, guid: 06d73656b8ff1794fa158a9d3f1f4bf6, type: 3}
+  - {fileID: 8300000, guid: 1e38b0f53e401314484bc57c022f1d94, type: 3}
+  - {fileID: 8300000, guid: cfebd4f2c21a2fa4f8b0b27413e5f93d, type: 3}
+  - {fileID: 8300000, guid: c34baae0fc2925a4f826cf3ac7d5fb2a, type: 3}
+  volume: 0.8
+  pitchRange: {x: 0.94, y: 1.06}
+  minimumInterval: 0.08
+  countsTowardSharedEnemyLimit: 1
+  maximumSharedEnemyVoices: 4
 --- !u!1001 &2621272296136947364
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -42,15 +164,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.7366289
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.7366289
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.7366289
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
       propertyPath: m_LocalPosition.x
@@ -91,6 +213,10 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 04f73f40174080d4db52a12d1596da56, type: 3}
       propertyPath: m_Name

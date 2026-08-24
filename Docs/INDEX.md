@@ -22,6 +22,7 @@
 | 검증 방법 | [Testing](Testing/) | EditMode, PlayMode, 콘텐츠, WebGL 검증과 하네스 |
 | 플레이테스트 운영 | [Playtesting](Playtesting/) | 관찰 프로토콜, 익명 세션 기록, 유지·변경·제거 판정 |
 | WebGL 제약 | [WebGL](WebGL/) | 빌드, 호스팅, 성능, 브라우저 호환 |
+| 서드파티 원본 배포 | [ThirdPartyAssets](Systems/ThirdPartyAssets.md) | Git 제외, 로컬 unitypackage, 공개 대체 UI와 참조 검증 |
 | AI 작업 절차 | [AI](AI/) | 세션 시작, 작업 계약, 리뷰, 인계 |
 | 실제 튜닝 값 | 검증된 ScriptableObject | 코드와 문서는 값의 의도와 범위를 설명 |
 
@@ -47,6 +48,7 @@
 | 작업 | 추가로 읽을 문서 |
 |---|---|
 | 입력·플레이어 명령 | `Systems/InputAndCommands.md`, `Architecture/RuntimeFlow.md`, `WebGL/BrowserTestMatrix.md` |
+| 플레이어 4방향 연속 이동·입력 응답성 | `Systems/GridAndMovement.md`, `Systems/InputAndCommands.md`, `Development/ContinuousPlayerMovementSlice.md`; 회귀 이력은 `Development/PlayerMovementResponsivenessRegression.md` 참고 |
 | 폭탄·폭발 규칙 | `Systems/BombAndExplosion.md`, `Systems/GridAndMovement.md`, ADR-0001~0003 |
 | 방향성 직선 폭탄 | `Development/DirectionalLineBombSlice.md`, `Systems/BombAndExplosion.md`, `Systems/WeaponSlotsAndCooldown.md` |
 | 두 폭탄·쿨타임 | `Systems/WeaponSlotsAndCooldown.md`, `Development/ActiveBombSlotPersistenceSlice.md`, `ProtoType_v0.2.md` 가설 B·C |
@@ -55,7 +57,9 @@
 | seed-0 전체 던전 WebGL 탐색 | `Development/DungeonFullPathSmokeSlice.md`, `Systems/DungeonGeneration.md`, `Testing/VerificationHarness.md` |
 | 완료·사망 결과와 즉시 재시작 | `Systems/RunCompletion.md`, `Systems/DungeonGeneration.md`, `Systems/DamageAndInvulnerability.md`, `Systems/InputAndCommands.md` |
 | 로비·런 시작/복귀·TMP UI·픽셀 폰트·버튼 피드백 | `Development/LobbySlice.md`, `Systems/PixelFontRendering.md`, `Systems/UiInteractionFeedback.md`, `Systems/RunCompletion.md`, ADR-0008, `WebGL/BrowserTestMatrix.md` |
+| 인게임 HUD·미니맵·일시정지 UI 프리팹 편집 | `Systems/InGameUiPrefabs.md`, `Development/LobbySlice.md`, `Systems/UserSettingsAndAudio.md`, `Development/MinimalMinimapSlice.md` |
 | 설정·키 변경·오디오·화면 흔들림 | `Systems/UserSettingsAndAudio.md`, `Systems/InputAndCommands.md`, `Development/LobbySlice.md`, `WebGL/BrowserTestMatrix.md` |
+| BGM 콘텐츠·적응형 stem 재생 | `Systems/UserSettingsAndAudio.md`, `Development/BgmIntegrationSlice.md`, ADR-0010, `Testing/VerificationHarness.md`, `WebGL/BrowserTestMatrix.md` |
 | 플레이어 피해·런 체력·회복방 | `Systems/DamageAndInvulnerability.md`, `Development/RecoveryRoomSlice.md`, `Systems/DungeonGeneration.md` |
 | 최소 미니맵·탐색 정보 | `Development/MinimalMinimapSlice.md`, `Systems/DungeonGeneration.md`, ADR-0007 |
 | 금이 간 벽 비밀방 | `Development/SecretRoomSlice.md`, `Systems/DungeonGeneration.md`, `Systems/RoomAuthoring.md`, `Systems/BombAndExplosion.md` |
@@ -72,6 +76,7 @@
 | WebGL 빌드·성능 | `WebGL/` 전체, ADR-0004 |
 | 검증 실행 | `Testing/VerificationHarness.md`, `Testing/TestMatrix.md` |
 | 패키지·Unity 업그레이드 | `Development/PackageInventory.md`, `Migrations/` |
+| 서드파티 에셋 Import·Export·공개 저장소 준비 | `Systems/ThirdPartyAssets.md`, ADR-0005, ADR-0009 |
 | AI 세션 인계 | `AI/SessionStart.md`, `AI/HandoffTemplate.md` |
 
 ## 디렉터리 지도

@@ -137,6 +137,13 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - `PrototypeHealthHud`: 체력 10과 phase 1/2/3을 사건 기반으로 표시한다.
 - `BossBattlePlaytest.unity`: 던전 이동 없이 이 계약만 빠르게 확인하는 전용 씬이다.
 
+## 오디오 후보
+
+- 보스 BGM 후보 `Assets/Game/Content/Audio/Music/BGM_BossBattle_OverheatedThrone_8Bit_Loop.wav`는 128 BPM·32마디·60초의 seamless full mix다. 3+3+2 accent, 좌우 parity pulse, 자폭병 fuse tick, 과열 구간의 밀도 감소로 현재 세 phase의 공격 언어를 한 곡 안에서 요약하고, 저음 organ·chip choir·옥타브 fanfare·war drum을 더해 일반 전투보다 큰 규모를 구분한다.
+- 같은 폴더의 `BaseLayer`, `GrandLayer`, `DangerLayer` 세 WAV는 full mix와 2,646,000 frame으로 정렬된 적응형 음악 후보다. Base는 전 구간 유지하고 Grand와 Danger만 phase 전환 사건을 소비하는 Unity presenter가 마디 경계에서 crossfade한다. 권장 시작점은 `Phase 1 = Base 100% / Grand 30% / Danger 0%`, `Phase 2 = 100% / 75% / 25%`, `LastStand = 100% / 100% / 100%`다.
+- 레이어는 모두 동일 DSP 시각에 시작해 음소거 상태에서도 계속 재생한다. Core는 음악 시각·볼륨을 읽지 않으며, 실제 phase 발생 시각이 음악 마디에 맞지 않으면 presenter가 다음 마디 경계까지 기존 mix를 유지한 뒤 짧게 crossfade한다.
+- 실제 AudioSource, BGM Mixer route, phase crossfade와 WebGL 청감 승인은 아직 구현하지 않았다. 자동 규칙 검증은 음악이 Telegraph·폭발·자폭병 경고를 가리지 않는지 증명하지 않으므로 전용 보스 플레이테스트에서 함께 듣는다.
+
 ## 불변식
 
 - 예고한 돌진·착탄·소환·parity 셀과 실제 논리 결과가 일치한다.

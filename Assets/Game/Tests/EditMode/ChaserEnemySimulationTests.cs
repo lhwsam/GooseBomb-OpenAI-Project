@@ -308,7 +308,13 @@ namespace BombSwap.Tests.EditMode
             Assert.That(step.To, Is.EqualTo(new GridPosition(0, 1)));
             Assert.That(chaser.CanDealContactDamage, Is.False);
 
-            clock.Advance(StepInterval - TimeSpan.FromTicks(1));
+            TimeSpan halfStep = TimeSpan.FromTicks(StepInterval.Ticks / 2);
+            clock.Advance(halfStep);
+            Assert.That(chaser.TryAdvance(out _), Is.False);
+            Assert.That(chaser.CurrentPosition, Is.EqualTo(new GridPosition(0, 1)));
+            Assert.That(chaser.CanDealContactDamage, Is.False);
+
+            clock.Advance(StepInterval - halfStep - TimeSpan.FromTicks(1));
             Assert.That(chaser.CanDealContactDamage, Is.False);
 
             Assert.That(grid.TryRemoveActor(PlayerActor), Is.True);
