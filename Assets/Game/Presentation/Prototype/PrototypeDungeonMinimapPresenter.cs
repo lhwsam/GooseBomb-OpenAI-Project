@@ -1,6 +1,5 @@
 using System;
 using BombSwap.Core;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -219,7 +218,12 @@ namespace BombSwap
 
         private void CreateConnection(Vector2 from, Vector2 to)
         {
-            RectTransform rect = CreateRect("Connection", _mapRoot);
+            PrototypeDungeonMinimapConnectionView connection = Instantiate(
+                _viewInstance.ConnectionViewPrefab,
+                _mapRoot,
+                false);
+            connection.name = "Connection";
+            RectTransform rect = connection.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
@@ -232,7 +236,7 @@ namespace BombSwap
                 : new Vector2(
                     _viewInstance.ConnectionThickness,
                     Mathf.Abs(to.y - from.y));
-            Image image = rect.gameObject.AddComponent<Image>();
+            Image image = connection.ConnectionImage;
             image.color = _viewInstance.ConnectionColor;
             image.sprite = _viewInstance.ConnectionSprite;
             image.raycastTarget = false;
@@ -242,7 +246,12 @@ namespace BombSwap
             DungeonMinimapRoomSnapshot room,
             Vector2 position)
         {
-            RectTransform rect = CreateRect("Room_" + room.RoomId.Value, _mapRoot);
+            PrototypeDungeonMinimapRoomView roomView = Instantiate(
+                _viewInstance.RoomViewPrefab,
+                _mapRoot,
+                false);
+            roomView.name = "Room_" + room.RoomId.Value;
+            RectTransform rect = roomView.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
@@ -250,31 +259,7 @@ namespace BombSwap
             rect.sizeDelta = new Vector2(
                 _viewInstance.RoomSize,
                 _viewInstance.RoomSize);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.color = GetRoomColor(room.State);
-            image.sprite = _viewInstance.RoomSprite;
-            image.raycastTarget = false;
-
-            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
-                "State",
-                rect,
-                12f,
-                TextAlignmentOptions.Center,
-                FontStyles.Bold);
-            RectTransform labelRect = label.rectTransform;
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-            label.color = room.IsCurrent ? Color.black : Color.white;
-            label.text = GetRoomLabel(room.State);
-        }
-
-        private static RectTransform CreateRect(string objectName, Transform parent)
-        {
-            var child = new GameObject(objectName, typeof(RectTransform));
-            child.transform.SetParent(parent, false);
-            return child.GetComponent<RectTransform>();
+            roomView.Render(room.IsCurrent, room.KnownRoomType);
         }
 
         private static Vector2 ToUiPosition(
@@ -288,40 +273,5 @@ namespace BombSwap
                 (position.Z - centerZ) * pitch);
         }
 
-        private Color GetRoomColor(DungeonMinimapRoomState state)
-        {
-            switch (state)
-            {
-                case DungeonMinimapRoomState.Discovered:
-                    return _viewInstance.DiscoveredColor;
-                case DungeonMinimapRoomState.Visited:
-                    return _viewInstance.VisitedColor;
-                case DungeonMinimapRoomState.Current:
-                    return _viewInstance.CurrentColor;
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        nameof(state),
-                        state,
-                        "Unsupported minimap room state.");
-            }
-        }
-
-        private static string GetRoomLabel(DungeonMinimapRoomState state)
-        {
-            switch (state)
-            {
-                case DungeonMinimapRoomState.Discovered:
-                    return "?";
-                case DungeonMinimapRoomState.Visited:
-                    return "V";
-                case DungeonMinimapRoomState.Current:
-                    return "C";
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        nameof(state),
-                        state,
-                        "Unsupported minimap room state.");
-            }
-        }
     }
 }

@@ -25,7 +25,7 @@
 3. `PrototypeDungeonRoomBinder`가 `PlayerDied`의 정확한 치명 `PlayerDamageResult`를 run 실패와 `FailureDamage` snapshot으로, `RoomCleared`를 현재 노드 클리어로 기록한다.
 4. 현재 simulation 사건 순서는 `PlayerDied`가 `RoomCleared`보다 앞선다. 같은 frame에 플레이어와 보스가 함께 죽으면 먼저 기록된 `Failed`가 유지되고 뒤의 클리어 요청은 terminal 상태로 거부된다.
 5. `PrototypeRunCompletionPresenter`는 구독 순서에 의존하지 않도록 다음 `LateUpdate`에서 Core run 결과를 읽는다. 완료는 보스방의 로컬 클리어도 함께 확인하고, 실패는 어느 방에서든 표시한다. 실패 원인은 Transform이나 Collider가 아니라 `FailureDamage.SourceKind`와 프로토타입 적 `ActorId(2~4)`만으로 표시 문구를 선택한다.
-6. presenter는 결과 UI를 한 번 만들고 방 로컬 `PrototypeGameSession`을 비활성화한다. InputReader와 persistent run host는 계속 살아 있다.
+6. presenter는 공유 `PrototypeRunCompletionCanvas.prefab`을 한 번 인스턴스화하고 방 로컬 `PrototypeGameSession`을 비활성화한다. InputReader와 persistent run host는 계속 살아 있다.
 7. `RestartRun`을 받으면 presenter가 중복 요청을 잠그고 `PrototypeDungeonRunHost.RestartFinishedRun()`을 호출한다.
 8. host는 pending 전환이 없고 기존 run이 terminal인지 확인한 뒤 같은 seed, 검증된 세 catalog와 player-vitals 데이터로 새 run session·navigator를 만든다.
 9. 시작 씬의 로드 가능성을 먼저 확인하고 navigator를 교체한 뒤 `DungeonStart`를 단일 로드한다. 로드 호출이 실패하면 이전 navigator를 복구한다.
@@ -46,13 +46,14 @@
 - 재시작은 기존 `DungeonPlayerHealthState`도 재사용하지 않으며 새 상태는 최대 체력이다.
 - 페이지 reload, 전역 mutable singleton, 별도 스레드나 동기 대기를 사용하지 않는다.
 - 결과 UI는 규칙을 판정하지 않고 Core 결과 snapshot을 표현하며 입력을 host 명령으로 전달한다.
+- 결과 Canvas·TMP·Button 계층과 기본 배치는 공유 프리팹이 소유한다. presenter는 런타임에 UI 계층을 조립하지 않는다.
 
 ## 저작과 검증
 
 - 11개 던전·TestSandbox 씬 모두 Systems 오브젝트에 `PrototypeRunCompletionPresenter` 한 개를 가지며 같은 씬의 room binder와 input reader를 참조한다.
 - presenter는 보스방 완료 또는 어느 방에서든 실패했을 때만 UI를 표시한다.
 - Input Actions의 `Gameplay/RestartRun`은 Button이며 `<Keyboard>/r`, `<Gamepad>/select` binding을 가진다.
-- Editor builder와 validator는 action·binding·컴포넌트 수·참조를 검사한다.
+- Editor builder와 validator는 action·binding·컴포넌트 수, 공유 결과 프리팹의 View 참조와 모든 해당 scene의 정확한 프리팹 연결을 검사한다.
 - EditMode는 결과 단방향 전이, terminal 이동·클리어 거부와 사망 우선 순서를 검증한다.
 - PlayMode는 session 위임, 치명 피해 snapshot 보존, source와 고정 적 ID의 사망 원인 매핑, 완료·실패 상태의 새 run 재시작과 terminal host 제거→로비→새 run 수명을 검증한다.
 - Development WebGL smoke는 실제 보스 격파 뒤 결과 UI로 로비에 복귀해 다시 시작한다. 이어 안전방 자기 폭발 5회로 `player-died → run-failed → run-failed-cause-bomb-explosion`을 관찰하고, `CAUSE: BOMB EXPLOSION` 실패 화면을 캡처한 뒤 `R`로 새 시작방까지 확인한다.

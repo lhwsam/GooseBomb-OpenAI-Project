@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace BombSwap
@@ -15,16 +16,23 @@ namespace BombSwap
         private GameObject bossPanel;
 
         [SerializeField]
-        private Image playerHealthFill;
+        private RectTransform playerHeartContainer;
+
+        [SerializeField]
+        private PrototypeHealthHeartView playerHeartPrefab;
 
         [SerializeField]
         private Image bossHealthFill;
 
+        [FormerlySerializedAs("bossHealthLabel")]
         [SerializeField]
-        private TextMeshProUGUI playerHealthLabel;
+        private TextMeshProUGUI bossNameLabel;
 
         [SerializeField]
-        private TextMeshProUGUI bossHealthLabel;
+        private TextMeshProUGUI bossPhaseLabel;
+
+        [SerializeField]
+        private TextMeshProUGUI bossHealthValueLabel;
 
         [SerializeField]
         private TextMeshProUGUI combatRewardLabel;
@@ -33,32 +41,44 @@ namespace BombSwap
 
         public GameObject BossPanel => bossPanel;
 
-        public Image PlayerHealthFill => playerHealthFill;
+        public RectTransform PlayerHeartContainer => playerHeartContainer;
+
+        public PrototypeHealthHeartView PlayerHeartPrefab => playerHeartPrefab;
 
         public Image BossHealthFill => bossHealthFill;
 
-        public TextMeshProUGUI PlayerHealthLabel => playerHealthLabel;
+        public TextMeshProUGUI BossNameLabel => bossNameLabel;
 
-        public TextMeshProUGUI BossHealthLabel => bossHealthLabel;
+        public TextMeshProUGUI BossPhaseLabel => bossPhaseLabel;
+
+        public TextMeshProUGUI BossHealthValueLabel => bossHealthValueLabel;
 
         public TextMeshProUGUI CombatRewardLabel => combatRewardLabel;
 
         public bool HasRequiredReferences =>
             canvas != null &&
             bossPanel != null &&
-            playerHealthFill != null &&
+            playerHeartContainer != null &&
+            playerHeartPrefab != null &&
+            playerHeartPrefab.HasRequiredReferences &&
             bossHealthFill != null &&
-            playerHealthLabel != null &&
-            bossHealthLabel != null &&
+            bossNameLabel != null &&
+            bossPhaseLabel != null &&
+            bossHealthValueLabel != null &&
+            bossNameLabel != bossPhaseLabel &&
+            bossNameLabel != bossHealthValueLabel &&
+            bossPhaseLabel != bossHealthValueLabel &&
             combatRewardLabel != null;
 
         public void BindAuthoredView(
             Canvas authoredCanvas,
             GameObject authoredBossPanel,
-            Image authoredPlayerHealthFill,
+            RectTransform authoredPlayerHeartContainer,
+            PrototypeHealthHeartView authoredPlayerHeartPrefab,
             Image authoredBossHealthFill,
-            TextMeshProUGUI authoredPlayerHealthLabel,
-            TextMeshProUGUI authoredBossHealthLabel,
+            TextMeshProUGUI authoredBossNameLabel,
+            TextMeshProUGUI authoredBossPhaseLabel,
+            TextMeshProUGUI authoredBossHealthValueLabel,
             TextMeshProUGUI authoredCombatRewardLabel)
         {
             if (Application.isPlaying)
@@ -70,14 +90,25 @@ namespace BombSwap
             canvas = authoredCanvas ?? throw new ArgumentNullException(nameof(authoredCanvas));
             bossPanel = authoredBossPanel ??
                 throw new ArgumentNullException(nameof(authoredBossPanel));
-            playerHealthFill = authoredPlayerHealthFill ??
-                throw new ArgumentNullException(nameof(authoredPlayerHealthFill));
+            playerHeartContainer = authoredPlayerHeartContainer ??
+                throw new ArgumentNullException(nameof(authoredPlayerHeartContainer));
+            playerHeartPrefab = authoredPlayerHeartPrefab ??
+                throw new ArgumentNullException(nameof(authoredPlayerHeartPrefab));
             bossHealthFill = authoredBossHealthFill ??
                 throw new ArgumentNullException(nameof(authoredBossHealthFill));
-            playerHealthLabel = authoredPlayerHealthLabel ??
-                throw new ArgumentNullException(nameof(authoredPlayerHealthLabel));
-            bossHealthLabel = authoredBossHealthLabel ??
-                throw new ArgumentNullException(nameof(authoredBossHealthLabel));
+            bossNameLabel = authoredBossNameLabel ??
+                throw new ArgumentNullException(nameof(authoredBossNameLabel));
+            bossPhaseLabel = authoredBossPhaseLabel ??
+                throw new ArgumentNullException(nameof(authoredBossPhaseLabel));
+            bossHealthValueLabel = authoredBossHealthValueLabel ??
+                throw new ArgumentNullException(nameof(authoredBossHealthValueLabel));
+            if (bossNameLabel == bossPhaseLabel ||
+                bossNameLabel == bossHealthValueLabel ||
+                bossPhaseLabel == bossHealthValueLabel)
+            {
+                throw new ArgumentException(
+                    "Boss name, phase, and health value labels must be distinct.");
+            }
             combatRewardLabel = authoredCombatRewardLabel ??
                 throw new ArgumentNullException(nameof(authoredCombatRewardLabel));
         }

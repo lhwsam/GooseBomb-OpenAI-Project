@@ -1049,8 +1049,6 @@ namespace BombSwap
                 return;
             }
 
-            inputReader.RefreshMoveIntent();
-
             float elapsedSeconds = Time.deltaTime;
             if (elapsedSeconds < 0f || float.IsNaN(elapsedSeconds) || float.IsInfinity(elapsedSeconds))
             {
@@ -1060,6 +1058,12 @@ namespace BombSwap
             int simulationStepCount = _simulationAccumulator.AddElapsed(
                 TimeSpan.FromSeconds(elapsedSeconds),
                 MaxSimulationStepsPerFrame);
+            if (simulationStepCount == 0)
+            {
+                return;
+            }
+
+            inputReader.RefreshMoveIntent();
             for (int stepIndex = 0; stepIndex < simulationStepCount; stepIndex++)
             {
                 AdvanceSimulationStep();

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PrototypeAreaBomb
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombDefinitionAsset
   definitionId: prototype-area
-  fuseSeconds: 2
+  fuseSeconds: 1.75
   range: 1
   explosionShape: 1
   placementCooldownSeconds: 2.5

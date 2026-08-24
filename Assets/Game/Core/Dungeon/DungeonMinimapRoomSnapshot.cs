@@ -15,7 +15,8 @@ namespace BombSwap.Core
         internal DungeonMinimapRoomSnapshot(
             DungeonRoomNodeId roomId,
             RoomGraphPosition position,
-            DungeonMinimapRoomState state)
+            DungeonMinimapRoomState state,
+            RoomType? knownRoomType)
         {
             if (!roomId.IsValid)
             {
@@ -24,9 +25,11 @@ namespace BombSwap.Core
                     nameof(roomId));
             }
             ValidateState(state);
+            ValidateKnownRoomType(state, knownRoomType);
             RoomId = roomId;
             Position = position;
             State = state;
+            KnownRoomType = knownRoomType;
         }
 
         public DungeonRoomNodeId RoomId { get; }
@@ -34,6 +37,10 @@ namespace BombSwap.Core
         public RoomGraphPosition Position { get; }
 
         public DungeonMinimapRoomState State { get; }
+
+        public RoomType? KnownRoomType { get; }
+
+        public bool HasKnownRoomType => KnownRoomType.HasValue;
 
         public bool IsVisited => State != DungeonMinimapRoomState.Discovered;
 
@@ -43,7 +50,8 @@ namespace BombSwap.Core
         {
             return RoomId == other.RoomId &&
                 Position == other.Position &&
-                State == other.State;
+                State == other.State &&
+                KnownRoomType == other.KnownRoomType;
         }
 
         public override bool Equals(object obj)
@@ -57,7 +65,8 @@ namespace BombSwap.Core
             {
                 int hash = RoomId.GetHashCode();
                 hash = (hash * 397) ^ Position.GetHashCode();
-                return (hash * 397) ^ (int)State;
+                hash = (hash * 397) ^ (int)State;
+                return (hash * 397) ^ KnownRoomType.GetHashCode();
             }
         }
 
@@ -88,6 +97,46 @@ namespace BombSwap.Core
                         nameof(state),
                         state,
                         "Unsupported minimap room state.");
+            }
+        }
+
+        private static void ValidateKnownRoomType(
+            DungeonMinimapRoomState state,
+            RoomType? knownRoomType)
+        {
+            if (state == DungeonMinimapRoomState.Discovered)
+            {
+                if (knownRoomType.HasValue)
+                {
+                    throw new ArgumentException(
+                        "Discovered minimap rooms must not reveal their room type.",
+                        nameof(knownRoomType));
+                }
+                return;
+            }
+
+            if (!knownRoomType.HasValue)
+            {
+                throw new ArgumentException(
+                    "Visited minimap rooms must expose their known room type.",
+                    nameof(knownRoomType));
+            }
+
+            switch (knownRoomType.Value)
+            {
+                case RoomType.Combat:
+                case RoomType.Start:
+                case RoomType.BombReward:
+                case RoomType.BossAntechamber:
+                case RoomType.Boss:
+                case RoomType.Recovery:
+                case RoomType.Secret:
+                    return;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(knownRoomType),
+                        knownRoomType,
+                        "Unsupported known minimap room type.");
             }
         }
     }

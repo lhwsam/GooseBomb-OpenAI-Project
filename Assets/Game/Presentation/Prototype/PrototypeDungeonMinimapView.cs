@@ -12,25 +12,16 @@ namespace BombSwap
         [SerializeField]
         private RectTransform mapRoot;
 
+        [SerializeField]
+        private PrototypeDungeonMinimapRoomView roomViewPrefab;
+
+        [SerializeField]
+        private PrototypeDungeonMinimapConnectionView connectionViewPrefab;
+
         [Header("Runtime map style")]
         [SerializeField]
         private Color connectionColor =
             new Color(0.46f, 0.54f, 0.66f, 0.9f);
-
-        [SerializeField]
-        private Color discoveredColor =
-            new Color(0.19f, 0.23f, 0.31f, 1f);
-
-        [SerializeField]
-        private Color visitedColor =
-            new Color(0.14f, 0.62f, 0.84f, 1f);
-
-        [SerializeField]
-        private Color currentColor =
-            new Color(1f, 0.72f, 0.12f, 1f);
-
-        [SerializeField]
-        private Sprite roomSprite;
 
         [SerializeField]
         private Sprite connectionSprite;
@@ -48,15 +39,12 @@ namespace BombSwap
 
         public RectTransform MapRoot => mapRoot;
 
+        public PrototypeDungeonMinimapRoomView RoomViewPrefab => roomViewPrefab;
+
+        public PrototypeDungeonMinimapConnectionView ConnectionViewPrefab =>
+            connectionViewPrefab;
+
         public Color ConnectionColor => connectionColor;
-
-        public Color DiscoveredColor => discoveredColor;
-
-        public Color VisitedColor => visitedColor;
-
-        public Color CurrentColor => currentColor;
-
-        public Sprite RoomSprite => roomSprite;
 
         public Sprite ConnectionSprite => connectionSprite;
 
@@ -69,13 +57,19 @@ namespace BombSwap
         public bool HasRequiredReferences =>
             canvas != null &&
             mapRoot != null &&
+            roomViewPrefab != null &&
+            roomViewPrefab.HasRequiredReferences &&
+            connectionViewPrefab != null &&
+            connectionViewPrefab.HasRequiredReferences &&
             maximumCellPitch > 0f &&
             roomSize > 0f &&
             connectionThickness > 0f;
 
         public void BindAuthoredView(
             Canvas authoredCanvas,
-            RectTransform authoredMapRoot)
+            RectTransform authoredMapRoot,
+            PrototypeDungeonMinimapRoomView authoredRoomViewPrefab,
+            PrototypeDungeonMinimapConnectionView authoredConnectionViewPrefab)
         {
             if (Application.isPlaying)
             {
@@ -85,6 +79,10 @@ namespace BombSwap
 
             canvas = authoredCanvas ?? throw new ArgumentNullException(nameof(authoredCanvas));
             mapRoot = authoredMapRoot ?? throw new ArgumentNullException(nameof(authoredMapRoot));
+            roomViewPrefab = authoredRoomViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredRoomViewPrefab));
+            connectionViewPrefab = authoredConnectionViewPrefab ??
+                throw new ArgumentNullException(nameof(authoredConnectionViewPrefab));
         }
     }
 }

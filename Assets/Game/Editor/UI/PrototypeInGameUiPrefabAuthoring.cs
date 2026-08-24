@@ -18,19 +18,52 @@ namespace BombSwap.Editor.UI
             PrefabFolder + "/PrototypeWeaponHudCanvas.prefab";
         public const string HealthHudPrefabPath =
             PrefabFolder + "/PrototypeHealthHudCanvas.prefab";
+        public const string HealthHeartPrefabPath =
+            PrefabFolder + "/PrototypePlayerHealthHeart.prefab";
         public const string MinimapPrefabPath =
             PrefabFolder + "/PrototypeDungeonMinimapCanvas.prefab";
+        public const string MinimapRoomPrefabPath =
+            PrefabFolder + "/PrototypeDungeonMinimapRoom.prefab";
+        public const string MinimapConnectionPrefabPath =
+            PrefabFolder + "/PrototypeDungeonMinimapConnection.prefab";
         public const string PausePrefabPath =
             PrefabFolder + "/PrototypePauseCanvas.prefab";
+        public const string RunCompletionPrefabPath =
+            PrefabFolder + "/PrototypeRunCompletionCanvas.prefab";
+        public const string BombRewardPrefabPath =
+            PrefabFolder + "/PrototypeBombRewardCanvas.prefab";
+        public const string RecoveryInstructionPrefabPath =
+            PrefabFolder + "/PrototypeRecoveryPickupCanvas.prefab";
+        public const string SecretRewardPrefabPath =
+            PrefabFolder + "/PrototypeSecretRewardCanvas.prefab";
 
         public const string WeaponHudResourcePath =
             "UI/PrototypeWeaponHudCanvas";
         public const string HealthHudResourcePath =
             "UI/PrototypeHealthHudCanvas";
+        public const string HealthHeartResourcePath =
+            "UI/PrototypePlayerHealthHeart";
         public const string MinimapResourcePath =
             "UI/PrototypeDungeonMinimapCanvas";
+        public const string MinimapRoomResourcePath =
+            "UI/PrototypeDungeonMinimapRoom";
+        public const string MinimapConnectionResourcePath =
+            "UI/PrototypeDungeonMinimapConnection";
         public const string PauseResourcePath =
             "UI/PrototypePauseCanvas";
+        public const string RunCompletionResourcePath =
+            "UI/PrototypeRunCompletionCanvas";
+        public const string BombRewardResourcePath =
+            "UI/PrototypeBombRewardCanvas";
+        public const string RecoveryInstructionResourcePath =
+            "UI/PrototypeRecoveryPickupCanvas";
+        public const string SecretRewardResourcePath =
+            "UI/PrototypeSecretRewardCanvas";
+
+        private const string MinimapBackgroundAtlasPath =
+            "Assets/ThirdParty/UI/BlackandWhiteUI.png/BlackandWhiteUI.png";
+        private const string MinimapIconFolder =
+            "Assets/Game/Content/UI/Sprites/CC0/IconGodotNode/white";
 
         private static readonly Color PanelColor =
             new Color(0.02f, 0.025f, 0.04f, 0.86f);
@@ -47,12 +80,20 @@ namespace BombSwap.Editor.UI
                 PrototypeWeaponHudView weaponHud,
                 PrototypeHealthHudView healthHud,
                 PrototypeDungeonMinimapView minimap,
-                PrototypePauseView pause)
+                PrototypePauseView pause,
+                PrototypeRunCompletionView runCompletion,
+                PrototypeInstructionView bombReward,
+                PrototypeInstructionView recoveryInstruction,
+                PrototypeInstructionView secretReward)
             {
                 WeaponHud = weaponHud;
                 HealthHud = healthHud;
                 Minimap = minimap;
                 Pause = pause;
+                RunCompletion = runCompletion;
+                BombReward = bombReward;
+                RecoveryInstruction = recoveryInstruction;
+                SecretReward = secretReward;
             }
 
             public PrototypeWeaponHudView WeaponHud { get; }
@@ -62,6 +103,14 @@ namespace BombSwap.Editor.UI
             public PrototypeDungeonMinimapView Minimap { get; }
 
             public PrototypePauseView Pause { get; }
+
+            public PrototypeRunCompletionView RunCompletion { get; }
+
+            public PrototypeInstructionView BombReward { get; }
+
+            public PrototypeInstructionView RecoveryInstruction { get; }
+
+            public PrototypeInstructionView SecretReward { get; }
         }
 
         [MenuItem("Bomb Swap/UI/Create Missing In-Game UI Prefabs and Wire Scenes")]
@@ -78,7 +127,27 @@ namespace BombSwap.Editor.UI
             AssetDatabase.SaveAssets();
             Debug.Log(
                 "In-game UI prefab authoring complete. " +
-                $"Four prefab views are valid; {changedSceneCount} scenes changed.");
+                $"Eight canvas views and three reusable child views are valid; " +
+                $"{changedSceneCount} scenes changed.");
+        }
+
+        [MenuItem("Bomb Swap/UI/Repair Health HUD Boss Label References")]
+        private static void RepairHealthHudBossLabelReferencesFromMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before repairing the health HUD prefab.");
+            }
+
+            EnsureAssetFolder(PrefabFolder);
+            PrototypeHealthHeartView healthHeart = EnsurePrefab(
+                HealthHeartPrefabPath,
+                CreateHealthHeartPrefab);
+            EnsureHealthHudPrefab(healthHeart);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Health HUD boss name, phase, and health value labels are wired.");
         }
 
         public static PrefabSet EnsurePrefabAssets()
@@ -87,16 +156,61 @@ namespace BombSwap.Editor.UI
             PrototypeWeaponHudView weapon = EnsurePrefab(
                 WeaponHudPrefabPath,
                 CreateWeaponHudPrefab);
-            PrototypeHealthHudView health = EnsurePrefab(
-                HealthHudPrefabPath,
-                CreateHealthHudPrefab);
-            PrototypeDungeonMinimapView minimap = EnsurePrefab(
-                MinimapPrefabPath,
-                CreateMinimapPrefab);
+            PrototypeHealthHeartView healthHeart = EnsurePrefab(
+                HealthHeartPrefabPath,
+                CreateHealthHeartPrefab);
+            PrototypeHealthHudView health = EnsureHealthHudPrefab(healthHeart);
+            PrototypeDungeonMinimapRoomView minimapRoom =
+                EnsureMinimapRoomPrefab();
+            PrototypeDungeonMinimapConnectionView minimapConnection =
+                EnsurePrefab(
+                    MinimapConnectionPrefabPath,
+                    CreateMinimapConnectionPrefab);
+            PrototypeDungeonMinimapView minimap = EnsureMinimapPrefab(
+                minimapRoom,
+                minimapConnection);
             PrototypePauseView pause = EnsurePrefab(
                 PausePrefabPath,
                 CreatePausePrefab);
-            return new PrefabSet(weapon, health, minimap, pause);
+            PrototypeRunCompletionView completion = EnsurePrefab(
+                RunCompletionPrefabPath,
+                CreateRunCompletionPrefab);
+            PrototypeInstructionView bombReward = EnsurePrefab(
+                BombRewardPrefabPath,
+                () => CreateInstructionPrefab(
+                    "PrototypeBombRewardCanvas",
+                    BombRewardPrefabPath,
+                    "BombRewardInstruction",
+                    new Vector2(0f, -24f),
+                    Color.white,
+                    "BOMB REWARD — WALK LEFT / RIGHT"));
+            PrototypeInstructionView recovery = EnsurePrefab(
+                RecoveryInstructionPrefabPath,
+                () => CreateInstructionPrefab(
+                    "PrototypeRecoveryPickupCanvas",
+                    RecoveryInstructionPrefabPath,
+                    "RecoveryPickupInstruction",
+                    new Vector2(0f, -110f),
+                    PrototypeRecoveryPickupPresenter.DefaultPickupColor,
+                    "RECOVERY +2 — WALK ONTO THE GREEN CAPSULE"));
+            PrototypeInstructionView secretReward = EnsurePrefab(
+                SecretRewardPrefabPath,
+                () => CreateInstructionPrefab(
+                    "PrototypeSecretRewardCanvas",
+                    SecretRewardPrefabPath,
+                    "SecretRewardInstruction",
+                    new Vector2(0f, -110f),
+                    PrototypeSecretRewardPresenter.DefaultRewardColor,
+                    "SECRET CACHE  |  ROOM TOKENS +3"));
+            return new PrefabSet(
+                weapon,
+                health,
+                minimap,
+                pause,
+                completion,
+                bombReward,
+                recovery,
+                secretReward);
         }
 
         public static int WireAllGameScenes(PrefabSet prefabs)
@@ -212,6 +326,80 @@ namespace BombSwap.Editor.UI
                     changed = true;
                 }
 
+                PrototypeRunCompletionPresenter[] completions = roots
+                    .SelectMany(root => root.GetComponentsInChildren<
+                        PrototypeRunCompletionPresenter>(true))
+                    .ToArray();
+                for (int index = 0; index < completions.Length; index++)
+                {
+                    if (completions[index].ViewPrefab == prefabs.RunCompletion)
+                    {
+                        continue;
+                    }
+                    Undo.RecordObject(
+                        completions[index],
+                        "Bind Run Completion View Prefab");
+                    completions[index].BindViewPrefab(prefabs.RunCompletion);
+                    EditorUtility.SetDirty(completions[index]);
+                    changed = true;
+                }
+
+                PrototypeBombRewardPresenter[] bombRewards = roots
+                    .SelectMany(root => root.GetComponentsInChildren<
+                        PrototypeBombRewardPresenter>(true))
+                    .ToArray();
+                for (int index = 0; index < bombRewards.Length; index++)
+                {
+                    if (bombRewards[index].ViewPrefab == prefabs.BombReward)
+                    {
+                        continue;
+                    }
+                    Undo.RecordObject(
+                        bombRewards[index],
+                        "Bind Bomb Reward View Prefab");
+                    bombRewards[index].BindViewPrefab(prefabs.BombReward);
+                    EditorUtility.SetDirty(bombRewards[index]);
+                    changed = true;
+                }
+
+                PrototypeRecoveryPickupPresenter[] recoveries = roots
+                    .SelectMany(root => root.GetComponentsInChildren<
+                        PrototypeRecoveryPickupPresenter>(true))
+                    .ToArray();
+                for (int index = 0; index < recoveries.Length; index++)
+                {
+                    if (recoveries[index].ViewPrefab ==
+                        prefabs.RecoveryInstruction)
+                    {
+                        continue;
+                    }
+                    Undo.RecordObject(
+                        recoveries[index],
+                        "Bind Recovery Instruction View Prefab");
+                    recoveries[index].BindViewPrefab(
+                        prefabs.RecoveryInstruction);
+                    EditorUtility.SetDirty(recoveries[index]);
+                    changed = true;
+                }
+
+                PrototypeSecretRewardPresenter[] secretRewards = roots
+                    .SelectMany(root => root.GetComponentsInChildren<
+                        PrototypeSecretRewardPresenter>(true))
+                    .ToArray();
+                for (int index = 0; index < secretRewards.Length; index++)
+                {
+                    if (secretRewards[index].ViewPrefab == prefabs.SecretReward)
+                    {
+                        continue;
+                    }
+                    Undo.RecordObject(
+                        secretRewards[index],
+                        "Bind Secret Reward View Prefab");
+                    secretRewards[index].BindViewPrefab(prefabs.SecretReward);
+                    EditorUtility.SetDirty(secretRewards[index]);
+                    changed = true;
+                }
+
                 if (!changed)
                 {
                     return false;
@@ -304,8 +492,44 @@ namespace BombSwap.Editor.UI
             }
         }
 
-        private static PrototypeHealthHudView CreateHealthHudPrefab()
+        private static PrototypeHealthHeartView CreateHealthHeartPrefab()
         {
+            GameObject root = new GameObject(
+                "PrototypePlayerHealthHeart",
+                typeof(RectTransform));
+            try
+            {
+                RectTransform rootRect = root.GetComponent<RectTransform>();
+                rootRect.sizeDelta = new Vector2(45f, 40.5f);
+
+                Image emptyVisual = CreateHeartVisual(
+                    "Empty",
+                    root.transform,
+                    new Color(0.35f, 0.12f, 0.12f, 0.7f));
+                Image fullVisual = CreateHeartVisual(
+                    "Full",
+                    root.transform,
+                    PlayerHealthColor);
+
+                PrototypeHealthHeartView view =
+                    root.AddComponent<PrototypeHealthHeartView>();
+                view.BindAuthoredView(fullVisual, emptyVisual);
+                return SavePrefabView(root, HealthHeartPrefabPath, view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeHealthHudView CreateHealthHudPrefab(
+            PrototypeHealthHeartView healthHeartPrefab)
+        {
+            if (healthHeartPrefab == null)
+            {
+                throw new ArgumentNullException(nameof(healthHeartPrefab));
+            }
+
             GameObject root = CreateCanvasRoot(
                 "PrototypeHealthHudCanvas",
                 110,
@@ -320,13 +544,28 @@ namespace BombSwap.Editor.UI
                     new Vector2(0f, 1f),
                     new Vector2(24f, -24f),
                     new Vector2(310f, 78f));
-                TextMeshProUGUI playerLabel = CreateHealthLabel(
-                    playerPanel,
-                    21f,
-                    "PLAYER HP  10 / 10");
-                Image playerFill = CreateHealthBar(
-                    playerPanel,
-                    PlayerHealthColor);
+                RectTransform playerHeartContainer = CreateRect(
+                    "PlayerHearts",
+                    playerPanel);
+                SetRect(
+                    playerHeartContainer,
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(14f, -18.75f),
+                    new Vector2(282f, 40.5f));
+                HorizontalLayoutGroup heartLayout =
+                    playerHeartContainer.gameObject.AddComponent<HorizontalLayoutGroup>();
+                heartLayout.childAlignment = TextAnchor.MiddleLeft;
+                heartLayout.spacing = 8f;
+                heartLayout.childControlWidth = false;
+                heartLayout.childControlHeight = false;
+                heartLayout.childForceExpandWidth = false;
+                heartLayout.childForceExpandHeight = false;
+                CreateAuthoredHeartInstances(
+                    playerHeartContainer,
+                    healthHeartPrefab,
+                    5);
 
                 RectTransform rewardPanel = CreatePanel(
                     "CombatRewardPanel",
@@ -339,7 +578,8 @@ namespace BombSwap.Editor.UI
                 TextMeshProUGUI rewardLabel = CreateHealthLabel(
                     rewardPanel,
                     21f,
-                    "ROOM TOKENS  0");
+                    "0");
+                rewardLabel.name = "TokenValueLabel";
 
                 RectTransform bossPanel = CreatePanel(
                     "BossHealthPanel",
@@ -349,23 +589,43 @@ namespace BombSwap.Editor.UI
                     new Vector2(0.5f, 1f),
                     new Vector2(0f, -24f),
                     new Vector2(560f, 82f));
-                TextMeshProUGUI bossLabel = CreateHealthLabel(
-                    bossPanel,
-                    22f,
-                    "BOSS  |  PHASE 1  |  10 / 10");
                 Image bossFill = CreateHealthBar(
                     bossPanel,
                     BossHealthColor);
+                bossFill.name = "BossHealthFill";
+                TextMeshProUGUI bossNameLabel = CreateBossStatusLabel(
+                    "BossNameLabel",
+                    bossPanel,
+                    28f,
+                    "BOSS",
+                    new Vector2(0f, 26f),
+                    new Vector2(300f, 38f));
+                TextMeshProUGUI bossPhaseLabel = CreateBossStatusLabel(
+                    "BossPhaseLabel",
+                    bossPanel,
+                    20f,
+                    "PHASE 1",
+                    new Vector2(-110f, -3f),
+                    new Vector2(100f, 30f));
+                TextMeshProUGUI bossHealthValueLabel = CreateBossStatusLabel(
+                    "BossHealthValueLabel",
+                    bossPanel,
+                    20f,
+                    "10 / 10",
+                    new Vector2(110f, -3f),
+                    new Vector2(100f, 30f));
 
                 PrototypeHealthHudView view =
                     root.AddComponent<PrototypeHealthHudView>();
                 view.BindAuthoredView(
                     root.GetComponent<Canvas>(),
                     bossPanel.gameObject,
-                    playerFill,
+                    playerHeartContainer,
+                    healthHeartPrefab,
                     bossFill,
-                    playerLabel,
-                    bossLabel,
+                    bossNameLabel,
+                    bossPhaseLabel,
+                    bossHealthValueLabel,
                     rewardLabel);
                 return SavePrefabView(root, HealthHudPrefabPath, view);
             }
@@ -375,7 +635,63 @@ namespace BombSwap.Editor.UI
             }
         }
 
-        private static PrototypeDungeonMinimapView CreateMinimapPrefab()
+        private static PrototypeDungeonMinimapRoomView CreateMinimapRoomPrefab()
+        {
+            GameObject root = new GameObject(
+                "PrototypeDungeonMinimapRoom",
+                typeof(RectTransform));
+            try
+            {
+                RectTransform rootRect = root.GetComponent<RectTransform>();
+                rootRect.sizeDelta = new Vector2(26f, 26f);
+                Image roomImage = root.AddComponent<Image>();
+                roomImage.color = Color.white;
+                roomImage.raycastTarget = false;
+
+                Image roomIconImage = CreateMinimapRoomIcon(root.transform);
+
+                PrototypeDungeonMinimapRoomView view =
+                    root.AddComponent<PrototypeDungeonMinimapRoomView>();
+                BindMinimapRoomView(view, roomImage, roomIconImage);
+                return SavePrefabView(root, MinimapRoomPrefabPath, view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeDungeonMinimapConnectionView
+            CreateMinimapConnectionPrefab()
+        {
+            GameObject root = new GameObject(
+                "PrototypeDungeonMinimapConnection",
+                typeof(RectTransform));
+            try
+            {
+                RectTransform rootRect = root.GetComponent<RectTransform>();
+                rootRect.sizeDelta = new Vector2(38f, 5f);
+                Image connectionImage = root.AddComponent<Image>();
+                connectionImage.color = Color.white;
+                connectionImage.raycastTarget = false;
+
+                PrototypeDungeonMinimapConnectionView view =
+                    root.AddComponent<PrototypeDungeonMinimapConnectionView>();
+                view.BindAuthoredView(connectionImage);
+                return SavePrefabView(
+                    root,
+                    MinimapConnectionPrefabPath,
+                    view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeDungeonMinimapView CreateMinimapPrefab(
+            PrototypeDungeonMinimapRoomView roomViewPrefab,
+            PrototypeDungeonMinimapConnectionView connectionViewPrefab)
         {
             GameObject root = CreateCanvasRoot(
                 "PrototypeDungeonMinimapCanvas",
@@ -426,8 +742,146 @@ namespace BombSwap.Editor.UI
 
                 PrototypeDungeonMinimapView view =
                     root.AddComponent<PrototypeDungeonMinimapView>();
-                view.BindAuthoredView(root.GetComponent<Canvas>(), mapRoot);
+                view.BindAuthoredView(
+                    root.GetComponent<Canvas>(),
+                    mapRoot,
+                    roomViewPrefab,
+                    connectionViewPrefab);
                 return SavePrefabView(root, MinimapPrefabPath, view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeRunCompletionView CreateRunCompletionPrefab()
+        {
+            GameObject root = CreateCanvasRoot(
+                "PrototypeRunCompletionCanvas",
+                300,
+                true);
+            try
+            {
+                RectTransform backdrop = CreateRect("Backdrop", root.transform);
+                SetAnchors(backdrop, Vector2.zero, Vector2.one);
+                Image backdropImage = backdrop.gameObject.AddComponent<Image>();
+                backdropImage.color = new Color(0.015f, 0.02f, 0.04f, 1f);
+                backdropImage.raycastTarget = false;
+
+                TextMeshProUGUI title = PrototypeUiFactory.CreateText(
+                    "Title",
+                    backdrop,
+                    52f,
+                    TextAlignmentOptions.Center,
+                    FontStyles.Bold,
+                    TextWrappingModes.Normal);
+                SetAnchors(
+                    title.rectTransform,
+                    new Vector2(0.1f, 0.48f),
+                    new Vector2(0.9f, 0.68f));
+                title.text = "RUN FAILED";
+                title.color = new Color(1f, 0.32f, 0.26f, 1f);
+
+                TextMeshProUGUI failureCause = PrototypeUiFactory.CreateText(
+                    "FailureCause",
+                    backdrop,
+                    24f,
+                    TextAlignmentOptions.Center,
+                    FontStyles.Bold,
+                    TextWrappingModes.Normal);
+                SetAnchors(
+                    failureCause.rectTransform,
+                    new Vector2(0.1f, 0.42f),
+                    new Vector2(0.9f, 0.53f));
+                failureCause.text = "CAUSE: BOMB EXPLOSION";
+                failureCause.color = new Color(1f, 0.72f, 0.42f, 1f);
+
+                Button restart = PrototypeUiFactory.CreateButton(
+                    "RestartButton",
+                    backdrop,
+                    "다시 시작",
+                    27f,
+                    new Color(0.12f, 0.42f, 0.68f, 1f),
+                    new Color(0.2f, 0.66f, 0.92f, 1f));
+                SetAnchors(
+                    restart.GetComponent<RectTransform>(),
+                    new Vector2(0.27f, 0.27f),
+                    new Vector2(0.49f, 0.38f));
+
+                Button lobby = PrototypeUiFactory.CreateButton(
+                    "LobbyButton",
+                    backdrop,
+                    "로비로 돌아가기",
+                    27f,
+                    new Color(0.18f, 0.21f, 0.28f, 1f),
+                    new Color(0.34f, 0.4f, 0.52f, 1f));
+                SetAnchors(
+                    lobby.GetComponent<RectTransform>(),
+                    new Vector2(0.51f, 0.27f),
+                    new Vector2(0.73f, 0.38f));
+
+                TextMeshProUGUI status = PrototypeUiFactory.CreateText(
+                    "Status",
+                    backdrop,
+                    19f,
+                    TextAlignmentOptions.Center,
+                    FontStyles.Normal,
+                    TextWrappingModes.Normal);
+                SetAnchors(
+                    status.rectTransform,
+                    new Vector2(0.1f, 0.15f),
+                    new Vector2(0.9f, 0.25f));
+                status.text = "R 키로 즉시 다시 시작";
+                status.color = new Color(0.78f, 0.84f, 0.92f, 1f);
+
+                PrototypeRunCompletionView view =
+                    root.AddComponent<PrototypeRunCompletionView>();
+                view.BindAuthoredView(
+                    root.GetComponent<Canvas>(),
+                    title,
+                    failureCause,
+                    status,
+                    restart,
+                    lobby);
+                return SavePrefabView(root, RunCompletionPrefabPath, view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeInstructionView CreateInstructionPrefab(
+            string objectName,
+            string assetPath,
+            string labelName,
+            Vector2 anchoredPosition,
+            Color labelColor,
+            string previewText)
+        {
+            GameObject root = CreateCanvasRoot(objectName, 110, false);
+            try
+            {
+                TextMeshProUGUI instruction = PrototypeUiFactory.CreateText(
+                    labelName,
+                    root.transform,
+                    22f,
+                    TextAlignmentOptions.Center,
+                    FontStyles.Bold);
+                RectTransform rect = instruction.rectTransform;
+                rect.anchorMin = new Vector2(0.5f, 1f);
+                rect.anchorMax = new Vector2(0.5f, 1f);
+                rect.pivot = new Vector2(0.5f, 1f);
+                rect.anchoredPosition = anchoredPosition;
+                rect.sizeDelta = new Vector2(1100f, 58f);
+                instruction.color = labelColor;
+                instruction.text = previewText;
+
+                PrototypeInstructionView view =
+                    root.AddComponent<PrototypeInstructionView>();
+                view.BindAuthoredView(root.GetComponent<Canvas>(), instruction);
+                return SavePrefabView(root, assetPath, view);
             }
             finally
             {
@@ -642,6 +1096,59 @@ namespace BombSwap.Editor.UI
             return fill;
         }
 
+        private static TextMeshProUGUI CreateBossStatusLabel(
+            string objectName,
+            Transform parent,
+            float fontSize,
+            string text,
+            Vector2 anchoredPosition,
+            Vector2 size)
+        {
+            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
+                objectName,
+                parent,
+                fontSize,
+                TextAlignmentOptions.Center,
+                FontStyles.Bold);
+            SetRect(
+                label.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                anchoredPosition,
+                size);
+            label.text = text;
+            label.raycastTarget = false;
+            return label;
+        }
+
+        private static Image CreateHeartVisual(
+            string objectName,
+            Transform parent,
+            Color color)
+        {
+            RectTransform rect = CreateRect(objectName, parent);
+            SetAnchors(rect, Vector2.zero, Vector2.one);
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static void CreateAuthoredHeartInstances(
+            Transform parent,
+            PrototypeHealthHeartView heartPrefab,
+            int count)
+        {
+            for (int index = 0; index < count; index++)
+            {
+                GameObject heart = (GameObject)PrefabUtility.InstantiatePrefab(
+                    heartPrefab.gameObject,
+                    parent);
+                heart.name = $"PlayerHeart{index + 1:00}";
+            }
+        }
+
         private static Button CreateButton(
             string objectName,
             Transform parent,
@@ -721,6 +1228,316 @@ namespace BombSwap.Editor.UI
             rect.offsetMax = Vector2.zero;
         }
 
+        private static PrototypeDungeonMinimapView EnsureMinimapPrefab(
+            PrototypeDungeonMinimapRoomView roomViewPrefab,
+            PrototypeDungeonMinimapConnectionView connectionViewPrefab)
+        {
+            PrototypeDungeonMinimapView existing =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonMinimapView>(
+                    MinimapPrefabPath);
+            if (existing == null)
+            {
+                return EnsurePrefab(
+                    MinimapPrefabPath,
+                    () => CreateMinimapPrefab(
+                        roomViewPrefab,
+                        connectionViewPrefab));
+            }
+
+            if (existing.RoomViewPrefab != roomViewPrefab ||
+                existing.ConnectionViewPrefab != connectionViewPrefab)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(
+                    MinimapPrefabPath);
+                try
+                {
+                    PrototypeDungeonMinimapView view =
+                        root.GetComponent<PrototypeDungeonMinimapView>();
+                    if (view == null || view.Canvas == null ||
+                        view.MapRoot == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Existing minimap prefab is missing its authored root references.");
+                    }
+
+                    view.BindAuthoredView(
+                        view.Canvas,
+                        view.MapRoot,
+                        roomViewPrefab,
+                        connectionViewPrefab);
+                    PrefabUtility.SaveAsPrefabAsset(root, MinimapPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+                AssetDatabase.ImportAsset(
+                    MinimapPrefabPath,
+                    ImportAssetOptions.ForceUpdate);
+                existing = AssetDatabase.LoadAssetAtPath<
+                    PrototypeDungeonMinimapView>(MinimapPrefabPath);
+            }
+
+            ValidatePrefabView(existing, MinimapPrefabPath);
+            return existing;
+        }
+
+        private static PrototypeHealthHudView EnsureHealthHudPrefab(
+            PrototypeHealthHeartView healthHeartPrefab)
+        {
+            PrototypeHealthHudView existing =
+                AssetDatabase.LoadAssetAtPath<PrototypeHealthHudView>(
+                    HealthHudPrefabPath);
+            if (existing == null)
+            {
+                return EnsurePrefab(
+                    HealthHudPrefabPath,
+                    () => CreateHealthHudPrefab(healthHeartPrefab));
+            }
+
+            bool usesCanonicalNames =
+                existing.BossNameLabel != null &&
+                existing.BossPhaseLabel != null &&
+                existing.BossHealthValueLabel != null &&
+                string.Equals(
+                    existing.BossNameLabel.gameObject.name,
+                    "BossNameLabel",
+                    StringComparison.Ordinal) &&
+                string.Equals(
+                    existing.BossPhaseLabel.gameObject.name,
+                    "BossPhaseLabel",
+                    StringComparison.Ordinal) &&
+                string.Equals(
+                    existing.BossHealthValueLabel.gameObject.name,
+                    "BossHealthValueLabel",
+                    StringComparison.Ordinal);
+            if (!existing.HasRequiredReferences || !usesCanonicalNames)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(
+                    HealthHudPrefabPath);
+                try
+                {
+                    PrototypeHealthHudView view =
+                        root.GetComponent<PrototypeHealthHudView>();
+                    if (view == null || view.Canvas == null ||
+                        view.BossPanel == null ||
+                        view.PlayerHeartContainer == null ||
+                        view.BossHealthFill == null ||
+                        view.CombatRewardLabel == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Existing health HUD prefab is missing its authored root references.");
+                    }
+
+                    TextMeshProUGUI[] bossLabels = view.BossPanel
+                        .GetComponentsInChildren<TextMeshProUGUI>(true);
+                    TextMeshProUGUI phaseLabel = view.BossPhaseLabel ??
+                        FindUniqueBossLabel(
+                            bossLabels,
+                            label => label.text.Trim().StartsWith(
+                                "PHASE ",
+                                StringComparison.OrdinalIgnoreCase),
+                            "phase");
+                    TextMeshProUGUI healthValueLabel =
+                        view.BossHealthValueLabel ??
+                        FindUniqueBossLabel(
+                            bossLabels,
+                            label => label.text.Contains('/'),
+                            "health value");
+                    TextMeshProUGUI nameLabel = view.BossNameLabel ??
+                        FindUniqueBossLabel(
+                            bossLabels,
+                            label => label != phaseLabel &&
+                                label != healthValueLabel,
+                            "name");
+                    if (nameLabel == phaseLabel ||
+                        nameLabel == healthValueLabel ||
+                        phaseLabel == healthValueLabel)
+                    {
+                        throw new InvalidOperationException(
+                            "Health HUD boss labels must be three distinct TMP objects.");
+                    }
+
+                    nameLabel.gameObject.name = "BossNameLabel";
+                    phaseLabel.gameObject.name = "BossPhaseLabel";
+                    healthValueLabel.gameObject.name = "BossHealthValueLabel";
+                    view.BindAuthoredView(
+                        view.Canvas,
+                        view.BossPanel,
+                        view.PlayerHeartContainer,
+                        healthHeartPrefab,
+                        view.BossHealthFill,
+                        nameLabel,
+                        phaseLabel,
+                        healthValueLabel,
+                        view.CombatRewardLabel);
+                    PrefabUtility.SaveAsPrefabAsset(root, HealthHudPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                AssetDatabase.ImportAsset(
+                    HealthHudPrefabPath,
+                    ImportAssetOptions.ForceUpdate);
+                existing = AssetDatabase.LoadAssetAtPath<PrototypeHealthHudView>(
+                    HealthHudPrefabPath);
+            }
+
+            ValidatePrefabView(existing, HealthHudPrefabPath);
+            return existing;
+        }
+
+        private static TextMeshProUGUI FindUniqueBossLabel(
+            TextMeshProUGUI[] labels,
+            Func<TextMeshProUGUI, bool> predicate,
+            string role)
+        {
+            TextMeshProUGUI[] matches = labels.Where(predicate).ToArray();
+            if (matches.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Expected exactly one authored boss {role} label, found {matches.Length}.");
+            }
+            return matches[0];
+        }
+
+        private static PrototypeDungeonMinimapRoomView EnsureMinimapRoomPrefab()
+        {
+            PrototypeDungeonMinimapRoomView existing =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonMinimapRoomView>(
+                    MinimapRoomPrefabPath);
+            if (existing == null)
+            {
+                return EnsurePrefab(
+                    MinimapRoomPrefabPath,
+                    CreateMinimapRoomPrefab);
+            }
+
+            if (!existing.HasRequiredReferences)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(
+                    MinimapRoomPrefabPath);
+                try
+                {
+                    PrototypeDungeonMinimapRoomView view =
+                        root.GetComponent<PrototypeDungeonMinimapRoomView>();
+                    Image roomImage = view != null
+                        ? view.RoomImage
+                        : null;
+                    if (view == null || roomImage == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Existing minimap room prefab is missing its authored root view or image.");
+                    }
+
+                    Image roomIconImage = root.transform
+                        .Cast<Transform>()
+                        .Where(child => string.Equals(
+                            child.name,
+                            "Icon",
+                            StringComparison.Ordinal))
+                        .Select(child => child.GetComponent<Image>())
+                        .FirstOrDefault(image => image != null);
+                    if (roomIconImage == null)
+                    {
+                        roomIconImage = CreateMinimapRoomIcon(root.transform);
+                    }
+
+                    BindMinimapRoomView(view, roomImage, roomIconImage);
+                    PrefabUtility.SaveAsPrefabAsset(root, MinimapRoomPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                AssetDatabase.ImportAsset(
+                    MinimapRoomPrefabPath,
+                    ImportAssetOptions.ForceUpdate);
+                existing = AssetDatabase.LoadAssetAtPath<
+                    PrototypeDungeonMinimapRoomView>(MinimapRoomPrefabPath);
+            }
+
+            ValidatePrefabView(existing, MinimapRoomPrefabPath);
+            return existing;
+        }
+
+        private static Image CreateMinimapRoomIcon(Transform parent)
+        {
+            RectTransform iconRect = CreateRect("Icon", parent);
+            SetRect(
+                iconRect,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(10f, 10f));
+            Image image = iconRect.gameObject.AddComponent<Image>();
+            image.color = Color.white;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static void BindMinimapRoomView(
+            PrototypeDungeonMinimapRoomView view,
+            Image roomImage,
+            Image roomIconImage)
+        {
+            Sprite authoredCurrentBackground = roomImage.sprite;
+            Sprite currentBackground = authoredCurrentBackground != null
+                ? authoredCurrentBackground
+                : LoadSpriteSubAsset(
+                    MinimapBackgroundAtlasPath,
+                    "BlackandWhiteUI_16");
+
+            view.BindAuthoredView(
+                roomImage,
+                roomIconImage,
+                currentBackground,
+                LoadSpriteSubAsset(
+                    MinimapBackgroundAtlasPath,
+                    "BlackandWhiteUI_3"),
+                LoadSpriteAsset("icon_interrogation.png"),
+                LoadSpriteAsset("icon_flag.png"),
+                LoadSpriteAsset("icon_skull.png"),
+                LoadSpriteAsset("icon_ring.png"),
+                LoadSpriteAsset("icon_heart.png"),
+                LoadSpriteAsset("icon_chest.png"),
+                LoadSpriteAsset("icon_door.png"));
+        }
+
+        private static Sprite LoadSpriteAsset(string fileName)
+        {
+            string path = MinimapIconFolder + "/" + fileName;
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing minimap icon sprite: {path}");
+            }
+            return sprite;
+        }
+
+        private static Sprite LoadSpriteSubAsset(
+            string assetPath,
+            string spriteName)
+        {
+            Sprite sprite = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+                .OfType<Sprite>()
+                .FirstOrDefault(candidate => string.Equals(
+                    candidate.name,
+                    spriteName,
+                    StringComparison.Ordinal));
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing sprite {spriteName} in {assetPath}.");
+            }
+            return sprite;
+        }
+
         private static T EnsurePrefab<T>(
             string assetPath,
             Func<T> create)
@@ -797,12 +1614,22 @@ namespace BombSwap.Editor.UI
             bool isValid =
                 (view is PrototypeWeaponHudView weapon &&
                     weapon.HasRequiredReferences) ||
+                (view is PrototypeHealthHeartView heart &&
+                    heart.HasRequiredReferences) ||
                 (view is PrototypeHealthHudView health &&
                     health.HasRequiredReferences) ||
+                (view is PrototypeDungeonMinimapRoomView minimapRoom &&
+                    minimapRoom.HasRequiredReferences) ||
+                (view is PrototypeDungeonMinimapConnectionView minimapConnection &&
+                    minimapConnection.HasRequiredReferences) ||
                 (view is PrototypeDungeonMinimapView minimap &&
                     minimap.HasRequiredReferences) ||
                 (view is PrototypePauseView pause &&
-                    pause.HasRequiredReferences);
+                    pause.HasRequiredReferences) ||
+                (view is PrototypeRunCompletionView completion &&
+                    completion.HasRequiredReferences) ||
+                (view is PrototypeInstructionView instruction &&
+                    instruction.HasRequiredReferences);
             if (!isValid)
             {
                 throw new InvalidOperationException(

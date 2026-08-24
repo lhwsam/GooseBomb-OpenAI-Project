@@ -47,6 +47,22 @@ namespace BombSwap.Tests.Harness
             RunPlayMode();
         }
 
+        [MenuItem("Bomb Swap/Verification/Run BGM PlayMode Tests Connected")]
+        private static void RunBgmPlayModeMenu()
+        {
+            RunPlayMode("BombSwap.Tests.PlayMode.PrototypeBgmMixPolicyTests");
+        }
+
+        [MenuItem("Bomb Swap/Verification/Run Minimap PlayMode Tests Connected")]
+        private static void RunMinimapPlayModeMenu()
+        {
+            RunPlayMode(
+                "BombSwap.Tests.PlayMode.PrototypeDungeonRunSessionTests." +
+                "MinimapChildPrefabs_InstantiateAuthoredViews",
+                "BombSwap.Tests.PlayMode.PrototypeDungeonRunSessionTests." +
+                "DungeonScenes_MinimapShowsCurrentVisitedAndDiscoveredFrontier");
+        }
+
         private static void Schedule(TestMode mode, string[] testNames)
         {
             if (!string.IsNullOrEmpty(SessionState.GetString(ActiveRunKey, string.Empty)))

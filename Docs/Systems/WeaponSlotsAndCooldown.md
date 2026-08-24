@@ -38,7 +38,7 @@
 - `PrototypeWeaponHud`: Core snapshot을 표시한다. 왼쪽 아래 두 슬롯의 활성 상태, 설치 준비 bar/시간과 교체 준비 시간을 보여준다.
 - `PrototypeBombRewardPresenter`: 보상방의 기존 논리 이동 셀 사건으로 후보 접촉을 판정한다. 장치 상태를 직접 읽지 않는다.
 
-standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 2초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-line`(`ForwardLine`, fuse 2초, 범위 3, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 직선 후보는 설치 순간의 마지막 바라보기 방향 한 ray만 공격하며 비대칭 청록 설치체가 방향을 표시한다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
+standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-line`(`ForwardLine`, fuse 2.25초, 범위 3, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 직선 후보는 설치 순간의 마지막 바라보기 방향 한 ray만 공격하며 비대칭 청록 설치체가 방향을 표시한다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
 
 ## 불변식
 

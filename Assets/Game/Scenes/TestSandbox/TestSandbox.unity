@@ -3815,6 +3815,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRunCompletionPresenter
   roomBinder: {fileID: 549228493}
   inputReader: {fileID: 549228480}
+  viewPrefab: {fileID: 1591085519140803233, guid: 5ee7cd55f985bc24b8b248a97b010d85, type: 3}
 --- !u!114 &549228499
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5977,6 +5978,51 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 9091574772479243372, guid: dbc7c15af4542f14882418574ee76925, type: 3}
   m_PrefabInstance: {fileID: 953480836}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &971348886
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 971348888}
+  - component: {fileID: 971348887}
+  m_Layer: 0
+  m_Name: PrototypeBgm
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &971348887
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 971348886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f980724444e39344ad934f8c5804c2a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBgmPresenter
+  catalog: {fileID: 11400000, guid: c18904f8525b35242acd1f3fd4806bcb, type: 2}
+--- !u!4 &971348888
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 971348886}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &986183773
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -14615,3 +14661,4 @@ SceneRoots:
   m_Roots:
   - {fileID: 455876710}
   - {fileID: 153389142}
+  - {fileID: 971348888}

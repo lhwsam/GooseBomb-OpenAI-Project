@@ -10,6 +10,7 @@ namespace BombSwap
     {
         public const int DefaultBombPoolSize = 8;
         public const int DefaultExplosionPoolSize = 32;
+        public const float BombFuseVisualReferenceSeconds = 2f;
         public const float CrossExplosionVisualSeconds = 1f;
         public const float CrossExplosionVisualHeight = 0.5f;
         public const string PlayerCrossBombDefinitionId = "prototype-cross";
@@ -46,6 +47,8 @@ namespace BombSwap
             new Dictionary<GameObject, ParticleSystem>();
         private readonly Dictionary<GameObject, ParticleSystem[]> _particleSystems =
             new Dictionary<GameObject, ParticleSystem[]>();
+        private readonly Dictionary<GameObject, float[]> _particleSimulationSpeeds =
+            new Dictionary<GameObject, float[]>();
         private readonly Stack<GameObject> _availableCrossCenters =
             new Stack<GameObject>();
         private readonly Stack<GameObject> _availableCrossStraights =
@@ -169,6 +172,7 @@ namespace BombSwap
             session.ThrowerBombPlaced += OnBombPlaced;
             session.ThrowerBombLaunched += OnThrowerBombLaunched;
             session.BombExploded += OnBombExploded;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -186,6 +190,7 @@ namespace BombSwap
                 session.ThrowerBombPlaced -= OnBombPlaced;
                 session.ThrowerBombLaunched -= OnThrowerBombLaunched;
                 session.BombExploded -= OnBombExploded;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             for (int index = 0; index < _activeBossFlights.Count; index++)
@@ -306,10 +311,35 @@ namespace BombSwap
                 ? GetPlacementRotation(snapshot.PlacementDirection)
                 : Quaternion.identity;
             instance.SetActive(true);
-            SetBombAnimatorsEnabled(instance, true);
+            float fuseAnimationSpeed =
+                BombFuseVisualReferenceSeconds / definition.FuseSeconds;
+            SetBombAnimatorsEnabled(
+                instance,
+                true,
+                fuseAnimationSpeed,
+                session.IsPaused);
+            SetBombParticlePlayback(
+                instance,
+                fuseAnimationSpeed,
+                session.IsPaused);
             _activeBombs.Add(
                 snapshot.Id,
-                new ActiveBombVisual(instance, snapshot.DefinitionId));
+                new ActiveBombVisual(
+                    instance,
+                    snapshot.DefinitionId,
+                    fuseAnimationSpeed));
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            foreach (KeyValuePair<BombId, ActiveBombVisual> entry in _activeBombs)
+            {
+                ActiveBombVisual visual = entry.Value;
+                SetBombAnimatorPlayback(
+                    visual.Instance,
+                    isPaused ? 0f : visual.FuseAnimationSpeed);
+                SetBombParticlesPaused(visual.Instance, isPaused);
+            }
         }
 
         private void OnBossBombLaunched(BossBombFlight flight)
@@ -874,7 +904,11 @@ namespace BombSwap
             return instance;
         }
 
-        private void SetBombAnimatorsEnabled(GameObject instance, bool enabled)
+        private void SetBombAnimatorsEnabled(
+            GameObject instance,
+            bool enabled,
+            float playbackSpeed = 1f,
+            bool paused = false)
         {
             if (!_bombAnimators.TryGetValue(instance, out Animator[] animators))
             {
@@ -890,20 +924,83 @@ namespace BombSwap
                     animator.Rebind();
                     animator.Update(0f);
                 }
+                animator.speed = enabled && !paused ? playbackSpeed : 0f;
             }
+        }
+
+        private void SetBombAnimatorPlayback(GameObject instance, float playbackSpeed)
+        {
+            if (!_bombAnimators.TryGetValue(instance, out Animator[] animators))
+            {
+                return;
+            }
+            for (int index = 0; index < animators.Length; index++)
+            {
+                if (animators[index].enabled)
+                {
+                    animators[index].speed = playbackSpeed;
+                }
+            }
+        }
+
+        private void SetBombParticlesPaused(GameObject instance, bool paused)
+        {
+            ParticleSystem[] systems = GetParticleSystems(instance);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem system = systems[index];
+                if (paused && system.isPlaying)
+                {
+                    system.Pause(true);
+                }
+                else if (!paused && system.isPaused)
+                {
+                    system.Play(true);
+                }
+            }
+        }
+
+        private void SetBombParticlePlayback(
+            GameObject instance,
+            float playbackSpeed,
+            bool paused)
+        {
+            ParticleSystem[] systems = GetParticleSystems(instance);
+            if (!_particleSimulationSpeeds.TryGetValue(instance, out float[] baseSpeeds))
+            {
+                baseSpeeds = new float[systems.Length];
+                for (int index = 0; index < systems.Length; index++)
+                {
+                    baseSpeeds[index] = systems[index].main.simulationSpeed;
+                }
+                _particleSimulationSpeeds.Add(instance, baseSpeeds);
+            }
+
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                main.simulationSpeed = baseSpeeds[index] * playbackSpeed;
+            }
+            SetBombParticlesPaused(instance, paused);
         }
 
         private readonly struct ActiveBombVisual
         {
-            public ActiveBombVisual(GameObject instance, BombDefinitionId definitionId)
+            public ActiveBombVisual(
+                GameObject instance,
+                BombDefinitionId definitionId,
+                float fuseAnimationSpeed)
             {
                 Instance = instance;
                 DefinitionId = definitionId;
+                FuseAnimationSpeed = fuseAnimationSpeed;
             }
 
             public GameObject Instance { get; }
 
             public BombDefinitionId DefinitionId { get; }
+
+            public float FuseAnimationSpeed { get; }
         }
 
         private struct TimedExplosionVisual

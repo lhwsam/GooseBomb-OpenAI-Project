@@ -157,9 +157,11 @@ namespace BombSwap.Editor.ContentValidation
 
         public static ISet<string> GetApprovedPlayerBombVfxDependencies()
         {
-            return new HashSet<string>(
+            var dependencies = new HashSet<string>(
                 AssetDatabase.GetDependencies(SparksEffectPrefabPath, true),
                 StringComparer.OrdinalIgnoreCase);
+            dependencies.Add(SparksEffectPrefabPath);
+            return dependencies;
         }
 
         private static GameObject LoadParticlePrefab(string assetPath)

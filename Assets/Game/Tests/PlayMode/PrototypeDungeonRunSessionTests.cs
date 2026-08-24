@@ -231,6 +231,97 @@ namespace BombSwap.Tests.PlayMode
                     armored));
         }
 
+        [UnityTest]
+        public IEnumerator RunCompletionPrefab_InstantiatesAuthoredView()
+        {
+            PrototypeRunCompletionView prefab =
+                Resources.Load<PrototypeRunCompletionView>(
+                    "UI/PrototypeRunCompletionCanvas");
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.HasRequiredReferences, Is.True);
+
+            PrototypeRunCompletionView instance =
+                UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                Assert.That(instance, Is.Not.SameAs(prefab));
+                Assert.That(instance.HasRequiredReferences, Is.True);
+                Assert.That(instance.RestartButton, Is.Not.SameAs(instance.LobbyButton));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator MinimapChildPrefabs_InstantiateAuthoredViews()
+        {
+            PrototypeDungeonMinimapRoomView roomPrefab =
+                Resources.Load<PrototypeDungeonMinimapRoomView>(
+                    "UI/PrototypeDungeonMinimapRoom");
+            PrototypeDungeonMinimapConnectionView connectionPrefab =
+                Resources.Load<PrototypeDungeonMinimapConnectionView>(
+                    "UI/PrototypeDungeonMinimapConnection");
+
+            Assert.That(roomPrefab, Is.Not.Null);
+            Assert.That(roomPrefab.HasRequiredReferences, Is.True);
+            Assert.That(
+                roomPrefab.CurrentRoomBackground.name,
+                Is.EqualTo("BlackandWhiteUI_16"));
+            Assert.That(
+                roomPrefab.OtherRoomBackground.name,
+                Is.EqualTo("BlackandWhiteUI_3"));
+            Assert.That(roomPrefab.GetIcon(null).name, Is.EqualTo("icon_interrogation"));
+            Assert.That(roomPrefab.GetIcon(RoomType.Start).name, Is.EqualTo("icon_flag"));
+            Assert.That(roomPrefab.GetIcon(RoomType.Combat).name, Is.EqualTo("icon_skull"));
+            Assert.That(roomPrefab.GetIcon(RoomType.BombReward).name, Is.EqualTo("icon_ring"));
+            Assert.That(roomPrefab.GetIcon(RoomType.Recovery).name, Is.EqualTo("icon_heart"));
+            Assert.That(roomPrefab.GetIcon(RoomType.Secret).name, Is.EqualTo("icon_chest"));
+            Assert.That(roomPrefab.GetIcon(RoomType.Boss).name, Is.EqualTo("icon_door"));
+            Assert.That(roomPrefab.GetIcon(RoomType.BossAntechamber), Is.Null);
+            Assert.That(connectionPrefab, Is.Not.Null);
+            Assert.That(connectionPrefab.HasRequiredReferences, Is.True);
+
+            PrototypeDungeonMinimapRoomView roomInstance =
+                UnityEngine.Object.Instantiate(roomPrefab);
+            PrototypeDungeonMinimapConnectionView connectionInstance =
+                UnityEngine.Object.Instantiate(connectionPrefab);
+            try
+            {
+                Assert.That(roomInstance, Is.Not.SameAs(roomPrefab));
+                Assert.That(roomInstance.HasRequiredReferences, Is.True);
+                roomInstance.Render(false, null);
+                Assert.That(
+                    roomInstance.RoomImage.sprite.name,
+                    Is.EqualTo("BlackandWhiteUI_3"));
+                Assert.That(roomInstance.RoomIconImage.gameObject.activeSelf, Is.True);
+                Assert.That(
+                    roomInstance.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_interrogation"));
+                roomInstance.Render(true, RoomType.Start);
+                Assert.That(
+                    roomInstance.RoomImage.sprite.name,
+                    Is.EqualTo("BlackandWhiteUI_16"));
+                Assert.That(
+                    roomInstance.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_flag"));
+                roomInstance.Render(false, RoomType.BossAntechamber);
+                Assert.That(roomInstance.RoomIconImage.gameObject.activeSelf, Is.False);
+                Assert.That(connectionInstance, Is.Not.SameAs(connectionPrefab));
+                Assert.That(connectionInstance.HasRequiredReferences, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(roomInstance.gameObject);
+                UnityEngine.Object.DestroyImmediate(connectionInstance.gameObject);
+            }
+
+            yield return null;
+        }
+
         [Test]
         public void Session_ExposesGraphDoorsThatMatchCombatAssignmentAndClearState()
         {
@@ -895,7 +986,7 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo(run.CombatRewardTokenCount));
                 Assert.That(
                     healthHud.CombatRewardText,
-                    Is.EqualTo("ROOM TOKENS  " + run.CombatRewardTokenCount));
+                    Is.EqualTo(run.CombatRewardTokenCount.ToString()));
 
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
@@ -994,6 +1085,11 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(presenter.IsMoveTargetVisible, Is.False);
                 Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
                 Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
+                Assert.That(completionPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(
+                    completionPresenter.ViewPrefab.HasRequiredReferences,
+                    Is.True);
+                Assert.That(completionPresenter.ViewInstance, Is.Null);
                 Assert.That(completionPresenter.IsVisible, Is.False);
                 AssertDisplayedStatusesMatchGraph(
                     binder.DoorPresenter,
@@ -1070,6 +1166,11 @@ namespace BombSwap.Tests.PlayMode
                         .Single();
                 PrototypeGameSession rewardSession = rewardBinder.RoomSession;
                 Assert.That(rewardPresenter.IsInitialized, Is.True);
+                Assert.That(rewardPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(rewardPresenter.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    rewardPresenter.ViewInstance,
+                    Is.Not.SameAs(rewardPresenter.ViewPrefab));
                 Assert.That(rewardPresenter.CandidateVisualCount, Is.EqualTo(2));
                 Assert.That(rewardSession.GetBombSlot(0).HasDefinition, Is.True);
                 Assert.That(
@@ -1168,34 +1269,61 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     startMinimap.ViewInstance,
                     Is.Not.SameAs(startMinimap.ViewPrefab));
+                Assert.That(startMinimap.ViewInstance.RoomViewPrefab, Is.Not.Null);
+                Assert.That(
+                    startMinimap.ViewInstance.ConnectionViewPrefab,
+                    Is.Not.Null);
                 Assert.That(
                     startMinimap.DisplayedCurrentRoomId,
                     Is.EqualTo(run.Graph.StartRoomId));
                 Assert.That(startMinimap.DisplayedRoomCount, Is.EqualTo(2));
                 Assert.That(startMinimap.DisplayedConnectionCount, Is.EqualTo(1));
                 Assert.That(
+                    startMinimap.ViewInstance.MapRoot.GetComponentsInChildren<
+                        PrototypeDungeonMinimapRoomView>(true).Length,
+                    Is.EqualTo(startMinimap.DisplayedRoomCount));
+                Assert.That(
+                    startMinimap.ViewInstance.MapRoot.GetComponentsInChildren<
+                        PrototypeDungeonMinimapConnectionView>(true).Length,
+                    Is.EqualTo(startMinimap.DisplayedConnectionCount));
+                Assert.That(
                     startMinimap.DisplayedSnapshot.GetRoom(run.Graph.StartRoomId).State,
                     Is.EqualTo(DungeonMinimapRoomState.Current));
+                PrototypeDungeonMinimapRoomView[] startRoomViews =
+                    startMinimap.ViewInstance.MapRoot.GetComponentsInChildren<
+                        PrototypeDungeonMinimapRoomView>(true);
+                PrototypeDungeonMinimapRoomView startCurrentView =
+                    startRoomViews.Single(view => view.name ==
+                        "Room_" + run.Graph.StartRoomId.Value);
+                Assert.That(
+                    startCurrentView.RoomImage.sprite.name,
+                    Is.EqualTo("BlackandWhiteUI_16"));
+                Assert.That(
+                    startCurrentView.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_flag"));
 
                 RectTransform minimapPanel =
                     (RectTransform)startMinimap.ViewInstance.MapRoot.parent;
-                PrototypeHealthHud startHealthHud =
-                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
-                            FindObjectsInactive.Include)
-                        .Single();
-                RectTransform rewardPanel = (RectTransform)startHealthHud
-                    .ViewInstance
-                    .CombatRewardLabel
-                    .transform
-                    .parent;
+                RectTransform authoredMinimapPanel =
+                    (RectTransform)startMinimap.ViewPrefab.MapRoot.parent;
                 Assert.That(
-                    minimapPanel.anchoredPosition.y,
-                    Is.LessThanOrEqualTo(
-                        rewardPanel.anchoredPosition.y -
-                        rewardPanel.sizeDelta.y - 10f));
+                    minimapPanel.anchoredPosition,
+                    Is.EqualTo(authoredMinimapPanel.anchoredPosition));
+                Assert.That(
+                    minimapPanel.sizeDelta,
+                    Is.EqualTo(authoredMinimapPanel.sizeDelta));
 
                 DungeonRoomNodeId firstCombat =
                     run.Graph.GetNeighbors(run.Graph.StartRoomId).Single();
+                PrototypeDungeonMinimapRoomView startFrontierView =
+                    startRoomViews.Single(view => view.name ==
+                        "Room_" + firstCombat.Value);
+                Assert.That(
+                    startFrontierView.RoomImage.sprite.name,
+                    Is.EqualTo("BlackandWhiteUI_3"));
+                Assert.That(
+                    startFrontierView.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_interrogation"));
                 Assert.That(run.TryTravelTo(firstCombat).Moved, Is.True);
                 Assert.That(
                     run.TryGetSceneName(firstCombat, out string combatSceneName),
@@ -1224,6 +1352,33 @@ namespace BombSwap.Tests.PlayMode
                     combatMinimap.DisplayedSnapshot.GetRoom(
                         run.Graph.BombRewardRoomId).State,
                     Is.EqualTo(DungeonMinimapRoomState.Discovered));
+                PrototypeDungeonMinimapRoomView[] combatRoomViews =
+                    combatMinimap.ViewInstance.MapRoot.GetComponentsInChildren<
+                        PrototypeDungeonMinimapRoomView>(true);
+                PrototypeDungeonMinimapRoomView visitedStartView =
+                    combatRoomViews.Single(view => view.name ==
+                        "Room_" + run.Graph.StartRoomId.Value);
+                PrototypeDungeonMinimapRoomView currentCombatView =
+                    combatRoomViews.Single(view => view.name ==
+                        "Room_" + firstCombat.Value);
+                PrototypeDungeonMinimapRoomView rewardFrontierView =
+                    combatRoomViews.Single(view => view.name ==
+                        "Room_" + run.Graph.BombRewardRoomId.Value);
+                Assert.That(
+                    visitedStartView.RoomImage.sprite.name,
+                    Is.EqualTo("BlackandWhiteUI_3"));
+                Assert.That(
+                    visitedStartView.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_flag"));
+                Assert.That(
+                    currentCombatView.RoomImage.sprite.name,
+                    Is.EqualTo("BlackandWhiteUI_16"));
+                Assert.That(
+                    currentCombatView.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_skull"));
+                Assert.That(
+                    rewardFrontierView.RoomIconImage.sprite.name,
+                    Is.EqualTo("icon_interrogation"));
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
             finally
@@ -1257,6 +1412,13 @@ namespace BombSwap.Tests.PlayMode
         {
             Scene loadedDungeonScene = default;
             Keyboard keyboard = null;
+            bool hadInputOverrides = PlayerPrefs.HasKey(
+                PrototypeUserSettingsStorage.InputOverridesKey);
+            string previousInputOverrides = PlayerPrefs.GetString(
+                PrototypeUserSettingsStorage.InputOverridesKey,
+                string.Empty);
+            PlayerPrefs.DeleteKey(PrototypeUserSettingsStorage.InputOverridesKey);
+            PlayerPrefs.Save();
             try
             {
                 yield return SceneManager.LoadSceneAsync(
@@ -1457,6 +1619,9 @@ namespace BombSwap.Tests.PlayMode
                     run.TryTravelTo(hiddenAlternateCombat).Status,
                     Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 Assert.That(reward.IsInitialized, Is.True);
+                Assert.That(reward.ViewPrefab, Is.Not.Null);
+                Assert.That(reward.ViewInstance, Is.Not.Null);
+                Assert.That(reward.ViewInstance, Is.Not.SameAs(reward.ViewPrefab));
                 Assert.That(reward.IsCollected, Is.False);
                 Assert.That(reward.IsVisualVisible, Is.True);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
@@ -1528,6 +1693,11 @@ namespace BombSwap.Tests.PlayMode
                     run,
                     secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
+                Assert.That(reentryReward.ViewPrefab, Is.Not.Null);
+                Assert.That(reentryReward.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    reentryReward.ViewInstance,
+                    Is.Not.SameAs(reentryReward.ViewPrefab));
                 Assert.That(reentryReward.IsVisualVisible, Is.False);
                 Assert.That(
                     reentryReward.InstructionText,
@@ -1546,6 +1716,19 @@ namespace BombSwap.Tests.PlayMode
                     InputSystem.Update();
                     InputSystem.RemoveDevice(keyboard);
                 }
+
+                if (hadInputOverrides)
+                {
+                    PlayerPrefs.SetString(
+                        PrototypeUserSettingsStorage.InputOverridesKey,
+                        previousInputOverrides);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(
+                        PrototypeUserSettingsStorage.InputOverridesKey);
+                }
+                PlayerPrefs.Save();
 
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
@@ -1623,6 +1806,11 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(fullBinder.RoomSession.EnemyActiveCount, Is.Zero);
                 Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
                 Assert.That(fullPresenter.IsInitialized, Is.True);
+                Assert.That(fullPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(fullPresenter.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    fullPresenter.ViewInstance,
+                    Is.Not.SameAs(fullPresenter.ViewPrefab));
                 Assert.That(fullPresenter.IsVisualVisible, Is.True);
                 Assert.That(
                     fullPresenter.TryInteractAt(new GridPosition(-1, 0)),
@@ -1666,6 +1854,8 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
                             FindObjectsInactive.Include)
                         .Single();
+                Assert.That(damagedPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(damagedPresenter.ViewInstance, Is.Not.Null);
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(3));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(3));
                 Assert.That(
@@ -1679,7 +1869,10 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(5));
                 Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(5));
-                Assert.That(damagedHud.PlayerHealthFillFraction, Is.EqualTo(1f));
+                Assert.That(damagedHud.DisplayedPlayerHeartCount, Is.EqualTo(5));
+                Assert.That(
+                    damagedHud.DisplayedFilledPlayerHeartCount,
+                    Is.EqualTo(5));
                 Assert.That(run.CombatRewardTokenCount, Is.EqualTo(tokensBeforeRecovery));
 
                 Assert.That(run.TryTravelTo(recoveryParent).Moved, Is.True);
@@ -1693,6 +1886,8 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeRecoveryPickupPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
+                Assert.That(consumedPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(consumedPresenter.ViewInstance, Is.Not.Null);
                 Assert.That(consumedPresenter.IsConsumed, Is.True);
                 Assert.That(consumedPresenter.IsVisualVisible, Is.False);
                 Assert.That(consumedPresenter.InstructionText, Is.EqualTo("RECOVERY USED"));
