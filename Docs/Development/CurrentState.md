@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
-- 기준일: 2026-08-24
-- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause·방 안내·런 결과를 960×600 기준으로 분리하고, 직접 UI Sprite+per-Image 폴백과 Git에서 제외한 로컬 서드파티 package 경계를 적용한 상태
+- 기준일: 2026-08-25
+- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause·런 결과를 960×600 기준으로 분리하고, 방 보상은 별도 안내 Canvas 없이 월드 표현과 기존 HUD 상태로 전달하며, 직접 UI Sprite+per-Image 폴백과 Git에서 제외한 로컬 서드파티 package 경계를 적용한 상태
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -19,7 +19,7 @@
 - first-party `Assets/Game` 책임 폴더 구성.
 - 프로젝트 전용 스킬 4종 구현: gameplay change, content authoring, WebGL verify, playtest review.
 - `Tools/Verify.ps1` 기반 StaticOnly/Fast/Full/Web 검증 하네스와 구조화된 산출물 구현.
-- 첫 enabled `DungeonLobby`에서 **폭탄을 낳는 거위**, 게임 시작·설정을 표시하고 terminal 결과에서 로비 복귀 또는 즉시 재시작을 선택하는 런 수명 경계를 구현했다. 제목은 같은 container 아래 여러 TMP 조각도 지원하고 main menu 상태 라벨은 선택 사항이다. 로비의 Canvas·EventSystem·TMP·Button은 씬에 배치되어 사람이 직접 디자인할 수 있고 presenter는 직렬화 참조와 동작만 소유한다. 무기·체력 HUD, 미니맵, pause, 보상·회복·비밀방 안내와 런 결과는 공유 프리팹으로 분리해 같은 방식으로 직접 디자인할 수 있으며 presenter는 scene 수명과 상태에 맞춰 프리팹을 만들고 값만 반영한다. 플레이어 하트와 미니맵 방·연결처럼 개수가 달라지는 UI도 시각 한 단위를 재사용 자식 프리팹으로 소유한다. 보스 HUD는 저작한 이름, 런타임 phase, `현재 / 최대` 체력을 서로 다른 세 TMP로 표시해 이름의 폰트·그라데이션을 상태 갱신과 분리한다. 미니맵은 방문 전 물음표와 방문 뒤 방 종류 아이콘을 사용하고, 현재/비현재 방은 별도 배경 sprite로 구분한다. 모든 first-party UI는 `TextMeshProUGUI`, Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 공통 960×600 CanvasScaler를 사용한다.
+- 첫 enabled `DungeonLobby`에서 **폭탄을 낳는 거위**, 게임 시작·설정을 표시하고 terminal 결과에서 로비 복귀 또는 즉시 재시작을 선택하는 런 수명 경계를 구현했다. 제목은 같은 container 아래 여러 TMP 조각도 지원하고 main menu 상태 라벨은 선택 사항이다. 로비의 Canvas·EventSystem·TMP·Button은 씬에 배치되어 사람이 직접 디자인할 수 있고 presenter는 직렬화 참조와 동작만 소유한다. 무기·체력 HUD, 미니맵, pause와 런 결과는 공유 프리팹으로 분리해 같은 방식으로 직접 디자인할 수 있으며 presenter는 scene 수명과 상태에 맞춰 프리팹을 만들고 값만 반영한다. 폭탄 보상·회복·비밀방은 별도 안내 Canvas를 만들지 않고 기존 월드 후보·pickup·cache와 무기·체력 HUD의 확정 상태로 결과를 전달한다. 무기 HUD는 장착 폭탄 형태 아이콘, 빈 슬롯, 현재 선택을 구분하고 설치 직후 1에서 준비 시점 0까지 감소하는 fill과 0.1초 단위 남은 시간을 표시하며, 준비 상태에서는 cooldown panel을 숨긴다. 런 결과 프리팹은 별도의 `R 키로 즉시 다시 시작` 상태 라벨 없이 두 Button과 기존 `RestartRun` 입력을 사용한다. 플레이어 하트와 미니맵 방·연결처럼 개수가 달라지는 UI도 시각 한 단위를 재사용 자식 프리팹으로 소유한다. 보스 HUD는 저작한 이름, 런타임 phase, `현재 / 최대` 체력을 서로 다른 세 TMP로 표시해 이름의 폰트·그라데이션을 상태 갱신과 분리한다. 미니맵은 방문 전 물음표와 방문 뒤 방 종류 아이콘을 사용하고, 현재/비현재 방은 별도 배경 sprite로 구분한다. 모든 first-party UI는 `TextMeshProUGUI`, Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 공통 960×600 CanvasScaler를 사용한다.
 - Point-filtered Raster TMP를 유지하는 공용 픽셀 외곽선 shader, DungGeunMo/DNFBitBitv2별 material preset, TMP warm gradient preset과 재생성·검증 도구를 구현했다. 외곽선은 0~2 atlas pixel이며 기본 1px이고, 그라데이션은 TMP vertex color로 글자 면에만 적용한다.
 - 로비와 pause가 같은 설정 panel을 사용한다. 키보드 기본 8개 binding의 변경·중복 거부·기본값 복원, Master/BGM/SFX AudioMixer 제어, 화면 흔들림 0~100% 계약과 fullscreen 요청을 제공하며 versioned PlayerPrefs에 저장한다. 로비 조작 page는 씬 저작 ScrollRect이며 최하단 초기화 Button은 키 override만 제거하고 음량·화면 흔들림은 유지한다. `SettingsStatusText`와 pause의 별도 `ESC - 게임 계속` 안내 문구는 사용하지 않으며, 중복 키는 선택 Button의 `이미 사용 중` 인라인 문구·경고색·짧은 좌우 흔들림으로 알린다. 게임패드 지원은 유지하지만 설정 UI에는 표기하지 않는다.
 - 로비·던전·보스 BGM을 실제 BGM Mixer 경로에 연결했다. scene을 넘는 `PrototypeBgmPresenter`가 첫 사용자 gesture 뒤 로비 1개, 던전 sample-aligned stem 4개, 보스 stem 3개를 DSP 예약하며 room/clear와 boss phase를 다음 마디부터 한 마디 smoothstep crossfade로 반영한다. pause는 timeline 유지 50% duck, 사망·보스 격파는 fade-out한다. catalog와 대상 17개 scene의 단일 root presenter·미리보기 비참조·clip format/sample 수를 Editor validator가 고정한다. StaticOnly과 Unity 재컴파일은 통과했고 BGM 정책 테스트도 연결된 전체 PlayMode에서 통과했다. 실제 WebGL 청감과 `bgm-audio-started` browser 검증은 남아 있다.

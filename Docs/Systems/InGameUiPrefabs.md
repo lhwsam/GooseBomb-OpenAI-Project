@@ -1,8 +1,8 @@
 # 인게임 UI 프리팹 저작 계약
 
 - 상태: `Accepted`
-- 기준일: 2026-08-24
-- 대상: 무기 HUD, 체력 HUD, 던전 미니맵, 일시정지, 방 안내, 런 결과 화면
+- 기준일: 2026-08-25
+- 대상: 무기 HUD, 체력 HUD, 던전 미니맵, 일시정지, 런 결과 화면
 - 관련: [로비와 공통 TMP UI](../Development/LobbySlice.md), [사용자 설정](UserSettingsAndAudio.md), [서드파티 자산](ThirdPartyAssets.md), [최소 미니맵](../Development/MinimalMinimapSlice.md)
 
 ## 목적
@@ -23,9 +23,6 @@
 | 미니맵 연결선 | `Assets/Game/Content/Resources/UI/PrototypeDungeonMinimapConnection.prefab` | `PrototypeDungeonMinimapPresenter` |
 | 일시정지·공통 설정 | `Assets/Game/Content/Resources/UI/PrototypePauseCanvas.prefab` | `PrototypeGameSession`과 `PrototypePausePresenter` |
 | 런 완료·실패 결과 | `Assets/Game/Content/Resources/UI/PrototypeRunCompletionCanvas.prefab` | `PrototypeRunCompletionPresenter` |
-| 폭탄 보상방 안내 | `Assets/Game/Content/Resources/UI/PrototypeBombRewardCanvas.prefab` | `PrototypeBombRewardPresenter` |
-| 회복방 안내 | `Assets/Game/Content/Resources/UI/PrototypeRecoveryPickupCanvas.prefab` | `PrototypeRecoveryPickupPresenter` |
-| 비밀방 보상 안내 | `Assets/Game/Content/Resources/UI/PrototypeSecretRewardCanvas.prefab` | `PrototypeSecretRewardPresenter` |
 
 production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로는 scene 없이 만드는 합성 PlayMode fixture도 같은 프리팹을 불러 검증하기 위한 보조 진입점이며, 런타임 이름·태그·계층 검색에는 사용하지 않는다.
 
@@ -35,11 +32,13 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 - 계층 이름은 사람이 읽기 위한 것이며 기능 연결의 권위가 아니다. 이름이나 배치 순서를 바꿔도 View 참조가 유지되면 동작해야 한다.
 - presenter는 프리팹 인스턴스의 Text, fill amount, 활성 상태와 정의된 상태 색만 갱신한다. 플레이어 체력은 최대 체력만큼 공용 하트 프리팹을 준비하고 현재 체력만큼 `Full`, 나머지는 `Empty` 표현을 보인다. 미니맵처럼 개수가 상태에 따라 달라지는 자식도 C#에서 Image·TMP 계층을 조립하지 않고 공용 자식 프리팹을 필요한 수만큼 인스턴스화한다. RectTransform 배치, sprite, font, material, outline과 장식 계층은 바꾸지 않는다.
 - View root 컴포넌트와 필수 참조를 삭제하거나 비우면 validator와 PlayMode가 실패해야 한다.
-- 모든 Canvas 프리팹은 공통 960×600 `CanvasScaler` 기준을 유지한다. 기본 sorting order는 무기 100, 미니맵 109, 체력·방 안내 110, pause 250, 런 결과 300이다.
+- 모든 Canvas 프리팹은 공통 960×600 `CanvasScaler` 기준을 유지한다. 기본 sorting order는 무기 100, 미니맵 109, 체력 110, pause 250, 런 결과 300이다.
 
 ### 무기 HUD
 
-두 슬롯의 배경, 준비 fill, 정의·쿨타임 TMP와 교체 상태 TMP는 프리팹 참조다. 활성/비활성 슬롯과 준비/냉각 색은 `PrototypeWeaponHudView` Inspector에서 수정한다. 표시 문구와 fill amount는 실제 loadout snapshot이 덮어쓴다.
+각 슬롯의 `BombIcon`, `CoolDownPanel` 아래 `CooldownBar`·`Cooldown`, `Empty`, `Selection`은 `PrototypeWeaponHudView`의 명시적 프리팹 참조다. 장착된 폭탄은 `Assets/Game/Content/UI/Sprites/Common/Bomb`의 `Bomb_Cross`, `Bomb_Area`, `Bomb_Line` sprite를 폭발 형태에 맞춰 표시하며, 빈 슬롯은 아이콘 대신 `Empty`만 활성화한다. `Selection`은 현재 활성 슬롯에만 표시하고 저작된 `KeyIcon`은 presenter가 변경하지 않는다.
+
+설치 성공 직후 `CooldownBar.fillAmount`는 1이며 Core의 남은 설치 쿨타임에 따라 0까지 감소한다. `Cooldown` TMP는 올림한 0.1초 단위의 `#.#s`만 표시한다. 남은 시간이 0이면 `CoolDownPanel` 전체와 문자열을 비활성화하고 fill amount를 0으로 둔다. 교체 쿨타임과 폭탄 정의 ID를 별도 TMP 문구로 표시하지 않는다.
 
 ### 체력 HUD
 
@@ -57,11 +56,11 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 
 pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직접 직렬화되어 있다. 각 슬롯은 같은 GameObject의 `PrototypeOptionalSpriteFallback`으로 package 부재를 처리하며 legacy role applicator는 사용하지 않는다. package가 있으면 Prefab Mode에서 Sprite를 바로 보고 교체할 수 있고, package가 없으면 기능 Image는 기본 표현을 유지하며 장식 화살표만 숨긴다. package 유무가 pause 입력·설정 기능에 영향을 주면 안 된다.
 
-### 방 안내와 런 결과
+### 방 보상 표현과 런 결과
 
-폭탄 보상·회복·비밀방의 화면 상단 안내는 각 방의 공유 Canvas 프리팹을 사용한다. presenter는 실제 수집 상태에 맞춰 안내 문구만 바꾸며 Canvas, TMP 또는 RectTransform을 생성하지 않는다. 보상 폭탄·회복 캡슐·비밀 cache의 3D 표현은 UI가 아니므로 각 gameplay presenter의 기존 표현 책임을 유지한다.
+폭탄 보상·회복·비밀방은 별도의 화면 상단 안내 Canvas를 만들지 않는다. 각 gameplay presenter는 보상 폭탄 후보·회복 pickup·비밀 cache의 월드 표현과 논리 셀 획득만 소유하며, 선택·회복·토큰 결과는 기존 무기·체력 HUD의 확정 상태로 확인한다. 향후 상자·성소·선택 가능한 폭탄의 가독성은 이 공용 UI에 문구를 되살리지 않고 전용 월드 프리팹이나 VFX 계약으로 추가한다.
 
-완료·실패 화면의 배경, 제목, 사망 원인, 상태 TMP와 두 Button은 `PrototypeRunCompletionCanvas.prefab`에서 저작한다. presenter는 Core 결과에 따라 제목·상태·사망 원인 활성 상태와 제목 상태 색을 갱신하고 Button listener와 기본 선택만 연결한다. 결과가 확정되기 전에는 프리팹을 만들지 않으며 확정 시 한 번만 인스턴스화한다.
+완료·실패 화면의 배경, 제목, 사망 원인과 두 Button은 `PrototypeRunCompletionCanvas.prefab`에서 저작한다. 별도의 `Status` 또는 `R 키로 즉시 다시 시작` 안내 TMP는 사용하지 않으며, 키보드 `R`·게임패드 Select 재시작 입력은 UI 문구와 무관하게 유지한다. presenter는 Core 결과에 따라 제목·사망 원인 활성 상태와 제목 상태 색을 갱신하고 Button listener와 기본 선택만 연결한다. 결과가 확정되기 전에는 프리팹을 만들지 않으며 확정 시 한 번만 인스턴스화한다.
 
 ## 디자이너 작업 절차
 

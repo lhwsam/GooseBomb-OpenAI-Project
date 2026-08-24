@@ -77,7 +77,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - `DungeonRecovery.unity`는 기존 안전방 shell과 문·HUD·run binder를 재사용하며 적 actor와 클리어 조건을 만들지 않는다.
 - `PrototypeRecoveryPickupPresenter`는 중앙 논리 셀 `(0,0)`을 감시한다. Collider나 Transform 접촉이 아니라 `PlayerMovementStep`의 확정 논리 셀만 획득을 일으킨다.
 - 회복량 `2`와 1회 사용은 GDD에 없는 `Proposed` 튜닝이다. 실제 소비 여부는 scene이 아니라 Core `DungeonRunState`의 Recovery 노드 상태가 소유한다.
-- 최대 체력에서는 `HEALTH FULL`로 남고 소비하지 않는다. 유효한 회복 뒤에는 `RECOVERY USED`, 미소비 상태에서는 `RECOVERY +2`를 표시해 색만으로 상태를 구분하지 않는다.
+- 최대 체력에서는 pickup을 소비하지 않아 월드 표현이 남고, 유효한 회복이나 이미 소비한 방에서는 월드 표현을 숨긴다. 별도 회복 안내 Canvas는 사용하지 않으며 현재 체력 변화는 공용 체력 HUD로 확인한다.
 - pickup renderer는 `RecoveryPickup.mat`의 URP Lit shared material을 사용한다. 런타임 material 인스턴스를 만들지 않으며 WebGL에서 shader fallback 색으로 보이지 않아야 한다.
 
 ## 비밀방과 금 간 출구 저작 계약
@@ -92,6 +92,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 미공개 Secret 출구의 저작 출구 셀은 계속 `Floor`다. `PrototypeDungeonRoomBinder`가 이 셀과 Secret 연결 방향을 매핑하고, 확정 폭발의 `AffectedCells`가 셀에 닿으면 같은 run의 해당 연결만 공개한다. 공개 전 바깥 이동은 지형이 아니라 `DungeonRoomExitStatus.SecretWall` 경계 상태가 막는다.
 - `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 Collider 접촉이 아니라 확정 `PlayerMovementStep`으로만 수집한다.
 - cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.
+- 비밀 cache는 미수집일 때만 월드 표현을 보이고 수집 뒤 숨긴다. 별도 비밀방 안내 Canvas는 사용하지 않으며 합계 변화는 공용 토큰 HUD로 확인한다.
 
 ## 장갑병 독립 플레이테스트 씬
 

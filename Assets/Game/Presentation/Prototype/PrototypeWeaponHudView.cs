@@ -12,62 +12,81 @@ namespace BombSwap
         [SerializeField]
         private Canvas canvas;
 
+        [Header("Slot presentation")]
         [SerializeField]
-        private Image[] slotBackgrounds;
+        private Image[] slotBombIcons;
+
+        [SerializeField]
+        private GameObject[] slotCooldownPanels;
 
         [SerializeField]
         private Image[] slotCooldownFills;
 
         [SerializeField]
-        private TextMeshProUGUI[] slotLabels;
-
-        [SerializeField]
         private TextMeshProUGUI[] slotCooldownLabels;
 
         [SerializeField]
+        private GameObject[] slotEmptyIndicators;
+
+        [SerializeField]
+        private GameObject[] slotSelections;
+
+        [Header("Bomb type icons")]
+        [SerializeField]
+        private Sprite crossBombIcon;
+
+        [SerializeField]
+        private Sprite areaBombIcon;
+
+        [SerializeField]
+        private Sprite lineBombIcon;
+
+        // Compatibility-only fields from the previous text-based HUD.
+        [SerializeField, HideInInspector]
+        private Image[] slotBackgrounds;
+
+        [SerializeField, HideInInspector]
+        private TextMeshProUGUI[] slotLabels;
+
+        [SerializeField, HideInInspector]
         private TextMeshProUGUI swapLabel;
 
-        [Header("Runtime state colors")]
-        [SerializeField]
-        private Color activeSlotColor =
-            new Color(0.1f, 0.54f, 0.8f, 0.94f);
+        [SerializeField, HideInInspector]
+        private Color activeSlotColor;
 
-        [SerializeField]
-        private Color inactiveSlotColor =
-            new Color(0.12f, 0.15f, 0.2f, 0.86f);
+        [SerializeField, HideInInspector]
+        private Color inactiveSlotColor;
 
-        [SerializeField]
-        private Color readyColor =
-            new Color(0.22f, 0.9f, 0.46f, 1f);
+        [SerializeField, HideInInspector]
+        private Color readyColor;
 
-        [SerializeField]
-        private Color coolingColor =
-            new Color(0.95f, 0.48f, 0.12f, 1f);
+        [SerializeField, HideInInspector]
+        private Color coolingColor;
 
         public Canvas Canvas => canvas;
 
-        public TextMeshProUGUI SwapLabel => swapLabel;
-
-        public Color ActiveSlotColor => activeSlotColor;
-
-        public Color InactiveSlotColor => inactiveSlotColor;
-
-        public Color ReadyColor => readyColor;
-
-        public Color CoolingColor => coolingColor;
-
         public bool HasRequiredReferences =>
             canvas != null &&
-            HasSlotCount(slotBackgrounds) &&
+            HasSlotCount(slotBombIcons) &&
+            HasSlotCount(slotCooldownPanels) &&
             HasSlotCount(slotCooldownFills) &&
-            HasSlotCount(slotLabels) &&
             HasSlotCount(slotCooldownLabels) &&
-            swapLabel != null;
+            HasSlotCount(slotEmptyIndicators) &&
+            HasSlotCount(slotSelections) &&
+            crossBombIcon != null &&
+            areaBombIcon != null &&
+            lineBombIcon != null;
 
-        public Image GetSlotBackground(int slotIndex)
+        public Image GetSlotBombIcon(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
-            return slotBackgrounds[slotIndex];
+            return slotBombIcons[slotIndex];
+        }
+
+        public GameObject GetSlotCooldownPanel(int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            return slotCooldownPanels[slotIndex];
         }
 
         public Image GetSlotCooldownFill(int slotIndex)
@@ -76,25 +95,53 @@ namespace BombSwap
             return slotCooldownFills[slotIndex];
         }
 
-        public TextMeshProUGUI GetSlotLabel(int slotIndex)
-        {
-            ValidateSlotIndex(slotIndex);
-            return slotLabels[slotIndex];
-        }
-
         public TextMeshProUGUI GetSlotCooldownLabel(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
             return slotCooldownLabels[slotIndex];
         }
 
+        public GameObject GetSlotEmptyIndicator(int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            return slotEmptyIndicators[slotIndex];
+        }
+
+        public GameObject GetSlotSelection(int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            return slotSelections[slotIndex];
+        }
+
+        public Sprite GetBombIcon(BombExplosionShape explosionShape)
+        {
+            switch (explosionShape)
+            {
+                case BombExplosionShape.Cross:
+                    return crossBombIcon;
+                case BombExplosionShape.SquareArea:
+                    return areaBombIcon;
+                case BombExplosionShape.ForwardLine:
+                    return lineBombIcon;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(explosionShape),
+                        explosionShape,
+                        "Weapon HUD does not have an icon for this bomb shape.");
+            }
+        }
+
         public void BindAuthoredView(
             Canvas authoredCanvas,
-            Image[] authoredSlotBackgrounds,
+            Image[] authoredSlotBombIcons,
+            GameObject[] authoredSlotCooldownPanels,
             Image[] authoredSlotCooldownFills,
-            TextMeshProUGUI[] authoredSlotLabels,
             TextMeshProUGUI[] authoredSlotCooldownLabels,
-            TextMeshProUGUI authoredSwapLabel)
+            GameObject[] authoredSlotEmptyIndicators,
+            GameObject[] authoredSlotSelections,
+            Sprite authoredCrossBombIcon,
+            Sprite authoredAreaBombIcon,
+            Sprite authoredLineBombIcon)
         {
             if (Application.isPlaying)
             {
@@ -103,23 +150,48 @@ namespace BombSwap
             }
 
             canvas = authoredCanvas ?? throw new ArgumentNullException(nameof(authoredCanvas));
-            slotBackgrounds = RequireSlotArray(
-                authoredSlotBackgrounds,
-                nameof(authoredSlotBackgrounds));
+            slotBombIcons = RequireSlotArray(
+                authoredSlotBombIcons,
+                nameof(authoredSlotBombIcons));
+            slotCooldownPanels = RequireSlotArray(
+                authoredSlotCooldownPanels,
+                nameof(authoredSlotCooldownPanels));
             slotCooldownFills = RequireSlotArray(
                 authoredSlotCooldownFills,
                 nameof(authoredSlotCooldownFills));
-            slotLabels = RequireSlotArray(authoredSlotLabels, nameof(authoredSlotLabels));
             slotCooldownLabels = RequireSlotArray(
                 authoredSlotCooldownLabels,
                 nameof(authoredSlotCooldownLabels));
-            swapLabel = authoredSwapLabel ??
-                throw new ArgumentNullException(nameof(authoredSwapLabel));
+            slotEmptyIndicators = RequireSlotArray(
+                authoredSlotEmptyIndicators,
+                nameof(authoredSlotEmptyIndicators));
+            slotSelections = RequireSlotArray(
+                authoredSlotSelections,
+                nameof(authoredSlotSelections));
+            crossBombIcon = authoredCrossBombIcon ??
+                throw new ArgumentNullException(nameof(authoredCrossBombIcon));
+            areaBombIcon = authoredAreaBombIcon ??
+                throw new ArgumentNullException(nameof(authoredAreaBombIcon));
+            lineBombIcon = authoredLineBombIcon ??
+                throw new ArgumentNullException(nameof(authoredLineBombIcon));
         }
 
-        private static bool HasSlotCount(Array values)
+        private static bool HasSlotCount<T>(T[] values)
+            where T : UnityEngine.Object
         {
-            return values != null && values.Length == BombWeaponLoadout.SlotCount;
+            if (values == null || values.Length != BombWeaponLoadout.SlotCount)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < values.Length; index++)
+            {
+                if (values[index] == null)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static T[] RequireSlotArray<T>(T[] values, string parameterName)
@@ -128,17 +200,8 @@ namespace BombSwap
             if (!HasSlotCount(values))
             {
                 throw new ArgumentException(
-                    $"Weapon HUD requires exactly {BombWeaponLoadout.SlotCount} slot references.",
+                    $"Weapon HUD requires exactly {BombWeaponLoadout.SlotCount} non-null slot references.",
                     parameterName);
-            }
-            for (int index = 0; index < values.Length; index++)
-            {
-                if (values[index] == null)
-                {
-                    throw new ArgumentException(
-                        $"Weapon HUD slot reference {index} is missing.",
-                        parameterName);
-                }
             }
             return values;
         }

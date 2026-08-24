@@ -75,7 +75,7 @@ Recovery room item interaction
 ### 3. Unity 콘텐츠와 표현
 
 - `Complete`: Unity Editor builder로 `DungeonRecovery` scene, special catalog entry, 중앙 논리 셀 `(0,0)`의 회복 pickup과 URP shared material을 저작했다.
-- `Complete`: 회복 가능·최대 체력·사용 완료 상태를 pickup 형태와 `RECOVERY +2`·`HEALTH FULL`·`RECOVERY USED` 문구로 구분한다.
+- `Complete`: 미소비 상태에서는 pickup 월드 표현을 유지하고 유효한 회복·사용 완료 상태에서는 숨긴다. 별도 안내 Canvas 없이 현재 체력 변화는 공용 체력 HUD로 확인한다.
 - `Complete`: 논리 셀 진입만 획득을 일으키며 기존 체력 HUD를 즉시 갱신하고, room 재진입에서는 Core 소비 상태를 복원한다.
 
 ## 비목표

@@ -1,7 +1,7 @@
 # CC0 UI Sprite Assets
 
 - License: Creative Commons Zero v1.0 Universal (`CC0-1.0`)
-- Asset set: `IconGodotNode`
+- Asset sets: `IconGodotNode`, `Game Prompts`
 - Redistribution status: tracked first-party project content
 
 The project owner supplied these source images as CC0 assets. They may be

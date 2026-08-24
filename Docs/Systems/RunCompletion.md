@@ -14,6 +14,7 @@
 - 어느 방에서든 플레이어 체력이 0이 되면 런이 실패하고 `RUN FAILED`와 사망 원인을 표시한다. 현재 원인 문구는 `BOMB EXPLOSION`, `CHASER CONTACT`, `CHARGER CHARGE`, `ARMORED ENEMY CONTACT`, 일반 `ENEMY CONTACT`, `BOSS ATTACK`이다.
 - 결과가 확정되면 현재 방 simulation을 멈춘다.
 - 키보드 `R` 또는 게임패드 Select를 한 번 누르면 같은 브라우저 페이지에서 새 런을 시작한다.
+- 결과 프리팹에는 별도의 `R 키로 즉시 다시 시작` 안내 라벨을 두지 않는다. 재시작 단축키 계약은 화면의 `다시 시작` Button과 함께 그대로 유지한다.
 - 결과 화면의 `다시 시작`은 같은 즉시 재시작을 수행하고, `로비로 돌아가기`는 현재 run host를 제거한 뒤 `DungeonLobby`로 이동한다.
 - 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·방 보상 토큰·Secret 연결 공개·Recovery/Secret 보상 소비·보상 선택·두 번째 폭탄은 초기 상태이고, 새 `DungeonPlayerHealthState`는 검증된 최대 체력으로 시작한다.
 - 완료 또는 실패 전의 `RestartRun` 명령은 게임 상태를 바꾸지 않는다.
@@ -53,7 +54,7 @@
 - 11개 던전·TestSandbox 씬 모두 Systems 오브젝트에 `PrototypeRunCompletionPresenter` 한 개를 가지며 같은 씬의 room binder와 input reader를 참조한다.
 - presenter는 보스방 완료 또는 어느 방에서든 실패했을 때만 UI를 표시한다.
 - Input Actions의 `Gameplay/RestartRun`은 Button이며 `<Keyboard>/r`, `<Gamepad>/select` binding을 가진다.
-- Editor builder와 validator는 action·binding·컴포넌트 수, 공유 결과 프리팹의 View 참조와 모든 해당 scene의 정확한 프리팹 연결을 검사한다.
+- Editor builder와 validator는 action·binding·컴포넌트 수, 공유 결과 프리팹의 View 참조, 폐기된 `Status` 라벨 부재와 모든 해당 scene의 정확한 프리팹 연결을 검사한다.
 - EditMode는 결과 단방향 전이, terminal 이동·클리어 거부와 사망 우선 순서를 검증한다.
 - PlayMode는 session 위임, 치명 피해 snapshot 보존, source와 고정 적 ID의 사망 원인 매핑, 완료·실패 상태의 새 run 재시작과 terminal host 제거→로비→새 run 수명을 검증한다.
 - Development WebGL smoke는 실제 보스 격파 뒤 결과 UI로 로비에 복귀해 다시 시작한다. 이어 안전방 자기 폭발 5회로 `player-died → run-failed → run-failed-cause-bomb-explosion`을 관찰하고, `CAUSE: BOMB EXPLOSION` 실패 화면을 캡처한 뒤 `R`로 새 시작방까지 확인한다.

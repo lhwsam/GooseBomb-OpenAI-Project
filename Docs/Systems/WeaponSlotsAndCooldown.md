@@ -35,7 +35,7 @@
 - `PrototypeBombLoadoutAsset`: 서로 다른 두 폭탄 정의와 교체 쿨타임을 검증하고 Core loadout을 만든다.
 - `PrototypeBombRewardCatalogAsset`: 던전 시작 폭탄과 보상 후보 asset을 검증하고 `DungeonBombLoadoutState`를 만든다.
 - `PrototypeGameSession`: `PlaceBomb`을 활성 슬롯에, `SwapBomb`을 Core loadout에 전달하고 성공한 교체만 `ActiveBombSlotChanged`로 발행한다.
-- `PrototypeWeaponHud`: Core snapshot을 표시한다. 왼쪽 아래 두 슬롯의 활성 상태, 설치 준비 bar/시간과 교체 준비 시간을 보여준다.
+- `PrototypeWeaponHud`: Core snapshot을 표시한다. 두 슬롯의 장착 폭탄 형태 아이콘, 빈 슬롯, 현재 선택 상태를 구분한다. 설치 성공 직후 cooldown fill은 1에서 시작해 준비 시점의 0까지 감소하고, 남은 시간은 0.1초 단위 `#.#s`로 표시한다. 준비되면 cooldown panel과 문자열은 숨기며 교체 준비 시간은 별도 문구로 표시하지 않는다.
 - `PrototypeBombRewardPresenter`: 보상방의 기존 논리 이동 셀 사건으로 후보 접촉을 판정한다. 장치 상태를 직접 읽지 않는다.
 
 standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-line`(`ForwardLine`, fuse 2.25초, 범위 3, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 직선 후보는 설치 순간의 마지막 바라보기 방향 한 ray만 공격하며 비대칭 청록 설치체가 방향을 표시한다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.

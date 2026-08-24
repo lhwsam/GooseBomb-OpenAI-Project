@@ -1,6 +1,5 @@
 using System;
 using BombSwap.Core;
-using TMPro;
 using UnityEngine;
 
 namespace BombSwap
@@ -17,9 +16,6 @@ namespace BombSwap
         private PrototypeDungeonRoomBinder roomBinder;
 
         [SerializeField]
-        private PrototypeInstructionView viewPrefab;
-
-        [SerializeField]
         private int tokenReward = DefaultTokenReward;
 
         [SerializeField]
@@ -29,14 +25,8 @@ namespace BombSwap
         private Material pickupMaterial;
 
         private GameObject _cacheVisual;
-        private TextMeshProUGUI _instructionLabel;
-        private PrototypeInstructionView _viewInstance;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
-
-        public PrototypeInstructionView ViewPrefab => viewPrefab;
-
-        public PrototypeInstructionView ViewInstance => _viewInstance;
 
         public int TokenReward => tokenReward;
 
@@ -54,9 +44,6 @@ namespace BombSwap
             _cacheVisual != null && _cacheVisual.activeSelf;
 
         public DungeonSecretRewardCollectStatus LastStatus { get; private set; }
-
-        public string InstructionText =>
-            _instructionLabel != null ? _instructionLabel.text : string.Empty;
 
         public void Configure(
             PrototypeDungeonRoomBinder authoredRoomBinder,
@@ -85,44 +72,16 @@ namespace BombSwap
             pickupCell = authoredPickupCell ?? Vector2Int.zero;
         }
 
-        public void Configure(
-            PrototypeDungeonRoomBinder authoredRoomBinder,
-            Material authoredPickupMaterial,
-            PrototypeInstructionView authoredViewPrefab,
-            int authoredTokenReward = DefaultTokenReward,
-            Vector2Int? authoredPickupCell = null)
-        {
-            Configure(
-                authoredRoomBinder,
-                authoredPickupMaterial,
-                authoredTokenReward,
-                authoredPickupCell);
-            BindViewPrefab(authoredViewPrefab);
-        }
-
-        public void BindViewPrefab(PrototypeInstructionView authoredViewPrefab)
-        {
-            if (Application.isPlaying && isActiveAndEnabled)
-            {
-                throw new InvalidOperationException(
-                    "Disable PrototypeSecretRewardPresenter before changing its view prefab.");
-            }
-
-            viewPrefab = authoredViewPrefab ??
-                throw new ArgumentNullException(nameof(authoredViewPrefab));
-        }
-
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null ||
-                viewPrefab == null || !viewPrefab.HasRequiredReferences)
+            if (roomBinder == null || roomBinder.RoomSession == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeSecretRewardPresenter requires a dungeon room binder and instruction view prefab.");
+                    "PrototypeSecretRewardPresenter requires a dungeon room binder.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -185,17 +144,10 @@ namespace BombSwap
                     $"Secret reward cell {corePickupCell} must be walkable floor.");
             }
 
-            CreateInstructionUi();
             IsCollected = roomBinder.IsCurrentSecretRewardCollected;
-            if (IsCollected)
-            {
-                _instructionLabel.text = "SECRET CACHE COLLECTED";
-            }
-            else
+            if (!IsCollected)
             {
                 CreateCacheVisual(corePickupCell);
-                _instructionLabel.text =
-                    "SECRET CACHE  |  ROOM TOKENS +" + tokenReward;
             }
             IsInitialized = true;
         }
@@ -224,9 +176,6 @@ namespace BombSwap
                     {
                         _cacheVisual.SetActive(false);
                     }
-                    _instructionLabel.text =
-                        "SECRET CACHE +" + result.AwardedTokens +
-                        "  |  ROOM TOKENS " + result.CurrentTokens;
                     return true;
                 case DungeonSecretRewardCollectStatus.AlreadyCollected:
                     IsCollected = true;
@@ -234,7 +183,6 @@ namespace BombSwap
                     {
                         _cacheVisual.SetActive(false);
                     }
-                    _instructionLabel.text = "SECRET CACHE COLLECTED";
                     return false;
                 default:
                     return false;
@@ -280,19 +228,6 @@ namespace BombSwap
                     "Secret reward cache primitive requires a renderer.");
             }
             renderer.sharedMaterial = pickupMaterial;
-        }
-
-        private void CreateInstructionUi()
-        {
-            _viewInstance = Instantiate(viewPrefab, transform, false);
-            _viewInstance.name = viewPrefab.name;
-            if (!_viewInstance.HasRequiredReferences)
-            {
-                throw new InvalidOperationException(
-                    "Instantiated secret reward instruction view is missing required references.");
-            }
-
-            _instructionLabel = _viewInstance.InstructionLabel;
         }
 
         private static GridPosition ToCorePosition(Vector2Int cell)

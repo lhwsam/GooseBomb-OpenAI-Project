@@ -1,6 +1,5 @@
 using System;
 using BombSwap.Core;
-using TMPro;
 using UnityEngine;
 
 namespace BombSwap
@@ -17,9 +16,6 @@ namespace BombSwap
         private PrototypeDungeonRoomBinder roomBinder;
 
         [SerializeField]
-        private PrototypeInstructionView viewPrefab;
-
-        [SerializeField]
         private int recoveryAmount = DefaultRecoveryAmount;
 
         [SerializeField]
@@ -29,14 +25,8 @@ namespace BombSwap
         private Material pickupMaterial;
 
         private GameObject _pickupVisual;
-        private TextMeshProUGUI _instructionLabel;
-        private PrototypeInstructionView _viewInstance;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
-
-        public PrototypeInstructionView ViewPrefab => viewPrefab;
-
-        public PrototypeInstructionView ViewInstance => _viewInstance;
 
         public int RecoveryAmount => recoveryAmount;
 
@@ -54,9 +44,6 @@ namespace BombSwap
             _pickupVisual != null && _pickupVisual.activeSelf;
 
         public DungeonRecoveryUseStatus LastStatus { get; private set; }
-
-        public string InstructionText =>
-            _instructionLabel != null ? _instructionLabel.text : string.Empty;
 
         public void Configure(
             PrototypeDungeonRoomBinder authoredRoomBinder,
@@ -85,44 +72,16 @@ namespace BombSwap
             pickupCell = authoredPickupCell ?? Vector2Int.zero;
         }
 
-        public void Configure(
-            PrototypeDungeonRoomBinder authoredRoomBinder,
-            Material authoredPickupMaterial,
-            PrototypeInstructionView authoredViewPrefab,
-            int authoredRecoveryAmount = DefaultRecoveryAmount,
-            Vector2Int? authoredPickupCell = null)
-        {
-            Configure(
-                authoredRoomBinder,
-                authoredPickupMaterial,
-                authoredRecoveryAmount,
-                authoredPickupCell);
-            BindViewPrefab(authoredViewPrefab);
-        }
-
-        public void BindViewPrefab(PrototypeInstructionView authoredViewPrefab)
-        {
-            if (Application.isPlaying && isActiveAndEnabled)
-            {
-                throw new InvalidOperationException(
-                    "Disable PrototypeRecoveryPickupPresenter before changing its view prefab.");
-            }
-
-            viewPrefab = authoredViewPrefab ??
-                throw new ArgumentNullException(nameof(authoredViewPrefab));
-        }
-
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null ||
-                viewPrefab == null || !viewPrefab.HasRequiredReferences)
+            if (roomBinder == null || roomBinder.RoomSession == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeRecoveryPickupPresenter requires a dungeon room binder and instruction view prefab.");
+                    "PrototypeRecoveryPickupPresenter requires a dungeon room binder.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -190,18 +149,10 @@ namespace BombSwap
                     $"Recovery pickup cell {corePickupCell} must be walkable floor.");
             }
 
-            CreateInstructionUi();
             IsConsumed = roomBinder.IsCurrentRecoveryConsumed;
-            if (IsConsumed)
-            {
-                _instructionLabel.text = "RECOVERY USED";
-            }
-            else
+            if (!IsConsumed)
             {
                 CreatePickupVisual(corePickupCell);
-                _instructionLabel.text =
-                    "RECOVERY +" + recoveryAmount +
-                    " — WALK ONTO THE GREEN CAPSULE";
             }
             IsInitialized = true;
         }
@@ -230,14 +181,8 @@ namespace BombSwap
                     {
                         _pickupVisual.SetActive(false);
                     }
-                    _instructionLabel.text =
-                        "RECOVERED +" + result.RestoredHealth +
-                        "  |  HP " + result.CurrentHealth + " / " +
-                        roomBinder.RoomSession.MaxHealth;
                     return true;
                 case DungeonRecoveryUseStatus.AtFullHealth:
-                    _instructionLabel.text =
-                        "HP FULL — RECOVERY SAVED FOR A LATER VISIT";
                     return false;
                 case DungeonRecoveryUseStatus.AlreadyConsumed:
                     IsConsumed = true;
@@ -245,7 +190,6 @@ namespace BombSwap
                     {
                         _pickupVisual.SetActive(false);
                     }
-                    _instructionLabel.text = "RECOVERY USED";
                     return false;
                 default:
                     return false;
@@ -274,19 +218,6 @@ namespace BombSwap
                     "Recovery pickup primitive requires a renderer.");
             }
             pickupRenderer.sharedMaterial = pickupMaterial;
-        }
-
-        private void CreateInstructionUi()
-        {
-            _viewInstance = Instantiate(viewPrefab, transform, false);
-            _viewInstance.name = viewPrefab.name;
-            if (!_viewInstance.HasRequiredReferences)
-            {
-                throw new InvalidOperationException(
-                    "Instantiated recovery instruction view is missing required references.");
-            }
-
-            _instructionLabel = _viewInstance.InstructionLabel;
         }
 
         private static GridPosition ToCorePosition(Vector2Int cell)

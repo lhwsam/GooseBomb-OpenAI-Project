@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using BombSwap.Core;
-using TMPro;
 using UnityEngine;
 
 namespace BombSwap
@@ -25,20 +24,11 @@ namespace BombSwap
         [SerializeField]
         private PrototypeDungeonRoomBinder roomBinder;
 
-        [SerializeField]
-        private PrototypeInstructionView viewPrefab;
-
         private readonly List<GameObject> _candidateVisuals = new List<GameObject>();
         private PrototypeBombDefinitionAsset[] _candidates;
         private IReadOnlyList<GridPosition> _candidateCells;
-        private TextMeshProUGUI _instructionLabel;
-        private PrototypeInstructionView _viewInstance;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
-
-        public PrototypeInstructionView ViewPrefab => viewPrefab;
-
-        public PrototypeInstructionView ViewInstance => _viewInstance;
 
         public bool IsInitialized { get; private set; }
 
@@ -57,37 +47,16 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredRoomBinder));
         }
 
-        public void Configure(
-            PrototypeDungeonRoomBinder authoredRoomBinder,
-            PrototypeInstructionView authoredViewPrefab)
-        {
-            Configure(authoredRoomBinder);
-            BindViewPrefab(authoredViewPrefab);
-        }
-
-        public void BindViewPrefab(PrototypeInstructionView authoredViewPrefab)
-        {
-            if (Application.isPlaying && isActiveAndEnabled)
-            {
-                throw new InvalidOperationException(
-                    "Disable PrototypeBombRewardPresenter before changing its view prefab.");
-            }
-
-            viewPrefab = authoredViewPrefab ??
-                throw new ArgumentNullException(nameof(authoredViewPrefab));
-        }
-
         private void OnEnable()
         {
             if (!Application.isPlaying)
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null ||
-                viewPrefab == null || !viewPrefab.HasRequiredReferences)
+            if (roomBinder == null || roomBinder.RoomSession == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeBombRewardPresenter requires a dungeon room binder and instruction view prefab.");
+                    "PrototypeBombRewardPresenter requires a dungeon room binder.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -147,14 +116,11 @@ namespace BombSwap
                 _candidates[index] = candidates[index];
             }
             _candidateCells = GetCandidateCells(_candidates.Length);
-            CreateInstructionUi();
 
             DungeonBombLoadoutState loadout = host.RunSession.BombLoadoutState;
             if (loadout.HasSelectedReward)
             {
                 SelectedDefinitionId = loadout.SecondSlot;
-                _instructionLabel.text =
-                    "BOMB REWARD EQUIPPED: " + loadout.SecondSlot.Value.Value;
                 IsInitialized = true;
                 return;
             }
@@ -176,7 +142,6 @@ namespace BombSwap
                 visual.SetActive(true);
                 _candidateVisuals.Add(visual);
             }
-            _instructionLabel.text = BuildInstructionText();
             IsInitialized = true;
         }
 
@@ -214,37 +179,9 @@ namespace BombSwap
                 {
                     _candidateVisuals[visualIndex].SetActive(visualIndex == index);
                 }
-                _instructionLabel.text = "EQUIPPED SLOT 2: " + candidateId.Value;
                 return true;
             }
             return false;
-        }
-
-        private string BuildInstructionText()
-        {
-            if (_candidates.Length == 2)
-            {
-                return "BOMB REWARD — WALK LEFT FOR " +
-                    _candidates[0].DefinitionId + "  /  RIGHT FOR " +
-                    _candidates[1].DefinitionId;
-            }
-            return "BOMB REWARD — WALK ONTO: " +
-                _candidates[0].DefinitionId + " / " +
-                _candidates[1].DefinitionId + " / " +
-                _candidates[2].DefinitionId;
-        }
-
-        private void CreateInstructionUi()
-        {
-            _viewInstance = Instantiate(viewPrefab, transform, false);
-            _viewInstance.name = viewPrefab.name;
-            if (!_viewInstance.HasRequiredReferences)
-            {
-                throw new InvalidOperationException(
-                    "Instantiated bomb reward instruction view is missing required references.");
-            }
-
-            _instructionLabel = _viewInstance.InstructionLabel;
         }
 
         private static IReadOnlyList<GridPosition> GetCandidateCells(int candidateCount)

@@ -894,15 +894,63 @@ namespace BombSwap.Tests.PlayMode
                 _weaponHud.ViewInstance,
                 Is.Not.SameAs(_weaponHud.ViewPrefab));
             Assert.That(_weaponHud.DisplayedActiveSlotIndex, Is.Zero);
-            Assert.That(_weaponHud.FirstSlotReadyFraction, Is.EqualTo(1f));
+            Assert.That(_weaponHud.FirstSlotCooldownFraction, Is.Zero);
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotBombIcon(0).sprite,
+                Is.SameAs(_weaponHud.ViewInstance.GetBombIcon(
+                    BombExplosionShape.Cross)));
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotBombIcon(1).sprite,
+                Is.SameAs(_weaponHud.ViewInstance.GetBombIcon(
+                    BombExplosionShape.SquareArea)));
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotCooldownPanel(0).activeSelf,
+                Is.False);
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotCooldownPanel(1).activeSelf,
+                Is.False);
+            Assert.That(_weaponHud.ViewInstance.GetSlotSelection(0).activeSelf, Is.True);
+            Assert.That(_weaponHud.ViewInstance.GetSlotSelection(1).activeSelf, Is.False);
 
             PressAndRelease(Key.Z);
             PressAndRelease(Key.X);
             yield return null;
 
             Assert.That(_weaponHud.DisplayedActiveSlotIndex, Is.EqualTo(1));
-            Assert.That(_weaponHud.FirstSlotReadyFraction, Is.LessThan(1f));
-            Assert.That(_weaponHud.SecondSlotReadyFraction, Is.EqualTo(1f));
+            Assert.That(_weaponHud.FirstSlotCooldownFraction, Is.GreaterThan(0f));
+            Assert.That(_weaponHud.FirstSlotCooldownFraction, Is.LessThanOrEqualTo(1f));
+            Assert.That(_weaponHud.SecondSlotCooldownFraction, Is.Zero);
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotCooldownPanel(0).activeSelf,
+                Is.True);
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotCooldownLabel(0).text,
+                Does.Match(@"^\d+\.\ds$"));
+            Assert.That(_weaponHud.ViewInstance.GetSlotSelection(0).activeSelf, Is.False);
+            Assert.That(_weaponHud.ViewInstance.GetSlotSelection(1).activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponHud_ShowsEmptySecondSlotUntilBombIsEquipped()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeWeaponHud: true,
+                startWithEmptySecondBombSlot: true);
+            yield return null;
+
+            PrototypeWeaponHudView view = _weaponHud.ViewInstance;
+            Assert.That(view.GetSlotBombIcon(0).gameObject.activeSelf, Is.True);
+            Assert.That(view.GetSlotEmptyIndicator(0).activeSelf, Is.False);
+            Assert.That(view.GetSlotSelection(0).activeSelf, Is.True);
+            Assert.That(view.GetSlotCooldownPanel(0).activeSelf, Is.False);
+
+            Assert.That(view.GetSlotBombIcon(1).gameObject.activeSelf, Is.False);
+            Assert.That(view.GetSlotBombIcon(1).sprite, Is.Null);
+            Assert.That(view.GetSlotEmptyIndicator(1).activeSelf, Is.True);
+            Assert.That(view.GetSlotSelection(1).activeSelf, Is.False);
+            Assert.That(view.GetSlotCooldownPanel(1).activeSelf, Is.False);
         }
 
         [UnityTest]
@@ -2550,6 +2598,7 @@ namespace BombSwap.Tests.PlayMode
             bool includeHealthPresenter = false,
             bool includeChaserPresenter = false,
             bool includeWeaponHud = false,
+            bool startWithEmptySecondBombSlot = false,
             bool includeHealthHud = false,
             float fuseSeconds = 1f,
             float explosionVisualSeconds = 0.25f,
@@ -3108,6 +3157,15 @@ namespace BombSwap.Tests.PlayMode
                 bossEnabled,
                 _selfDestructDefinition,
                 _throwerDefinition);
+            if (startWithEmptySecondBombSlot)
+            {
+                _session.PrepareRuntimeBombLoadout(
+                    _definition,
+                    null,
+                    new[] { _definition, _areaDefinition },
+                    swapCooldownSeconds,
+                    0);
+            }
             _session.BindPauseViewPrefab(
                 LoadUiPrefab<PrototypePauseView>("UI/PrototypePauseCanvas"));
             if (runtimePlayerStart.HasValue || runtimeCombatEnabled.HasValue)

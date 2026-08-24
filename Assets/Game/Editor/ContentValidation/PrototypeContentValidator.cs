@@ -3003,9 +3003,22 @@ namespace BombSwap.Editor.ContentValidation
         private static void ValidateInGameUiPrefabs(
             ICollection<string> errors)
         {
+            Sprite crossBombIcon = AssetDatabase.LoadAssetAtPath<Sprite>(
+                PrototypeInGameUiPrefabAuthoring.CrossBombIconPath);
+            Sprite areaBombIcon = AssetDatabase.LoadAssetAtPath<Sprite>(
+                PrototypeInGameUiPrefabAuthoring.AreaBombIconPath);
+            Sprite lineBombIcon = AssetDatabase.LoadAssetAtPath<Sprite>(
+                PrototypeInGameUiPrefabAuthoring.LineBombIconPath);
             ValidateInGameUiPrefab<PrototypeWeaponHudView>(
                 PrototypeInGameUiPrefabAuthoring.WeaponHudPrefabPath,
-                view => view.HasRequiredReferences,
+                view =>
+                    view.HasRequiredReferences &&
+                    crossBombIcon != null &&
+                    areaBombIcon != null &&
+                    lineBombIcon != null &&
+                    view.GetBombIcon(BombExplosionShape.Cross) == crossBombIcon &&
+                    view.GetBombIcon(BombExplosionShape.SquareArea) == areaBombIcon &&
+                    view.GetBombIcon(BombExplosionShape.ForwardLine) == lineBombIcon,
                 errors);
             ValidateInGameUiPrefab<PrototypeHealthHudView>(
                 PrototypeInGameUiPrefabAuthoring.HealthHudPrefabPath,
@@ -3033,19 +3046,14 @@ namespace BombSwap.Editor.ContentValidation
                 errors);
             ValidateInGameUiPrefab<PrototypeRunCompletionView>(
                 PrototypeInGameUiPrefabAuthoring.RunCompletionPrefabPath,
-                view => view.HasRequiredReferences,
-                errors);
-            ValidateInGameUiPrefab<PrototypeInstructionView>(
-                PrototypeInGameUiPrefabAuthoring.BombRewardPrefabPath,
-                view => view.HasRequiredReferences,
-                errors);
-            ValidateInGameUiPrefab<PrototypeInstructionView>(
-                PrototypeInGameUiPrefabAuthoring.RecoveryInstructionPrefabPath,
-                view => view.HasRequiredReferences,
-                errors);
-            ValidateInGameUiPrefab<PrototypeInstructionView>(
-                PrototypeInGameUiPrefabAuthoring.SecretRewardPrefabPath,
-                view => view.HasRequiredReferences,
+                view =>
+                    view.HasRequiredReferences &&
+                    view.StatusLabel == null &&
+                    !view.GetComponentsInChildren<TextMeshProUGUI>(true)
+                        .Any(label => string.Equals(
+                            label.name,
+                            "Status",
+                            StringComparison.Ordinal)),
                 errors);
             ValidateInGameUiOptionalSpriteFallbacks(errors);
             ValidateHealthHudComposition(errors);
@@ -3310,16 +3318,6 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeRunCompletionView runCompletionPrefab =
                 AssetDatabase.LoadAssetAtPath<PrototypeRunCompletionView>(
                     PrototypeInGameUiPrefabAuthoring.RunCompletionPrefabPath);
-            PrototypeInstructionView bombRewardPrefab =
-                AssetDatabase.LoadAssetAtPath<PrototypeInstructionView>(
-                    PrototypeInGameUiPrefabAuthoring.BombRewardPrefabPath);
-            PrototypeInstructionView recoveryInstructionPrefab =
-                AssetDatabase.LoadAssetAtPath<PrototypeInstructionView>(
-                    PrototypeInGameUiPrefabAuthoring.RecoveryInstructionPrefabPath);
-            PrototypeInstructionView secretRewardPrefab =
-                AssetDatabase.LoadAssetAtPath<PrototypeInstructionView>(
-                    PrototypeInGameUiPrefabAuthoring.SecretRewardPrefabPath);
-
             PrototypeWeaponHud[] weaponHuds =
                 FindComponents<PrototypeWeaponHud>(scene);
             for (int index = 0; index < weaponHuds.Length; index++)
@@ -3375,38 +3373,6 @@ namespace BombSwap.Editor.ContentValidation
                 }
             }
 
-            PrototypeBombRewardPresenter[] bombRewards =
-                FindComponents<PrototypeBombRewardPresenter>(scene);
-            for (int index = 0; index < bombRewards.Length; index++)
-            {
-                if (bombRewards[index].ViewPrefab != bombRewardPrefab)
-                {
-                    errors.Add(
-                        "PrototypeBombRewardPresenter must reference the shared editable bomb reward prefab.");
-                }
-            }
-
-            PrototypeRecoveryPickupPresenter[] recoveries =
-                FindComponents<PrototypeRecoveryPickupPresenter>(scene);
-            for (int index = 0; index < recoveries.Length; index++)
-            {
-                if (recoveries[index].ViewPrefab != recoveryInstructionPrefab)
-                {
-                    errors.Add(
-                        "PrototypeRecoveryPickupPresenter must reference the shared editable recovery instruction prefab.");
-                }
-            }
-
-            PrototypeSecretRewardPresenter[] secretRewards =
-                FindComponents<PrototypeSecretRewardPresenter>(scene);
-            for (int index = 0; index < secretRewards.Length; index++)
-            {
-                if (secretRewards[index].ViewPrefab != secretRewardPrefab)
-                {
-                    errors.Add(
-                        "PrototypeSecretRewardPresenter must reference the shared editable secret reward prefab.");
-                }
-            }
         }
 
         private static void ValidateStandaloneArmoredPlaytestScene(

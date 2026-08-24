@@ -24,6 +24,7 @@
 5. 각 `PrototypeDungeonRoomBinder`는 pending 대상 방을 준비할 때 run loadout을 방 로컬 `PrototypeGameSession`에 주입한다. scene commit 전에는 host의 이전 현재 방이 아니라 binder가 준비한 대상 방 ID·타입을 사용한다.
 6. `PrototypeBombRewardPresenter`는 장치 입력을 직접 읽지 않는다. 기존 Core 이동의 `PlayerMoved` 셀 사건으로 후보 접촉을 판정하고, 선택 성공 뒤에만 다른 후보를 숨기고 HUD가 갱신된다.
 7. `PrototypeBombPresenter`는 빈 슬롯을 미리 풀링하지 않고 선택된 정의가 실제 설치될 때 필요한 visual pool을 지연 생성한다.
+8. 보상방 전용 안내 Canvas는 사용하지 않는다. 선택 가능한 폭탄은 월드 후보로, 선택 결과는 기존 무기 HUD로 전달하며 이후 가독성 보강도 전용 월드 프리팹이나 VFX로 확장한다.
 
 ## 현재 저작값
 

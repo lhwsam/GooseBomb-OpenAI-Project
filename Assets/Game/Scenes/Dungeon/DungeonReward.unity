@@ -4488,7 +4488,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombRewardPresenter
   roomBinder: {fileID: 549228493}
-  viewPrefab: {fileID: 8369459580663938754, guid: 31fceb89fd7001c46bd631ce9a443e23, type: 3}
 --- !u!114 &549228496
 MonoBehaviour:
   m_ObjectHideFlags: 0
