@@ -232,6 +232,31 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RunCompletionPrefab_InstantiatesAuthoredView()
+        {
+            PrototypeRunCompletionView prefab =
+                Resources.Load<PrototypeRunCompletionView>(
+                    "UI/PrototypeRunCompletionCanvas");
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.HasRequiredReferences, Is.True);
+
+            PrototypeRunCompletionView instance =
+                UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                Assert.That(instance, Is.Not.SameAs(prefab));
+                Assert.That(instance.HasRequiredReferences, Is.True);
+                Assert.That(instance.RestartButton, Is.Not.SameAs(instance.LobbyButton));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator MinimapChildPrefabs_InstantiateAuthoredViews()
         {
             PrototypeDungeonMinimapRoomView roomPrefab =
@@ -961,7 +986,7 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo(run.CombatRewardTokenCount));
                 Assert.That(
                     healthHud.CombatRewardText,
-                    Is.EqualTo("ROOM TOKENS  " + run.CombatRewardTokenCount));
+                    Is.EqualTo(run.CombatRewardTokenCount.ToString()));
 
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
@@ -1060,6 +1085,11 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(presenter.IsMoveTargetVisible, Is.False);
                 Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
                 Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
+                Assert.That(completionPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(
+                    completionPresenter.ViewPrefab.HasRequiredReferences,
+                    Is.True);
+                Assert.That(completionPresenter.ViewInstance, Is.Null);
                 Assert.That(completionPresenter.IsVisible, Is.False);
                 AssertDisplayedStatusesMatchGraph(
                     binder.DoorPresenter,
@@ -1136,6 +1166,11 @@ namespace BombSwap.Tests.PlayMode
                         .Single();
                 PrototypeGameSession rewardSession = rewardBinder.RoomSession;
                 Assert.That(rewardPresenter.IsInitialized, Is.True);
+                Assert.That(rewardPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(rewardPresenter.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    rewardPresenter.ViewInstance,
+                    Is.Not.SameAs(rewardPresenter.ViewPrefab));
                 Assert.That(rewardPresenter.CandidateVisualCount, Is.EqualTo(2));
                 Assert.That(rewardSession.GetBombSlot(0).HasDefinition, Is.True);
                 Assert.That(
@@ -1377,6 +1412,13 @@ namespace BombSwap.Tests.PlayMode
         {
             Scene loadedDungeonScene = default;
             Keyboard keyboard = null;
+            bool hadInputOverrides = PlayerPrefs.HasKey(
+                PrototypeUserSettingsStorage.InputOverridesKey);
+            string previousInputOverrides = PlayerPrefs.GetString(
+                PrototypeUserSettingsStorage.InputOverridesKey,
+                string.Empty);
+            PlayerPrefs.DeleteKey(PrototypeUserSettingsStorage.InputOverridesKey);
+            PlayerPrefs.Save();
             try
             {
                 yield return SceneManager.LoadSceneAsync(
@@ -1577,6 +1619,9 @@ namespace BombSwap.Tests.PlayMode
                     run.TryTravelTo(hiddenAlternateCombat).Status,
                     Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 Assert.That(reward.IsInitialized, Is.True);
+                Assert.That(reward.ViewPrefab, Is.Not.Null);
+                Assert.That(reward.ViewInstance, Is.Not.Null);
+                Assert.That(reward.ViewInstance, Is.Not.SameAs(reward.ViewPrefab));
                 Assert.That(reward.IsCollected, Is.False);
                 Assert.That(reward.IsVisualVisible, Is.True);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
@@ -1636,6 +1681,11 @@ namespace BombSwap.Tests.PlayMode
                     run,
                     secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
+                Assert.That(reentryReward.ViewPrefab, Is.Not.Null);
+                Assert.That(reentryReward.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    reentryReward.ViewInstance,
+                    Is.Not.SameAs(reentryReward.ViewPrefab));
                 Assert.That(reentryReward.IsVisualVisible, Is.False);
                 Assert.That(
                     reentryReward.InstructionText,
@@ -1654,6 +1704,19 @@ namespace BombSwap.Tests.PlayMode
                     InputSystem.Update();
                     InputSystem.RemoveDevice(keyboard);
                 }
+
+                if (hadInputOverrides)
+                {
+                    PlayerPrefs.SetString(
+                        PrototypeUserSettingsStorage.InputOverridesKey,
+                        previousInputOverrides);
+                }
+                else
+                {
+                    PlayerPrefs.DeleteKey(
+                        PrototypeUserSettingsStorage.InputOverridesKey);
+                }
+                PlayerPrefs.Save();
 
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
@@ -1731,6 +1794,11 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(fullBinder.RoomSession.EnemyActiveCount, Is.Zero);
                 Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
                 Assert.That(fullPresenter.IsInitialized, Is.True);
+                Assert.That(fullPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(fullPresenter.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    fullPresenter.ViewInstance,
+                    Is.Not.SameAs(fullPresenter.ViewPrefab));
                 Assert.That(fullPresenter.IsVisualVisible, Is.True);
                 Assert.That(
                     fullPresenter.TryCollectAt(new GridPosition(0, 0)),
@@ -1774,6 +1842,8 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
                             FindObjectsInactive.Include)
                         .Single();
+                Assert.That(damagedPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(damagedPresenter.ViewInstance, Is.Not.Null);
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(3));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(3));
                 Assert.That(
@@ -1787,7 +1857,10 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(5));
                 Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(5));
-                Assert.That(damagedHud.PlayerHealthFillFraction, Is.EqualTo(1f));
+                Assert.That(damagedHud.DisplayedPlayerHeartCount, Is.EqualTo(5));
+                Assert.That(
+                    damagedHud.DisplayedFilledPlayerHeartCount,
+                    Is.EqualTo(5));
                 Assert.That(run.CombatRewardTokenCount, Is.EqualTo(tokensBeforeRecovery));
 
                 Assert.That(run.TryTravelTo(recoveryParent).Moved, Is.True);
@@ -1801,6 +1874,8 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeRecoveryPickupPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
+                Assert.That(consumedPresenter.ViewPrefab, Is.Not.Null);
+                Assert.That(consumedPresenter.ViewInstance, Is.Not.Null);
                 Assert.That(consumedPresenter.IsConsumed, Is.True);
                 Assert.That(consumedPresenter.IsVisualVisible, Is.False);
                 Assert.That(consumedPresenter.InstructionText, Is.EqualTo("RECOVERY USED"));

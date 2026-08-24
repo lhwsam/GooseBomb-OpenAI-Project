@@ -101,10 +101,10 @@ first-party C#은 Core 97, Runtime 16, Presentation 33, Authoring 15, Editor 15,
 - `Fast`: 정적 계약, Unity compile/validator, Core EditMode.
 - `Full`: Fast + first-party PlayMode.
 - `Web`: Full + Development WebGL build + template/server/analyzer 테스트 + Edge/Chrome keyboard·가상 Gamepad smoke.
-- 최신 이동 복구 기준 증거: 기존 기대값을 바꾸지 않은 EditMode `363/363`, 전체 PlayMode `172/186` 통과. 플레이어 이동·입력 응답성 실패는 0이다.
-- 남은 PlayMode 14개 실패는 boss fuse, scene binder/run host, 적·폭발·방 클리어 기준선 범주이며 이동 계약과 분리해 다룬다.
+- 최신 통합 기준 증거: EditMode `363/363`, 전체 PlayMode `184/192` 통과. 플레이어 이동·입력 응답성, 보스 fuse 순서와 폭탄 준비 VFX timing 실패는 0이며 남은 8건은 run host·추격자·자폭병·폭발·방 클리어 기준선이다.
+- 남은 PlayMode 8개 실패는 run host, 추격자, 자폭병, 폭발·방 클리어 기준선 범주이며 이동과 폭탄 fuse 계약에서 분리해 다룬다.
 - 플레이어는 기본 5 cells/s의 10ms step 연속 이동, 적은 시작한 한 칸을 완료하는 committed 이동을 사용한다. 입력 해제·직교 전환·짧은 탭의 자동 계약은 복구됐고 최종 조작감은 수동 재확인이 남아 있다.
-- 최신 Development WebGL은 기존 콘텐츠 validator가 빌드 전에 차단했으므로 WebGL과 browser smoke 통과로 보고하지 않는다.
+- 최신 Development WebGL은 로비 제목·투척병 Animator·현재 UI의 private vendor 직접 참조를 콘텐츠 validator가 빌드 전에 차단했다. 보스 fuse와 폭탄 준비 animation validator 오류는 0이지만 WebGL과 browser smoke 통과로 보고하지 않는다.
 
 ## 사용 가능한 Unity 도구
 
@@ -134,7 +134,7 @@ Unity MCP 서버와 리소스 정의 자체는 설치되어 있다. Editor bridg
 
 ## 미확인 사항과 현재 위험
 
-1. **현재 기준선 실패:** 최신 커밋은 Full/Web green 상태가 아니다. 남은 PlayMode 14개 실패를 room/binder·boss fuse·적/폭발/방 클리어 원인별로 분리하고 회귀 기준선을 복구하는 것이 우선이다.
+1. **현재 기준선 실패:** 최신 커밋은 Full/Web green 상태가 아니다. 남은 PlayMode 8개 실패를 run host·추격자·자폭병·폭발·방 클리어 원인별로 분리하고 회귀 기준선을 복구하는 것이 우선이다.
 2. **플레이어 이동 수동 확인:** 자동 이동 계약은 복구됐다. 키 해제 즉시 정지, 셀 중간 직교 전환, 빠른 `상→우` 반복과 벽·폭탄 경계의 예약 안전성을 실제 키보드로 재확인해야 한다.
 3. **Console 미확인:** Editor는 실행 중이지만 MCP bridge가 연결되지 않아 현재 Console error/warning을 직접 읽지 못했다.
 4. **WebGL 검증 차단:** 최신 Development WebGL은 콘텐츠 validator에서 중단됐고 browser smoke는 실행되지 않았다.

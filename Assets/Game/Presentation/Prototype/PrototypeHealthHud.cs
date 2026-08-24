@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using BombSwap.Core;
 using TMPro;
 using UnityEngine;
@@ -17,13 +19,17 @@ namespace BombSwap
 
         private PrototypeHealthHudView _viewInstance;
         private GameObject _bossPanelObject;
-        private Image _playerHealthFill;
+        private RectTransform _playerHeartContainer;
+        private PrototypeHealthHeartView _playerHeartPrefab;
+        private readonly List<PrototypeHealthHeartView> _playerHearts = new();
         private Image _bossHealthFill;
-        private TextMeshProUGUI _playerHealthLabel;
-        private TextMeshProUGUI _bossHealthLabel;
+        private TextMeshProUGUI _bossNameLabel;
+        private TextMeshProUGUI _bossPhaseLabel;
+        private TextMeshProUGUI _bossHealthValueLabel;
         private TextMeshProUGUI _combatRewardLabel;
         private PrototypeDungeonRoomBinder _roomBinder;
         private bool _isSubscribed;
+        private string _bossNameText = "BOSS";
 
         public PrototypeGameSession Session => session;
 
@@ -48,17 +54,29 @@ namespace BombSwap
         public bool IsBossPanelVisible =>
             _bossPanelObject != null && _bossPanelObject.activeSelf;
 
-        public float PlayerHealthFillFraction =>
-            _playerHealthFill != null ? _playerHealthFill.fillAmount : 0f;
+        public int DisplayedPlayerHeartCount => DisplayedPlayerMaxHealth;
+
+        public int DisplayedFilledPlayerHeartCount => DisplayedPlayerHealth;
+
+        public int InstantiatedPlayerHeartCount => _playerHearts.Count;
 
         public float BossHealthFillFraction =>
             _bossHealthFill != null ? _bossHealthFill.fillAmount : 0f;
 
-        public string PlayerHealthText =>
-            _playerHealthLabel != null ? _playerHealthLabel.text : string.Empty;
+        public string BossNameText =>
+            _bossNameLabel != null ? _bossNameLabel.text : _bossNameText;
 
-        public string BossHealthText =>
-            _bossHealthLabel != null ? _bossHealthLabel.text : string.Empty;
+        public string BossPhaseText =>
+            _bossPhaseLabel != null
+                ? _bossPhaseLabel.text
+                : GetBossPhaseText(DisplayedBossHealth, DisplayedBossPhase);
+
+        public string BossHealthValueText =>
+            _bossHealthValueLabel != null
+                ? _bossHealthValueLabel.text
+                : GetBossHealthValueText(
+                    DisplayedBossHealth,
+                    DisplayedBossMaxHealth);
 
         public string CombatRewardText =>
             _combatRewardLabel != null ? _combatRewardLabel.text : string.Empty;
@@ -231,11 +249,20 @@ namespace BombSwap
 
         private void RefreshPlayer(int currentHealth, int maxHealth)
         {
+            ValidateHealth(currentHealth, maxHealth, nameof(currentHealth));
             DisplayedPlayerHealth = currentHealth;
             DisplayedPlayerMaxHealth = maxHealth;
-            _playerHealthFill.fillAmount = GetFraction(currentHealth, maxHealth);
-            _playerHealthLabel.text =
-                "PLAYER HP  " + currentHealth + " / " + maxHealth;
+            EnsurePlayerHeartCapacity(maxHealth);
+            for (int index = 0; index < _playerHearts.Count; index++)
+            {
+                bool isUsed = index < maxHealth;
+                PrototypeHealthHeartView heart = _playerHearts[index];
+                heart.gameObject.SetActive(isUsed);
+                if (isUsed)
+                {
+                    heart.SetFilled(index < currentHealth);
+                }
+            }
         }
 
         private void RefreshBoss(
@@ -248,16 +275,15 @@ namespace BombSwap
                 return;
             }
 
+            ValidateHealth(currentHealth, maxHealth, nameof(currentHealth));
             _bossPanelObject.SetActive(true);
             DisplayedBossHealth = currentHealth;
             DisplayedBossMaxHealth = maxHealth;
             DisplayedBossPhase = phase;
             _bossHealthFill.fillAmount = GetFraction(currentHealth, maxHealth);
-            _bossHealthLabel.text = currentHealth > 0
-                ? "BOSS  |  PHASE " + GetPhaseNumber(phase) +
-                  "  |  " + currentHealth + " / " + maxHealth
-                : "BOSS DEFEATED  |  0 / " + maxHealth;
-            _bossHealthLabel.color = Color.white;
+            _bossPhaseLabel.text = GetBossPhaseText(currentHealth, phase);
+            _bossHealthValueLabel.text =
+                GetBossHealthValueText(currentHealth, maxHealth);
         }
 
         private void RefreshCombatRewardTokens(int tokenCount)
@@ -268,7 +294,8 @@ namespace BombSwap
             }
 
             DisplayedCombatRewardTokenCount = tokenCount;
-            _combatRewardLabel.text = "ROOM TOKENS  " + tokenCount;
+            _combatRewardLabel.text =
+                tokenCount.ToString(CultureInfo.InvariantCulture);
         }
 
         private void CreateUi()
@@ -282,11 +309,44 @@ namespace BombSwap
             }
 
             _bossPanelObject = _viewInstance.BossPanel;
-            _playerHealthFill = _viewInstance.PlayerHealthFill;
+            _playerHeartContainer = _viewInstance.PlayerHeartContainer;
+            _playerHeartPrefab = _viewInstance.PlayerHeartPrefab;
             _bossHealthFill = _viewInstance.BossHealthFill;
-            _playerHealthLabel = _viewInstance.PlayerHealthLabel;
-            _bossHealthLabel = _viewInstance.BossHealthLabel;
+            _bossNameLabel = _viewInstance.BossNameLabel;
+            _bossPhaseLabel = _viewInstance.BossPhaseLabel;
+            _bossHealthValueLabel = _viewInstance.BossHealthValueLabel;
             _combatRewardLabel = _viewInstance.CombatRewardLabel;
+            _bossNameText = GetAuthoredBossName(_bossNameLabel.text);
+            _bossNameLabel.text = _bossNameText;
+
+            PrototypeHealthHeartView[] authoredHearts =
+                _playerHeartContainer.GetComponentsInChildren<
+                    PrototypeHealthHeartView>(true);
+            for (int index = 0; index < authoredHearts.Length; index++)
+            {
+                _playerHearts.Add(authoredHearts[index]);
+            }
+        }
+
+        private void EnsurePlayerHeartCapacity(int maxHealth)
+        {
+            if (maxHealth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxHealth));
+            }
+
+            while (_playerHearts.Count < maxHealth)
+            {
+                PrototypeHealthHeartView heart = Instantiate(
+                    _playerHeartPrefab,
+                    _playerHeartContainer,
+                    false);
+                heart.name = "PlayerHeart" +
+                    (_playerHearts.Count + 1).ToString(
+                        "00",
+                        CultureInfo.InvariantCulture);
+                _playerHearts.Add(heart);
+            }
         }
 
         private static float GetFraction(int currentHealth, int maxHealth)
@@ -294,6 +354,54 @@ namespace BombSwap
             return maxHealth > 0
                 ? Mathf.Clamp01((float)currentHealth / maxHealth)
                 : 0f;
+        }
+
+        private static void ValidateHealth(
+            int currentHealth,
+            int maxHealth,
+            string currentHealthParameterName)
+        {
+            if (maxHealth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxHealth));
+            }
+            if (currentHealth < 0 || currentHealth > maxHealth)
+            {
+                throw new ArgumentOutOfRangeException(currentHealthParameterName);
+            }
+        }
+
+        private static string GetAuthoredBossName(string authoredText)
+        {
+            if (string.IsNullOrWhiteSpace(authoredText))
+            {
+                return "BOSS";
+            }
+
+            int separatorIndex = authoredText.IndexOf('|');
+            string name = separatorIndex >= 0
+                ? authoredText.Substring(0, separatorIndex)
+                : authoredText;
+            name = name.Trim();
+            return name.Length > 0 ? name : "BOSS";
+        }
+
+        private static string GetBossPhaseText(
+            int currentHealth,
+            BossPhase phase)
+        {
+            return currentHealth > 0
+                ? "PHASE " + GetPhaseNumber(phase)
+                : "DEFEATED";
+        }
+
+        private static string GetBossHealthValueText(
+            int currentHealth,
+            int maxHealth)
+        {
+            return currentHealth.ToString(CultureInfo.InvariantCulture) +
+                " / " +
+                maxHealth.ToString(CultureInfo.InvariantCulture);
         }
 
         private static int GetPhaseNumber(BossPhase phase)

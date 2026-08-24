@@ -62,6 +62,8 @@ namespace BombSwap.Editor.UI
                 throw new ArgumentNullException(nameof(errors));
             }
 
+            ISet<string> approvedPlayerBombVfxDependencies =
+                LocalLicensedVfxSetup.GetApprovedPlayerBombVfxDependencies();
             string[] assetPaths = AssetDatabase.GetAllAssetPaths();
             foreach (string ownerPath in assetPaths)
             {
@@ -77,6 +79,14 @@ namespace BombSwap.Editor.UI
                 for (int index = 0; index < dependencies.Length; index++)
                 {
                     string dependency = dependencies[index];
+                    if (LocalLicensedVfxSetup.IsApprovedPlayerBombVfxReference(
+                            ownerPath,
+                            dependency,
+                            dependencies,
+                            approvedPlayerBombVfxDependencies))
+                    {
+                        continue;
+                    }
                     if (IsUnsupportedPrivateAsset(dependency))
                     {
                         errors.Add(

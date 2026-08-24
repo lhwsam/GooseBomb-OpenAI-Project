@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4346619444564291995}
   - component: {fileID: 3517660841968732280}
   - component: {fileID: 6016672774930080863}
+  - component: {fileID: 8188734008534806898}
   m_Layer: 0
   m_Name: PrototypeDungeonMinimapConnection
   m_TagString: Untagged
@@ -89,3 +90,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeDungeonMinimapConnectionView
   connectionImage: {fileID: 3517660841968732280}
+--- !u!114 &8188734008534806898
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5656966373193147368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb2fe6718cf9434eb1dde018218a8d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeOptionalSpriteFallback
+  fallbackSprite: {fileID: 0}
+  hideWhenMissing: 0

@@ -4465,6 +4465,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRunCompletionPresenter
   roomBinder: {fileID: 549228493}
   inputReader: {fileID: 549228480}
+  viewPrefab: {fileID: 1591085519140803233, guid: 5ee7cd55f985bc24b8b248a97b010d85, type: 3}
 --- !u!114 &549228499
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4492,6 +4493,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRecoveryPickupPresenter
   roomBinder: {fileID: 549228493}
+  viewPrefab: {fileID: 3569689967493945566, guid: 1a3632b2b4b0c5b4cba6d52db759908e, type: 3}
   recoveryAmount: 2
   pickupCell: {x: 0, y: 0}
   pickupMaterial: {fileID: 2100000, guid: 41bb1e2f8e57ad24ea40cae14232eb4f, type: 2}

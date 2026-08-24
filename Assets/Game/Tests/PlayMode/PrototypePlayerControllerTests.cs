@@ -912,7 +912,8 @@ namespace BombSwap.Tests.PlayMode
                 Vector2Int.zero,
                 false,
                 includeHealthHud: true,
-                fuseSeconds: 0.08f);
+                fuseSeconds: 0.08f,
+                maxHealth: 7);
             yield return null;
 
             Assert.That(_healthHud.IsInitialized, Is.True);
@@ -921,20 +922,39 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 _healthHud.ViewInstance,
                 Is.Not.SameAs(_healthHud.ViewPrefab));
-            Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(5));
-            Assert.That(_healthHud.DisplayedPlayerMaxHealth, Is.EqualTo(5));
-            Assert.That(_healthHud.PlayerHealthFillFraction, Is.EqualTo(1f));
-            Assert.That(_healthHud.PlayerHealthText, Does.Contain("5 / 5"));
+            Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(7));
+            Assert.That(_healthHud.DisplayedPlayerMaxHealth, Is.EqualTo(7));
+            Assert.That(_healthHud.DisplayedPlayerHeartCount, Is.EqualTo(7));
+            Assert.That(_healthHud.DisplayedFilledPlayerHeartCount, Is.EqualTo(7));
+            Assert.That(_healthHud.InstantiatedPlayerHeartCount, Is.EqualTo(7));
+            PrototypeHealthHeartView[] hearts =
+                _healthHud.ViewInstance.PlayerHeartContainer
+                    .GetComponentsInChildren<PrototypeHealthHeartView>(true);
+            Assert.That(hearts, Has.Length.EqualTo(7));
+            for (int index = 0; index < hearts.Length; index++)
+            {
+                Assert.That(hearts[index].IsFilled, Is.True);
+                Assert.That(
+                    hearts[index].FullVisual.gameObject.activeSelf,
+                    Is.True);
+                Assert.That(
+                    hearts[index].EmptyVisual.gameObject.activeSelf,
+                    Is.False);
+            }
             Assert.That(_healthHud.IsBossPanelVisible, Is.False);
             Assert.That(_healthHud.DisplayedCombatRewardTokenCount, Is.Zero);
-            Assert.That(_healthHud.CombatRewardText, Is.EqualTo("ROOM TOKENS  0"));
+            Assert.That(_healthHud.CombatRewardText, Is.EqualTo("0"));
 
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.15f);
 
-            Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(4));
-            Assert.That(_healthHud.PlayerHealthFillFraction, Is.EqualTo(0.8f));
-            Assert.That(_healthHud.PlayerHealthText, Does.Contain("4 / 5"));
+            Assert.That(_healthHud.DisplayedPlayerHealth, Is.EqualTo(6));
+            Assert.That(_healthHud.DisplayedPlayerHeartCount, Is.EqualTo(7));
+            Assert.That(_healthHud.DisplayedFilledPlayerHeartCount, Is.EqualTo(6));
+            Assert.That(hearts[5].IsFilled, Is.True);
+            Assert.That(hearts[6].IsFilled, Is.False);
+            Assert.That(hearts[6].FullVisual.gameObject.activeSelf, Is.False);
+            Assert.That(hearts[6].EmptyVisual.gameObject.activeSelf, Is.True);
             Assert.That(_healthHud.IsBossPanelVisible, Is.False);
         }
 
@@ -963,6 +983,11 @@ namespace BombSwap.Tests.PlayMode
                 animator => animator.gameObject.activeInHierarchy);
             Assert.That(pooledBombAnimator, Is.Not.Null);
             Assert.That(pooledBombAnimator.enabled, Is.True);
+            Assert.That(
+                pooledBombAnimator.speed,
+                Is.EqualTo(
+                    PrototypeBombPresenter.BombFuseVisualReferenceSeconds / 0.08f)
+                    .Within(0.001f));
             Transform bombReadyVfxAnchor =
                 pooledBombAnimator.transform.Find("SparksEffect");
             Assert.That(bombReadyVfxAnchor, Is.Not.Null);
@@ -992,10 +1017,74 @@ namespace BombSwap.Tests.PlayMode
                 animator => animator.gameObject.activeInHierarchy);
             Assert.That(reusedBombAnimator, Is.SameAs(pooledBombAnimator));
             Assert.That(reusedBombAnimator.enabled, Is.True);
+            Assert.That(
+                reusedBombAnimator.speed,
+                Is.EqualTo(
+                    PrototypeBombPresenter.BombFuseVisualReferenceSeconds / 0.08f)
+                    .Within(0.001f));
 
             yield return new WaitForSecondsRealtime(0.55f);
 
             Assert.That(_presenter.ActiveExplosionVisualCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator BombPresenter_PausesArmingVisualWithLogicalFuse()
+        {
+            const float fuseSeconds = 0.5f;
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includePresenter: true,
+                includeBombAnimator: true,
+                includeAuthoredBombReadyVfx: true,
+                fuseSeconds: fuseSeconds);
+            yield return null;
+
+            PressAndRelease(Key.Z);
+            yield return null;
+
+            Animator animator = System.Array.Find(
+                _presenter.PresentationRoot.GetComponentsInChildren<Animator>(true),
+                candidate => candidate.gameObject.activeInHierarchy);
+            Assert.That(animator, Is.Not.Null);
+            Assert.That(
+                animator.speed,
+                Is.EqualTo(
+                    PrototypeBombPresenter.BombFuseVisualReferenceSeconds /
+                    fuseSeconds).Within(0.001f));
+            ParticleSystem readyParticles =
+                animator.transform.Find("SparksEffect/Particle")
+                    .GetComponent<ParticleSystem>();
+            Assert.That(readyParticles.isPlaying, Is.True);
+            Assert.That(
+                readyParticles.main.simulationSpeed,
+                Is.EqualTo(
+                    PrototypeBombPresenter.BombFuseVisualReferenceSeconds /
+                    fuseSeconds).Within(0.001f));
+
+            PressAndRelease(Key.Escape);
+            yield return null;
+
+            Assert.That(_session.IsPaused, Is.True);
+            Assert.That(animator.speed, Is.Zero);
+            Assert.That(readyParticles.isPaused, Is.True);
+            yield return new WaitForSecondsRealtime(0.1f);
+            Assert.That(_presenter.ActiveBombVisualCount, Is.EqualTo(1));
+
+            PressAndRelease(Key.Escape);
+            yield return null;
+
+            Assert.That(_session.IsPaused, Is.False);
+            Assert.That(
+                animator.speed,
+                Is.EqualTo(
+                    PrototypeBombPresenter.BombFuseVisualReferenceSeconds /
+                    fuseSeconds).Within(0.001f));
+            Assert.That(readyParticles.isPlaying, Is.True);
+
+            yield return new WaitForSecondsRealtime(0.55f);
+            Assert.That(_presenter.ActiveBombVisualCount, Is.Zero);
         }
 
         [UnityTest]
@@ -1860,8 +1949,16 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_session.CurrentBossState, Is.EqualTo(BossBattleState.Telegraph));
             Assert.That(_session.IsBossAlive, Is.True);
-            Assert.That(_healthHud.BossHealthText, Does.Not.Contain("VULNERABLE"));
-            Assert.That(_healthHud.BossHealthText, Does.Not.Contain("BLOCKED"));
+            Assert.That(_healthHud.BossNameText, Does.Not.Contain("VULNERABLE"));
+            Assert.That(_healthHud.BossNameText, Does.Not.Contain("BLOCKED"));
+            Assert.That(_healthHud.BossPhaseText, Does.Not.Contain("VULNERABLE"));
+            Assert.That(_healthHud.BossPhaseText, Does.Not.Contain("BLOCKED"));
+            Assert.That(
+                _healthHud.BossHealthValueText,
+                Does.Not.Contain("VULNERABLE"));
+            Assert.That(
+                _healthHud.BossHealthValueText,
+                Does.Not.Contain("BLOCKED"));
 
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.08f);
@@ -1871,7 +1968,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_bossPresenter.DamageCount, Is.EqualTo(1));
             Assert.That(_bossPresenter.DisplayedHealth, Is.EqualTo(2));
             Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
-            Assert.That(_healthHud.BossHealthText, Does.Contain("2 / 3"));
+            Assert.That(_healthHud.BossHealthValueText, Is.EqualTo("2 / 3"));
         }
 
         [UnityTest]
@@ -2059,6 +2156,20 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_healthHud.DisplayedBossMaxHealth, Is.EqualTo(3));
             Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.One));
             Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(1f));
+            Assert.That(
+                _healthHud.BossNameText,
+                Is.EqualTo(_healthHud.ViewPrefab.BossNameLabel.text));
+            Assert.That(_healthHud.BossPhaseText, Is.EqualTo("PHASE 1"));
+            Assert.That(_healthHud.BossHealthValueText, Is.EqualTo("3 / 3"));
+            Assert.That(
+                _healthHud.ViewInstance.BossNameLabel.gameObject.name,
+                Is.EqualTo("BossNameLabel"));
+            Assert.That(
+                _healthHud.ViewInstance.BossPhaseLabel.gameObject.name,
+                Is.EqualTo("BossPhaseLabel"));
+            Assert.That(
+                _healthHud.ViewInstance.BossHealthValueLabel.gameObject.name,
+                Is.EqualTo("BossHealthValueLabel"));
 
             PressAndRelease(Key.X);
             yield return null;
@@ -2088,6 +2199,10 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
             Assert.That(_healthHud.BossHealthFillFraction, Is.EqualTo(2f / 3f).Within(0.001f));
+            Assert.That(_healthHud.BossHealthValueText, Is.EqualTo("2 / 3"));
+            Assert.That(
+                _healthHud.BossNameText,
+                Is.EqualTo(_healthHud.ViewPrefab.BossNameLabel.text));
 
             deadline = Time.realtimeSinceStartup + 5f;
             while (_session.CurrentBossPhase != BossPhase.Two &&
@@ -2097,7 +2212,7 @@ namespace BombSwap.Tests.PlayMode
             }
             Assert.That(_session.CurrentBossPhase, Is.EqualTo(BossPhase.Two));
             Assert.That(_healthHud.DisplayedBossPhase, Is.EqualTo(BossPhase.Two));
-            Assert.That(_healthHud.BossHealthText, Does.Contain("PHASE 2"));
+            Assert.That(_healthHud.BossPhaseText, Is.EqualTo("PHASE 2"));
 
             Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
         }

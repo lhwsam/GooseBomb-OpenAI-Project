@@ -1597,7 +1597,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '@TeamHongilDong'
+  m_text: '@Team_VIGILANTE'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 82fe22778a3c369428ec2dfc054684bb, type: 2}
   m_sharedMaterial: {fileID: 7705615543722573155, guid: 82fe22778a3c369428ec2dfc054684bb, type: 2}
@@ -9013,7 +9013,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: v.0.0.1
+  m_text: v.0.1.0
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 82fe22778a3c369428ec2dfc054684bb, type: 2}
   m_sharedMaterial: {fileID: 7705615543722573155, guid: 82fe22778a3c369428ec2dfc054684bb, type: 2}

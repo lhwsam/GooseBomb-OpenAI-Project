@@ -41,7 +41,7 @@
 - `DungeonPlayerHealthState`는 run의 최대·현재 체력을 소유한다. persistent host가 검증된 player-vitals 데이터로 새 상태를 만들고 room binder가 새 방 session을 현재 체력으로 초기화하며, 적용된 피해를 즉시 되돌려 기록한다. 이동과 scene load는 체력을 바꾸지 않고 새 run만 최대 체력으로 시작한다.
 - `DungeonRunState`는 정확히 한 개인 Recovery 노드의 소비 여부를 run 수명으로 소유한다. 현재 Recovery 노드에서 최대 체력이 아닐 때만 회복과 소비를 함께 확정하며 재입장이나 scene 재로드로 다시 생성하지 않는다.
 - `DungeonRunState`는 Secret 연결별 공개와 Secret 노드의 cache 소비를 run 수명으로 소유한다. Unity binder가 매핑한 문 앞 출구 셀이 실제 폭발 `AffectedCells`에 포함됐을 때만 해당 연결을 공개하고, 현재 Secret 방에서만 양수 cache 토큰을 한 번 지급한다.
-- Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 우상단 `ROOM TOKENS` snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
+- Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 토큰 아이콘 옆에 접두 문구 없는 숫자 snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
 - `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
 
 현재 필수 주 경로는 다음과 같다.

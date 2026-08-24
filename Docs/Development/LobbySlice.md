@@ -23,7 +23,7 @@ WebGL을 열자마자 던전 simulation을 시작하지 않고 게임 이름과 
 - 기본 폰트와 런타임 생성 문자의 명시적 폰트는 Raster atlas를 사용하는 `DungGeunMo`다. `DNFBitBitv2` Raster asset은 제목·강조 문구에 선택할 수 있는 지원 폰트다. 둘 다 960×600 네이티브 크기에서 SDF 보간 없이 픽셀 형태를 유지한다.
 - `TMP Settings`의 default font는 DungGeunMo로 고정해 새 TMP UI의 누락을 줄인다. 공통 `PrototypeUiFactory`는 기본 폰트가 다르거나 누락되면 즉시 거부하지만, 씬 저작 TMP에는 DungGeunMo와 DNFBitBitv2를 허용한다.
 - 외곽선과 그라데이션의 자산·사용·성능 계약은 [픽셀 폰트 렌더링](../Systems/PixelFontRendering.md)을 따른다.
-- 로비의 초기 Canvas 계층은 공통 factory로 한 번 저작해 씬에 저장한다. 무기 HUD·체력 HUD·미니맵·pause는 [공유 인게임 UI 프리팹](../Systems/InGameUiPrefabs.md)에서 사람이 직접 저작하고 presenter가 scene 수명에 맞춰 한 번 인스턴스화한다. 보상·회복·비밀방·결과 화면은 기존 런타임 표현 경계를 유지한다.
+- 로비의 초기 Canvas 계층은 공통 factory로 한 번 저작해 씬에 저장한다. 무기 HUD·체력 HUD·미니맵·pause와 보상·회복·비밀방 안내·결과 화면은 [공유 인게임 UI 프리팹](../Systems/InGameUiPrefabs.md)에서 사람이 직접 저작하고 presenter가 scene 수명에 맞춰 인스턴스화한다. 상태에 따라 개수가 달라지는 하트와 미니맵 방·연결도 시각 한 단위를 자식 프리팹으로 저작한다.
 - 모든 first-party `CanvasScaler`는 `PrototypeUiFactory`의 960×600 공통 기준, `ScaleWithScreenSize`, `MatchWidthOrHeight = 0.5`를 사용한다. 네이티브 WebGL 크기에서는 UI scale이 1이고, 브라우저 표시 축소는 hosting shell이 담당한다.
 - 로비는 키보드, 게임패드 UI Submit, 마우스 클릭을 받는다.
 - 권한이 있는 개발자가 로컬 package를 Import하면 씬에 저장된 GUID로 `BlackandWhiteUI_117` 등 외부 Sprite가 Edit Mode에서 직접 복구된다. 각 외부 Sprite Image의 `PrototypeOptionalSpriteFallback`은 package가 없는 공개 clone에서 기능 Image를 유지하고 순수 장식만 숨긴다. 설정 panel은 87×77 원본의 디자이너 저작 정수 6배 522×462 `Simple` Image 크기를 유지하며, Sprite 교체와 폴백은 RectTransform·색상·Image 타입을 변경하지 않는다. Unity Game View를 `0.8x`처럼 비정수 배율로 축소한 미리보기는 픽셀 샘플을 다시 보간하므로 선명도 판정은 `1x` 또는 실제 960×600 WebGL canvas에서 한다.

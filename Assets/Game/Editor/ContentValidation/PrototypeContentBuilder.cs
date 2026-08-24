@@ -112,6 +112,36 @@ namespace BombSwap.Editor.ContentValidation
                 "Refreshed prototype thrower definition, bomb, room, and presentation content.");
         }
 
+        [MenuItem("Bomb Swap/Prototype/Restore Authored Bomb Fuse Timings")]
+        public static void RestoreAuthoredBombFuseTimingsMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before restoring authored bomb fuse timings.");
+            }
+
+            RestoreBombFuseTiming(
+                PrototypeContentValidator.PrototypeAreaBombDefinitionPath,
+                1.75f);
+            RestoreBombFuseTiming(
+                PrototypeContentValidator.PrototypeLineBombDefinitionPath,
+                2.25f);
+            RestoreBombFuseTiming(
+                PrototypeContentValidator.PrototypeBossThrowBombDefinitionPath,
+                1.25f);
+            RestoreBombFuseTiming(
+                PrototypeContentValidator.PrototypeBossChainBombDefinitionPath,
+                2.25f);
+            RestoreBombFuseTiming(
+                PrototypeContentValidator.PrototypeThrowerBombDefinitionPath,
+                1.5f);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Restored authored bomb fuse timings: area 1.75s, line 2.25s, " +
+                "boss throw 1.25s, boss chain 2.25s, thrower 1.5s.");
+        }
+
         [MenuItem("Bomb Swap/Prototype/Apply Game UI Font")]
         public static void ApplyGameUiFontMenu()
         {
@@ -1226,7 +1256,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = "PrototypeAreaBomb";
             definition.Configure(
                 "prototype-area",
-                2f,
+                1.75f,
                 1,
                 bombPrefab,
                 explosionPrefab,
@@ -1287,7 +1317,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.name = "PrototypeLineBomb";
             definition.Configure(
                 "prototype-line",
-                2f,
+                2.25f,
                 3,
                 bombPrefab,
                 explosionPrefab,
@@ -1686,7 +1716,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBossThrowBombDefinitionPath,
                     "PrototypeBossThrowBomb",
                     "prototype-boss-throw",
-                    2f,
+                    1.25f,
                     throwBombPrefab,
                     throwExplosionPrefab);
             PrototypeBombDefinitionAsset chainDefinition =
@@ -1694,7 +1724,7 @@ namespace BombSwap.Editor.ContentValidation
                     PrototypeContentValidator.PrototypeBossChainBombDefinitionPath,
                     "PrototypeBossChainBomb",
                     "prototype-boss-chain",
-                    2f,
+                    2.25f,
                     chainBombPrefab,
                     chainExplosionPrefab);
             return new[] { throwDefinition, chainDefinition };
@@ -1752,7 +1782,7 @@ namespace BombSwap.Editor.ContentValidation
             }
             bombDefinition.Configure(
                 "prototype-thrower-blocker",
-                2f,
+                1.5f,
                 1,
                 bombPrefab,
                 explosionPrefab,
@@ -1788,6 +1818,22 @@ namespace BombSwap.Editor.ContentValidation
                 0.12f);
             EditorUtility.SetDirty(definition);
             return definition;
+        }
+
+        private static void RestoreBombFuseTiming(string assetPath, float fuseSeconds)
+        {
+            PrototypeBombDefinitionAsset definition =
+                LoadRequiredAsset<PrototypeBombDefinitionAsset>(assetPath);
+            definition.Configure(
+                definition.DefinitionId,
+                fuseSeconds,
+                definition.Range,
+                definition.BombPrefab,
+                definition.ExplosionCellPrefab,
+                definition.ExplosionVisualSeconds,
+                definition.PlacementCooldownSeconds,
+                definition.ExplosionShape);
+            EditorUtility.SetDirty(definition);
         }
 
         private static PrototypeBombDefinitionAsset GetOrCreateBossBombDefinition(

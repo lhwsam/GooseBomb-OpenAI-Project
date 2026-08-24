@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-24
-- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause를 960×600 기준으로 분리하고, 직접 UI Sprite+per-Image 폴백과 Git에서 제외한 로컬 서드파티 package 경계를 적용한 상태
+- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause·방 안내·런 결과를 960×600 기준으로 분리하고, 직접 UI Sprite+per-Image 폴백과 Git에서 제외한 로컬 서드파티 package 경계를 적용한 상태
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
@@ -19,10 +19,10 @@
 - first-party `Assets/Game` 책임 폴더 구성.
 - 프로젝트 전용 스킬 4종 구현: gameplay change, content authoring, WebGL verify, playtest review.
 - `Tools/Verify.ps1` 기반 StaticOnly/Fast/Full/Web 검증 하네스와 구조화된 산출물 구현.
-- 첫 enabled `DungeonLobby`에서 **폭탄을 낳는 거위**, 게임 시작·설정을 표시하고 terminal 결과에서 로비 복귀 또는 즉시 재시작을 선택하는 런 수명 경계를 구현했다. 제목은 같은 container 아래 여러 TMP 조각도 지원하고 main menu 상태 라벨은 선택 사항이다. 로비의 Canvas·EventSystem·TMP·Button은 씬에 배치되어 사람이 직접 디자인할 수 있고 presenter는 직렬화 참조와 동작만 소유한다. 무기·체력 HUD, 미니맵과 pause는 공유 프리팹으로 분리해 같은 방식으로 직접 디자인할 수 있으며 presenter는 scene마다 프리팹을 한 번 만들고 상태만 반영한다. 미니맵 방·연결은 재사용 자식 프리팹으로 소유하고 방문 전 물음표, 방문 뒤 방 종류 아이콘과 현재/비현재 배경을 표시한다. 모든 first-party UI는 `TextMeshProUGUI`, Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 공통 960×600 CanvasScaler를 사용한다.
+- 첫 enabled `DungeonLobby`에서 **폭탄을 낳는 거위**, 게임 시작·설정을 표시하고 terminal 결과에서 로비 복귀 또는 즉시 재시작을 선택하는 런 수명 경계를 구현했다. 제목은 같은 container 아래 여러 TMP 조각도 지원하고 main menu 상태 라벨은 선택 사항이다. 로비의 Canvas·EventSystem·TMP·Button은 씬에 배치되어 사람이 직접 디자인할 수 있고 presenter는 직렬화 참조와 동작만 소유한다. 무기·체력 HUD, 미니맵, pause, 보상·회복·비밀방 안내와 런 결과는 공유 프리팹으로 분리해 같은 방식으로 직접 디자인할 수 있으며 presenter는 scene 수명과 상태에 맞춰 프리팹을 만들고 값만 반영한다. 플레이어 하트와 미니맵 방·연결처럼 개수가 달라지는 UI도 시각 한 단위를 재사용 자식 프리팹으로 소유한다. 보스 HUD는 저작한 이름, 런타임 phase, `현재 / 최대` 체력을 서로 다른 세 TMP로 표시해 이름의 폰트·그라데이션을 상태 갱신과 분리한다. 미니맵은 방문 전 물음표와 방문 뒤 방 종류 아이콘을 사용하고, 현재/비현재 방은 별도 배경 sprite로 구분한다. 모든 first-party UI는 `TextMeshProUGUI`, Raster `DungGeunMo` 기본·`DNFBitBitv2` 선택 폰트와 공통 960×600 CanvasScaler를 사용한다.
 - Point-filtered Raster TMP를 유지하는 공용 픽셀 외곽선 shader, DungGeunMo/DNFBitBitv2별 material preset, TMP warm gradient preset과 재생성·검증 도구를 구현했다. 외곽선은 0~2 atlas pixel이며 기본 1px이고, 그라데이션은 TMP vertex color로 글자 면에만 적용한다.
 - 로비와 pause가 같은 설정 panel을 사용한다. 키보드 기본 8개 binding의 변경·중복 거부·기본값 복원, Master/BGM/SFX AudioMixer 제어, 화면 흔들림 0~100% 계약과 fullscreen 요청을 제공하며 versioned PlayerPrefs에 저장한다. 로비 조작 page는 씬 저작 ScrollRect이며 최하단 초기화 Button은 키 override만 제거하고 음량·화면 흔들림은 유지한다. `SettingsStatusText`와 pause의 별도 `ESC - 게임 계속` 안내 문구는 사용하지 않으며, 중복 키는 선택 Button의 `이미 사용 중` 인라인 문구·경고색·짧은 좌우 흔들림으로 알린다. 게임패드 지원은 유지하지만 설정 UI에는 표기하지 않는다.
-- 로비·던전·보스 BGM을 실제 BGM Mixer 경로에 연결했다. scene을 넘는 `PrototypeBgmPresenter`가 첫 사용자 gesture 뒤 로비 1개, 던전 sample-aligned stem 4개, 보스 stem 3개를 DSP 예약하며 room/clear와 boss phase를 다음 마디부터 한 마디 smoothstep crossfade로 반영한다. pause는 timeline 유지 50% duck, 사망·보스 격파는 fade-out한다. catalog와 대상 17개 scene의 단일 root presenter·미리보기 비참조·clip format/sample 수를 Editor validator가 고정한다. StaticOnly과 Unity 재컴파일은 통과했고 BGM 정책 테스트도 연결된 전체 PlayMode에서 통과했다. 전체 PlayMode는 병행 중인 이동/콘텐츠 변경 13건 실패로 Full 통과가 아니며, 입력 구독 teardown 수정 뒤 집중 재실행은 활성 scene의 별도 미저장 `fhf`를 보존하기 위해 중단했다. 실제 WebGL 청감과 `bgm-audio-started` browser 검증은 남아 있다.
+- 로비·던전·보스 BGM을 실제 BGM Mixer 경로에 연결했다. scene을 넘는 `PrototypeBgmPresenter`가 첫 사용자 gesture 뒤 로비 1개, 던전 sample-aligned stem 4개, 보스 stem 3개를 DSP 예약하며 room/clear와 boss phase를 다음 마디부터 한 마디 smoothstep crossfade로 반영한다. pause는 timeline 유지 50% duck, 사망·보스 격파는 fade-out한다. catalog와 대상 17개 scene의 단일 root presenter·미리보기 비참조·clip format/sample 수를 Editor validator가 고정한다. StaticOnly과 Unity 재컴파일은 통과했고 BGM 정책 테스트도 연결된 전체 PlayMode에서 통과했다. 실제 WebGL 청감과 `bgm-audio-started` browser 검증은 남아 있다.
 - `Assets/ThirdParty`와 meta는 Git에서 제외하고 팀 내부 `.unitypackage`로 전달한다. 로비 17개와 pause 16개 외부 UI Sprite 슬롯은 각 Image에 직접 저장하고 `PrototypeOptionalSpriteFallback`을 함께 둔다. package Import 시 동일 GUID로 Edit Mode 참조가 자동 복구되며, package가 없는 clone은 기능 Image를 유지하고 순수 장식만 런타임에서 숨긴다. 새 UI 타입에 role enum·profile 코드를 추가하지 않고 Inspector에서 바로 연결하며 이름·태그·계층 검색은 사용하지 않는다. 디자이너가 조정한 RectTransform·색상·Image 타입은 보존한다.
 - 로비의 시작·설정·탭·키 변경·전체 화면·두 초기화·돌아가기 16개 Button에 재사용 가능한 DOTween scale 피드백을 씬 저작했다. hover/키보드 선택 `1.06`, 누름 `0.96`, 0.1초 unscaled 전환을 사용하고 상태마다 이전 Tween을 종료하며 비활성화 시 저작 scale로 복원한다. 별도 자식 visual target과 버튼별 튜닝을 지원하며 게임 시작·설정 버튼은 각 TMP 라벨만 `startColor ↔ targetColor`로 전환하고 배경은 유지한다. 두 메인 메뉴 버튼은 좌우 화살표를 명시적 직렬화 참조로 소유하며 hover·키보드 선택·누름에 함께 표시하고 Normal·Disabled에는 숨긴다. 런타임 이름·태그·계층 검색 fallback은 사용하지 않는다. 최초 로비의 시작 버튼은 Submit 대상 선택을 유지하면서 실제 입력 전에는 선택 시각 효과를 숨긴다.
 - pause `PAUSED` TMP는 한 오브젝트를 유지한 채 first-party `PrototypePauseTitleWave`가 DOTween unscaled 단일 phase와 즉시 TMP 메시 갱신으로 보이는 글자를 현재 프리팹 저작값 2초 주기·끝 대기 1단계로 순서대로 8px 올렸다가 복원한다. TMP 전용 DOTween 모듈이나 Feel 의존성은 추가하지 않았고, 컴포넌트 비활성화 시 tween·callback을 정리하고 원래 정점을 복원한다.
@@ -159,9 +159,10 @@
 - 플레이어 일자형 폭탄 표현은 설치 당시 확정한 한 방향에만 같은 불기둥을 재생하고, 실제 도달 거리 1~4칸을 같은 speed modifier 규칙으로 표시한다. 바로 앞이 막히면 중심 폭발만 재생한다.
 - 투척병 폭탄과 보스 일반·연쇄 투척 폭탄은 비행과 논리 폭발 규칙을 유지하면서, 폭발 시 플레이어 십자 폭탄과 같은 중심·방향별 불기둥 풀을 사용한다.
 - 플레이어 범위 폭탄은 Core가 확정한 3×3 영향 셀마다 `vfx_Explosion_Grid`를 Y 0.5 높이에서 최소 1초 동안 풀링 재생한다. 고정 벽·Void는 제외되고 파괴 가능한 벽 셀은 포함된다.
+- 플레이어 폭탄의 2초 준비 animation clip과 ParticleSystem은 정의별 실제 fuse에 맞춘 배속으로 재생하고 pause 중 논리 시계와 함께 멈춘다. 폭발 후 VFX 풀 유지 시간은 fuse와 분리한다.
 - 플레이어 이동은 기본 `5 cells/s`의 4방향 연속 정책이다. 실제 10ms simulation step마다 `elapsed × cellsPerSecond`만큼 현재 cardinal 한 축을 진행하고, 키 해제·방향 변경은 다음 step부터 적용하며 셀 중심 완료를 강제하지 않는다. 접근할 다음 셀만 예약하고 사용하지 않는 예약은 즉시 취소하며, 셀 경계를 통과할 때 `GridState.TryCommitReservedActorMove`로 `CurrentGridPosition`의 정수 점유를 원자적으로 전이하고 `PlayerMovementStep`을 발행한다. 마지막 유효 cardinal은 바라보기로 유지되고 막힌 방향 입력도 이를 갱신한다. 적의 한 칸 확정 완료 정책은 유지한다.
 - `PlayerHealthSimulation`은 검증된 초기 현재 체력, 폭발 ID별 처리 여부, 체력 하한, 상한 회복, 논리 무적 종료 시각과 단일 치명 결과를 소유한다. 폭발·적 접촉·보스 패턴은 원본 source를 구분해 보존하면서 같은 무적을 공유하고, 회복은 무적 상태를 바꾸지 않는다. `PrototypeGameSession`은 적용된 피해·회복과 사망만 표현 이벤트로 발행한다. `DungeonPlayerHealthState`는 적용 결과를 run snapshot에 기록하고 room binder가 다음 session에 복원한다. 무적 시각과 처리 폭발 ID는 방을 넘기지 않는다.
-- `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 모든 방, `ROOM TOKENS`는 우상단에서 현재 런 값을 표시하고, 보스 panel은 보스 활성 방에서만 보이며 보스 취약 상태는 의도적으로 표시하지 않는다.
+- `PrototypeHealthHud`는 별도 규칙 상태나 frame polling 없이 세션의 준비·피해·사망·회복·보스 phase와 binder의 확정 토큰 사건에만 반응한다. 플레이어 panel은 최대 체력에 맞춰 공용 하트 프리팹의 `Full/Empty` 칸을 동적으로 재사용·추가하고 기존 `PLAYER HP` 문구와 fill bar를 사용하지 않는다. 토큰 HUD는 아이콘 옆 숫자만 표시한다. 보스 panel은 보스 활성 방에서만 보이며 저작 이름, 런타임 phase, `현재 / 최대` 체력을 서로 다른 세 라벨로 표시한다. 이름 라벨의 문자열·font·색·material과 fill sprite는 보존하고 phase·체력 수치·fill amount만 갱신하며 취약 상태는 의도적으로 표시하지 않는다.
 - `ChaserEnemySimulation`은 `ActorId(2)`로 플레이어 `ActorId(1)`을 추격하고, 2 cells/s·재계획 시점 BFS·최단 경로를 벗어나지 않는 최대 두 칸 방향 유지·결정론적 동률 규칙을 사용한다. 이동으로 새 인접이 생기면 같은 0.5초 도착 시각 이후에만 접촉 가능하며, 그 전에 플레이어가 이탈하면 피해가 없다. 폭탄의 위험 정보는 읽지 않고 점유 장애물로만 취급하며 경로가 없으면 기다린다.
 - 선택적 `ChargerEnemySimulation`은 `ActorId(3)`으로 같은 격자를 점유하며 1 cell/s BFS로 가장 가까운 유효 행/열 차선을 획득한다. 정렬 뒤 0.75초 동안 방향·최대 거리를 고정 예고하고 8 cells/s로 돌진한 뒤 1초 회복한다. 수치는 `Proposed`다.
 - 선택적 `ArmoredEnemySimulation`은 `ActorId(4)`로 같은 격자를 점유하며 장갑 동안 spawn 반경 1을 수비한다. 첫 서로 다른 폭발은 갑옷만 파괴하고 폭발 중심 반대편의 가장 긴 cardinal 가지를 최대 3칸 고정해 `0.6초 예고 → 6 cells/s 질주 → 0.5초 회복 → 3 cells/s 추격`으로 전환하며, 두 번째 서로 다른 폭발에 사망한다. 같은 `BombId`는 중복 단계로 계산하지 않는다. 수치는 `Proposed`다.
@@ -206,14 +207,14 @@
 ## 바로 다음 권장 작업
 
 1. [프레임 반응형 플레이어 이동](ContinuousPlayerMovementSlice.md)의 복구된 연속 이동을 키보드로 재확인한다. 짧은 입력 해제 즉시 정지, 셀 중간 직교 전환, 빠른 `상→우` 6회, `W` 유지 중 짧은 `D` 탭 뒤 `W` 복귀와 벽·폭탄 경계의 예약 안전성을 기록한다.
-2. 이동과 별개인 콘텐츠 validator 차단과 보스 일반탄/연쇄탄 fuse 순서, room/binder 저작 불일치, 적·폭발·방 클리어 기준선 14건을 분리해 수정한 뒤 전체 PlayMode를 다시 실행한다.
+2. 이동과 별개로 남은 run host·추격자·자폭병·폭발·방 클리어 PlayMode 기준선 8건을 분리해 수정한다.
 3. validator가 통과하는 고정 build에서 WebGL keyboard/gamepad smoke를 다시 실행한다.
 4. 통합 회귀가 해소된 고정 build에서 표준 `DungeonStart` seed 0의 투척병 준비 신호·세 예고·friendly fire와 다음 Pillars 난이도를 사람 플레이로 기록한다.
 5. 사람 결과가 지지되면 프로토타입 전투 콘텐츠 범위를 동결하고 GDD 필수 가설의 반복 세션으로 이동한다. 지지되지 않으면 Legacy Lanes 복귀를 카탈로그/Build Settings 한 단위로 검토하되 투척병 독립 슬라이스는 보존한다.
 
 ## 알려진 위험과 미정
 
-- 복구 뒤 전체 EditMode는 `363/363`으로 플레이어 이동 계약 8개도 기대값 변경 없이 통과했다. 전체 PlayMode는 `172/186`이며 이동·입력 응답성 실패는 0이지만 기존 보스 fuse·scene binder/run host·적/폭발/방 클리어 14건 때문에 Full 통과로 보고하지 않는다.
+- 전체 EditMode는 `363/363`으로 통과했다. 폭탄 fuse 복구와 준비 VFX 타이밍 테스트를 포함한 전체 PlayMode는 `184/192`이며 보스 일반탄/연쇄탄 순서 예외와 폭탄 VFX 테스트 실패는 0이다. 남은 run host·추격자·자폭병·폭발·방 클리어 8건 때문에 Full 통과로 보고하지 않는다.
 - 권위 이동 계약은 기본 5 cells/s, cardinal 단일 축, Core 10ms 고정 step 연속 위치와 셀 경계 정수 점유 전이다. 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 추가하지 않았다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`, 선택적 자폭병 `ActorId(6)`, 선택적 투척병 `ActorId(7)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 설치 방향 앞쪽 범위 3 직선 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 직선 후보는 기존 긴 십자 수치를 유지해 영향 셀이 크게 줄었으므로 복도 정렬 이점보다 약함이 먼저 느껴지는지 확인해야 한다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 함께 관찰한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
@@ -225,7 +226,7 @@
 - 자폭병의 일반 2 cells/s·경고 최대 5 cells/s, 연속 경고 1.5초, 경고/조기 점화 거리 3/1, 3→8Hz pulse, 0.75초 fuse, 범위 2 십자와 Gates 유도 anchor `(0,-2)·(0,2)`는 `Proposed`다. 자동 검증은 현재 플레이어 BFS, 경고 진입·이탈·재진입 초기화, 가속·유한 점화, 인접 조기 정지, 표현 정합, 플레이어 폭발 trigger, 기존 연쇄 지연·벽 차단, 자기 사망과 한쪽 문 파괴를 보장한다. 속도·범위 동시 상향 뒤 열린 공간 회피, 장애물 압박, 범위 예측과 원하는 문 유도 여유는 후속 사람 플레이테스트가 필요하다.
 - 투척병의 1 cell/s staging·사격 anchor 이동, 0.3초 세 목표 고정 예고, 동시 3발·0.45초 비행, 0.75초 회복, 1.5초 fuse·범위 1 십자와 Lanes 기반 메인 배치는 `Proposed`다. 자동 검증은 staging이 사격 anchor 밖이고 첫 anchor까지 4칸 선행 이동하는 것, 두 적의 출구 거리, 추격자 시작점과 초기 폭발 footprint 비중첩, 6개 목표의 거리·동률 순서, 측면 순환, 단일 volley, 발별 실패, 공용 연쇄와 자기 소유 면역을 보장한다. 선행 이동이 체감상 충분한 준비 신호인지와 실제 이동 뒤 friendly fire·예고 가독성·공정성·의도적 연쇄는 사람 플레이가 필요하다.
 - commit `134dd06`의 post-commit 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0과 TextMeshPro 대형 메서드 분할 안내 경고 3건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 incremental development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
-- 보스 실제 asset은 체력 10·phase 임계 7/2, 추격 2/3/2, 돌진 3칸, 과열 2.0/1.5/2.25초, 비행 0.45초·투척 간격 0.4초, 자폭병 강제 점화 4.5초를 사용한다. 자동 테스트는 결정론·상한·전환·연결 정확성만 보장한다. placeholder에는 방향 몸짓·착탄 그림자·오디오가 없어 목적지 ghost 제거 뒤 가독성, 정보 중첩, 체력 10의 반복 피로와 실제 위협도는 사람 플레이 전까지 `Proposed`다.
+- 보스 실제 asset은 체력 10·phase 임계 7/2, 추격 2/3/2, 돌진 3칸, 일반탄 fuse 1.25초·연쇄탄 fuse 2.25초, 과열 2.0/1.5/2.25초, 비행 0.45초·투척 간격 0.4초, 자폭병 강제 점화 4.5초를 사용한다. 자동 테스트는 결정론·상한·전환·연결 정확성만 보장한다. placeholder에는 방향 몸짓·착탄 그림자·오디오가 없어 목적지 ghost 제거 뒤 가독성, 정보 중첩, 체력 10의 반복 피로와 실제 위협도는 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하고 공통 설정·키보드 리바인딩을 제공한다. focus 상실 자동 pause, UI 전용 action map과 게임패드 리바인딩은 아직 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적·자폭병·투척병 각 한 개, 자폭 유도 anchor, 투척병 사격/목표 anchor, 고정 벽·1회 파괴 벽을 지원한다. 자폭 유도 anchor는 AI waypoint가 아니라 레벨 의도·폭발 결과 검증용이고 투척병 anchor는 실제 AI 이동·목표 계약이다. Secret 문은 방별 출구 셀→연결 경계 adapter가 폭발 footprint를 소비한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 다종 환경 반응물 registry, 보상·전환 anchor와 room prefab 선택은 아직 없다.
@@ -239,7 +240,11 @@
 
 ## 최근 검증
 
-- 플레이어를 기본 5 cells/s의 반응형 연속 정책으로 복구하고, 현재 예약 API·10ms 고정 simulation·적의 한 칸 확정 이동은 유지했다. 기본값과 플레이 가능한 16개 씬의 `cellsPerSecond`는 Unity Editor로 `5`에 맞췄고 Unity 컴파일에 성공했다. 기존 기대값을 수정하지 않은 전체 EditMode `363/363`이 통과했고, 전체 PlayMode `172/186`에서 플레이어 이동·입력 응답성 실패는 0이며 남은 14개는 별도 기존 회귀다. StaticOnly도 통과했다. Development WebGL 재시도는 기존 로비 제목·투척병 Animator·보스 chain fuse·public→private vendor 직접 참조 validator 오류로 빌드 전에 중단돼 browser smoke는 미실행이다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223646-232.json`, `20260823-223924-646.json`, `Artifacts/Verification/20260824-074531-static/summary.json`, `Artifacts/Verification/20260824-074450-connected-web/webgl-build-status.txt`.
+- 체력 HUD를 최대 체력 기반 재사용 하트, 숫자 전용 방 토큰, 별도 보스 이름·phase·체력 라벨로 연결했고 보상·회복·비밀방 안내와 런 완료/실패 화면을 공유 프리팹으로 옮겼다. 미니맵·HUD의 private UI Sprite에는 package 부재용 `PrototypeOptionalSpriteFallback`을 갖추고, CC0 UI 아이콘 세트는 `Assets/Game/Content/UI/Sprites/CC0`에서 라이선스 경계와 `.meta`를 함께 추적한다. 공식 Unity MCP 컴파일과 관련 PlayMode `18/18`, StaticOnly이 통과했다. 전체 콘텐츠 검증과 연결 WebGL은 현재 작업의 UI·VFX 참조 오류 없이 기존 투척병 Humanoid Animator 계약 1건에서 중단됐으므로 WebGL build와 browser smoke는 실행되지 않았다. 증거 `Artifacts/Verification/ConnectedTests/20260824-141543-217.json`, `Artifacts/Verification/20260824-231648-static/summary.json`, `Artifacts/Verification/20260824-231713-connected-web/webgl-build-status.txt`.
+
+- 폭탄별 저작 fuse를 광역 1.75초, 직선 2.25초, 보스 일반 1.25초, 보스 연쇄 2.25초, 투척병 1.5초로 Unity Editor에서 복구했다. 보스 연쇄탄이 일반탄보다 늦게 끝나는 Core 불변식이 다시 성립하고, 2초 준비 animation과 ParticleSystem은 실제 fuse 배속과 pause를 따르며 폭발 후 VFX 유지 시간은 분리했다. 전체 EditMode `363/363`, 전체 PlayMode `184/192`, StaticOnly이 통과했고 새 준비 VFX timing/pause 테스트와 기존 보스 fuse 예외는 실패 0이다. 전체 PlayMode의 나머지 8건은 run host·추격자·자폭병·폭발·방 클리어 기준선이다. 해당 당시 연결 WebGL은 로비 제목·투척병 Animator·UI private vendor 참조 때문에 빌드 전에 중단됐고, 후속 UI 정리 뒤 현재 남은 WebGL 차단은 위 최신 검증의 투척병 Animator 1건이다. 증거 `Artifacts/Verification/ConnectedTests/20260824-132411-511.json`, `Artifacts/Verification/ConnectedTests/20260824-133349-179.json`, `Artifacts/Verification/20260824-223101-connected-web/webgl-build-status.txt`.
+
+- 플레이어를 기본 5 cells/s의 반응형 연속 정책으로 복구하고, 현재 예약 API·10ms 고정 simulation·적의 한 칸 확정 이동은 유지했다. 기본값과 플레이 가능한 16개 씬의 `cellsPerSecond`는 Unity Editor로 `5`에 맞췄고 Unity 컴파일에 성공했다. 해당 당시 전체 EditMode `363/363`이 통과했고 전체 PlayMode `172/186`에서 이동·입력 응답성 실패는 0이었다. 당시 Development WebGL은 로비 제목·투척병 Animator·보스 chain fuse·public→private vendor 직접 참조 validator 오류로 중단됐고, 이 중 보스 chain fuse 차단은 위 최신 폭탄 복구로 해소됐다. 당시 browser smoke는 미실행이다. 증거 `Artifacts/Verification/ConnectedTests/20260823-223646-232.json`, `20260823-223924-646.json`, `Artifacts/Verification/20260824-074531-static/summary.json`, `Artifacts/Verification/20260824-074450-connected-web/webgl-build-status.txt`.
 
 
 - 직접 UI Sprite 마이그레이션에서 로비 17개·pause 16개 슬롯과 per-Image 폴백을 검증했고, 공개 참조 validator가 금지된 vendor 의존성 없이 통과했다. 신규 폴백 PlayMode 4/4와 전체 PlayMode 155/155가 실패·건너뜀 0으로 통과했으며 StaticOnly 증거는 `Artifacts/Verification/20260824-022428-static/`이다. 연결된 Unity 6000.5.3f1의 12씬 Development WebGL 빌드는 128,634,328 bytes·621.059초·오류 0·경고 348건으로 성공했다. 실제 Edge browser smoke도 로비 설정·pause 설정·전체 seed-0 경로를 포함한 51/51, Console/page error 0으로 통과했으며 증거는 `Artifacts/Verification/20260824-023158-connected-web/`이다.

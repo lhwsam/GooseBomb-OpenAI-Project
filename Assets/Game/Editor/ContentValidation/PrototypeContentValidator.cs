@@ -21,7 +21,6 @@ namespace BombSwap.Editor.ContentValidation
     {
         private static readonly string[] PrivateVendorAssetRoots =
         {
-            "Assets/ThirdParty/",
             "Assets/Feel/",
             "Assets/Plugins/Demigiant/DOTweenPro/",
             "Assets/Arts/VFX/",
@@ -1023,16 +1022,17 @@ namespace BombSwap.Editor.ContentValidation
             if ((firstDefinition != null &&
                  firstDefinition.FuseSeconds != 2f) ||
                 (secondDefinition != null &&
-                 secondDefinition.FuseSeconds != 2f) ||
+                 secondDefinition.FuseSeconds != 1.75f) ||
                 (lineDefinition != null &&
-                 lineDefinition.FuseSeconds != 2f) ||
+                 lineDefinition.FuseSeconds != 2.25f) ||
                 (bossThrowDefinition != null &&
-                 bossThrowDefinition.FuseSeconds != 2f) ||
+                 bossThrowDefinition.FuseSeconds != 1.25f) ||
                 (bossChainDefinition != null &&
-                 bossChainDefinition.FuseSeconds != 2f))
+                 bossChainDefinition.FuseSeconds != 2.25f))
             {
                 errors.Add(
-                    "Prototype cross, area, line, boss throw, and boss chain bomb fuses must be 2 seconds.");
+                    "Prototype cross, area, line, boss throw, and boss chain bomb " +
+                    "fuses must be 2, 1.75, 2.25, 1.25, and 2.25 seconds.");
             }
             ValidatePlayerBombVisuals(errors);
             PrototypeBombLoadoutAsset loadout =
@@ -1153,12 +1153,20 @@ namespace BombSwap.Editor.ContentValidation
                     renderers.Length == 0 ||
                     animators.Length != 1 ||
                     animators[0].runtimeAnimatorController == null ||
+                    animators[0].runtimeAnimatorController.animationClips.Length == 0 ||
+                    animators[0].runtimeAnimatorController.animationClips.Any(
+                        clip => clip == null ||
+                            !Mathf.Approximately(
+                                clip.length,
+                                PrototypeBombPresenter.BombFuseVisualReferenceSeconds)) ||
                     animators[0].applyRootMotion ||
                     prefab.GetComponentsInChildren<Collider>(true).Length != 0 ||
                     prefab.GetComponentsInChildren<Rigidbody>(true).Length != 0)
                 {
                     errors.Add(
-                        $"Player bomb prefab '{prefabPaths[index]}' must use its animated collider-free visual with root motion disabled.");
+                        $"Player bomb prefab '{prefabPaths[index]}' must use its " +
+                        $"{PrototypeBombPresenter.BombFuseVisualReferenceSeconds:0.##}-second " +
+                        "animated collider-free visual with root motion disabled.");
                 }
             }
         }
@@ -1760,11 +1768,11 @@ namespace BombSwap.Editor.ContentValidation
                     core.Tuning.LastStandOverheatDuration != TimeSpan.FromSeconds(2.25) ||
                     core.ThrowBombDefinition.Id !=
                         new BombDefinitionId("prototype-boss-throw") ||
-                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(2) ||
+                    core.ThrowBombDefinition.FuseDuration != TimeSpan.FromSeconds(1.25) ||
                     core.ThrowBombDefinition.Range != 2 ||
                     core.ChainBombDefinition.Id !=
                         new BombDefinitionId("prototype-boss-chain") ||
-                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2) ||
+                    core.ChainBombDefinition.FuseDuration != TimeSpan.FromSeconds(2.25) ||
                     core.ChainBombDefinition.Range != 2 ||
                     definition.BossSpawn != new GridPosition(0, 1))
                 {
@@ -2010,7 +2018,7 @@ namespace BombSwap.Editor.ContentValidation
                     core.BombsPerVolley != 3 ||
                     bomb.Id != new BombDefinitionId("prototype-thrower-blocker") ||
                     bomb.ExplosionShape != BombExplosionShape.Cross ||
-                    bomb.FuseDuration != TimeSpan.FromSeconds(2) ||
+                    bomb.FuseDuration != TimeSpan.FromSeconds(1.5) ||
                     bomb.Range != 1 ||
                     room.Id != new RoomDefinitionId("prototype-combat-thrower") ||
                     room.ChaserSpawn != new GridPosition(-2, 2) ||
@@ -3003,6 +3011,10 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeInGameUiPrefabAuthoring.HealthHudPrefabPath,
                 view => view.HasRequiredReferences,
                 errors);
+            ValidateInGameUiPrefab<PrototypeHealthHeartView>(
+                PrototypeInGameUiPrefabAuthoring.HealthHeartPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
             ValidateInGameUiPrefab<PrototypeDungeonMinimapView>(
                 PrototypeInGameUiPrefabAuthoring.MinimapPrefabPath,
                 view => view.HasRequiredReferences,
@@ -3019,8 +3031,76 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeInGameUiPrefabAuthoring.PausePrefabPath,
                 view => view.HasRequiredReferences,
                 errors);
+            ValidateInGameUiPrefab<PrototypeRunCompletionView>(
+                PrototypeInGameUiPrefabAuthoring.RunCompletionPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypeInstructionView>(
+                PrototypeInGameUiPrefabAuthoring.BombRewardPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypeInstructionView>(
+                PrototypeInGameUiPrefabAuthoring.RecoveryInstructionPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypeInstructionView>(
+                PrototypeInGameUiPrefabAuthoring.SecretRewardPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiOptionalSpriteFallbacks(errors);
+            ValidateHealthHudComposition(errors);
             ValidateMinimapComposition(errors);
             ValidatePauseTitleWave(errors);
+        }
+
+        private static void ValidateInGameUiOptionalSpriteFallbacks(
+            ICollection<string> errors)
+        {
+            string[] prefabPaths =
+            {
+                PrototypeInGameUiPrefabAuthoring.HealthHudPrefabPath,
+                PrototypeInGameUiPrefabAuthoring.HealthHeartPrefabPath,
+                PrototypeInGameUiPrefabAuthoring.MinimapPrefabPath,
+                PrototypeInGameUiPrefabAuthoring.MinimapRoomPrefabPath,
+                PrototypeInGameUiPrefabAuthoring.MinimapConnectionPrefabPath,
+            };
+
+            for (int pathIndex = 0;
+                 pathIndex < prefabPaths.Length;
+                 pathIndex++)
+            {
+                string prefabPath = prefabPaths[pathIndex];
+                GameObject root = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    prefabPath);
+                if (root == null)
+                {
+                    continue;
+                }
+
+                Image[] images = root.GetComponentsInChildren<Image>(true);
+                for (int imageIndex = 0;
+                     imageIndex < images.Length;
+                     imageIndex++)
+                {
+                    Image image = images[imageIndex];
+                    string spritePath = AssetDatabase.GetAssetPath(image.sprite);
+                    if (!spritePath.StartsWith(
+                            "Assets/ThirdParty/",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    PrototypeOptionalSpriteFallback fallback =
+                        image.GetComponent<PrototypeOptionalSpriteFallback>();
+                    if (fallback == null || !fallback.HasValidConfiguration)
+                    {
+                        errors.Add(
+                            $"Optional UI Sprite '{prefabPath}/{image.name}' " +
+                            "requires PrototypeOptionalSpriteFallback.");
+                    }
+                }
+            }
         }
 
         private static void ValidateMinimapComposition(
@@ -3103,17 +3183,69 @@ namespace BombSwap.Editor.ContentValidation
         private static void ValidateSpriteName(
             Sprite sprite,
             string expectedName,
-            string context,
+            string role,
             ICollection<string> errors)
         {
-            if (sprite == null ||
-                !string.Equals(
+            if (sprite == null || !string.Equals(
                     sprite.name,
                     expectedName,
                     StringComparison.Ordinal))
             {
                 errors.Add(
-                    $"{context} must reference sprite '{expectedName}'.");
+                    $"{role} must reference sprite {expectedName}.");
+            }
+        }
+
+        private static void ValidateHealthHudComposition(
+            ICollection<string> errors)
+        {
+            PrototypeHealthHudView healthHud =
+                AssetDatabase.LoadAssetAtPath<PrototypeHealthHudView>(
+                    PrototypeInGameUiPrefabAuthoring.HealthHudPrefabPath);
+            if (healthHud == null || !healthHud.HasRequiredReferences)
+            {
+                return;
+            }
+
+            if (!string.Equals(
+                    AssetDatabase.GetAssetPath(healthHud.PlayerHeartPrefab),
+                    PrototypeInGameUiPrefabAuthoring.HealthHeartPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Health HUD must reference the shared player heart prefab.");
+            }
+
+            PrototypeHealthHeartView[] hearts =
+                healthHud.PlayerHeartContainer.GetComponentsInChildren<
+                    PrototypeHealthHeartView>(true);
+            if (hearts.Length != 5)
+            {
+                errors.Add(
+                    "Health HUD must author exactly five reusable player heart " +
+                    "instances for the default maximum health.");
+            }
+
+            for (int index = 0; index < hearts.Length; index++)
+            {
+                string expectedName = $"PlayerHeart{index + 1:00}";
+                if (!string.Equals(
+                        hearts[index].gameObject.name,
+                        expectedName,
+                        StringComparison.Ordinal))
+                {
+                    errors.Add(
+                        $"Health HUD heart {index + 1} must be named " +
+                        $"'{expectedName}'.");
+                }
+            }
+
+            PrototypeHealthHeartView heartPrefab = healthHud.PlayerHeartPrefab;
+            if (heartPrefab.FullVisual.raycastTarget ||
+                heartPrefab.EmptyVisual.raycastTarget)
+            {
+                errors.Add(
+                    "Player health heart visuals must not receive UI raycasts.");
             }
         }
 
@@ -3175,6 +3307,18 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePauseView pausePrefab =
                 AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
                     PrototypeInGameUiPrefabAuthoring.PausePrefabPath);
+            PrototypeRunCompletionView runCompletionPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeRunCompletionView>(
+                    PrototypeInGameUiPrefabAuthoring.RunCompletionPrefabPath);
+            PrototypeInstructionView bombRewardPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeInstructionView>(
+                    PrototypeInGameUiPrefabAuthoring.BombRewardPrefabPath);
+            PrototypeInstructionView recoveryInstructionPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeInstructionView>(
+                    PrototypeInGameUiPrefabAuthoring.RecoveryInstructionPrefabPath);
+            PrototypeInstructionView secretRewardPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeInstructionView>(
+                    PrototypeInGameUiPrefabAuthoring.SecretRewardPrefabPath);
 
             PrototypeWeaponHud[] weaponHuds =
                 FindComponents<PrototypeWeaponHud>(scene);
@@ -3217,6 +3361,50 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     errors.Add(
                         "PrototypeGameSession must reference the shared editable pause prefab.");
+                }
+            }
+
+            PrototypeRunCompletionPresenter[] completions =
+                FindComponents<PrototypeRunCompletionPresenter>(scene);
+            for (int index = 0; index < completions.Length; index++)
+            {
+                if (completions[index].ViewPrefab != runCompletionPrefab)
+                {
+                    errors.Add(
+                        "PrototypeRunCompletionPresenter must reference the shared editable run completion prefab.");
+                }
+            }
+
+            PrototypeBombRewardPresenter[] bombRewards =
+                FindComponents<PrototypeBombRewardPresenter>(scene);
+            for (int index = 0; index < bombRewards.Length; index++)
+            {
+                if (bombRewards[index].ViewPrefab != bombRewardPrefab)
+                {
+                    errors.Add(
+                        "PrototypeBombRewardPresenter must reference the shared editable bomb reward prefab.");
+                }
+            }
+
+            PrototypeRecoveryPickupPresenter[] recoveries =
+                FindComponents<PrototypeRecoveryPickupPresenter>(scene);
+            for (int index = 0; index < recoveries.Length; index++)
+            {
+                if (recoveries[index].ViewPrefab != recoveryInstructionPrefab)
+                {
+                    errors.Add(
+                        "PrototypeRecoveryPickupPresenter must reference the shared editable recovery instruction prefab.");
+                }
+            }
+
+            PrototypeSecretRewardPresenter[] secretRewards =
+                FindComponents<PrototypeSecretRewardPresenter>(scene);
+            for (int index = 0; index < secretRewards.Length; index++)
+            {
+                if (secretRewards[index].ViewPrefab != secretRewardPrefab)
+                {
+                    errors.Add(
+                        "PrototypeSecretRewardPresenter must reference the shared editable secret reward prefab.");
                 }
             }
         }
