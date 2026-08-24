@@ -20,6 +20,10 @@ namespace BombSwap.Editor.UI
             PrefabFolder + "/PrototypeHealthHudCanvas.prefab";
         public const string MinimapPrefabPath =
             PrefabFolder + "/PrototypeDungeonMinimapCanvas.prefab";
+        public const string MinimapRoomPrefabPath =
+            PrefabFolder + "/PrototypeDungeonMinimapRoom.prefab";
+        public const string MinimapConnectionPrefabPath =
+            PrefabFolder + "/PrototypeDungeonMinimapConnection.prefab";
         public const string PausePrefabPath =
             PrefabFolder + "/PrototypePauseCanvas.prefab";
 
@@ -29,8 +33,17 @@ namespace BombSwap.Editor.UI
             "UI/PrototypeHealthHudCanvas";
         public const string MinimapResourcePath =
             "UI/PrototypeDungeonMinimapCanvas";
+        public const string MinimapRoomResourcePath =
+            "UI/PrototypeDungeonMinimapRoom";
+        public const string MinimapConnectionResourcePath =
+            "UI/PrototypeDungeonMinimapConnection";
         public const string PauseResourcePath =
             "UI/PrototypePauseCanvas";
+
+        private const string MinimapBackgroundAtlasPath =
+            "Assets/ThirdParty/UI/BlackandWhiteUI.png/BlackandWhiteUI.png";
+        private const string MinimapIconFolder =
+            "Assets/Game/Content/UI/Sprites/CC0/IconGodotNode/white";
 
         private static readonly Color PanelColor =
             new Color(0.02f, 0.025f, 0.04f, 0.86f);
@@ -78,7 +91,7 @@ namespace BombSwap.Editor.UI
             AssetDatabase.SaveAssets();
             Debug.Log(
                 "In-game UI prefab authoring complete. " +
-                $"Four prefab views are valid; {changedSceneCount} scenes changed.");
+                $"Shared minimap child prefabs are valid; {changedSceneCount} scenes changed.");
         }
 
         public static PrefabSet EnsurePrefabAssets()
@@ -90,9 +103,15 @@ namespace BombSwap.Editor.UI
             PrototypeHealthHudView health = EnsurePrefab(
                 HealthHudPrefabPath,
                 CreateHealthHudPrefab);
-            PrototypeDungeonMinimapView minimap = EnsurePrefab(
-                MinimapPrefabPath,
-                CreateMinimapPrefab);
+            PrototypeDungeonMinimapRoomView minimapRoom =
+                EnsureMinimapRoomPrefab();
+            PrototypeDungeonMinimapConnectionView minimapConnection =
+                EnsurePrefab(
+                    MinimapConnectionPrefabPath,
+                    CreateMinimapConnectionPrefab);
+            PrototypeDungeonMinimapView minimap = EnsureMinimapPrefab(
+                minimapRoom,
+                minimapConnection);
             PrototypePauseView pause = EnsurePrefab(
                 PausePrefabPath,
                 CreatePausePrefab);
@@ -375,7 +394,63 @@ namespace BombSwap.Editor.UI
             }
         }
 
-        private static PrototypeDungeonMinimapView CreateMinimapPrefab()
+        private static PrototypeDungeonMinimapRoomView CreateMinimapRoomPrefab()
+        {
+            GameObject root = new GameObject(
+                "PrototypeDungeonMinimapRoom",
+                typeof(RectTransform));
+            try
+            {
+                RectTransform rootRect = root.GetComponent<RectTransform>();
+                rootRect.sizeDelta = new Vector2(26f, 26f);
+                Image roomImage = root.AddComponent<Image>();
+                roomImage.color = Color.white;
+                roomImage.raycastTarget = false;
+
+                Image roomIconImage = CreateMinimapRoomIcon(root.transform);
+
+                PrototypeDungeonMinimapRoomView view =
+                    root.AddComponent<PrototypeDungeonMinimapRoomView>();
+                BindMinimapRoomView(view, roomImage, roomIconImage);
+                return SavePrefabView(root, MinimapRoomPrefabPath, view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeDungeonMinimapConnectionView
+            CreateMinimapConnectionPrefab()
+        {
+            GameObject root = new GameObject(
+                "PrototypeDungeonMinimapConnection",
+                typeof(RectTransform));
+            try
+            {
+                RectTransform rootRect = root.GetComponent<RectTransform>();
+                rootRect.sizeDelta = new Vector2(38f, 5f);
+                Image connectionImage = root.AddComponent<Image>();
+                connectionImage.color = Color.white;
+                connectionImage.raycastTarget = false;
+
+                PrototypeDungeonMinimapConnectionView view =
+                    root.AddComponent<PrototypeDungeonMinimapConnectionView>();
+                view.BindAuthoredView(connectionImage);
+                return SavePrefabView(
+                    root,
+                    MinimapConnectionPrefabPath,
+                    view);
+            }
+            finally
+            {
+                DestroyTemporaryRoot(root);
+            }
+        }
+
+        private static PrototypeDungeonMinimapView CreateMinimapPrefab(
+            PrototypeDungeonMinimapRoomView roomViewPrefab,
+            PrototypeDungeonMinimapConnectionView connectionViewPrefab)
         {
             GameObject root = CreateCanvasRoot(
                 "PrototypeDungeonMinimapCanvas",
@@ -426,7 +501,11 @@ namespace BombSwap.Editor.UI
 
                 PrototypeDungeonMinimapView view =
                     root.AddComponent<PrototypeDungeonMinimapView>();
-                view.BindAuthoredView(root.GetComponent<Canvas>(), mapRoot);
+                view.BindAuthoredView(
+                    root.GetComponent<Canvas>(),
+                    mapRoot,
+                    roomViewPrefab,
+                    connectionViewPrefab);
                 return SavePrefabView(root, MinimapPrefabPath, view);
             }
             finally
@@ -721,6 +800,195 @@ namespace BombSwap.Editor.UI
             rect.offsetMax = Vector2.zero;
         }
 
+        private static PrototypeDungeonMinimapView EnsureMinimapPrefab(
+            PrototypeDungeonMinimapRoomView roomViewPrefab,
+            PrototypeDungeonMinimapConnectionView connectionViewPrefab)
+        {
+            PrototypeDungeonMinimapView existing =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonMinimapView>(
+                    MinimapPrefabPath);
+            if (existing == null)
+            {
+                return EnsurePrefab(
+                    MinimapPrefabPath,
+                    () => CreateMinimapPrefab(
+                        roomViewPrefab,
+                        connectionViewPrefab));
+            }
+
+            if (existing.RoomViewPrefab != roomViewPrefab ||
+                existing.ConnectionViewPrefab != connectionViewPrefab)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(
+                    MinimapPrefabPath);
+                try
+                {
+                    PrototypeDungeonMinimapView view =
+                        root.GetComponent<PrototypeDungeonMinimapView>();
+                    if (view == null || view.Canvas == null ||
+                        view.MapRoot == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Existing minimap prefab is missing its authored root references.");
+                    }
+
+                    view.BindAuthoredView(
+                        view.Canvas,
+                        view.MapRoot,
+                        roomViewPrefab,
+                        connectionViewPrefab);
+                    PrefabUtility.SaveAsPrefabAsset(root, MinimapPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+                AssetDatabase.ImportAsset(
+                    MinimapPrefabPath,
+                    ImportAssetOptions.ForceUpdate);
+                existing = AssetDatabase.LoadAssetAtPath<
+                    PrototypeDungeonMinimapView>(MinimapPrefabPath);
+            }
+
+            ValidatePrefabView(existing, MinimapPrefabPath);
+            return existing;
+        }
+
+        private static PrototypeDungeonMinimapRoomView EnsureMinimapRoomPrefab()
+        {
+            PrototypeDungeonMinimapRoomView existing =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonMinimapRoomView>(
+                    MinimapRoomPrefabPath);
+            if (existing == null)
+            {
+                return EnsurePrefab(
+                    MinimapRoomPrefabPath,
+                    CreateMinimapRoomPrefab);
+            }
+
+            if (!existing.HasRequiredReferences)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(
+                    MinimapRoomPrefabPath);
+                try
+                {
+                    PrototypeDungeonMinimapRoomView view =
+                        root.GetComponent<PrototypeDungeonMinimapRoomView>();
+                    Image roomImage = view != null
+                        ? view.RoomImage
+                        : null;
+                    if (view == null || roomImage == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Existing minimap room prefab is missing its authored root view or image.");
+                    }
+
+                    Image roomIconImage = root.transform
+                        .Cast<Transform>()
+                        .Where(child => string.Equals(
+                            child.name,
+                            "Icon",
+                            StringComparison.Ordinal))
+                        .Select(child => child.GetComponent<Image>())
+                        .FirstOrDefault(image => image != null);
+                    if (roomIconImage == null)
+                    {
+                        roomIconImage = CreateMinimapRoomIcon(root.transform);
+                    }
+
+                    BindMinimapRoomView(view, roomImage, roomIconImage);
+                    PrefabUtility.SaveAsPrefabAsset(root, MinimapRoomPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                AssetDatabase.ImportAsset(
+                    MinimapRoomPrefabPath,
+                    ImportAssetOptions.ForceUpdate);
+                existing = AssetDatabase.LoadAssetAtPath<
+                    PrototypeDungeonMinimapRoomView>(MinimapRoomPrefabPath);
+            }
+
+            ValidatePrefabView(existing, MinimapRoomPrefabPath);
+            return existing;
+        }
+
+        private static Image CreateMinimapRoomIcon(Transform parent)
+        {
+            RectTransform iconRect = CreateRect("Icon", parent);
+            SetRect(
+                iconRect,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(10f, 10f));
+            Image image = iconRect.gameObject.AddComponent<Image>();
+            image.color = Color.white;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static void BindMinimapRoomView(
+            PrototypeDungeonMinimapRoomView view,
+            Image roomImage,
+            Image roomIconImage)
+        {
+            Sprite authoredCurrentBackground = roomImage.sprite;
+            Sprite currentBackground = authoredCurrentBackground != null
+                ? authoredCurrentBackground
+                : LoadSpriteSubAsset(
+                    MinimapBackgroundAtlasPath,
+                    "BlackandWhiteUI_16");
+
+            view.BindAuthoredView(
+                roomImage,
+                roomIconImage,
+                currentBackground,
+                LoadSpriteSubAsset(
+                    MinimapBackgroundAtlasPath,
+                    "BlackandWhiteUI_3"),
+                LoadSpriteAsset("icon_interrogation.png"),
+                LoadSpriteAsset("icon_flag.png"),
+                LoadSpriteAsset("icon_skull.png"),
+                LoadSpriteAsset("icon_ring.png"),
+                LoadSpriteAsset("icon_heart.png"),
+                LoadSpriteAsset("icon_chest.png"),
+                LoadSpriteAsset("icon_door.png"));
+        }
+
+        private static Sprite LoadSpriteAsset(string fileName)
+        {
+            string path = MinimapIconFolder + "/" + fileName;
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing minimap icon sprite: {path}");
+            }
+            return sprite;
+        }
+
+        private static Sprite LoadSpriteSubAsset(
+            string assetPath,
+            string spriteName)
+        {
+            Sprite sprite = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+                .OfType<Sprite>()
+                .FirstOrDefault(candidate => string.Equals(
+                    candidate.name,
+                    spriteName,
+                    StringComparison.Ordinal));
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing sprite {spriteName} in {assetPath}.");
+            }
+            return sprite;
+        }
+
         private static T EnsurePrefab<T>(
             string assetPath,
             Func<T> create)
@@ -799,6 +1067,10 @@ namespace BombSwap.Editor.UI
                     weapon.HasRequiredReferences) ||
                 (view is PrototypeHealthHudView health &&
                     health.HasRequiredReferences) ||
+                (view is PrototypeDungeonMinimapRoomView minimapRoom &&
+                    minimapRoom.HasRequiredReferences) ||
+                (view is PrototypeDungeonMinimapConnectionView minimapConnection &&
+                    minimapConnection.HasRequiredReferences) ||
                 (view is PrototypeDungeonMinimapView minimap &&
                     minimap.HasRequiredReferences) ||
                 (view is PrototypePauseView pause &&

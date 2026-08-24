@@ -3007,11 +3007,114 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeInGameUiPrefabAuthoring.MinimapPrefabPath,
                 view => view.HasRequiredReferences,
                 errors);
+            ValidateInGameUiPrefab<PrototypeDungeonMinimapRoomView>(
+                PrototypeInGameUiPrefabAuthoring.MinimapRoomPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
+            ValidateInGameUiPrefab<PrototypeDungeonMinimapConnectionView>(
+                PrototypeInGameUiPrefabAuthoring.MinimapConnectionPrefabPath,
+                view => view.HasRequiredReferences,
+                errors);
             ValidateInGameUiPrefab<PrototypePauseView>(
                 PrototypeInGameUiPrefabAuthoring.PausePrefabPath,
                 view => view.HasRequiredReferences,
                 errors);
+            ValidateMinimapComposition(errors);
             ValidatePauseTitleWave(errors);
+        }
+
+        private static void ValidateMinimapComposition(
+            ICollection<string> errors)
+        {
+            PrototypeDungeonMinimapView minimap =
+                AssetDatabase.LoadAssetAtPath<PrototypeDungeonMinimapView>(
+                    PrototypeInGameUiPrefabAuthoring.MinimapPrefabPath);
+            if (minimap == null || !minimap.HasRequiredReferences)
+            {
+                return;
+            }
+
+            if (!string.Equals(
+                    AssetDatabase.GetAssetPath(minimap.RoomViewPrefab),
+                    PrototypeInGameUiPrefabAuthoring.MinimapRoomPrefabPath,
+                    StringComparison.Ordinal) ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(minimap.ConnectionViewPrefab),
+                    PrototypeInGameUiPrefabAuthoring.MinimapConnectionPrefabPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Minimap must reference the shared room and connection view prefabs.");
+            }
+
+            PrototypeDungeonMinimapRoomView room = minimap.RoomViewPrefab;
+            ValidateSpriteName(
+                room.CurrentRoomBackground,
+                "BlackandWhiteUI_16",
+                "Minimap current-room background",
+                errors);
+            ValidateSpriteName(
+                room.OtherRoomBackground,
+                "BlackandWhiteUI_3",
+                "Minimap non-current-room background",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(null),
+                "icon_interrogation",
+                "Minimap undiscovered-room icon",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(RoomType.Start),
+                "icon_flag",
+                "Minimap start-room icon",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(RoomType.Combat),
+                "icon_skull",
+                "Minimap combat-room icon",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(RoomType.BombReward),
+                "icon_ring",
+                "Minimap bomb-reward-room icon",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(RoomType.Recovery),
+                "icon_heart",
+                "Minimap recovery-room icon",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(RoomType.Secret),
+                "icon_chest",
+                "Minimap secret-room icon",
+                errors);
+            ValidateSpriteName(
+                room.GetIcon(RoomType.Boss),
+                "icon_door",
+                "Minimap boss-room icon",
+                errors);
+            if (room.GetIcon(RoomType.BossAntechamber) != null)
+            {
+                errors.Add(
+                    "Minimap boss-antechamber must not expose a room-type icon.");
+            }
+        }
+
+        private static void ValidateSpriteName(
+            Sprite sprite,
+            string expectedName,
+            string context,
+            ICollection<string> errors)
+        {
+            if (sprite == null ||
+                !string.Equals(
+                    sprite.name,
+                    expectedName,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"{context} must reference sprite '{expectedName}'.");
+            }
         }
 
         private static void ValidatePauseTitleWave(

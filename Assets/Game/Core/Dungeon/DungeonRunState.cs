@@ -327,7 +327,10 @@ namespace BombSwap.Core
                 rooms.Add(new DungeonMinimapRoomSnapshot(
                     room.Id,
                     room.Position,
-                    state));
+                    state,
+                    _visited[roomIndex]
+                        ? room.RoomType
+                        : (RoomType?)null));
             }
 
             var connections = new List<DungeonRoomConnection>();

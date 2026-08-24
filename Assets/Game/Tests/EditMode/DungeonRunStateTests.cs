@@ -49,8 +49,14 @@ namespace BombSwap.Tests.EditMode
                 snapshot.GetRoom(graph.StartRoomId).State,
                 Is.EqualTo(DungeonMinimapRoomState.Current));
             Assert.That(
+                snapshot.GetRoom(graph.StartRoomId).KnownRoomType,
+                Is.EqualTo(RoomType.Start));
+            Assert.That(
                 snapshot.GetRoom(firstCombat).State,
                 Is.EqualTo(DungeonMinimapRoomState.Discovered));
+            Assert.That(
+                snapshot.GetRoom(firstCombat).HasKnownRoomType,
+                Is.False);
             Assert.That(
                 snapshot.Connections,
                 Is.EqualTo(new[] { graph.Connections.Single(
@@ -78,11 +84,20 @@ namespace BombSwap.Tests.EditMode
                 snapshot.GetRoom(graph.StartRoomId).State,
                 Is.EqualTo(DungeonMinimapRoomState.Visited));
             Assert.That(
+                snapshot.GetRoom(graph.StartRoomId).KnownRoomType,
+                Is.EqualTo(RoomType.Start));
+            Assert.That(
                 snapshot.GetRoom(firstCombat).State,
                 Is.EqualTo(DungeonMinimapRoomState.Current));
             Assert.That(
+                snapshot.GetRoom(firstCombat).KnownRoomType,
+                Is.EqualTo(RoomType.Combat));
+            Assert.That(
                 snapshot.GetRoom(graph.BombRewardRoomId).State,
                 Is.EqualTo(DungeonMinimapRoomState.Discovered));
+            Assert.That(
+                snapshot.GetRoom(graph.BombRewardRoomId).HasKnownRoomType,
+                Is.False);
             Assert.That(
                 snapshot.Rooms.All(room =>
                     run.IsVisited(room.RoomId) ||
@@ -317,6 +332,9 @@ namespace BombSwap.Tests.EditMode
                 disclosed.GetRoom(graph.SecretRoomId).State,
                 Is.EqualTo(DungeonMinimapRoomState.Discovered));
             Assert.That(
+                disclosed.GetRoom(graph.SecretRoomId).HasKnownRoomType,
+                Is.False);
+            Assert.That(
                 disclosed.Connections.Count(connection =>
                     connection.Contains(graph.SecretRoomId)),
                 Is.EqualTo(1));
@@ -337,6 +355,11 @@ namespace BombSwap.Tests.EditMode
             Assert.That(run.TryTravel(secretDirection).Moved, Is.True);
             Assert.That(run.CurrentRoomId, Is.EqualTo(graph.SecretRoomId));
             Assert.That(run.IsCurrentRoomLocked, Is.False);
+            Assert.That(
+                run.CreateMinimapSnapshot()
+                    .GetRoom(graph.SecretRoomId)
+                    .KnownRoomType,
+                Is.EqualTo(RoomType.Secret));
 
             DungeonRoomNodeId[] otherNeighbors = graph.GetNeighbors(graph.SecretRoomId)
                 .Where(roomId => roomId != firstCombat)

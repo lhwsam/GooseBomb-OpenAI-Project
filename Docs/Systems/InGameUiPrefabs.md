@@ -18,6 +18,8 @@
 | 무기 슬롯·쿨타임 | `Assets/Game/Content/Resources/UI/PrototypeWeaponHudCanvas.prefab` | `PrototypeWeaponHud` |
 | 플레이어·보스 체력·방 토큰 | `Assets/Game/Content/Resources/UI/PrototypeHealthHudCanvas.prefab` | `PrototypeHealthHud` |
 | 제한 정보 미니맵 | `Assets/Game/Content/Resources/UI/PrototypeDungeonMinimapCanvas.prefab` | `PrototypeDungeonMinimapPresenter` |
+| 미니맵 방 노드 | `Assets/Game/Content/Resources/UI/PrototypeDungeonMinimapRoom.prefab` | `PrototypeDungeonMinimapPresenter` |
+| 미니맵 연결선 | `Assets/Game/Content/Resources/UI/PrototypeDungeonMinimapConnection.prefab` | `PrototypeDungeonMinimapPresenter` |
 | 일시정지·공통 설정 | `Assets/Game/Content/Resources/UI/PrototypePauseCanvas.prefab` | `PrototypeGameSession`과 `PrototypePausePresenter` |
 
 production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로는 scene 없이 만드는 합성 PlayMode fixture도 같은 프리팹을 불러 검증하기 위한 보조 진입점이며, 런타임 이름·태그·계층 검색에는 사용하지 않는다.
@@ -26,7 +28,7 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 
 - 프리팹 root의 `Prototype*View`는 Canvas와 presenter가 바꿔야 하는 TMP, Image, Button, Map root를 명시적 직렬화 참조로 가진다.
 - 계층 이름은 사람이 읽기 위한 것이며 기능 연결의 권위가 아니다. 이름이나 배치 순서를 바꿔도 View 참조가 유지되면 동작해야 한다.
-- presenter는 프리팹 인스턴스의 Text, fill amount, 활성 상태와 정의된 상태 색만 갱신한다. RectTransform 배치, sprite, font, material, outline과 장식 계층은 바꾸지 않는다.
+- presenter는 프리팹 인스턴스의 Text, fill amount, 활성 상태와 정의된 상태 색만 갱신한다. 미니맵처럼 개수가 상태에 따라 달라지는 자식도 C#에서 Image·TMP 계층을 조립하지 않고 공용 자식 프리팹을 필요한 수만큼 인스턴스화한다. RectTransform 배치, sprite, font, material, outline과 장식 계층은 바꾸지 않는다.
 - View root 컴포넌트와 필수 참조를 삭제하거나 비우면 validator와 PlayMode가 실패해야 한다.
 - 모든 프리팹은 공통 960×600 `CanvasScaler` 기준을 유지한다. 기본 sorting order는 무기 100, 미니맵 109, 체력 110, pause 250이다.
 
@@ -40,7 +42,7 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 
 ### 미니맵
 
-패널, 제목, 범례와 `Map` RectTransform은 프리팹 저작이다. 현재 run마다 달라지는 방 노드와 연결선만 `Map` 아래에 snapshot 갱신 시 다시 만든다. 노드·연결 sprite, 상태 색, 노드 크기, 연결 두께와 최대 간격은 `PrototypeDungeonMinimapView` Inspector에서 수정한다. 배치 계산은 고정 패널 수치가 아니라 저작한 `Map` 영역의 실제 크기를 사용한다.
+패널과 `Map` RectTransform은 Canvas 프리팹 저작이다. 현재 run마다 달라지는 방 노드와 연결선은 각각 `PrototypeDungeonMinimapRoom.prefab`, `PrototypeDungeonMinimapConnection.prefab`을 `Map` 아래에 snapshot 갱신 시 필요한 수만큼 인스턴스화한다. presenter는 방 프리팹의 `RoomImage`와 `Icon` RectTransform·색을 유지하고 현재/비현재 배경과 공개 아이콘만 바꾼다. 현재 방 배경은 `BlackandWhiteUI_16`, 나머지는 `BlackandWhiteUI_3`이며, 방문 전은 interrogation, 방문 뒤에는 flag/skull/ring/heart/chest/door 아이콘을 방 종류에 따라 사용하고 보스 전실은 아이콘을 숨긴다. 연결 sprite와 기본 계층은 연결 프리팹에서, 노드 크기·연결 두께와 최대 간격은 `PrototypeDungeonMinimapView` Inspector에서 수정한다. 배치 계산은 고정 패널 수치가 아니라 저작한 `Map` 영역의 실제 크기를 사용한다.
 
 ### 일시정지
 
@@ -51,7 +53,7 @@ pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직�
 ## 디자이너 작업 절차
 
 1. Play Mode를 끈다.
-2. 위 네 프리팹 중 하나를 Prefab Mode로 연다.
+2. 위 권위 프리팹 중 수정할 Canvas 또는 재사용 자식 프리팹을 Prefab Mode로 연다.
 3. RectTransform, Image, TMP, Button, sprite, material과 장식 자식을 수정한다.
 4. `Assets/ThirdParty` Sprite를 직접 넣었다면 같은 Image에 `PrototypeOptionalSpriteFallback`을 추가하고 기능 Image는 유지, 순수 장식은 숨김 정책을 선택한다.
 5. root View Inspector에서 필수 참조가 유지됐는지 확인한다.
@@ -62,11 +64,11 @@ pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직�
 
 ## 검증 계약
 
-- Editor validator는 네 프리팹의 View·필수 참조, pause의 직접 Sprite·per-Image 폴백과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
-- PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 미니맵 snapshot 갱신, pause 열기·설정 이동·닫기를 확인한다.
+- Editor validator는 Canvas 프리팹과 미니맵 방·연결 재사용 자식 프리팹의 View·필수 참조와 조합, pause의 직접 Sprite·per-Image 폴백과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
+- PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 프리팹 자식 기반 미니맵 snapshot 갱신, pause 열기·설정 이동·닫기를 확인한다.
 - 실제 WebGL에서는 960×600 Canvas, 브라우저 축소, 키보드·마우스 포커스, pause 중 unscaled UI 입력과 Console/page error를 확인한다.
 
 ## 비목표
 
-- 방 노드나 폭발처럼 개수가 실제 상태에 따라 달라지는 시각 오브젝트를 모두 scene에 고정 배치하지 않는다.
+- 방 노드처럼 개수가 실제 상태에 따라 달라지는 UI를 모두 scene에 고정 배치하지 않는다. 단, 동적으로 늘어나는 한 단위의 시각 계층은 공용 프리팹이 소유한다.
 - 최종 아트, HUD 애니메이션, 로컬라이징, UI Toolkit 전환과 addressable UI 로딩은 이번 계약에 포함하지 않는다.
