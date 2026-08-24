@@ -148,6 +148,8 @@ namespace BombSwap
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
+        public event Action InteractionRequested;
+
         public event Action<GridSubcellPosition, CardinalDirection> PlayerPositionChanged;
 
         public event Action<BombSnapshot> BombPlaced;
@@ -811,6 +813,16 @@ namespace BombSwap
         public GridCellState GetCell(GridPosition position)
         {
             return _grid != null ? _grid.GetCell(position) : default;
+        }
+
+        public bool TryRegisterInteractable(GridPosition position)
+        {
+            return _grid != null && _grid.TryAddInteractable(position);
+        }
+
+        public bool TryUnregisterInteractable(GridPosition position)
+        {
+            return _grid != null && _grid.TryRemoveInteractable(position);
         }
 
         public bool TryGetBomb(BombId bombId, out BombSnapshot snapshot)
@@ -1555,6 +1567,9 @@ namespace BombSwap
                     break;
                 case PlayerCommandKind.SwapBomb:
                     TrySwapActiveBomb();
+                    break;
+                case PlayerCommandKind.Interact:
+                    InteractionRequested?.Invoke();
                     break;
                 case PlayerCommandKind.RestartRun:
                     break;

@@ -22,7 +22,7 @@
 
 GDD는 회복량, 사용 횟수, 이미 최대 체력일 때의 동작을 정하지 않는다. 이 값은 확정 계약으로 위장하지 않고 저작 데이터의 `Proposed` 튜닝 값으로 둔다.
 
-- 현재 구현: 한 번만 획득 가능한 회복 아이템, 현재 체력을 최대 체력 이하에서 `+2` 회복.
+- 현재 구현: 이동 불가한 회복 구조물의 상하좌우 인접 셀에서 `E` 상호작용으로 한 번만 현재 체력을 최대 체력 이하에서 `+2` 회복.
 - 최대 체력이면 소비하지 않아 피해를 받은 뒤 다시 방문할 수 있다.
 - `+2`와 1회 사용은 `Proposed`다. 이후 플레이테스트에서 우회 비용과 보스 준비 가치로 조정한다.
 
@@ -75,7 +75,7 @@ Recovery room item interaction
 ### 3. Unity 콘텐츠와 표현
 
 - `Complete`: Unity Editor builder로 `DungeonRecovery` scene, special catalog entry, 중앙 논리 셀 `(0,0)`의 회복 pickup과 URP shared material을 저작했다.
-- `Complete`: 회복 가능·최대 체력·사용 완료 상태를 pickup 형태와 `RECOVERY +2`·`HEALTH FULL`·`RECOVERY USED` 문구로 구분한다.
+- `Complete`: 회복 가능·최대 체력·사용 완료 상태를 pickup 형태와 근접 `E — RECOVER +2`·`HP FULL`·`RECOVERY USED` 문구로 구분한다.
 - `Complete`: 논리 셀 진입만 획득을 일으키며 기존 체력 HUD를 즉시 갱신하고, room 재진입에서는 Core 소비 상태를 복원한다.
 
 ## 비목표

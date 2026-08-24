@@ -28,6 +28,8 @@ namespace BombSwap
 
         private GameObject _pickupVisual;
         private TextMeshProUGUI _instructionLabel;
+        private GridPosition _corePickupCell;
+        private bool _isBlockerRegistered;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
@@ -45,6 +47,8 @@ namespace BombSwap
 
         public bool IsVisualVisible =>
             _pickupVisual != null && _pickupVisual.activeSelf;
+
+        public bool CanInteract { get; private set; }
 
         public DungeonRecoveryUseStatus LastStatus { get; private set; }
 
@@ -92,6 +96,7 @@ namespace BombSwap
 
             roomBinder.RoomSession.Ready += OnSessionReady;
             roomBinder.RoomSession.PlayerMoved += OnPlayerMoved;
+            roomBinder.RoomSession.InteractionRequested += OnInteractionRequested;
             if (roomBinder.RoomSession.IsReady)
             {
                 Initialize();
@@ -103,6 +108,7 @@ namespace BombSwap
             if (Application.isPlaying)
             {
                 Initialize();
+                RefreshInteractionAvailability();
             }
         }
 
@@ -112,12 +118,19 @@ namespace BombSwap
             {
                 roomBinder.RoomSession.Ready -= OnSessionReady;
                 roomBinder.RoomSession.PlayerMoved -= OnPlayerMoved;
+                roomBinder.RoomSession.InteractionRequested -= OnInteractionRequested;
+                if (_isBlockerRegistered)
+                {
+                    roomBinder.RoomSession.TryUnregisterInteractable(_corePickupCell);
+                    _isBlockerRegistered = false;
+                }
             }
         }
 
         private void OnSessionReady()
         {
             Initialize();
+            RefreshInteractionAvailability();
         }
 
         private void Initialize()
@@ -148,11 +161,11 @@ namespace BombSwap
                     "Recovery pickup requires a WebGL-compatible shared material.");
             }
 
-            GridPosition corePickupCell = ToCorePosition(pickupCell);
-            if (!roomBinder.RoomSession.GetCell(corePickupCell).IsWalkableTerrain)
+            _corePickupCell = ToCorePosition(pickupCell);
+            if (!roomBinder.RoomSession.GetCell(_corePickupCell).IsWalkableTerrain)
             {
                 throw new InvalidOperationException(
-                    $"Recovery pickup cell {corePickupCell} must be walkable floor.");
+                    $"Recovery pickup cell {_corePickupCell} must be walkable floor.");
             }
 
             CreateInstructionUi();
@@ -163,23 +176,32 @@ namespace BombSwap
             }
             else
             {
-                CreatePickupVisual(corePickupCell);
-                _instructionLabel.text =
-                    "RECOVERY +" + recoveryAmount +
-                    " — WALK ONTO THE GREEN CAPSULE";
+                CreatePickupVisual(_corePickupCell);
+                _instructionLabel.text = string.Empty;
             }
             IsInitialized = true;
+            GridPosition playerCell = roomBinder.RoomSession.CurrentGridPosition;
+            EnsureBlockerRegistered(playerCell);
+            UpdateInteractionAvailability(playerCell);
         }
 
         private void OnPlayerMoved(PlayerMovementStep step)
         {
-            TryCollectAt(step.To);
+            EnsureBlockerRegistered(step.To);
+            UpdateInteractionAvailability(step.To);
         }
 
-        public bool TryCollectAt(GridPosition playerCell)
+        private void OnInteractionRequested()
         {
-            if (!IsInitialized || IsConsumed ||
-                playerCell != ToCorePosition(pickupCell))
+            if (CanInteract)
+            {
+                TryInteract();
+            }
+        }
+
+        public bool TryInteract()
+        {
+            if (!IsInitialized || IsConsumed || !CanInteract)
             {
                 return false;
             }
@@ -191,6 +213,8 @@ namespace BombSwap
             {
                 case DungeonRecoveryUseStatus.Restored:
                     IsConsumed = true;
+                    CanInteract = false;
+                    UnregisterBlocker();
                     if (_pickupVisual != null)
                     {
                         _pickupVisual.SetActive(false);
@@ -206,6 +230,8 @@ namespace BombSwap
                     return false;
                 case DungeonRecoveryUseStatus.AlreadyConsumed:
                     IsConsumed = true;
+                    CanInteract = false;
+                    UnregisterBlocker();
                     if (_pickupVisual != null)
                     {
                         _pickupVisual.SetActive(false);
@@ -215,6 +241,63 @@ namespace BombSwap
                 default:
                     return false;
             }
+        }
+
+        public bool TryInteractAt(GridPosition playerCell)
+        {
+            UpdateInteractionAvailability(playerCell);
+            return TryInteract();
+        }
+
+        private void UpdateInteractionAvailability(GridPosition playerCell)
+        {
+            CanInteract = IsInitialized && !IsConsumed &&
+                playerCell.IsCardinallyAdjacentTo(_corePickupCell);
+            if (_instructionLabel != null && !IsConsumed)
+            {
+                _instructionLabel.text = CanInteract
+                    ? "E — RECOVER +" + recoveryAmount
+                    : string.Empty;
+            }
+        }
+
+        private void UnregisterBlocker()
+        {
+            if (!_isBlockerRegistered)
+            {
+                return;
+            }
+            if (!roomBinder.RoomSession.TryUnregisterInteractable(_corePickupCell))
+            {
+                throw new InvalidOperationException(
+                    $"Recovery pickup blocker {_corePickupCell} could not be removed.");
+            }
+            _isBlockerRegistered = false;
+        }
+
+        private void EnsureBlockerRegistered(GridPosition playerCell)
+        {
+            if (_isBlockerRegistered || IsConsumed || playerCell == _corePickupCell)
+            {
+                return;
+            }
+            if (!roomBinder.RoomSession.TryRegisterInteractable(_corePickupCell))
+            {
+                throw new InvalidOperationException(
+                    $"Recovery pickup cell {_corePickupCell} could not be reserved.");
+            }
+            _isBlockerRegistered = true;
+        }
+
+        private void RefreshInteractionAvailability()
+        {
+            if (!IsInitialized)
+            {
+                return;
+            }
+            GridPosition playerCell = roomBinder.RoomSession.CurrentGridPosition;
+            EnsureBlockerRegistered(playerCell);
+            UpdateInteractionAvailability(playerCell);
         }
 
         private void CreatePickupVisual(GridPosition cell)

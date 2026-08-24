@@ -7,6 +7,7 @@ namespace BombSwap.Core
     {
         None = 0,
         Actor = 1 << 0,
-        Bomb = 1 << 1
+        Bomb = 1 << 1,
+        Interactable = 1 << 2
     }
 }

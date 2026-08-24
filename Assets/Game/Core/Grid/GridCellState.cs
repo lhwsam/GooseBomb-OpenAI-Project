@@ -17,5 +17,8 @@ namespace BombSwap.Core
         public bool HasActor => (Occupancy & GridOccupancy.Actor) != 0;
 
         public bool HasBomb => (Occupancy & GridOccupancy.Bomb) != 0;
+
+        public bool HasInteractable =>
+            (Occupancy & GridOccupancy.Interactable) != 0;
     }
 }

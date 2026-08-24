@@ -1461,12 +1461,24 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(reward.IsVisualVisible, Is.True);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
 
+                GridPosition secretInteractionCell =
+                    secretSession.CurrentGridPosition.X != 0
+                        ? new GridPosition(
+                            Math.Sign(secretSession.CurrentGridPosition.X),
+                            0)
+                        : new GridPosition(
+                            0,
+                            secretSession.CurrentGridPosition.Z == 0
+                                ? -1
+                                : Math.Sign(secretSession.CurrentGridPosition.Z));
                 yield return MoveSessionTo(
                     secretSession,
                     keyboard,
-                    new GridPosition(0, 0));
-                yield return null;
-
+                    secretInteractionCell);
+                Assert.That(
+                    secretInteractionCell.IsCardinallyAdjacentTo(new GridPosition(0, 0)),
+                    Is.True);
+                Assert.That(reward.TryInteractAt(secretInteractionCell), Is.True);
                 Assert.That(reward.IsCollected, Is.True);
                 Assert.That(reward.IsVisualVisible, Is.False);
                 Assert.That(
@@ -1613,7 +1625,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(fullPresenter.IsInitialized, Is.True);
                 Assert.That(fullPresenter.IsVisualVisible, Is.True);
                 Assert.That(
-                    fullPresenter.TryCollectAt(new GridPosition(0, 0)),
+                    fullPresenter.TryInteractAt(new GridPosition(-1, 0)),
                     Is.False);
                 Assert.That(
                     fullPresenter.LastStatus,
@@ -1657,7 +1669,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(3));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(3));
                 Assert.That(
-                    damagedPresenter.TryCollectAt(new GridPosition(0, 0)),
+                    damagedPresenter.TryInteractAt(new GridPosition(-1, 0)),
                     Is.True);
                 Assert.That(
                     damagedPresenter.LastStatus,

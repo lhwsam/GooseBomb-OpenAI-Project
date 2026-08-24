@@ -1024,6 +1024,7 @@ namespace BombSwap.Editor.ContentValidation
                     throw new InvalidOperationException(
                         $"Input Actions asset is missing map '{BombSwapInputActionNames.GameplayMap}'.");
                 }
+                bool requiresInputUpgrade = false;
                 if (gameplay.FindAction(BombSwapInputActionNames.RestartRun, false) == null)
                 {
                     AddButtonBindings(
@@ -1031,6 +1032,19 @@ namespace BombSwap.Editor.ContentValidation
                         BombSwapInputActionNames.RestartRun,
                         "<Keyboard>/r",
                         "<Gamepad>/select");
+                    requiresInputUpgrade = true;
+                }
+                if (gameplay.FindAction(BombSwapInputActionNames.Interact, false) == null)
+                {
+                    AddButtonBindings(
+                        gameplay,
+                        BombSwapInputActionNames.Interact,
+                        "<Keyboard>/e",
+                        "<Gamepad>/buttonNorth");
+                    requiresInputUpgrade = true;
+                }
+                if (requiresInputUpgrade)
+                {
                     File.WriteAllText(
                         absolutePath,
                         imported.ToJson(),
@@ -1101,6 +1115,11 @@ namespace BombSwap.Editor.ContentValidation
                     BombSwapInputActionNames.RestartRun,
                     "<Keyboard>/r",
                     "<Gamepad>/select");
+                AddButtonBindings(
+                    gameplay,
+                    BombSwapInputActionNames.Interact,
+                    "<Keyboard>/e",
+                    "<Gamepad>/buttonNorth");
 
                 asset.AddControlScheme("Keyboard").WithRequiredDevice("<Keyboard>");
                 asset.AddControlScheme("Gamepad").WithRequiredDevice("<Gamepad>");

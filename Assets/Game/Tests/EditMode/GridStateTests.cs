@@ -181,6 +181,21 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void Interactable_BlocksActorsAndBombsUntilRemoved()
+        {
+            var grid = CreateFloorGrid();
+
+            Assert.That(grid.TryAddInteractable(Position), Is.True);
+            Assert.That(grid.GetCell(Position).HasInteractable, Is.True);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.False);
+            Assert.That(grid.TryAddBomb(Position), Is.False);
+
+            Assert.That(grid.TryRemoveInteractable(Position), Is.True);
+            Assert.That(grid.GetCell(Position).HasInteractable, Is.False);
+            Assert.That(grid.TryAddActor(Actor, Position), Is.True);
+        }
+
+        [Test]
         public void ReservedDestination_BlocksOtherActorsAndBombsUntilMoveCompletes()
         {
             GridPosition destination = Position.Offset(1, 0);

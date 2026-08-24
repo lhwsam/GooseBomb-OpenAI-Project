@@ -9,6 +9,8 @@
 
 ## 완료
 
+- 비밀방 상자와 회복 구조물을 `GridOccupancy.Interactable` 논리 blocker로 연결했다. 플레이어·적·폭탄은 대상 셀에 진입할 수 없고, 플레이어 셀 이동으로 상하좌우 근접 상태와 E 안내를 미리 갱신한 뒤 `PlayerCommand.Interact`에서 저장된 대상만 실행한다. 성공한 획득은 blocker를 제거하며 최대 체력 회복 실패는 소비하지 않는다. 기본 입력은 키보드 E·게임패드 North이고 기존 8개 키 설정 UI에는 아직 노출하지 않는다.
+
 - 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹에 SFX Mixer 기반 발소리 AudioSource를 연결했다. 이동 클립의 `PlayFootstep` Animation Event는 중첩 FBX Animator에 런타임으로 붙는 relay를 거쳐 프리팹 루트의 `CharacterFootstepAudio`로 전달되며, 플레이어·적 전용 4개 clip 비반복 무작위 재생, 적 3D 거리 감쇠·4 voice 상한, 일시정지 차단을 적용한다. Charger와 Boss의 Walk·Charge 두 이동 클립 모두 같은 경로를 사용한다.
 
 - GDD v0.2와 프로토타입 검증 부록 v0.2 작성.

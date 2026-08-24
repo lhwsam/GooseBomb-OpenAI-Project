@@ -36,11 +36,12 @@
 - `GridPosition`은 부호 있는 정수 `X`, `Z`를 보존하는 불변 값이며 값 동등성과 오프셋 계산을 제공한다.
 - `GridState`는 명시적으로 설정된 셀만 보관한다. 등록되지 않은 셀은 `Void` 지형과 점유 없음으로 읽힌다.
 - 지형은 `Void`, `Floor`, `IndestructibleWall`, `DestructibleWall` 중 하나다.
-- 동적 점유는 현재 `Actor`, `Bomb` 두 종류이며, 점유는 `Floor`에만 추가할 수 있다.
+- 동적 점유는 `Actor`, `Bomb`, `Interactable`이며, 점유는 `Floor`에만 추가할 수 있다. `Interactable`은 상자·회복 구조물처럼 actor와 폭탄의 진입을 막는 논리 blocker다.
 - 모든 actor는 양수 `ActorId`를 가진다. `GridState`는 `ActorId → GridPosition`과 `GridPosition → ActorId`를 점유 bit와 함께 원자적으로 유지해 다른 actor의 점유를 대신 이동시키지 못하게 한다.
 - actor는 비어 있는 바닥 셀에만 새로 들어갈 수 있다. 설치 직후 상태를 표현하기 위해 actor가 있는 셀에 폭탄을 추가하는 순서만 actor와 폭탄의 동시 점유를 만든다.
 - 일반 `TryMoveActor`는 목적지 bomb을 계속 차단한다. 보스의 예고된 한 칸 이동만 `TryMoveActorAllowingBombOverlap`을 호출할 수 있으며, 이 전이도 다른 actor·비바닥을 차단하고 양방향 actor 색인을 원자적으로 유지한다.
 - 점유가 남은 셀을 `Floor`가 아닌 지형으로 변경하려는 요청은 상태를 바꾸지 않고 실패한다.
+- 상호작용 대상이 소비되면 `Interactable` 점유를 제거한다. 기존 scene에서 플레이어가 대상 셀에 겹쳐 시작한 경우에는 한 번 빠져나가는 것을 허용하고 첫 셀 경계 이동 직후 blocker를 등록해 재진입을 막는다.
 
 ## 구현된 플레이어 이동 계약
 

@@ -19,8 +19,9 @@
 | 폭탄 교체 | `X` | West 버튼 |
 | 일시정지·재개 | `Esc` | Start 버튼 |
 | 완료·실패한 런 재시작 | `R` | Select 버튼 |
+| 상호작용 | `E` | North 버튼 |
 
-설정 UI는 기본 WASD·Z·X·Esc·R binding을 키보드의 다른 단일 키로 변경할 수 있다. 방향키 composite와 게임패드 binding은 고정 fallback이며 설정 화면에는 게임패드 조작을 표시하지 않는다. override는 장치 경로만 바꾸고 Core 명령 의미는 바꾸지 않는다.
+설정 UI는 기본 WASD·Z·X·Esc·R binding을 키보드의 다른 단일 키로 변경할 수 있다. 이번 상호작용 슬라이스에서 E는 고정 binding이며 설정 UI 노출은 별도 UI 저작 범위다. 방향키 composite와 게임패드 binding은 고정 fallback이며 설정 화면에는 게임패드 조작을 표시하지 않는다. override는 장치 경로만 바꾸고 Core 명령 의미는 바꾸지 않는다.
 
 이동은 상하좌우 네 방향만 Core에 전달한다. 아날로그·복합 입력은 절댓값이 큰 축을 선택한다. 두 축의 크기가 같고 현재 방향도 여전히 눌려 있으면 현재 축에 직교하는 새 전환 축을 우선해 짧은 키 겹침에서도 방향 전환을 즉시 명령으로 만든다. 유지 중인 방향이 벡터에 없거나 `None`이면 세로축을 우선하는 결정론적 규칙을 사용한다.
 
@@ -29,7 +30,7 @@
 - `BombSwapInputActions.inputactions`: 장치 경로, 액션 타입, control scheme의 권위 에셋.
 - `BombSwapInputReader`: 액션 callback을 구독하고 frame 경계에서 `PlayerCommand`를 발행하며 focus/생명주기를 정리한다. 세션의 이동 계산 직전에는 현재 Move 값을 다시 읽고 같은 frame 안에 끝난 마지막 짧은 방향 탭을 한 frame만 보존한다.
 - `CardinalInputInterpreter`: `Vector2`를 네 방향 이동 의도로 축소한다.
-- `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun` 의미와 이동 방향을 보존하는 Core 값이다.
+- `PlayerCommand`: `Move`, `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun`, `Interact` 의미와 이동 방향을 보존하는 Core 값이다.
 - `PrototypeGameSession`: TestSandbox에서 공유 시계·격자와 실제 pause 상태를 소유한다. 활성 상태에서는 `Move`를 `PlayerMovementSimulation`, `PlaceBomb`과 `SwapBomb`을 `BombWeaponLoadout`에 전달하고, pause 상태에서는 `Pause` 외 명령과 simulation 진행을 차단한다.
 - `PrototypePlayerController`: Core 연속 위치 변경을 받아 placeholder Transform에 직접 표시한다.
 - `PrototypePausePresenter`: 세션의 확정된 pause 상태만 구독해 `PAUSED` 오버레이와 재개 키를 표시한다. 입력을 직접 읽거나 상태를 판정하지 않는다.
@@ -46,7 +47,7 @@
 - 서로 직교하는 두 cardinal 키가 겹치면 이전 키를 놓기 전에 새 전환 방향을 발행하고, 이전 키 해제만으로 같은 명령을 중복 발행하지 않는다.
 - 입력 어댑터가 발행하는 `Move`는 현재 유지 방향 또는 같은 frame 안에 끝난 마지막 짧은 탭이다. Core 이동은 별도 0.2초 입력 cadence나 다중 방향 queue 없이 다음 관찰 frame의 연속 위치에 이 방향을 적용한다.
 - 이동 해제는 `Move(None)`으로 표현한다.
-- 설치·교체·pause·재시작은 버튼의 performed 시점에 한 번 발행한다.
+- 설치·교체·pause·재시작·상호작용은 버튼의 performed 시점에 한 번 발행한다. `Interact`는 누르는 순간 주변을 다시 검색하지 않고 플레이어 셀 이동으로 미리 갱신된 근접 대상만 실행한다.
 - 살아 있는 활성 세션에서 `Pause`를 받으면 `PrototypeGameSession.IsPaused`를 toggle한다. 진입 시 Core 이동 의도와 입력 어댑터의 유지·같은 frame 짧은 탭을 모두 해제한다.
 - pause 중에는 세션 `Update`가 입력 재샘플링과 `ManualGameClock.Advance` 전에 반환한다. 따라서 이동, 폭탄 설치·교체, fuse·쿨타임, 적·보스 상태와 피해가 함께 멈추며 `Time.timeScale`은 변경하지 않는다.
 - pause 중 `Move`, `PlaceBomb`, `SwapBomb`, `RestartRun`은 소비하지 않는다. 다시 `Pause`를 받으면 현재 유지 중인 Move 값을 즉시 재샘플링하고 다음 `Update`부터 같은 논리 시계를 진행한다.

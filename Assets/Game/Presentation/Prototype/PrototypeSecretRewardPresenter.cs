@@ -28,6 +28,8 @@ namespace BombSwap
 
         private GameObject _cacheVisual;
         private TextMeshProUGUI _instructionLabel;
+        private GridPosition _corePickupCell;
+        private bool _isBlockerRegistered;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
@@ -45,6 +47,8 @@ namespace BombSwap
 
         public bool IsVisualVisible =>
             _cacheVisual != null && _cacheVisual.activeSelf;
+
+        public bool CanInteract { get; private set; }
 
         public DungeonSecretRewardCollectStatus LastStatus { get; private set; }
 
@@ -92,6 +96,7 @@ namespace BombSwap
 
             roomBinder.RoomSession.Ready += OnSessionReady;
             roomBinder.RoomSession.PlayerMoved += OnPlayerMoved;
+            roomBinder.RoomSession.InteractionRequested += OnInteractionRequested;
             if (roomBinder.RoomSession.IsReady)
             {
                 Initialize();
@@ -103,6 +108,7 @@ namespace BombSwap
             if (Application.isPlaying)
             {
                 Initialize();
+                RefreshInteractionAvailability();
             }
         }
 
@@ -112,12 +118,19 @@ namespace BombSwap
             {
                 roomBinder.RoomSession.Ready -= OnSessionReady;
                 roomBinder.RoomSession.PlayerMoved -= OnPlayerMoved;
+                roomBinder.RoomSession.InteractionRequested -= OnInteractionRequested;
+                if (_isBlockerRegistered)
+                {
+                    roomBinder.RoomSession.TryUnregisterInteractable(_corePickupCell);
+                    _isBlockerRegistered = false;
+                }
             }
         }
 
         private void OnSessionReady()
         {
             Initialize();
+            RefreshInteractionAvailability();
         }
 
         private void Initialize()
@@ -143,11 +156,11 @@ namespace BombSwap
                     "Secret reward requires a positive token value and shared material.");
             }
 
-            GridPosition corePickupCell = ToCorePosition(pickupCell);
-            if (!roomBinder.RoomSession.GetCell(corePickupCell).IsWalkableTerrain)
+            _corePickupCell = ToCorePosition(pickupCell);
+            if (!roomBinder.RoomSession.GetCell(_corePickupCell).IsWalkableTerrain)
             {
                 throw new InvalidOperationException(
-                    $"Secret reward cell {corePickupCell} must be walkable floor.");
+                    $"Secret reward cell {_corePickupCell} must be walkable floor.");
             }
 
             CreateInstructionUi();
@@ -158,22 +171,32 @@ namespace BombSwap
             }
             else
             {
-                CreateCacheVisual(corePickupCell);
-                _instructionLabel.text =
-                    "SECRET CACHE  |  ROOM TOKENS +" + tokenReward;
+                CreateCacheVisual(_corePickupCell);
+                _instructionLabel.text = string.Empty;
             }
             IsInitialized = true;
+            GridPosition playerCell = roomBinder.RoomSession.CurrentGridPosition;
+            EnsureBlockerRegistered(playerCell);
+            UpdateInteractionAvailability(playerCell);
         }
 
         private void OnPlayerMoved(PlayerMovementStep step)
         {
-            TryCollectAt(step.To);
+            EnsureBlockerRegistered(step.To);
+            UpdateInteractionAvailability(step.To);
         }
 
-        public bool TryCollectAt(GridPosition playerCell)
+        private void OnInteractionRequested()
         {
-            if (!IsInitialized || IsCollected ||
-                playerCell != ToCorePosition(pickupCell))
+            if (CanInteract)
+            {
+                TryInteract();
+            }
+        }
+
+        public bool TryInteract()
+        {
+            if (!IsInitialized || IsCollected || !CanInteract)
             {
                 return false;
             }
@@ -185,6 +208,8 @@ namespace BombSwap
             {
                 case DungeonSecretRewardCollectStatus.Collected:
                     IsCollected = true;
+                    CanInteract = false;
+                    UnregisterBlocker();
                     if (_cacheVisual != null)
                     {
                         _cacheVisual.SetActive(false);
@@ -195,6 +220,8 @@ namespace BombSwap
                     return true;
                 case DungeonSecretRewardCollectStatus.AlreadyCollected:
                     IsCollected = true;
+                    CanInteract = false;
+                    UnregisterBlocker();
                     if (_cacheVisual != null)
                     {
                         _cacheVisual.SetActive(false);
@@ -204,6 +231,63 @@ namespace BombSwap
                 default:
                     return false;
             }
+        }
+
+        public bool TryInteractAt(GridPosition playerCell)
+        {
+            UpdateInteractionAvailability(playerCell);
+            return TryInteract();
+        }
+
+        private void UpdateInteractionAvailability(GridPosition playerCell)
+        {
+            CanInteract = IsInitialized && !IsCollected &&
+                playerCell.IsCardinallyAdjacentTo(_corePickupCell);
+            if (_instructionLabel != null && !IsCollected)
+            {
+                _instructionLabel.text = CanInteract
+                    ? "E — OPEN SECRET CACHE"
+                    : string.Empty;
+            }
+        }
+
+        private void UnregisterBlocker()
+        {
+            if (!_isBlockerRegistered)
+            {
+                return;
+            }
+            if (!roomBinder.RoomSession.TryUnregisterInteractable(_corePickupCell))
+            {
+                throw new InvalidOperationException(
+                    $"Secret reward blocker {_corePickupCell} could not be removed.");
+            }
+            _isBlockerRegistered = false;
+        }
+
+        private void EnsureBlockerRegistered(GridPosition playerCell)
+        {
+            if (_isBlockerRegistered || IsCollected || playerCell == _corePickupCell)
+            {
+                return;
+            }
+            if (!roomBinder.RoomSession.TryRegisterInteractable(_corePickupCell))
+            {
+                throw new InvalidOperationException(
+                    $"Secret reward cell {_corePickupCell} could not be reserved.");
+            }
+            _isBlockerRegistered = true;
+        }
+
+        private void RefreshInteractionAvailability()
+        {
+            if (!IsInitialized)
+            {
+                return;
+            }
+            GridPosition playerCell = roomBinder.RoomSession.CurrentGridPosition;
+            EnsureBlockerRegistered(playerCell);
+            UpdateInteractionAvailability(playerCell);
         }
 
         private void CreateCacheVisual(GridPosition cell)

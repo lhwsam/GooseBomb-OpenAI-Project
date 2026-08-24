@@ -188,11 +188,14 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState(Key.Escape);
             QueueKeyboardState();
             QueueKeyboardState(Key.R);
+            QueueKeyboardState();
+            QueueKeyboardState(Key.E);
 
             Assert.That(_commands, Has.Member(PlayerCommand.PlaceBomb()));
             Assert.That(_commands, Has.Member(PlayerCommand.SwapBomb()));
             Assert.That(_commands, Has.Member(PlayerCommand.Pause()));
             Assert.That(_commands, Has.Member(PlayerCommand.RestartRun()));
+            Assert.That(_commands, Has.Member(PlayerCommand.Interact()));
         }
 
         [TestCase(0f, 1f, CardinalDirection.North)]
@@ -246,6 +249,8 @@ namespace BombSwap.Tests.PlayMode
             QueueGamepadState(new GamepadState(GamepadButton.Start));
             QueueGamepadState(new GamepadState());
             QueueGamepadState(new GamepadState(GamepadButton.Select));
+            QueueGamepadState(new GamepadState());
+            QueueGamepadState(new GamepadState(GamepadButton.North));
 
             Assert.That(_commands, Is.EqualTo(new[]
             {
@@ -253,6 +258,7 @@ namespace BombSwap.Tests.PlayMode
                 PlayerCommand.SwapBomb(),
                 PlayerCommand.Pause(),
                 PlayerCommand.RestartRun(),
+                PlayerCommand.Interact(),
             }));
         }
 
@@ -366,6 +372,11 @@ namespace BombSwap.Tests.PlayMode
                 InputActionType.Button,
                 "<Keyboard>/r");
             restartRun.AddBinding("<Gamepad>/select");
+            InputAction interact = gameplay.AddAction(
+                BombSwapInputActionNames.Interact,
+                InputActionType.Button,
+                "<Keyboard>/e");
+            interact.AddBinding("<Gamepad>/buttonNorth");
             return asset;
         }
     }

@@ -18,6 +18,7 @@ namespace BombSwap
         private InputAction _swapBombAction;
         private InputAction _pauseAction;
         private InputAction _restartRunAction;
+        private InputAction _interactAction;
         private bool _isSubscribed;
         private bool _hasInputFocus = true;
         private bool _hasSampledMoveValue;
@@ -162,12 +163,14 @@ namespace BombSwap
             _swapBombAction = FindRequiredAction(BombSwapInputActionNames.SwapBomb);
             _pauseAction = FindRequiredAction(BombSwapInputActionNames.Pause);
             _restartRunAction = FindRequiredAction(BombSwapInputActionNames.RestartRun);
+            _interactAction = FindRequiredAction(BombSwapInputActionNames.Interact);
 
             return _moveAction != null &&
                    _placeBombAction != null &&
                    _swapBombAction != null &&
                    _pauseAction != null &&
-                   _restartRunAction != null;
+                   _restartRunAction != null &&
+                   _interactAction != null;
         }
 
         private InputAction FindRequiredAction(string actionName)
@@ -191,6 +194,7 @@ namespace BombSwap
             _swapBombAction.performed += OnSwapBomb;
             _pauseAction.performed += OnPause;
             _restartRunAction.performed += OnRestartRun;
+            _interactAction.performed += OnInteract;
             _isSubscribed = true;
         }
 
@@ -202,6 +206,7 @@ namespace BombSwap
             _swapBombAction.performed -= OnSwapBomb;
             _pauseAction.performed -= OnPause;
             _restartRunAction.performed -= OnRestartRun;
+            _interactAction.performed -= OnInteract;
             _isSubscribed = false;
         }
 
@@ -228,6 +233,11 @@ namespace BombSwap
         private void OnRestartRun(InputAction.CallbackContext context)
         {
             Issue(PlayerCommand.RestartRun());
+        }
+
+        private void OnInteract(InputAction.CallbackContext context)
+        {
+            Issue(PlayerCommand.Interact());
         }
 
         private void SetMoveDirection(CardinalDirection direction)
@@ -341,6 +351,7 @@ namespace BombSwap
             _swapBombAction = null;
             _pauseAction = null;
             _restartRunAction = null;
+            _interactAction = null;
             _lastSampledMoveValue = Vector2.zero;
             _hasSampledMoveValue = false;
             CurrentMoveDirection = CardinalDirection.None;

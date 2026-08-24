@@ -36,12 +36,14 @@ namespace BombSwap.Tests.EditMode
                 PlayerCommand.SwapBomb(),
                 PlayerCommand.Pause(),
                 PlayerCommand.RestartRun(),
+                PlayerCommand.Interact(),
             };
 
             Assert.That(commands[0].Kind, Is.EqualTo(PlayerCommandKind.PlaceBomb));
             Assert.That(commands[1].Kind, Is.EqualTo(PlayerCommandKind.SwapBomb));
             Assert.That(commands[2].Kind, Is.EqualTo(PlayerCommandKind.Pause));
             Assert.That(commands[3].Kind, Is.EqualTo(PlayerCommandKind.RestartRun));
+            Assert.That(commands[4].Kind, Is.EqualTo(PlayerCommandKind.Interact));
             foreach (PlayerCommand command in commands)
             {
                 Assert.That(command.MoveDirection, Is.EqualTo(CardinalDirection.None));
