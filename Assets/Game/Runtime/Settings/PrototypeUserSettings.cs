@@ -10,6 +10,8 @@ namespace BombSwap
         public const float DefaultBgmVolume = 0.7f;
         public const float DefaultSfxVolume = 1f;
         public const float DefaultScreenShakeIntensity = 1f;
+        public const float ScreenShakeEnabledIntensity = 1f;
+        public const float ScreenShakeDisabledIntensity = 0f;
 
         public PrototypeUserSettings(
             float masterVolume,
@@ -20,7 +22,9 @@ namespace BombSwap
             MasterVolume = Mathf.Clamp01(masterVolume);
             BgmVolume = Mathf.Clamp01(bgmVolume);
             SfxVolume = Mathf.Clamp01(sfxVolume);
-            ScreenShakeIntensity = Mathf.Clamp01(screenShakeIntensity);
+            ScreenShakeIntensity = screenShakeIntensity > 0.001f
+                ? ScreenShakeEnabledIntensity
+                : ScreenShakeDisabledIntensity;
         }
 
         public float MasterVolume { get; }
@@ -30,6 +34,9 @@ namespace BombSwap
         public float SfxVolume { get; }
 
         public float ScreenShakeIntensity { get; }
+
+        public bool IsScreenShakeEnabled =>
+            ScreenShakeIntensity > ScreenShakeDisabledIntensity;
 
         public static PrototypeUserSettings Default => new PrototypeUserSettings(
             DefaultMasterVolume,
@@ -48,6 +55,12 @@ namespace BombSwap
 
         public PrototypeUserSettings WithScreenShakeIntensity(float value) =>
             new PrototypeUserSettings(MasterVolume, BgmVolume, SfxVolume, value);
+
+        public PrototypeUserSettings WithScreenShakeEnabled(bool isEnabled) =>
+            WithScreenShakeIntensity(
+                isEnabled
+                    ? ScreenShakeEnabledIntensity
+                    : ScreenShakeDisabledIntensity);
 
         public float ScaleScreenShake(float authoredAmplitude) =>
             Mathf.Max(0f, authoredAmplitude) * ScreenShakeIntensity;

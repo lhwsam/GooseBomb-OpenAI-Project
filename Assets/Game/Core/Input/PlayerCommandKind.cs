@@ -8,5 +8,6 @@ namespace BombSwap.Core
         SwapBomb = 3,
         Pause = 4,
         RestartRun = 5,
+        Interact = 6,
     }
 }

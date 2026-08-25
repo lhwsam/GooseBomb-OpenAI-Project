@@ -1,7 +1,7 @@
 # UI 상호작용 피드백
 
 - 상태: `Accepted`
-- 기준일: 2026-08-22
+- 기준일: 2026-08-25
 - 관련: [로비 수직 슬라이스](../Development/LobbySlice.md), [사용자 설정과 오디오](UserSettingsAndAudio.md), [WebGL 브라우저 테스트](../WebGL/BrowserTestMatrix.md)
 
 ## 목적
@@ -33,10 +33,12 @@
 - `colorTarget`은 선택적 `Graphic` 참조이며 TMP 텍스트를 포함한다. Inspector에서 `startColor`와 `targetColor`를 버튼별로 조정할 수 있고, 참조가 없으면 해당 버튼은 scale만 전환한다. 로비의 시작·설정 버튼은 참조가 비어 있을 때 각 버튼의 자식 TMP 라벨을 런타임 fallback으로 사용한다.
 - `hoverVisualTargets`는 선택적 자식 GameObject 목록이며 Inspector의 직렬화 참조만 사용한다. 런타임에는 이름·태그·계층 검색 fallback이 없다. 로비의 시작·설정 버튼은 각 좌우 화살표 두 개를 명시적으로 참조해야 하며 Editor validator가 누락과 버튼 계층 밖 참조를 거부한다.
 - 로비 시작 시 `StartRunButton`은 키보드·게임패드 Submit을 위해 EventSystem 선택을 유지하지만, 첫 포인터·탐색·Submit 입력 전에는 선택 시각 효과를 숨겨 Normal 상태로 표시한다.
-- 오디오 후보 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`는 hover·선택 이동이 아니라 interactable Button의 확정 click과 UI Submit에 같은 소리로 사용한다. 현재 clip 저작만 완료했고 재생 presenter와 AudioSource/SFX Mixer route는 아직 연결하지 않았다.
+- interactable Button에 포인터가 실제로 들어올 때 `SFX_UI_ButtonHover_GooseNudge_8Bit.wav`를 진입당 한 번 재생한다. 이미 올라간 포인터의 중복 enter와 키보드·게임패드 선택만으로는 hover음을 재생하지 않아 최초 선택 버튼이나 탐색 반복이 소리를 남발하지 않게 한다.
+- Button의 확정 `onClick`에는 `SFX_UI_ButtonClick_GooseClack_8Bit.wav`를 재생한다. `PrototypeUiButtonAudioPlayer.PlayClick`은 Button의 유일한 persistent listener로 저작해 런타임 화면 전환·비활성화 listener보다 먼저 준비·실행하고, 포인터 click과 키보드·게임패드 Submit은 같은 확정 경계를 사용한다. Disabled Button은 두 소리를 모두 재생하지 않는다.
+- Canvas마다 `PrototypeUiButtonAudioPlayer`와 전용 2D `AudioSource`를 하나만 두고 모든 `PrototypeButtonScaleFeedback`이 이를 명시적으로 참조한다. Source는 반복·자동 재생 없이 SFX Mixer 그룹으로 route한다. 확정 click은 재생 중인 짧은 hover음을 정지하고 같은 Mixer route를 사용하는 scene-independent voice로 넘겨, 버튼 동작이 즉시 Canvas를 끄거나 scene을 전환해도 입력 확인음의 tail을 보존한다. voice는 clip 종료 뒤 unscaled 시간으로 제거한다.
 - hit 영역을 고정해야 하거나 Layout Group 영향에서 시각 요소를 분리할 UI는 버튼 아래에 `Visual` 자식을 만들고 그 자식을 `visualTarget`으로 지정한다.
-- Editor authoring과 validator는 버튼 자신 또는 그 하위 `RectTransform`만 유효한 대상으로 인정하며, 디자이너가 지정한 하위 대상과 이름이 `Visual`인 직접 자식을 보존한다.
-- Inspector에서 hover·pressed 배율과 두 시간을 버튼별로 조정할 수 있다. 로비 공통값으로 되돌리려면 `Bomb Swap > UI > Apply Button Feedback To Lobby`를 실행한다.
+- Editor authoring과 validator는 버튼 자신 또는 그 하위 `RectTransform`만 유효한 대상으로 인정하며, 디자이너가 지정한 하위 대상과 이름이 `Visual`인 직접 자식을 보존한다. 오디오 validator는 Button마다 공유 재생기를 대상으로 하는 `PlayClick` persistent listener가 정확히 하나인지도 검사한다.
+- Inspector에서 hover·pressed 배율과 두 시간을 버튼별로 조정할 수 있다. 로비 공통값으로 되돌리려면 `Bomb Swap > UI > Apply Button Feedback To Lobby`를 실행한다. 로비·일시정지·런 완료 Button의 오디오 연결을 다시 저작하려면 `Bomb Swap > UI > Apply Button Audio`를 실행한다.
 - 로비 builder는 씬 생성·구 설정 마이그레이션 때 누락된 컴포넌트를 같은 공통값으로 보완한다. Editor validator는 비활성 설정 패널을 포함한 로비의 모든 Button을 검사한다.
 
 ## 성능과 WebGL
@@ -57,4 +59,6 @@
 - 키보드 Select·Submit pulse·Deselect 순서를 확인한다.
 - 별도 자식 `visualTarget`이 저작된 비균일 base scale을 보존하고 버튼 root는 바꾸지 않는지 확인한다.
 - 씬 검증은 로비의 모든 Button에 정확히 하나의 컴포넌트와 공통 기본 구성이 있는지 확인한다.
+- 로비·일시정지·런 완료 Canvas는 각각 공유 재생기와 2D SFX AudioSource를 정확히 하나만 가지며 모든 Button이 같은 재생기를 명시적으로 참조하는지 확인한다.
+- PlayMode는 첫 pointer enter, exit 뒤 재진입, 확정 click/Submit, Disabled와 비활성화·재활성화 수명주기에서 hover/click 재생 횟수와 listener 중복 방지를 확인한다.
 - 중복 키 거부 시 override가 이전 값으로 돌아가고 선택 버튼만 흔들리며, 완료·취소·비활성화 뒤 위치·색·키 라벨이 복원되는지 확인한다.

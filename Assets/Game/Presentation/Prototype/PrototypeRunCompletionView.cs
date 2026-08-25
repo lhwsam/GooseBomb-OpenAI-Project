@@ -17,7 +17,9 @@ namespace BombSwap
         [SerializeField]
         private TextMeshProUGUI failureCauseLabel;
 
-        [SerializeField]
+        // Compatibility-only reference for result prefabs authored before the
+        // separate restart instruction label was removed.
+        [SerializeField, HideInInspector]
         private TextMeshProUGUI statusLabel;
 
         [SerializeField]
@@ -55,7 +57,6 @@ namespace BombSwap
             canvas != null &&
             titleLabel != null &&
             failureCauseLabel != null &&
-            statusLabel != null &&
             restartButton != null &&
             lobbyButton != null &&
             restartButton != lobbyButton;
@@ -64,7 +65,6 @@ namespace BombSwap
             Canvas authoredCanvas,
             TextMeshProUGUI authoredTitleLabel,
             TextMeshProUGUI authoredFailureCauseLabel,
-            TextMeshProUGUI authoredStatusLabel,
             Button authoredRestartButton,
             Button authoredLobbyButton)
         {
@@ -80,8 +80,7 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredTitleLabel));
             failureCauseLabel = authoredFailureCauseLabel ??
                 throw new ArgumentNullException(nameof(authoredFailureCauseLabel));
-            statusLabel = authoredStatusLabel ??
-                throw new ArgumentNullException(nameof(authoredStatusLabel));
+            statusLabel = null;
             restartButton = authoredRestartButton ??
                 throw new ArgumentNullException(nameof(authoredRestartButton));
             lobbyButton = authoredLobbyButton ??

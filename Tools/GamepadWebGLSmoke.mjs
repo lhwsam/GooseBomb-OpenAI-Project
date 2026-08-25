@@ -6,6 +6,7 @@ import { startStaticServer } from "./WebGLStaticServer.mjs";
 const StandardButton = Object.freeze({
   South: 0,
   West: 2,
+  North: 3,
   Select: 8,
   Start: 9,
   DpadUp: 12,
@@ -385,6 +386,20 @@ async function main() {
       name: "west-button-swap-command",
       status: "passed",
       detail: "Standard button 2 reached the SwapBomb command probe.",
+    });
+
+    const interactionsBefore = await eventCount(page, "interact");
+    await setButton(page, StandardButton.North, 1);
+    await waitForEvent(page, "interact", {
+      count: interactionsBefore + 1,
+      timeout: 5_000,
+    });
+    await setButton(page, StandardButton.North, 0);
+    await page.waitForTimeout(100);
+    checks.push({
+      name: "north-button-interact-command",
+      status: "passed",
+      detail: "Standard button 3 reached the Interact command probe.",
     });
 
     const heldEastBefore = await eventCount(page, "move-direction-east");

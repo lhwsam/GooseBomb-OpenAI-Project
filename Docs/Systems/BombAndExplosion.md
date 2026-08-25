@@ -107,8 +107,8 @@ Requested -> Placed -> Armed -> DetonationQueued -> Exploded -> Removed
 - `PrototypeDungeonRoomBinder`는 현재 방의 미공개 Secret 연결을 문 앞 출구 셀에 매핑한다. `BombExplosion.AffectedCells`가 그 셀에 닿으면 해당 연결만 공개하고 door/minimap 표현을 갱신한다.
 - 자폭병은 Telegraph 시작 시 `ActorId(6)` 소유의 `prototype-self-destruct-blast`를 자기 셀에 직접 설치한다. 이 적 폭탄은 `BombSimulation`의 활성 폭탄과 연쇄 스케줄러에는 포함되지만 플레이어 loadout·설치 쿨타임·`BombPlaced` 입력 성공 사건에는 포함되지 않는다.
 - 자폭 폭발은 다른 정의와 같은 `BombExploded`·`AffectedCells`·`DestroyedWalls` 결과를 제공한다. 자기 폭발이 자폭병의 단일 사망을 확정하고, 범위 안 플레이어·다른 적·보스와 Gates 파괴문은 기존 소비 경로로 반응한다.
-- 투척병은 Telegraph에서 서로 다른 목표 셀 3개를 잠근 뒤 세 방향으로 0.45초 표현 비행을 동시에 시작한다. 비행 중에는 폭탄 점유가 없고 각 착탄 순간에만 `ActorId(7)` 소유 `prototype-thrower-blocker`를 같은 `BombSimulation`에 설치한다. 이미 폭탄이 있는 셀의 발만 조용히 실패하며 다른 셀로 재조준하지 않는다.
-- 성공 착탄한 세 투척 폭탄은 플레이어 폭탄과 같은 fuse·벽 차단·파괴벽·연쇄 스케줄러를 각각 사용한다. 투척병은 자기 소유 폭발만 무시하고 다른 소유자의 폭발에는 정상 피해를 받는다.
+- 투척병은 Telegraph에서 서로 다른 목표 셀 3개를 잠근 뒤 세 방향으로 0.45초 표현 비행을 동시에 시작한다. 발사 때 목표 셀 예고를 숨기며 비행 중에는 폭탄 점유와 폭발 범위 표시가 없다. 각 착탄 순간에만 `ActorId(7)` 소유 `prototype-thrower-blocker`를 같은 `BombSimulation`에 설치한다. 이미 폭탄이 있는 셀의 발만 조용히 실패하며 다른 셀로 재조준하지 않는다.
+- 성공 착탄한 세 투척 폭탄은 플레이어 폭탄과 같은 fuse·벽 차단·파괴벽·연쇄 스케줄러를 각각 사용한다. 착탄한 폭탄별 현재 Core 폭발 미리보기 범위를 fuse 동안 표시하고, 겹친 셀은 하나로 보이되 실제 폭발 때 해당 `BombId`의 범위만 제거한다. 투척병은 자기 소유 폭발만 무시하고 다른 소유자의 폭발에는 정상 피해를 받는다.
 - 보스는 Telegraph 시작 시 잠근 퇴로 anchor에 `ActorId(5)` 소유 throw 폭탄을 설치하고, 2페이즈에는 그 안쪽 cardinal 셀에 chain 폭탄도 설치한다. throw footprint가 chain 셀을 포함하므로 전역 0.15초 연쇄 지연을 그대로 사용한다. 보스 폭탄은 플레이어·일반 적·벽에 정상 반응하지만 소유자인 보스는 자기 폭발 피해를 무시한다.
 - TestSandbox의 폭탄/폭발 prefab은 collider 없이 시각 표현만 담당한다. 설치·차단·범위는 계속 Core 격자가 판정한다.
 - 현재 수직 슬라이스는 플레이어 자기 피해, 기본 추격자·돌진형·갑옷 적·자폭병·투척병·보스 피해, 두 슬롯과 독립 설치·교체 쿨타임, 기본 십자·3×3 광역·앞쪽 직선·적 소유 십자 폭발을 포함한다. 추격자→돌진형→갑옷 적→자폭병→투척병→보스 고정 순서로 피해와 사망을 확정하고 마지막 적 뒤 단일 방 클리어를 발행한다. 투척병은 아직 메인 던전 카탈로그 밖 전용 씬에서만 활성화한다. 범용 다중 적 목록과 일반화된 적 폭탄 소유권 UI는 아직 없다.

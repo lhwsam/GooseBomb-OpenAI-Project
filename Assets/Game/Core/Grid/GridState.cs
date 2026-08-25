@@ -97,6 +97,7 @@ namespace BombSwap.Core
         {
             GridCellState current = GetCell(position);
             if (!current.IsWalkableTerrain || current.HasBomb ||
+                current.HasInteractable ||
                 (reservedActorIdsByPosition.ContainsKey(position) && !current.HasActor))
             {
                 return false;
@@ -121,6 +122,38 @@ namespace BombSwap.Core
                 new GridCellState(
                     current.Terrain,
                     current.Occupancy & ~GridOccupancy.Bomb));
+            return true;
+        }
+
+        public bool TryAddInteractable(GridPosition position)
+        {
+            GridCellState current = GetCell(position);
+            if (!current.IsWalkableTerrain ||
+                current.Occupancy != GridOccupancy.None ||
+                reservedActorIdsByPosition.ContainsKey(position))
+            {
+                return false;
+            }
+
+            cells[position] = new GridCellState(
+                current.Terrain,
+                current.Occupancy | GridOccupancy.Interactable);
+            return true;
+        }
+
+        public bool TryRemoveInteractable(GridPosition position)
+        {
+            GridCellState current = GetCell(position);
+            if (!current.HasInteractable)
+            {
+                return false;
+            }
+
+            SetOrRemoveCell(
+                position,
+                new GridCellState(
+                    current.Terrain,
+                    current.Occupancy & ~GridOccupancy.Interactable));
             return true;
         }
 
@@ -172,6 +205,7 @@ namespace BombSwap.Core
             }
             if (!destination.IsWalkableTerrain ||
                 destination.HasActor ||
+                destination.HasInteractable ||
                 IsReservedByAnotherActor(actorId, to) ||
                 (!allowBombOverlap && destination.HasBomb))
             {

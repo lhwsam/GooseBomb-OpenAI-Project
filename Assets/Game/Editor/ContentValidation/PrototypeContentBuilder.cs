@@ -112,6 +112,20 @@ namespace BombSwap.Editor.ContentValidation
                 "Refreshed prototype thrower definition, bomb, room, and presentation content.");
         }
 
+        [MenuItem("Bomb Swap/Prototype/Refresh Input Actions")]
+        public static void RefreshInputActionsMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Exit Play Mode before refreshing prototype Input Actions.");
+            }
+
+            InputActionAsset inputActions = CreateInputActionsIfMissing();
+            Debug.Log(
+                $"Refreshed prototype Input Actions at '{AssetDatabase.GetAssetPath(inputActions)}'.");
+        }
+
         [MenuItem("Bomb Swap/Prototype/Restore Authored Bomb Fuse Timings")]
         public static void RestoreAuthoredBombFuseTimingsMenu()
         {
@@ -1054,6 +1068,7 @@ namespace BombSwap.Editor.ContentValidation
                     throw new InvalidOperationException(
                         $"Input Actions asset is missing map '{BombSwapInputActionNames.GameplayMap}'.");
                 }
+                bool requiresInputUpgrade = false;
                 if (gameplay.FindAction(BombSwapInputActionNames.RestartRun, false) == null)
                 {
                     AddButtonBindings(
@@ -1061,6 +1076,26 @@ namespace BombSwap.Editor.ContentValidation
                         BombSwapInputActionNames.RestartRun,
                         "<Keyboard>/r",
                         "<Gamepad>/select");
+                    requiresInputUpgrade = true;
+                }
+                InputAction interact = gameplay.FindAction(
+                    BombSwapInputActionNames.Interact,
+                    false);
+                if (interact == null)
+                {
+                    AddButtonBindings(
+                        gameplay,
+                        BombSwapInputActionNames.Interact,
+                        "<Keyboard>/f",
+                        "<Gamepad>/buttonNorth");
+                    requiresInputUpgrade = true;
+                }
+                else if (EnsureInteractionKeyboardBinding(interact))
+                {
+                    requiresInputUpgrade = true;
+                }
+                if (requiresInputUpgrade)
+                {
                     File.WriteAllText(
                         absolutePath,
                         imported.ToJson(),
@@ -1131,6 +1166,11 @@ namespace BombSwap.Editor.ContentValidation
                     BombSwapInputActionNames.RestartRun,
                     "<Keyboard>/r",
                     "<Gamepad>/select");
+                AddButtonBindings(
+                    gameplay,
+                    BombSwapInputActionNames.Interact,
+                    "<Keyboard>/f",
+                    "<Gamepad>/buttonNorth");
 
                 asset.AddControlScheme("Keyboard").WithRequiredDevice("<Keyboard>");
                 asset.AddControlScheme("Gamepad").WithRequiredDevice("<Gamepad>");
@@ -3027,10 +3067,12 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeDungeonRoomBinder binder =
                 FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
+            PrototypeWorldInteractableView[] candidateViews =
+                PrototypeWorldInteractionAuthoring.EnsureBombRewardViews(scene);
             PrototypeBombRewardPresenter presenter = presenters.Length > 0
                 ? presenters[0]
                 : binder.gameObject.AddComponent<PrototypeBombRewardPresenter>();
-            presenter.Configure(binder);
+            presenter.Configure(binder, candidateViews);
             EditorUtility.SetDirty(presenter);
         }
 
@@ -3058,19 +3100,14 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeDungeonRoomBinder binder =
                 FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
-            Material pickupMaterial = AssetDatabase.LoadAssetAtPath<Material>(
-                PrototypeContentValidator.RecoveryPickupMaterialPath);
-            if (pickupMaterial == null)
-            {
-                throw new InvalidOperationException(
-                    "Prototype recovery pickup material is missing.");
-            }
+            PrototypeWorldInteractableView worldView =
+                PrototypeWorldInteractionAuthoring.EnsureRecoveryView(scene);
             PrototypeRecoveryPickupPresenter presenter = presenters.Length > 0
                 ? presenters[0]
                 : binder.gameObject.AddComponent<PrototypeRecoveryPickupPresenter>();
             presenter.Configure(
                 binder,
-                pickupMaterial,
+                worldView,
                 PrototypeRecoveryPickupPresenter.DefaultRecoveryAmount,
                 Vector2Int.zero);
             EditorUtility.SetDirty(presenter);
@@ -3100,19 +3137,14 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeDungeonRoomBinder binder =
                 FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
-            Material rewardMaterial = AssetDatabase.LoadAssetAtPath<Material>(
-                PrototypeContentValidator.SecretRewardMaterialPath);
-            if (rewardMaterial == null)
-            {
-                throw new InvalidOperationException(
-                    "Prototype secret reward material is missing.");
-            }
+            PrototypeWorldInteractableView worldView =
+                PrototypeWorldInteractionAuthoring.EnsureSecretRewardView(scene);
             PrototypeSecretRewardPresenter presenter = presenters.Length > 0
                 ? presenters[0]
                 : binder.gameObject.AddComponent<PrototypeSecretRewardPresenter>();
             presenter.Configure(
                 binder,
-                rewardMaterial,
+                worldView,
                 PrototypeSecretRewardPresenter.DefaultTokenReward,
                 Vector2Int.zero);
             EditorUtility.SetDirty(presenter);
@@ -3753,6 +3785,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerAnimationPresenter playerAnimationPresenter =
                 systems.AddComponent<PrototypePlayerAnimationPresenter>();
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            PrototypeCameraShake cameraShake = systems.AddComponent<PrototypeCameraShake>();
+            PrototypePlayerBombCameraShakePresenter playerBombCameraShake =
+                systems.AddComponent<PrototypePlayerBombCameraShakePresenter>();
             PrototypeDestructibleWallPresenter destructibleWallPresenter =
                 systems.AddComponent<PrototypeDestructibleWallPresenter>();
             PrototypePlayerHealthPresenter healthPresenter =
@@ -3896,7 +3931,7 @@ namespace BombSwap.Editor.ContentValidation
                     room.PlayerSpawn.Z * cellSize));
             Transform runtimePresentation = CreateChild("RuntimePresentation", gridRoot.transform);
 
-            CreateCamera(root.transform);
+            Camera mainCamera = CreateCamera(root.transform);
             CreateDirectionalLight(root.transform);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -3927,6 +3962,8 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            cameraShake.Configure(mainCamera.transform);
+            playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
@@ -3998,6 +4035,18 @@ namespace BombSwap.Editor.ContentValidation
             if (bombPresenter == null)
             {
                 bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            }
+            PrototypeCameraShake cameraShake = systems.GetComponent<PrototypeCameraShake>();
+            if (cameraShake == null)
+            {
+                cameraShake = systems.AddComponent<PrototypeCameraShake>();
+            }
+            PrototypePlayerBombCameraShakePresenter playerBombCameraShake =
+                systems.GetComponent<PrototypePlayerBombCameraShakePresenter>();
+            if (playerBombCameraShake == null)
+            {
+                playerBombCameraShake =
+                    systems.AddComponent<PrototypePlayerBombCameraShakePresenter>();
             }
             PrototypeDestructibleWallPresenter destructibleWallPresenter =
                 systems.GetComponent<PrototypeDestructibleWallPresenter>();
@@ -4208,6 +4257,9 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            Camera mainCamera = FindExactlyOne<Camera>(scene);
+            cameraShake.Configure(mainCamera.transform);
+            playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
@@ -4229,6 +4281,8 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(playerController);
             EditorUtility.SetDirty(playerAnimationPresenter);
             EditorUtility.SetDirty(bombPresenter);
+            EditorUtility.SetDirty(cameraShake);
+            EditorUtility.SetDirty(playerBombCameraShake);
             EditorUtility.SetDirty(destructibleWallPresenter);
             EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(chaserPresenter);
@@ -4586,6 +4640,61 @@ namespace BombSwap.Editor.ContentValidation
             action.AddBinding(gamepadPath, groups: "Gamepad");
         }
 
+        private static bool EnsureInteractionKeyboardBinding(
+            InputAction interact)
+        {
+            const string requiredPath = "<Keyboard>/f";
+            var keyboardBindingIndices = new List<int>();
+            int bindingToKeep = -1;
+            for (int index = 0; index < interact.bindings.Count; index++)
+            {
+                InputBinding binding = interact.bindings[index];
+                if (binding.isComposite || binding.isPartOfComposite ||
+                    binding.path == null ||
+                    !binding.path.StartsWith(
+                        "<Keyboard>/",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                keyboardBindingIndices.Add(index);
+                if (string.Equals(
+                        binding.path,
+                        requiredPath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    bindingToKeep = index;
+                }
+            }
+
+            if (keyboardBindingIndices.Count == 0)
+            {
+                interact.AddBinding(requiredPath, groups: "Keyboard");
+                return true;
+            }
+
+            bool changed = keyboardBindingIndices.Count > 1;
+            if (bindingToKeep < 0)
+            {
+                bindingToKeep = keyboardBindingIndices[0];
+                interact.ChangeBinding(bindingToKeep).WithPath(requiredPath);
+                changed = true;
+            }
+
+            for (int index = keyboardBindingIndices.Count - 1;
+                index >= 0;
+                index--)
+            {
+                int bindingIndex = keyboardBindingIndices[index];
+                if (bindingIndex != bindingToKeep)
+                {
+                    interact.ChangeBinding(bindingIndex).Erase();
+                }
+            }
+            return changed;
+        }
+
         private static Material GetOrCreateMaterial(string assetPath, Shader shader, Color color)
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
@@ -4757,7 +4866,7 @@ namespace BombSwap.Editor.ContentValidation
             return instance;
         }
 
-        private static void CreateCamera(Transform parent)
+        private static Camera CreateCamera(Transform parent)
         {
             var cameraObject = new GameObject("Main Camera");
             cameraObject.transform.SetParent(parent, false);
@@ -4773,6 +4882,7 @@ namespace BombSwap.Editor.ContentValidation
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 50f;
             cameraObject.AddComponent<AudioListener>();
+            return camera;
         }
 
         private static void CreateLobbyCamera(Transform parent)

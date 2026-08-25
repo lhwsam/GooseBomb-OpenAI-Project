@@ -1,7 +1,7 @@
 # 서드파티 자산과 로컬 패키지 계약
 
 - 상태: `Accepted`
-- 기준일: 2026-08-24
+- 기준일: 2026-08-25
 - 관련: [ADR-0005](../ADR/0005-ThirdParty-Adapter.md), [ADR-0009](../ADR/0009-Local-ThirdParty-Asset-Distribution.md), [인게임 UI 프리팹](InGameUiPrefabs.md)
 
 ## 저장 경계
@@ -29,6 +29,15 @@
 - FEEL은 공급자 원본과 비컴파일 콘텐츠를 재배포하지 않는다. 현재 사용처가 없어 프로젝트에서 제거했고 `MOREMOUNTAINS_NICEVIBRATIONS_INSTALLED` define도 사용하지 않는다.
 - 유료 extension은 비공개 `.unitypackage` 전달을 기본 설치 경로로 사용하지 않는다. 필요한 작업자가 공급자/Asset Store의 유효한 seat를 확보한 뒤 직접 설치한다.
 - 빌드된 게임에 포함하는 권리와 Unity 프로젝트 원본을 Git으로 배포하는 권리를 같은 것으로 취급하지 않는다.
+
+## 선택 3DPixelCamera 연결
+
+- 공급자 원본과 프로젝트 전용 연결 코드는 `Assets/ThirdParty` 아래에만 둔다. `Assets/Game`의 scene, prefab, asmdef에는 3DPixelCamera 타입이나 prefab GUID를 직렬화하지 않는다.
+- `Bomb Swap > Local Setup > Install 3D Pixel Camera Project Integration (Y=300)`은 공급자 `PixelCameraSystem` prefab을 Git 제외 `Resources/BombSwap` 경로에 복제한다. 설치 파일이 없는 공개 clone은 기존 카메라로 정상 실행해야 한다.
+- Git 제외 런타임 어댑터는 scene load마다 활성 `MainCamera`가 하나인 직교 투영 gameplay scene에만 시스템을 생성하고 `SetHeight`의 Y를 `300`으로 고정한다. X는 현재 화면 종횡비로 계산하므로 16:10 기준 게임 해상도는 `480×300`이다.
+- 원래 gameplay Camera의 Transform, orthographic size, culling, clear와 후처리 설정을 매 frame 복사해 기존 카메라 추적·보스 줌·화면 흔들림을 유지한다. 원본 Camera component와 중복 AudioListener만 런타임 동안 비활성화하고 scene 종료 시 복원한다.
+- 현재 `DungeonLobby`의 MainCamera는 원근 투영이고 공급자 카메라는 직교 투영 전용이므로 로비에는 적용하지 않는다. 던전, 보스와 직교 투영 플레이테스트 scene이 적용 범위다.
+- 공급자 시스템을 이미 명시적으로 배치한 격리 테스트 scene은 자동 연결 대상에서 제외해 중복 카메라를 만들지 않는다.
 
 ## 선택 VFX 원본
 
@@ -89,3 +98,4 @@
 - 외부 package가 없는 공개 clone에서 Full 검증이 통과해야 한다.
 - package 포함 최종 렌더링은 960×600 Game View와 실제 WebGL에서 별도로 확인한다.
 - 무료 DOTween Core만 있는 clean checkout에서 compile·PlayMode·WebGL을 통과해야 한다.
+- 3DPixelCamera가 설치된 로컬 환경에서는 실제 던전과 보스 플레이테스트에서 Y=300 적용 로그, `480×300` 해상도, 카메라 줌·화면 흔들림 유지, Console 오류 부재를 확인한다. 렌더링 변경이므로 최종 전달 전 실제 WebGL 화면도 별도로 확인한다.

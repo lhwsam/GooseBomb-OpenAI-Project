@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace BombSwap
@@ -82,7 +83,8 @@ namespace BombSwap
         private Slider sfxSlider;
 
         [SerializeField]
-        private Slider screenShakeSlider;
+        [FormerlySerializedAs("screenShakeSlider")]
+        private Button screenShakeButton;
 
         [SerializeField]
         private TextMeshProUGUI masterValueLabel;
@@ -101,6 +103,9 @@ namespace BombSwap
 
         private static readonly Color DuplicateBindingColor =
             new Color(1f, 0.34f, 0.22f, 1f);
+
+        public const string ScreenShakeEnabledLabel = "켜짐";
+        public const string ScreenShakeDisabledLabel = "꺼짐";
 
         private const string DuplicateBindingMessage = "이미 사용 중";
         private const float DuplicateBindingShakeDistance = 8f;
@@ -136,11 +141,14 @@ namespace BombSwap
             masterSlider != null &&
             bgmSlider != null &&
             sfxSlider != null &&
-            screenShakeSlider != null &&
+            screenShakeButton != null &&
+            screenShakeButton.transform.IsChildOf(audioPage.transform) &&
             masterValueLabel != null &&
             bgmValueLabel != null &&
             sfxValueLabel != null &&
             screenShakeValueLabel != null &&
+            screenShakeValueLabel.transform.IsChildOf(
+                screenShakeButton.transform) &&
             keyboardBindings != null &&
             keyboardBindings.Length == PrototypeSettingsPanelFactory.KeyboardBindingCount;
 
@@ -172,6 +180,12 @@ namespace BombSwap
 
         public Button KeyboardResetButton => keyboardResetButton;
 
+        public GameObject AudioPage => audioPage;
+
+        public Button ScreenShakeButton => screenShakeButton;
+
+        public TextMeshProUGUI ScreenShakeValueLabel => screenShakeValueLabel;
+
         public bool IsDuplicateBindingFeedbackPlaying =>
             _duplicateBindingSequence != null &&
             _duplicateBindingSequence.IsActive();
@@ -188,7 +202,7 @@ namespace BombSwap
             Slider authoredMasterSlider,
             Slider authoredBgmSlider,
             Slider authoredSfxSlider,
-            Slider authoredScreenShakeSlider,
+            Button authoredScreenShakeButton,
             TextMeshProUGUI authoredMasterValueLabel,
             TextMeshProUGUI authoredBgmValueLabel,
             TextMeshProUGUI authoredSfxValueLabel,
@@ -212,13 +226,36 @@ namespace BombSwap
             masterSlider = authoredMasterSlider;
             bgmSlider = authoredBgmSlider;
             sfxSlider = authoredSfxSlider;
-            screenShakeSlider = authoredScreenShakeSlider;
+            screenShakeButton = authoredScreenShakeButton;
             masterValueLabel = authoredMasterValueLabel;
             bgmValueLabel = authoredBgmValueLabel;
             sfxValueLabel = authoredSfxValueLabel;
             screenShakeValueLabel = authoredScreenShakeValueLabel;
             keyboardBindings = authoredKeyboardBindings ??
                 throw new ArgumentNullException(nameof(authoredKeyboardBindings));
+        }
+
+        public void BindScreenShakeToggle(
+            Button authoredScreenShakeButton,
+            TextMeshProUGUI authoredScreenShakeValueLabel)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable the settings panel before changing the screen-shake toggle.");
+            }
+
+            screenShakeButton = authoredScreenShakeButton ??
+                throw new ArgumentNullException(nameof(authoredScreenShakeButton));
+            screenShakeValueLabel = authoredScreenShakeValueLabel ??
+                throw new ArgumentNullException(nameof(authoredScreenShakeValueLabel));
+            if (!screenShakeValueLabel.transform.IsChildOf(
+                    screenShakeButton.transform))
+            {
+                throw new ArgumentException(
+                    "Screen-shake value label must be a child of its button.",
+                    nameof(authoredScreenShakeValueLabel));
+            }
         }
 
         public void Configure(
@@ -313,7 +350,7 @@ namespace BombSwap
             masterSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
             bgmSlider.onValueChanged.AddListener(OnBgmVolumeChanged);
             sfxSlider.onValueChanged.AddListener(OnSfxVolumeChanged);
-            screenShakeSlider.onValueChanged.AddListener(OnScreenShakeChanged);
+            screenShakeButton.onClick.AddListener(ToggleScreenShake);
             for (int index = 0; index < keyboardBindings.Length; index++)
             {
                 KeyboardBindingView binding = keyboardBindings[index];
@@ -341,7 +378,7 @@ namespace BombSwap
             masterSlider.onValueChanged.RemoveListener(OnMasterVolumeChanged);
             bgmSlider.onValueChanged.RemoveListener(OnBgmVolumeChanged);
             sfxSlider.onValueChanged.RemoveListener(OnSfxVolumeChanged);
-            screenShakeSlider.onValueChanged.RemoveListener(OnScreenShakeChanged);
+            screenShakeButton.onClick.RemoveListener(ToggleScreenShake);
             for (int index = 0; index < keyboardBindings.Length; index++)
             {
                 if (_bindingButtonListeners != null &&
@@ -390,13 +427,10 @@ namespace BombSwap
             WebGlHarnessReporter.Report("settings-sfx-volume-changed");
         }
 
-        private void OnScreenShakeChanged(float value)
+        private void ToggleScreenShake()
         {
-            if (_synchronizing)
-            {
-                return;
-            }
-            _settings.SetScreenShakeIntensity(value);
+            _settings.SetScreenShakeEnabled(
+                !_settings.Current.IsScreenShakeEnabled);
             WebGlHarnessReporter.Report("settings-screen-shake-changed");
         }
 
@@ -417,13 +451,12 @@ namespace BombSwap
             masterSlider.SetValueWithoutNotify(settings.MasterVolume);
             bgmSlider.SetValueWithoutNotify(settings.BgmVolume);
             sfxSlider.SetValueWithoutNotify(settings.SfxVolume);
-            screenShakeSlider.SetValueWithoutNotify(settings.ScreenShakeIntensity);
             masterValueLabel.text = FormatPercent(settings.MasterVolume);
             bgmValueLabel.text = FormatPercent(settings.BgmVolume);
             sfxValueLabel.text = FormatPercent(settings.SfxVolume);
-            screenShakeValueLabel.text = settings.ScreenShakeIntensity <= 0.001f
-                ? "끔"
-                : FormatPercent(settings.ScreenShakeIntensity);
+            screenShakeValueLabel.text = settings.IsScreenShakeEnabled
+                ? ScreenShakeEnabledLabel
+                : ScreenShakeDisabledLabel;
             _synchronizing = false;
         }
 

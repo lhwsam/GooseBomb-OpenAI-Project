@@ -69,6 +69,46 @@ namespace BombSwap.Tests.EditMode
             Assert.That(explosion.DestroyedWalls, Is.Empty);
         }
 
+        [Test]
+        public void ExplosionPreview_UsesCurrentGridWithoutConsumingBombOrWall()
+        {
+            var fixture = CreateFixture(range: 3, fuse: TimeSpan.FromSeconds(1));
+            var near = Origin.Offset(1, 0);
+            var wall = Origin.Offset(2, 0);
+            var behind = Origin.Offset(3, 0);
+            fixture.Grid.TrySetTerrain(near, GridTerrain.Floor);
+            fixture.Grid.TrySetTerrain(wall, GridTerrain.DestructibleWall);
+            fixture.Grid.TrySetTerrain(behind, GridTerrain.Floor);
+
+            bool found = fixture.Simulation.TryGetExplosionPreview(
+                fixture.BombId,
+                out IReadOnlyList<GridPosition> affectedCells);
+
+            Assert.That(found, Is.True);
+            Assert.That(affectedCells, Is.EqualTo(new[] { Origin, near, wall }));
+            Assert.That(affectedCells, Has.No.Member(behind));
+            Assert.That(fixture.Simulation.ActiveBombCount, Is.EqualTo(1));
+            Assert.That(fixture.Grid.GetCell(Origin).HasBomb, Is.True);
+            Assert.That(
+                fixture.Grid.GetCell(wall).Terrain,
+                Is.EqualTo(GridTerrain.DestructibleWall));
+        }
+
+        [Test]
+        public void ExplosionPreview_ExplodedBombReturnsFalseAndNoCells()
+        {
+            var fixture = CreateFixture(range: 1, fuse: TimeSpan.FromSeconds(1));
+            fixture.Clock.Advance(TimeSpan.FromSeconds(1));
+            fixture.Simulation.ProcessDueBombs();
+
+            bool found = fixture.Simulation.TryGetExplosionPreview(
+                fixture.BombId,
+                out IReadOnlyList<GridPosition> affectedCells);
+
+            Assert.That(found, Is.False);
+            Assert.That(affectedCells, Is.Empty);
+        }
+
         [TestCase(CardinalDirection.North, 0, 1)]
         [TestCase(CardinalDirection.East, 1, 0)]
         [TestCase(CardinalDirection.South, 0, -1)]

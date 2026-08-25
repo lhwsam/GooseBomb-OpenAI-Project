@@ -21,6 +21,7 @@
 - 두 슬롯 독립 쿨타임과 비활성 회복.
 - 피해 무적과 사망 단일 발생.
 - run 체력의 방 이동·재입장 persistence, Recovery의 상한 `+2`·최대 체력 비소비·노드별 단일 소비·terminal 거부와 무적 상태 불변.
+- `Interactable` 셀의 actor·예약·폭탄 차단, 인접 `F`/게임패드 North 명령과 `E` 무반응, Recovery 최대 체력 비소비 상태, Recovery·Secret 성공 뒤 blocker·월드 모델 유지와 availability effect·프롬프트 해제, BombReward 성공 뒤 선택 모델·blocker만 제거하고 미선택 모델·blocker는 유지하는 상태, 재입장 단일 지급 persistence.
 - 보스 3 phase 정의와 Telegraph→Execute→Recovery exact boundary, 제한 추격의 한 칸별 재판단·2/3/2회 상한, 방향 고정 최대 3칸 돌진, 중앙 복귀, 3/4/4개 순차 투척, 행별 parity·반전, 모든 생존 상태의 서로 다른 `BombId` 피해·동일 폭발 중복 차단, 안전한 phase 예약·일회성 LastStand·사망 점유 단일 제거.
 - 보스 자폭병 소환 셀의 먼 앵커 안정 선택·Telegraph 잠금, 한 번만 소환, 해결 전 강화 패턴 대기, 4.5초 강제 점화와 상태 무관 보스 피해 1. 최대 돌진과 강제 점화가 동시에 실행되지 않는지 검증한다.
 - Unity 보스방 단일 활성, 착탄 예약 중 설치 거부, 포물선 flight→landing 순간 논리 설치·fuse 시작, 동일 frame 순번 안정성, 정의별 pooled 시각화, 다중 이동 보간·pause, 정확한 목적지 ghost 비표시와 돌진·착탄·소환·parity 셀 표시를 검증한다.
@@ -46,4 +47,4 @@
 - 특수방 catalog의 필수 타입·고유 씬, 로드 전 Core 미변경, 중복·로드 불가·씬 불일치 거부, 기대 씬 뒤 단일 commit, persistent host primary 단일성.
 - pause 진입 시 이동 의도 해제, 입력·설치·교체 차단, 논리 시계·fuse·쿨타임·적·보스 정지, UI 표시, 재개 시 유지 방향 재샘플링과 WebGL 실제 상태 marker.
 - WebGL focus 상실 뒤 입력 stuck 없음.
-- 게임패드 binding 구조, 합성 Input System 스틱·D-pad·버튼→의미 명령, WebGL 표준 가상 장치 연결→스틱·D-pad 해제·이동 중 분리 정지·동일 index 재연결 복구·South 설치와 실패·West 교체 명령·Start pause 차단/유지 스틱 재개·Select 재시작. 물리 장치별 연결과 조작감은 수동 확인.
+- 게임패드 binding 구조, 합성 Input System 스틱·D-pad·버튼→의미 명령, WebGL 표준 가상 장치 연결→스틱·D-pad 해제·이동 중 분리 정지·동일 index 재연결 복구·South 설치와 실패·West 교체 명령·North 상호작용 명령·Start pause 차단/유지 스틱 재개·Select 재시작. 물리 장치별 연결과 조작감은 수동 확인.

@@ -8,5 +8,6 @@ namespace BombSwap
         public const string SwapBomb = "SwapBomb";
         public const string Pause = "Pause";
         public const string RestartRun = "RestartRun";
+        public const string Interact = "Interact";
     }
 }

@@ -468,6 +468,28 @@ namespace BombSwap.Tests.EditMode
         }
 
         [Test]
+        public void ForceTrigger_ObservesStationaryCellAtCurrentClockTime()
+        {
+            var clock = new ManualGameClock();
+            var enemyPosition = new GridPosition(3, 0);
+            SelfDestructEnemySimulation enemy = CreateSimulation(
+                clock,
+                GridPositionAtOrigin(),
+                enemyPosition);
+            clock.Advance(TimeSpan.FromMilliseconds(10));
+
+            bool triggered = enemy.TryForceTrigger(
+                out SelfDestructEnemyAdvanceResult result);
+
+            Assert.That(triggered, Is.True);
+            Assert.That(result.ShouldArm, Is.True);
+            Assert.That(result.State, Is.EqualTo(SelfDestructEnemyState.Telegraph));
+            Assert.That(
+                enemy.GetCurrentCellAt(clock.Now),
+                Is.EqualTo(enemyPosition));
+        }
+
+        [Test]
         public void Detonation_RequiresConfirmedMatchingBombAndTransitionsOnce()
         {
             var clock = new ManualGameClock();

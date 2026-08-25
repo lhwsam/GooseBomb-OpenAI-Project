@@ -26,8 +26,6 @@ namespace BombSwap.Editor.UI
                 "bgmSlider", "bgmValueLabel", "배경음", "BgmVolume"),
             new AudioObjectNames(
                 "sfxSlider", "sfxValueLabel", "효과음", "SfxVolume"),
-            new AudioObjectNames(
-                "screenShakeSlider", "screenShakeValueLabel", "화면 흔들림", "ScreenShake"),
         };
 
         [MenuItem(MenuPath)]
@@ -58,6 +56,7 @@ namespace BombSwap.Editor.UI
             {
                 PrototypeSettingsPanelPresenter presenter =
                     FindSettingsPanel(scene);
+                PrototypeScreenShakeToggleAuthoring.ConfigurePresenter(presenter);
                 PrototypeLobbyPresenter lobbyPresenter =
                     FindLobbyPresenter(scene);
                 Button keyboardResetButton = FindKeyboardResetButton(presenter);
@@ -97,7 +96,8 @@ namespace BombSwap.Editor.UI
 
                 Debug.Log(
                     "Lobby settings controls and version label wired, and " +
-                    "audio hierarchy names normalized without changing " +
+                    "audio hierarchy names and screen-shake toggle normalized " +
+                    "without changing " +
                     "authored images or RectTransform layout.",
                     presenter);
             }

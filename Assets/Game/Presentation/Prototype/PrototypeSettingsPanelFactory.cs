@@ -103,9 +103,9 @@ namespace BombSwap
             CreateSliderRow(
                 audioPage, "SfxVolume", "효과음", 0.37f,
                 out Slider sfx, out TextMeshProUGUI sfxValue);
-            CreateSliderRow(
+            CreateToggleRow(
                 audioPage, "ScreenShake", "화면 흔들림", 0.17f,
-                out Slider shake, out TextMeshProUGUI shakeValue);
+                out Button shake, out TextMeshProUGUI shakeValue);
             Button fullscreen = CreateButton(
                 "FullscreenButton", audioPage, "전체 화면 전환", 20f,
                 new Vector2(0.03f, 0.0f), new Vector2(0.48f, 0.12f));
@@ -170,6 +170,35 @@ namespace BombSwap
                 18f,
                 TextAlignmentOptions.Center);
             SetAnchors(valueLabel.rectTransform, new Vector2(0.84f, top - 0.12f), new Vector2(0.98f, top));
+        }
+
+        private static void CreateToggleRow(
+            Transform parent,
+            string objectNamePrefix,
+            string labelText,
+            float top,
+            out Button button,
+            out TextMeshProUGUI valueLabel)
+        {
+            TextMeshProUGUI label = PrototypeUiFactory.CreateText(
+                objectNamePrefix + "Label",
+                parent,
+                20f,
+                TextAlignmentOptions.MidlineLeft);
+            SetAnchors(
+                label.rectTransform,
+                new Vector2(0.03f, top - 0.12f),
+                new Vector2(0.31f, top));
+            label.text = labelText;
+
+            button = CreateButton(
+                objectNamePrefix + "Button",
+                parent,
+                PrototypeSettingsPanelPresenter.ScreenShakeEnabledLabel,
+                18f,
+                new Vector2(0.64f, top - 0.11f),
+                new Vector2(0.98f, top - 0.01f));
+            valueLabel = button.GetComponentInChildren<TextMeshProUGUI>(true);
         }
 
         private static Button CreateButton(
