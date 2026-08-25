@@ -24,15 +24,16 @@
 - `Interactable` 셀의 actor·예약·폭탄 차단, 인접 `F`/게임패드 North 명령과 `E` 무반응, Recovery 최대 체력 비소비 상태, Recovery·Secret 성공 뒤 blocker·월드 모델 유지와 availability effect·프롬프트 해제, BombReward 성공 뒤 선택 모델·blocker만 제거하고 미선택 모델·blocker는 유지하는 상태, 재입장 단일 지급 persistence.
 - 보스 3 phase 정의와 Telegraph→Execute→Recovery exact boundary, 제한 추격의 한 칸별 재판단·2/3/2회 상한, 방향 고정 최대 3칸 돌진, 중앙 복귀, 3/4/4개 순차 투척, 행별 parity·반전, 모든 생존 상태의 서로 다른 `BombId` 피해·동일 폭발 중복 차단, 안전한 phase 예약·일회성 LastStand·사망 점유 단일 제거.
 - 보스 자폭병 소환 셀의 먼 앵커 안정 선택·Telegraph 잠금, 한 번만 소환, 해결 전 강화 패턴 대기, 4.5초 강제 점화와 상태 무관 보스 피해 1. 최대 돌진과 강제 점화가 동시에 실행되지 않는지 검증한다.
-- Unity 보스방 단일 활성, 착탄 예약 중 설치 거부, 포물선 flight→landing 순간 논리 설치·fuse 시작, 동일 frame 순번 안정성, 정의별 pooled 시각화, 다중 이동 보간·pause, 정확한 목적지 ghost 비표시, 돌진·착탄·소환·parity 셀 표시와 자폭병 생성 셀의 보스 spawn VFX 단일 재생을 검증한다.
+- Unity 보스방 단일 활성, 착탄 예약 중 설치 거부, 포물선 flight→landing 순간 논리 설치·fuse 시작, 동일 frame 순번 안정성, 정의별 pooled 시각화, 다중 이동 보간·pause, 정확한 목적지 ghost 비표시, 돌진·착탄·소환·parity 셀 표시와 이 위험 셀의 공용 폭탄 Grid 홀로그램 스타일, 자폭병 생성 셀의 보스 spawn VFX 단일 재생을 검증한다.
 - 플레이어 HUD의 초기/피해/회복/사망 체력 snapshot과 bar 비율, 일반 방의 보스 panel 비표시, 보스 HUD의 체력 10·phase 1/2/3·격파 반영, 11개 씬의 단일 HUD·session 참조와 실제 WebGL 배치 가독성.
 - Editor 전용 `BossBattlePlaytest`가 보스 권위 arena·6 투척/3 소환 앵커와 일치하고, 던전 run host·다음 씬·표준 Build Settings 없이 직접 Play해 보스·동적 자폭병·HUD와 Console 오류 0을 확인한다.
 - 보스방 도착과 클리어 완료 구분, 완료 UI 단일 표시와 전투 정지, 완료 전·pending 중 재시작 거부, 같은 seed의 새 run state·시작방·초기 한 슬롯 복구, WebGL `R` 재시작.
 - 갑옷 적의 반경 1 수비, 서로 다른 폭발 2회, 첫 폭발 중심 기반 최대 3칸 cardinal panic 경로 선택·고정, 예고 0.6초·6 cells/s 질주·0.5초 회복·3 cells/s 추격, 같은 `BombId` 중복 차단과 어느 panic 단계에서든 두 번째 사망 뒤 점유 단일 제거.
-- panic 경로의 네 방향·대각선·거리/투영/안정 순서 동률, 초기 벽·폭탄·actor 차단, 예고 뒤 경로 비확장, 실행 중 새 장애물의 조기 회복과 collider 없는 예고 셀 풀링·회수.
+- panic 경로의 네 방향·대각선·거리/투영/안정 순서 동률, 초기 벽·폭탄·actor 차단, 예고 뒤 경로 비확장, 실행 중 새 장애물의 조기 회복과 collider 없는 예고 셀 풀링·회수, 돌진형·panic 예고의 공용 폭탄 Grid 홀로그램 스타일을 검증한다.
 - Editor 전용 `ArmoredPanicPlaytest`가 Armor 권위 방 asset·spawn·장애물과 일치하고, chaser+armored 런타임만 준비하며, 던전 adapter·다음 씬·표준 Build Settings 없이 직접 Play해 Console 오류가 없는지 확인한다.
 - Editor 전용 `SelfDestructGatesPlaytest`가 Gates 권위 방 asset·추격자/자폭병 spawn·고정/파괴 벽과 일치하고, 던전 adapter·다음 씬·표준 Build Settings 없이 직접 Play해 경고·점화·한쪽 문 파괴와 Console 오류 0을 확인한다.
-- 자폭병의 일반 0.5초 cadence, 연속 경고 중 0.2초까지의 결정론적 가속, 1.5초 자동 점화, 범위 이탈·재진입 누적 초기화, 이동 결과 duration과 presenter 보간·3→8Hz scale pulse 정합·본체 material override 부재를 검증한다. 범위 2 Telegraph와 파괴 가능 벽 첫 셀에서의 ray 종료도 함께 확인한다.
+- 자폭병의 일반 0.5초 cadence, 연속 경고 중 0.2초까지의 결정론적 가속, 1.5초 자동 점화, 범위 이탈·재진입 누적 초기화, 이동 결과 duration과 presenter 보간·저작 scale 유지·선택적 홀로그램 경고 점멸을 검증한다. 범위 2 Telegraph와 파괴 가능 벽 첫 셀에서의 ray 종료도 함께 확인한다.
+- 투척병은 Telegraph에서 세 목표를 논리적으로 고정하되 착지 셀 시각을 만들지 않고 비행 중에도 범위를 숨긴다. 성공 착탄 뒤에만 각 `BombId`의 공용 폭발 범위가 표시되고 폭발 때 제거되는지 검증한다.
 - 방 경계·연결성, 서로 다른 첫 이동의 퇴로 2개, 닫힌 유도 경로와 씬 표현 일치.
 - 중앙 게이트 방의 고정 장벽 8셀·파괴 문 2셀·좌우 우회 연결, 추격자 단일 구성, 논리/시각 파괴 벽 수 일치와 실제 WebGL 진입·클리어·HUD 비중첩.
 - 동일 버전·정의·seed 던전 재현과 golden snapshot, 4~5 전투방·첫 보상·보스 전실/보스 경로·선택 전투 가지·보스 근처 단일 Recovery leaf, normal 연결 트리와 Secret의 Combat 2~3연결·후보 우선순위·암시적 좌표 연결 방지.

@@ -15,6 +15,8 @@ namespace BombSwap
         private Transform presentationRoot;
 
         private GameObject _instance;
+        private PrototypeHologramFeedback _hologramFeedback;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
         private Vector3 _armoredScale;
         private Vector3 _visualStart;
         private Vector3 _visualTarget;
@@ -39,11 +41,15 @@ namespace BombSwap
 
         public int DeathCount { get; private set; }
 
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
+
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
 
         public int ActivePanicTelegraphCellCount { get; private set; }
+
+        public bool UsesHologramPanicTelegraph { get; private set; }
 
         public ArmoredEnemyState CurrentState { get; private set; }
 
@@ -81,9 +87,14 @@ namespace BombSwap
                     "PrototypeArmoredPresenter requires session and presentation-root references.");
             }
 
+            _localHologramOverrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
+
             session.ArmoredAdvanced += OnArmoredAdvanced;
             session.ArmoredStateChanged += OnArmoredStateChanged;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -97,7 +108,9 @@ namespace BombSwap
             {
                 session.ArmoredAdvanced -= OnArmoredAdvanced;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             if (_instance != null)
@@ -113,8 +126,11 @@ namespace BombSwap
             }
 
             _instance = null;
+            _hologramFeedback = null;
+            _localHologramOverrides = null;
             _panicTelegraphCells.Clear();
             ActivePanicTelegraphCellCount = 0;
+            UsesHologramPanicTelegraph = false;
             IsInitialized = false;
             _isInterpolating = false;
             _isShowingDeath = false;
@@ -167,6 +183,12 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ArmoredPrefab, presentationRoot);
             _instance.name = "PrototypeArmoredVisual";
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_instance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _armoredScale = _instance.transform.localScale;
             _visualTarget = ToPresentationPosition(session.CurrentArmoredGridPosition);
             _visualStart = _visualTarget;
@@ -271,6 +293,23 @@ namespace BombSwap
             _isShowingDeath = true;
         }
 
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.ArmoredActorId &&
+                _hologramFeedback != null)
+            {
+                _hologramFeedback.TriggerHitBlink();
+            }
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
+            }
+        }
+
         private void ApplyState(ArmoredEnemyState state)
         {
             switch (state)
@@ -363,6 +402,13 @@ namespace BombSwap
                     definition.PanicTelegraphCellPrefab,
                     presentationRoot);
                 visual.name = $"PrototypeArmoredPanicTelegraphCell{_panicTelegraphCells.Count}";
+                Material hologramMaterial = _localHologramOverrides != null
+                    ? _localHologramOverrides.BombRangeHologramMaterial
+                    : null;
+                UsesHologramPanicTelegraph |=
+                    PrototypeHologramTelegraphStyle.Apply(
+                        visual,
+                        hologramMaterial);
                 visual.SetActive(false);
                 _panicTelegraphCells.Add(visual);
             }

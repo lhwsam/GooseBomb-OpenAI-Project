@@ -1099,6 +1099,14 @@ namespace BombSwap.Tests.PlayMode
             Transform bombReadyVfxAnchor =
                 pooledBombAnimator.transform.Find("SparksEffect");
             Assert.That(bombReadyVfxAnchor, Is.Not.Null);
+            Assert.That(
+                bombReadyVfxAnchor.localPosition,
+                Is.EqualTo(new Vector3(-0.031f, 0.926f, -0.152f)));
+            Assert.That(
+                Quaternion.Angle(
+                    bombReadyVfxAnchor.localRotation,
+                    Quaternion.Euler(-90f, 180f, 0f)),
+                Is.LessThan(0.001f));
             Transform bombReadyVfx = bombReadyVfxAnchor.Find("Particle");
             Assert.That(bombReadyVfx, Is.Not.Null);
             Assert.That(
@@ -1107,9 +1115,13 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 Quaternion.Angle(bombReadyVfx.localRotation, Quaternion.identity),
                 Is.LessThan(0.001f));
+            ParticleSystem bombReadyParticles =
+                bombReadyVfx.GetComponent<ParticleSystem>();
+            Assert.That(bombReadyParticles, Is.Not.Null);
             Assert.That(
-                bombReadyVfx.GetComponent<ParticleSystem>(),
-                Is.Not.Null);
+                bombReadyParticles.main.simulationSpace,
+                Is.EqualTo(ParticleSystemSimulationSpace.Local));
+            Assert.That(bombReadyParticles.collision.enabled, Is.False);
 
             yield return new WaitForSecondsRealtime(0.15f);
 
@@ -1450,6 +1462,7 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_healthPresenter.DisplayedHealth, Is.EqualTo(4));
             Assert.That(_healthPresenter.DamagePulseCount, Is.EqualTo(1));
+            AssertHitHologramTriggered(_healthPresenter.HologramFeedback, 1);
             Assert.That(_healthPresenter.CurrentColor, Is.Not.EqualTo(normalColor));
             Assert.That(_healthPresenter.IsDisplayingDeath, Is.False);
 
@@ -1552,6 +1565,9 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_chargerPresenter.CurrentState, Is.EqualTo(ChargerEnemyState.Telegraph));
             Assert.That(_chargerPresenter.IsEnemyVisible, Is.True);
             Assert.That(_chargerPresenter.ActiveTelegraphCellCount, Is.EqualTo(4));
+            Assert.That(
+                _chargerPresenter.UsesHologramTelegraph,
+                Is.EqualTo(HasOptionalHologramTelegraphMaterial()));
             AssertRendererHasNoPropertyOverrides(_chargerPresenter.Instance);
 
             yield return new WaitForSecondsRealtime(0.2f);
@@ -1562,6 +1578,31 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_chargerPresenter.CurrentState, Is.EqualTo(ChargerEnemyState.Charge));
             Assert.That(_chargerPresenter.ActiveTelegraphCellCount, Is.Zero);
             AssertRendererHasNoPropertyOverrides(_chargerPresenter.Instance);
+        }
+
+        [UnityTest]
+        public IEnumerator ChargerPresenter_DamageTriggersHologramFeedback()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.05f,
+                firstExplosionRange: 2,
+                chaserCellsPerSecond: 0.1f,
+                chaserSpawnPosition: new Vector2Int(-2, -2),
+                includeChargerPresenter: true,
+                chargerSpawnPosition: new Vector2Int(0, 2),
+                chargerTelegraphSeconds: 5f);
+            yield return null;
+
+            AssertRendererHasNoPropertyOverrides(_chargerPresenter.Instance);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            AssertHitHologramOrNoOverrides(
+                _chargerPresenter.Instance,
+                _chargerPresenter.HologramFeedback,
+                1);
         }
 
         [UnityTest]
@@ -1694,9 +1735,15 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_armoredPresenter.DeathCount, Is.Zero);
             Assert.That(_armoredPresenter.ActivePanicTelegraphCellCount, Is.GreaterThan(0));
             Assert.That(
+                _armoredPresenter.UsesHologramPanicTelegraph,
+                Is.EqualTo(HasOptionalHologramTelegraphMaterial()));
+            Assert.That(
                 _armoredPresenter.CurrentBehaviorState,
                 Is.EqualTo(ArmoredEnemyBehaviorState.PanicTelegraph));
-            AssertRendererHasNoPropertyOverrides(_armoredPresenter.Instance);
+            AssertHitHologramOrNoOverrides(
+                _armoredPresenter.Instance,
+                _armoredPresenter.HologramFeedback,
+                1);
             Assert.That(
                 _armoredPresenter.Instance.transform.localScale.y,
                 Is.LessThan(armoredScale.y));
@@ -1712,7 +1759,10 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_armoredPresenter.StateChangeCount, Is.EqualTo(2));
             Assert.That(_armoredPresenter.DeathCount, Is.EqualTo(1));
             Assert.That(_armoredPresenter.ActivePanicTelegraphCellCount, Is.Zero);
-            AssertRendererHasNoPropertyOverrides(_armoredPresenter.Instance);
+            AssertHitHologramOrNoOverrides(
+                _armoredPresenter.Instance,
+                _armoredPresenter.HologramFeedback,
+                2);
             Assert.That(
                 eventOrder,
                 Is.EqualTo(new[]
@@ -1822,7 +1872,10 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.GetCell(occupiedCell).HasActor, Is.False);
             Assert.That(_chaserPresenter.DeathCount, Is.EqualTo(1));
             Assert.That(_chaserPresenter.IsEnemyVisible, Is.True);
-            AssertRendererHasNoPropertyOverrides(_chaserPresenter.Instance);
+            AssertHitHologramOrNoOverrides(
+                _chaserPresenter.Instance,
+                _chaserPresenter.HologramFeedback,
+                1);
 
             yield return new WaitForSecondsRealtime(0.4f);
 
@@ -1856,7 +1909,10 @@ namespace BombSwap.Tests.PlayMode
             }
 
             Assert.That(_chaserPresenter.DeathCount, Is.EqualTo(1));
-            AssertRendererHasNoPropertyOverrides(_chaserPresenter.Instance);
+            AssertHitHologramOrNoOverrides(
+                _chaserPresenter.Instance,
+                _chaserPresenter.HologramFeedback,
+                1);
         }
 
         [UnityTest]
@@ -2159,9 +2215,37 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(damagedCount, Is.EqualTo(1));
             Assert.That(_session.CurrentBossHealth, Is.EqualTo(2));
             Assert.That(_bossPresenter.DamageCount, Is.EqualTo(1));
+            AssertHitHologramTriggered(_bossPresenter.HologramFeedback, 1);
             Assert.That(_bossPresenter.DisplayedHealth, Is.EqualTo(2));
             Assert.That(_healthHud.DisplayedBossHealth, Is.EqualTo(2));
             Assert.That(_healthHud.BossHealthValueText, Is.EqualTo("2 / 3"));
+        }
+
+        [UnityTest]
+        public IEnumerator BossPresenter_AttackTelegraphsUseBombRangeHologramStyle()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                combatEnabled: true,
+                bossEnabled: true,
+                includeBossPresenter: true,
+                maxHealth: 50,
+                bossPhaseOneTelegraphSeconds: 0.01f,
+                bossPhaseOneExecuteSeconds: 0.01f,
+                bossPhaseOneRecoverySeconds: 0.02f);
+
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (_bossPresenter.DangerCellPoolCount == 0 &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(_bossPresenter.DangerCellPoolCount, Is.GreaterThan(0));
+            Assert.That(
+                _bossPresenter.UsesHologramDangerCells,
+                Is.EqualTo(HasOptionalHologramTelegraphMaterial()));
         }
 
         [UnityTest]
@@ -2594,14 +2678,14 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 _session.CurrentSelfDestructState,
                 Is.EqualTo(SelfDestructEnemyState.WarningChase));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructWarningPresentation(_selfDestructPresenter);
             Vector3 warningScale = _selfDestructPresenter.Instance.transform.localScale;
             yield return new WaitForSecondsRealtime(0.06f);
             Assert.That(
                 Vector3.Distance(
                     warningScale,
                     _selfDestructPresenter.Instance.transform.localScale),
-                Is.GreaterThan(0.0001f));
+                Is.LessThan(0.0001f));
 
             PressAndRelease(Key.Z);
             yield return new WaitForSecondsRealtime(0.1f);
@@ -2611,7 +2695,7 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(SelfDestructEnemyState.Telegraph));
             Assert.That(_session.IsSelfDestructAlive, Is.True);
             Assert.That(armedCount, Is.EqualTo(1));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructWarningPresentation(_selfDestructPresenter);
             Assert.That(_presenter.HasBombDanger(armedBombId), Is.True);
             Assert.That(_presenter.VisibleBombDangerCellCount, Is.GreaterThan(0));
             Vector3 expectedTelegraphPosition =
@@ -2633,7 +2717,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.IsSelfDestructAlive, Is.False);
             Assert.That(selfDestructDeathCount, Is.EqualTo(1));
             Assert.That(_selfDestructPresenter.DeathCount, Is.EqualTo(1));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructDetonationPresentation(_selfDestructPresenter);
             Assert.That(_presenter.HasBombDanger(armedBombId), Is.False);
             Assert.That(_presenter.VisibleBombDangerCellCount, Is.Zero);
             Assert.That(_destructibleWallPresenter.ActiveWallVisualCount, Is.Zero);
@@ -2678,7 +2762,7 @@ namespace BombSwap.Tests.PlayMode
                 _session.CurrentSelfDestructState,
                 Is.EqualTo(SelfDestructEnemyState.WarningChase));
             float initialProgress = _session.CurrentSelfDestructWarningProgress;
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructWarningPresentation(_selfDestructPresenter);
 
             yield return new WaitForSecondsRealtime(0.06f);
             Assert.That(
@@ -2700,7 +2784,7 @@ namespace BombSwap.Tests.PlayMode
                 _session.CurrentSelfDestructGridPosition,
                 Is.EqualTo(new GridPosition(2, 1)));
             Assert.That(armedCount, Is.EqualTo(1));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructWarningPresentation(_selfDestructPresenter);
             Assert.That(_presenter.HasBombDanger(armedBombId), Is.True);
             Assert.That(_presenter.VisibleBombDangerCellCount, Is.GreaterThan(0));
             Assert.That(
@@ -2741,7 +2825,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 _session.CurrentSelfDestructState,
                 Is.EqualTo(SelfDestructEnemyState.WarningChase));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructWarningPresentation(_selfDestructPresenter);
 
             deadline = Time.realtimeSinceStartup + 2f;
             while (_session.CurrentSelfDestructState !=
@@ -2753,7 +2837,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 _session.CurrentSelfDestructState,
                 Is.EqualTo(SelfDestructEnemyState.Telegraph));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructWarningPresentation(_selfDestructPresenter);
 
             deadline = Time.realtimeSinceStartup + 2f;
             while (_session.CurrentSelfDestructState !=
@@ -2765,7 +2849,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(
                 _session.CurrentSelfDestructState,
                 Is.EqualTo(SelfDestructEnemyState.Detonated));
-            AssertRendererHasNoPropertyOverrides(_selfDestructPresenter.Instance);
+            AssertSelfDestructDetonationPresentation(_selfDestructPresenter);
         }
 
         [UnityTest]
@@ -2885,7 +2969,7 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ThrowerEnemy_TelegraphsFlightsAndUsesSharedChainScheduler()
+        public IEnumerator ThrowerEnemy_HidesLockedTargetsUntilBombsLandAndUsesSharedChainScheduler()
         {
             CreateRuntime(
                 Vector2Int.zero,
@@ -2924,7 +3008,7 @@ namespace BombSwap.Tests.PlayMode
                 throwerBombFuseSeconds: 1f);
             ConfigureTestExplosionVfx();
             int telegraphCount = 0;
-            int visibleTelegraphCellCount = 0;
+            int targetVisualCountAtTelegraph = -1;
             int launchCount = 0;
             int placedCount = 0;
             var thrownBombIds = new List<BombId>();
@@ -2939,8 +3023,11 @@ namespace BombSwap.Tests.PlayMode
                     result.HasStateTransition)
                 {
                     telegraphCount++;
-                    visibleTelegraphCellCount =
-                        _throwerPresenter.ActiveTelegraphCellCount;
+                    targetVisualCountAtTelegraph =
+                        _throwerPresenter.PresentationRoot.Find(
+                            "PrototypeThrowerTargetTelegraph0") == null
+                            ? 0
+                            : 1;
                 }
             };
             _session.ThrowerBombLaunched += _ => launchCount++;
@@ -2971,12 +3058,16 @@ namespace BombSwap.Tests.PlayMode
             };
 
             float deadline = Time.realtimeSinceStartup + 2f;
-            while (!_throwerPresenter.IsTelegraphVisible &&
-                   Time.realtimeSinceStartup < deadline)
+            while (telegraphCount < 1 && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
-            Assert.That(_throwerPresenter.IsTelegraphVisible, Is.True);
+            Assert.That(telegraphCount, Is.EqualTo(1));
+            Assert.That(targetVisualCountAtTelegraph, Is.Zero);
+            Assert.That(
+                _throwerPresenter.PresentationRoot.Find(
+                    "PrototypeThrowerTargetTelegraph0"),
+                Is.Null);
             yield return null;
             AssertRendererHasNoPropertyOverrides(_throwerPresenter.Instance);
 
@@ -2988,9 +3079,10 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(launchCount, Is.EqualTo(3));
             Assert.That(_session.HasPendingThrowerBombFlight, Is.True);
-            Assert.That(_throwerPresenter.IsTelegraphVisible, Is.False);
-            Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
-            Assert.That(_throwerPresenter.VisibleDangerCellCount, Is.Zero);
+            Assert.That(
+                _throwerPresenter.PresentationRoot.Find(
+                    "PrototypeThrowerTargetTelegraph0"),
+                Is.Null);
 
             deadline = Time.realtimeSinceStartup + 2f;
             while (placedCount < 3 && Time.realtimeSinceStartup < deadline)
@@ -3009,7 +3101,6 @@ namespace BombSwap.Tests.PlayMode
                     new GridPosition(0, 2),
                 }));
             Assert.That(telegraphCount, Is.EqualTo(1));
-            Assert.That(visibleTelegraphCellCount, Is.EqualTo(3));
             Assert.That(placedCount, Is.EqualTo(3));
             Assert.That(landedRanges.Count, Is.EqualTo(3));
             Assert.That(thrownBombIds, Has.All.Matches<BombId>(id => id.IsValid));
@@ -3017,8 +3108,6 @@ namespace BombSwap.Tests.PlayMode
                 thrownBombIds,
                 Has.All.Matches<BombId>(id => _presenter.HasBombVisual(id)));
             Assert.That(_throwerPresenter.TelegraphCount, Is.EqualTo(1));
-            Assert.That(_throwerPresenter.IsTelegraphVisible, Is.False);
-            Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
             var expectedVisibleDangerCells = new HashSet<GridPosition>();
             for (int index = 0; index < thrownBombIds.Count; index++)
             {
@@ -3045,12 +3134,51 @@ namespace BombSwap.Tests.PlayMode
                 Has.Exactly(1).EqualTo(BombDetonationCause.Fuse));
             Assert.That(_session.HasPendingThrowerBombFlight, Is.False);
             Assert.That(removedDangerBombIds.Count, Is.EqualTo(3));
-            Assert.That(_throwerPresenter.VisibleDangerCellCount, Is.Zero);
             Assert.That(_presenter.VisibleBombDangerCellCount, Is.Zero);
             Assert.That(
                 thrownBombIds,
                 Has.None.Matches<BombId>(id => _presenter.HasBombVisual(id)));
             Assert.That(throwerExplosionVfxObserved, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator ThrowerPresenter_DamageTriggersHologramFeedback()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                fuseSeconds: 0.05f,
+                firstExplosionRange: 2,
+                chaserCellsPerSecond: 0.1f,
+                chaserSpawnPosition: new Vector2Int(-2, -2),
+                throwerSpawnPosition: new Vector2Int(0, 2),
+                throwerFiringAnchors: new[]
+                {
+                    new Vector2Int(2, 1),
+                    new Vector2Int(-2, 1),
+                },
+                throwerTargetAnchors: new[]
+                {
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(1, 0),
+                    new Vector2Int(-2, 2),
+                    new Vector2Int(2, 2),
+                    new Vector2Int(0, -2),
+                    new Vector2Int(-1, -1),
+                },
+                includeThrowerPresenter: true,
+                throwerMoveCellsPerSecond: 0.1f,
+                throwerTelegraphSeconds: 5f);
+            yield return null;
+
+            AssertRendererHasNoPropertyOverrides(_throwerPresenter.Instance);
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            AssertHitHologramOrNoOverrides(
+                _throwerPresenter.Instance,
+                _throwerPresenter.HologramFeedback,
+                1);
         }
 
         private void ConfigureTestExplosionVfx()
@@ -3217,7 +3345,11 @@ namespace BombSwap.Tests.PlayMode
                 bombReadyVfxAnchor.transform.SetParent(_bombPrefab.transform, false);
                 var particle = new GameObject("Particle");
                 particle.transform.SetParent(bombReadyVfxAnchor.transform, false);
-                particle.AddComponent<ParticleSystem>();
+                ParticleSystem particleSystem = particle.AddComponent<ParticleSystem>();
+                ParticleSystem.MainModule main = particleSystem.main;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                ParticleSystem.CollisionModule collision = particleSystem.collision;
+                collision.enabled = true;
             }
             _bombPrefab.SetActive(false);
             _explosionPrefab = new GameObject("ExplosionVisualPrefab");
@@ -3245,6 +3377,17 @@ namespace BombSwap.Tests.PlayMode
             _loadout.Configure(_definition, _areaDefinition, swapCooldownSeconds);
             _vitals = ScriptableObject.CreateInstance<PrototypePlayerVitalsAsset>();
             _vitals.Configure(maxHealth, invulnerabilitySeconds);
+
+            if (includeAuthoredBombReadyVfx)
+            {
+                _localVfxOverrides =
+                    ScriptableObject.CreateInstance<PrototypeLocalVfxOverrides>();
+                _localVfxOverrides.Configure(
+                    _bombPrefab,
+                    _bombPrefab,
+                    new Vector3(-0.031f, 0.926f, -0.152f),
+                    new Vector3(-90f, 180f, 0f));
+            }
 
             _root = new GameObject("PrototypePlayerControllerTest");
             _root.SetActive(false);
@@ -3717,6 +3860,10 @@ namespace BombSwap.Tests.PlayMode
             {
                 _presenter = _root.AddComponent<PrototypeBombPresenter>();
                 _presenter.Configure(_session, presentationRoot, 1, 5);
+                if (_localVfxOverrides != null)
+                {
+                    _presenter.ConfigureLocalVfxOverrides(_localVfxOverrides);
+                }
             }
             if (includeDestructibleWallPresenter)
             {
@@ -3819,6 +3966,70 @@ namespace BombSwap.Tests.PlayMode
                     $"Actual: {string.Join(", ", actualDirections)}");
                 cursor++;
             }
+        }
+
+        private static void AssertSelfDestructWarningPresentation(
+            PrototypeSelfDestructPresenter presenter)
+        {
+            Assert.That(presenter, Is.Not.Null);
+            if (presenter.HologramFeedback == null)
+            {
+                AssertRendererHasNoPropertyOverrides(presenter.Instance);
+                return;
+            }
+
+            Assert.That(presenter.HologramFeedback.IsLooping, Is.True);
+        }
+
+        private static void AssertSelfDestructDetonationPresentation(
+            PrototypeSelfDestructPresenter presenter)
+        {
+            Assert.That(presenter, Is.Not.Null);
+            if (presenter.HologramFeedback == null)
+            {
+                AssertRendererHasNoPropertyOverrides(presenter.Instance);
+                return;
+            }
+
+            Assert.That(
+                presenter.HologramFeedback.HitBlinkTriggerCount,
+                Is.GreaterThanOrEqualTo(1));
+        }
+
+        private static void AssertHitHologramTriggered(
+            PrototypeHologramFeedback feedback,
+            int expectedMinimum)
+        {
+            if (feedback == null)
+            {
+                return;
+            }
+
+            Assert.That(
+                feedback.HitBlinkTriggerCount,
+                Is.GreaterThanOrEqualTo(expectedMinimum));
+        }
+
+        private static void AssertHitHologramOrNoOverrides(
+            GameObject visual,
+            PrototypeHologramFeedback feedback,
+            int expectedMinimum)
+        {
+            if (feedback == null)
+            {
+                AssertRendererHasNoPropertyOverrides(visual);
+                return;
+            }
+
+            AssertHitHologramTriggered(feedback, expectedMinimum);
+        }
+
+        private static bool HasOptionalHologramTelegraphMaterial()
+        {
+            PrototypeLocalHologramOverrides overrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
+            return overrides != null &&
+                   overrides.BombRangeHologramMaterial != null;
         }
 
         private static void AssertRendererHasNoPropertyOverrides(GameObject visual)

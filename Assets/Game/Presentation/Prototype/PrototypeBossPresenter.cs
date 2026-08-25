@@ -110,6 +110,8 @@ namespace BombSwap
         private readonly Queue<GridPosition> _movementTargets = new Queue<GridPosition>();
         private GameObject _bossInstance;
         private Animator _animator;
+        private PrototypeHologramFeedback _hologramFeedback;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
         private GameObject _moveTargetInstance;
         private Renderer _moveTargetRenderer;
         private MaterialPropertyBlock _moveTargetPropertyBlock;
@@ -148,6 +150,8 @@ namespace BombSwap
 
         public int VisibleDangerCellCount { get; private set; }
 
+        public bool UsesHologramDangerCells { get; private set; }
+
         public int PatternTransitionCount { get; private set; }
 
         public int DamageCount { get; private set; }
@@ -171,6 +175,8 @@ namespace BombSwap
         public bool LastThrowWasLeft { get; private set; }
 
         public Animator Animator => _animator;
+
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
 
         public int DisplayedHealth { get; private set; }
 
@@ -292,6 +298,8 @@ namespace BombSwap
             }
 
             _bossInstance = null;
+            _hologramFeedback = null;
+            _localHologramOverrides = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -306,6 +314,7 @@ namespace BombSwap
             _executingPatternDangerCells.Clear();
             _currentPatternDangerCells = NoDangerCells;
             VisibleDangerCellCount = 0;
+            UsesHologramDangerCells = false;
             IsInitialized = false;
             _isMoving = false;
             _isShowingDeath = false;
@@ -382,11 +391,19 @@ namespace BombSwap
             }
 
             localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
+            _localHologramOverrides ??=
+                PrototypeLocalHologramOverrides.LoadOptional();
 
             PrototypeBossDefinitionAsset definition = session.BossDefinition;
             definition.ValidatePresentationReferences();
             _bossInstance = Instantiate(definition.BossPrefab, presentationRoot);
             _bossInstance.name = "PrototypeBossVisual";
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_bossInstance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _bossInstance.transform.position =
                 session.GridSpace.GridToWorld(session.CurrentBossGridPosition) +
                 (Vector3.up * definition.VisualHeight);
@@ -631,6 +648,10 @@ namespace BombSwap
 
             DamageCount++;
             DisplayedHealth = result.CurrentHealth;
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.TriggerHitBlink();
+            }
             if (!result.WasFatal)
             {
                 return;
@@ -694,6 +715,10 @@ namespace BombSwap
                     (_isIntroPrepared && !_isIntroLanded)
                         ? 0f
                         : 1f;
+            }
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
             }
             SetParityLightningPaused(isPaused);
             if (isPaused && attackCameraShake != null)
@@ -1034,11 +1059,14 @@ namespace BombSwap
                 instance.transform.position =
                     session.GridSpace.GridToWorld(position) +
                     (Vector3.up * session.BossDefinition.DangerCellVisualHeight);
-                ApplyDangerCellColor(
-                    _dangerCellRenderers[index],
-                    _executingPatternDangerCells.Contains(position)
-                        ? executeColor
-                        : telegraphColor);
+                if (!UsesHologramDangerCells)
+                {
+                    ApplyDangerCellColor(
+                        _dangerCellRenderers[index],
+                        _executingPatternDangerCells.Contains(position)
+                            ? executeColor
+                            : telegraphColor);
+                }
             }
             VisibleDangerCellCount = visibleCount;
         }
@@ -1102,7 +1130,17 @@ namespace BombSwap
                     presentationRoot);
                 instance.name = "PrototypeBossDangerCell_" + _dangerCellInstances.Count;
                 Renderer renderer = instance.GetComponentInChildren<Renderer>(true);
-                ResolveColorProperty(renderer, "Boss danger-cell");
+                Material hologramMaterial = _localHologramOverrides != null
+                    ? _localHologramOverrides.BombRangeHologramMaterial
+                    : null;
+                bool usesHologram = PrototypeHologramTelegraphStyle.Apply(
+                    instance,
+                    hologramMaterial);
+                if (!usesHologram)
+                {
+                    ResolveColorProperty(renderer, "Boss danger-cell");
+                }
+                UsesHologramDangerCells |= usesHologram;
                 _dangerCellInstances.Add(instance);
                 _dangerCellRenderers.Add(renderer);
             }

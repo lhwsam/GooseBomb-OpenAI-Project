@@ -1,14 +1,14 @@
 # 작업: 추적형 자폭병과 Gates 비대칭 상호작용
 
 - 상태: Core·Unity·Development WebGL 정확성 `Complete / Accepted`, 튜닝·사람 재미 검증 `Proposed`
-- 기준일: 2026-08-19
+- 기준일: 2026-08-26
 - 변경 이유: 기존 anchor 자동 이동형 자폭병이 플레이어를 따라오는 위협으로 읽히지 않고 움직임도 부자연스럽다는 사람 플레이 피드백
 
 ## 플레이어 계약
 
 - 자폭병은 플레이어를 계속 따라온다.
-- 가까워지면 본체가 깜빡이고 커졌다 작아져 위험 단계가 바뀌었음을 미리 보여준다.
-- 경고 범위 안에 계속 있으면 추격과 scale pulse가 점점 빨라져 1.5초 안에 인접하지 못해도 현재 셀에서 멈추고 실제 폭발 범위를 표시한다.
+- 가까워지면 본체가 홀로그램으로 점멸해 위험 단계가 바뀌었음을 미리 보여준다. 본체 scale은 바꾸지 않는다.
+- 경고 범위 안에 계속 있으면 추격이 빨라지고, 1.5초 안에 인접하지 못해도 현재 셀에서 멈춰 더 빠른 홀로그램 점멸과 실제 폭발 범위를 표시한다.
 - 플레이어가 그 전에 경고 범위 밖으로 확실히 벗어나면 누적이 초기화되고 자폭병은 일반 속도로 다시 따라온다.
 - 점화가 시작된 뒤에는 취소되지 않는다. 플레이어는 0.75초 안에 범위 밖으로 피해야 한다.
 - 플레이어 폭발로 추적 중인 자폭병을 맞히면 즉사시키는 대신 그 자리에서 점화할 수 있다.
@@ -19,8 +19,8 @@
 | 상태 | 논리 동작 | 표현 | 전이 |
 |---|---|---|---|
 | `Chase` | 0.5초마다 현재 플레이어 셀로 BFS 한 칸 추적 | 저작 material 색 유지, 이동 보간 | 이동 뒤 Manhattan 3칸 이내면 `WarningChase`; cadence 시작 시 1칸 이내면 `Telegraph`; 플레이어 폭발 피격 시 `Telegraph` |
-| `WarningChase` | 연속 노출 1.5초 동안 cadence가 0.5→0.2초로 줄어들며 계속 추적 | scale pulse 3→8Hz·최대 1.08→1.18배, 실제 cadence 이동 보간 | 3칸 밖이면 누적 초기화 후 `Chase`; 1칸 이내 또는 누적 1.5초면 `Telegraph`; 플레이어 폭발 피격 시 `Telegraph` |
-| `Telegraph` | 현재 셀에 적 소유 논리 폭탄 하나를 설치하고 이동 중단 | 권위 셀 고정, Telegraph 애니메이션, 8Hz·최대 1.18배 scale pulse, 범위 셀 표시 | 일치하는 무장 폭탄이 폭발하면 `Detonated` |
+| `WarningChase` | 연속 노출 1.5초 동안 cadence가 0.5→0.2초로 줄어들며 계속 추적 | 저작 scale 유지, 0.14초 간격 선택적 홀로그램 점멸, 실제 cadence 이동 보간 | 3칸 밖이면 누적 초기화 후 `Chase`; 1칸 이내 또는 누적 1.5초면 `Telegraph`; 플레이어 폭발 피격 시 `Telegraph` |
+| `Telegraph` | 현재 셀에 적 소유 논리 폭탄 하나를 설치하고 이동 중단 | 권위 셀 고정, Telegraph 애니메이션, 0.065초 간격 선택적 홀로그램 점멸, 범위 셀 표시 | 일치하는 무장 폭탄이 폭발하면 `Detonated` |
 | `Detonated` | actor 점유와 체력을 한 번 제거 | Detonate 애니메이션 뒤 짧게 숨김 | 종결 |
 
 `Chase → Telegraph` 직접 전이는 플레이어가 두 판단 사이에 스스로 인접한 경우 허용한다. `WarningChase`를 반드시 한 frame 이상 거쳐야 한다는 규칙은 없다. `WarningChase` 중에는 매 frame 현재 거리를 확인해 이탈을 먼저 반영하고, 누적 만료는 가변 이동 cadence와 독립적으로 판정한다.
@@ -72,9 +72,9 @@
 - `PrototypeSelfDestructDefinitionAsset`의 기존 `approachCellsPerSecond` 직렬화 데이터는 `FormerlySerializedAs`로 `chaseCellsPerSecond`에 이관한다.
 - 정의 asset은 `ChaseCellsPerSecond`, `WarningMaxCellsPerSecond`, `WarningEscalationSeconds`, `WarningDistance`, `PrimeDistance`, 자폭 폭탄, 적 prefab, Telegraph 셀 prefab과 표현 높이·사망 시간을 제공한다.
 - `PrototypeSelfDestructPresenter`는 논리 상태를 소유하지 않는다. `SelfDestructAdvanced`와 `EnemyDied` 사건만 소비한다.
-- 경고·점화 pulse는 기존 Transform scale만 사용한다. 본체 renderer에 `MaterialPropertyBlock` 색을 기록하거나 shared material을 복제하지 않는다.
-- `WarningChase` 중에는 각 `SelfDestructEnemyAdvanceResult.MovementDuration`으로 이동 보간 시간을 갱신해 논리 가속과 표현 속도를 일치시킨다. pulse phase는 frame별 현재 주파수로 누적해 3→8Hz 변화 중 위상 점프를 만들지 않는다. `Telegraph` 시작 시 보간을 중단하고 `CurrentSelfDestructGridPosition`으로 맞춘 뒤 폭발 셀을 표시한다.
-- 사용자 정의 pause 중에는 pulse 시간도 진행하지 않는다.
+- 경고·점화 표현은 Transform scale을 바꾸지 않는다. Git 제외 로컬 Holograms 설정이 있으면 캐시한 Scanline shared material과 `MaterialPropertyBlock`으로 점멸하고, 없으면 Animator·범위 셀만 유지한다.
+- `WarningChase` 중에는 각 `SelfDestructEnemyAdvanceResult.MovementDuration`으로 이동 보간 시간을 갱신해 논리 가속과 표현 속도를 일치시킨다. `Telegraph` 시작 시 보간을 중단하고 `CurrentSelfDestructGridPosition`으로 맞춘 뒤 점멸 간격을 0.065초로 바꾸고 폭발 셀을 표시한다.
+- 사용자 정의 pause 중에는 홀로그램 점멸 시간도 진행하지 않는다.
 
 ## Gates 저작 계약
 
@@ -112,7 +112,7 @@
 
 - 같은 종류 여러 마리와 범용 적 `ActorId` 발급
 - 여러 자폭병의 동일 목적 셀 경합 정책
-- 최종 모델·애니메이션·사운드와 scale pulse 강도 확정
+- 최종 모델·애니메이션·사운드와 홀로그램 점멸 강도 확정
 - 플레이어와 거리가 벌어졌을 때 이미 시작한 fuse 취소
 - 장애물 파괴를 예측하는 경로 계획, 폭발 위험 회피, 미래 플레이어 위치 예측
 - 투척병과 범용 적 폭탄 UI
@@ -120,10 +120,10 @@
 ## 검증 계약
 
 - EditMode는 정의 경계, 0.5초 일반 cadence·0.2초 경고 최소 cadence·1.5초 누적, 현재 플레이어 BFS 추적, 결정론적 우회와 경로 없음, 경고 진입·이탈과 재진입 초기화, 연속 노출 가속·인접 전 자동 점화, 인접 뒤 판단 경계, 두 추적 상태의 플레이어 폭발 trigger, arm·detonation ID와 범위 2 예고 셀을 검증한다.
-- PlayMode는 `WarningChase` 진입, scale pulse와 본체 material override 부재, 이동 중 피격 시 권위 셀 고정, 자폭 폭탄 arm, Telegraph 셀, 파괴문 변경, 자기 사망과 단일 사망 사건을 검증한다.
+- PlayMode는 `WarningChase` 진입, 저작 scale 유지·선택적 홀로그램 점멸, 이동 중 피격 시 권위 셀 고정, 자폭 폭탄 arm, Telegraph 셀, 파괴문 변경, 자기 사망과 단일 사망 사건을 검증한다.
 - Content Validator는 일반 2 cells/s·경고 최대 5 cells/s·누적 1.5초·거리 3/1·0.75초 범위 2 십자와 기존 asset/prefab 참조를 검증한다. Gates에서는 두 anchor 각각의 실제 Core 폭발이 가까운 문 하나만 파괴하는지도 실행해 확인한다.
 - WebGL smoke는 graph 경계 입장 직후 오른쪽 아래 `(3,-3)`으로 Z축 우선 이동해 자폭병을 오른쪽 우회로 `(3,-1)`까지 끌어낸다. 그 뒤 플레이어가 왼쪽 아래 `(-1,-2)`로 X축 우선 이동하고, 자폭병 `(2,-2)` 시점에 `(-1,-3)` 한 칸 sidestep·복귀로 뒤따르는 추격자 접촉만 피하면서 아래 anchor `(0,-2)` 유도를 유지한다. 경고·정지·점화, 안전 셀 `(-1,-3)` 이탈, 아래 문 파괴와 자기 사망을 확인한 뒤 같은 셀에서 인접한 추격자에게 광역 폭탄을 설치하고 `(-3,-4)`로 이탈해 처치한다.
-- 사람 플레이는 scale pulse·애니메이션 가독성, 정지 시점, 0.75초 회피 여유와 위/아래 문 유인 의도가 자연스러운지를 판정한다. 자동 테스트 결과를 재미 판정으로 사용하지 않는다.
+- 사람 플레이는 홀로그램 점멸·애니메이션 가독성, 정지 시점, 0.75초 회피 여유와 위/아래 문 유인 의도가 자연스러운지를 판정한다. 자동 테스트 결과를 재미 판정으로 사용하지 않는다.
 
 ## 현재 증거와 남은 검증
 
@@ -134,10 +134,10 @@
 - 같은 빌드의 가상 Gamepad smoke `14/14`, 템플릿·정적 서버·분석기 테스트와 1,260개 playtest 사건 분석이 통과했다.
 - 최종 `Tools/Verify.ps1 -StaticOnly`는 `Artifacts/Verification/20260819-065922-static/`에 통과 결과를 기록했다. 빌드 뒤 Unity Console Error는 0이며 현재 Warning 6건은 MMFeedbacks 선택 연동 asset 3건과 WebGL IL2CPP 큰 메서드 분리 안내 3건이다.
 - `browser-smoke-failed-cleanup-route.json`, `browser-smoke-failed-lure-contact.json`, `browser-smoke-failed-cleanup-footprint.json`, `browser-smoke-failed-sidestep-hold.json`, `browser-smoke-failed-cleanup-crossing.json`은 모두 새 자폭병의 유인·가속·폭발·문 파괴 뒤 낮은 체력의 플레이어가 남은 추격자와 교차한 자동화 동선 실패다. 게임 규칙을 테스트에 맞춰 바꾸지 않고 자폭 후 현재 위치에서 설치·이탈하는 최종 동선의 근거로 보존한다.
-- 남은 완료 조건은 새 가속이 실제 플레이에서 scale pulse·Telegraph 카운트다운으로 읽히는지, 장애물 없이 늦게 반응하면 맞되 정확히 이탈하면 피할 수 있는지, 문 선택 여유가 적절한지에 대한 사람 플레이 판정이다.
+- 남은 완료 조건은 새 가속과 홀로그램 경고·점화 전환이 실제 플레이에서 카운트다운으로 읽히는지, 장애물 없이 늦게 반응하면 맞되 정확히 이탈하면 피할 수 있는지, 문 선택 여유가 적절한지에 대한 사람 플레이 판정이다.
 
 ## 위험과 롤백
 
-- 일반 2·경고 최대 5 cells/s, 연속 경고 1.5초, 거리 3/1, pulse 3Hz/8Hz·1.08/1.18배, 0.75초 fuse와 범위 2는 모두 `Proposed`다. 사람 플레이에서 지나치게 빠르거나 위험 면적이 크면 최대 속도와 폭발 범위를 다시 분리해 한 변수씩 조정한다.
-- 경고 거리는 Manhattan이므로 벽 너머 가까운 경우에도 scale pulse가 시작될 수 있다. 현재는 위험 근접 신호로 허용하며, 실제 오독이 관찰될 때만 BFS 경로 거리 기반 경고를 별도 결정한다.
+- 일반 2·경고 최대 5 cells/s, 연속 경고 1.5초, 거리 3/1, 홀로그램 점멸 0.14초/0.065초, 0.75초 fuse와 범위 2는 모두 `Proposed`다. 사람 플레이에서 지나치게 빠르거나 위험 면적이 크면 최대 속도와 폭발 범위를 다시 분리해 한 변수씩 조정한다.
+- 경고 거리는 Manhattan이므로 벽 너머 가까운 경우에도 홀로그램 경고가 시작될 수 있다. 현재는 위험 근접 신호로 허용하며, 실제 오독이 관찰될 때만 BFS 경로 거리 기반 경고를 별도 결정한다.
 - 롤백 단위는 자폭 Core 정의·상태·simulation, Unity asset/session/presenter, probe·WebGL smoke, builder·validator·테스트와 관련 문서를 한 묶음으로 한다. Gates room 셀 배치와 anchor 스키마는 그대로 유지할 수 있다.

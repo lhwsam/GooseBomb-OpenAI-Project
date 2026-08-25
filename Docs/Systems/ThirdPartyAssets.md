@@ -51,8 +51,9 @@
 ## 선택 Holograms 로컬 랩
 
 - 공급자 Holograms 원본은 `Assets/ThirdParty/Holograms`에 두고 수정하지 않는다. 프로젝트 전용 실험 코드와 생성 씬도 Git 제외 경계인 `Assets/ThirdParty/BombSwap` 아래에 둔다.
-- `Bomb Swap > Local Setup > Create Hologram VFX Lab`은 실제 `NormalBomb`과 `PlayerDuck`의 외형만 복제해 규칙·입력 컴포넌트를 제거하고, 주황 Grid 홀로그램 폭탄 범위 9셀과 빨간 Scanline 홀로그램 플레이어 피격 교체를 비교하는 `HologramVfxLab.unity`를 생성한다. Open/Validate 메뉴도 같은 경로에 제공한다.
-- 랩은 Build Settings와 `Assets/Game` scene·prefab을 바꾸지 않는다. 실제 게임에 채택할 때는 Presentation 계층의 좁은 어댑터와 package 부재 fallback을 별도 변경으로 설계하고 WebGL에서 셰이더 호환성·가독성·오버드로를 검증한다.
+- `Bomb Swap > Local Setup > Create Hologram VFX Lab`은 실제 `NormalBomb`과 `PlayerDuck`의 외형만 복제해 규칙·입력 컴포넌트를 제거하고, 주황 Grid 홀로그램 폭탄 범위 9셀과 빨간 Scanline 홀로그램 플레이어 피격 교체를 비교하는 `HologramVfxLab.unity`를 생성한다. 빠른 Play 설정에서도 결과가 같도록 랩에는 로컬 3DPixelCamera 시스템을 명시적으로 배치하며, 직교 월드를 `SetHeight Y=300`(16:10에서 `480×300`)으로 렌더링한다. Open/Validate 메뉴도 같은 경로에 제공한다.
+- `Bomb Swap > Local Setup > Connect Holograms to Gameplay`는 Git 제외 `Resources/BombSwapLocalHologramOverrides.asset`에 Scanline 본체 material과 Grid 범위 material만 연결한다. 추적 scene·prefab은 공급자 GUID를 저장하지 않으며, `Assets/Game`의 Presentation 어댑터가 이 선택 설정을 읽어 플레이어·적·보스 피격 2회 점멸, 자폭병 경고 점멸, 낮은 알파의 공용 폭탄 범위와 돌진형 차선·갑옷 적 panic 경로·보스 돌진/소환/parity 위험 셀에 적용한다. 모든 공간 예고는 폭탄과 같은 주황 Grid 색·알파·emission을 공유한다. Validate 메뉴는 설정·material 속성과 승인된 공급자 경로를 확인한다.
+- 랩과 게임 연결은 Build Settings를 바꾸거나 공급자 원본을 수정하지 않는다. package나 로컬 설정이 없는 공개 clone은 기존 `MaterialPropertyBlock` 플레이어 피격과 저작 적 material·위험 셀로 정상 동작한다. Holograms 셰이더의 실제 WebGL 호환성·가독성·오버드로는 브라우저 검증 대상으로 남는다.
 
 ## 선택 UI Sprite 직접 연결
 

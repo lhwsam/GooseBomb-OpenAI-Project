@@ -31,6 +31,7 @@ namespace BombSwap
         private int _colorPropertyId;
         private Color _normalColor;
         private float _damagePulseEndsAt;
+        private PrototypeHologramFeedback _hologramFeedback;
         private bool _initialized;
 
         public PrototypeGameSession Session => session;
@@ -46,6 +47,8 @@ namespace BombSwap
         public bool IsDisplayingDeath { get; private set; }
 
         public Color CurrentColor { get; private set; }
+
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
 
         public void Configure(
             PrototypeGameSession gameSession,
@@ -85,9 +88,11 @@ namespace BombSwap
             }
 
             InitializeRenderer();
+            InitializeHologramFeedback();
             session.PlayerDamaged += OnPlayerDamaged;
             session.PlayerDied += OnPlayerDied;
             session.PlayerRecovered += OnPlayerRecovered;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsInitialized)
             {
@@ -102,7 +107,12 @@ namespace BombSwap
                 session.PlayerDamaged -= OnPlayerDamaged;
                 session.PlayerDied -= OnPlayerDied;
                 session.PlayerRecovered -= OnPlayerRecovered;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
+            }
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.StopAndRestore();
             }
             if (_initialized && targetRenderer != null)
             {
@@ -115,7 +125,21 @@ namespace BombSwap
 
         private void Update()
         {
-            if (!_initialized || IsDisplayingDeath || Time.unscaledTime < _damagePulseEndsAt)
+            if (!_initialized || IsDisplayingDeath)
+            {
+                return;
+            }
+
+            if (_hologramFeedback != null)
+            {
+                if (!_hologramFeedback.IsHitBlinkActive &&
+                    CurrentColor != _normalColor)
+                {
+                    ApplyColor(_normalColor);
+                }
+                return;
+            }
+            if (Time.unscaledTime < _damagePulseEndsAt)
             {
                 return;
             }
@@ -135,6 +159,12 @@ namespace BombSwap
         {
             DisplayedHealth = result.CurrentHealth;
             DamagePulseCount++;
+            if (_hologramFeedback != null)
+            {
+                CurrentColor = damageColor;
+                _hologramFeedback.TriggerHitBlink();
+                return;
+            }
             _damagePulseEndsAt = Time.unscaledTime + damagePulseSeconds;
             ApplyColor(damageColor);
         }
@@ -143,6 +173,10 @@ namespace BombSwap
         {
             DisplayedHealth = result.CurrentHealth;
             IsDisplayingDeath = true;
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.StopAndRestore();
+            }
             ApplyColor(deadColor);
         }
 
@@ -150,7 +184,19 @@ namespace BombSwap
         {
             DisplayedHealth = result.CurrentHealth;
             IsDisplayingDeath = false;
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.StopAndRestore();
+            }
             ApplyColor(_normalColor);
+        }
+
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
+            }
         }
 
         private void SyncFromSession()
@@ -194,6 +240,30 @@ namespace BombSwap
             _normalColor = material.GetColor(_colorPropertyId);
             CurrentColor = _normalColor;
             _initialized = true;
+        }
+
+        private void InitializeHologramFeedback()
+        {
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+                return;
+            }
+
+            PrototypeLocalHologramOverrides overrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
+            if (overrides == null || overrides.ActorHologramMaterial == null)
+            {
+                return;
+            }
+
+            _hologramFeedback = PrototypeHologramFeedback.CreateForRenderer(
+                targetRenderer,
+                overrides.ActorHologramMaterial,
+                PrototypeHologramFeedback.HitColor,
+                PrototypeHologramFeedback.HitTextureTint,
+                6f);
+            _hologramFeedback.SetPaused(session.IsPaused);
         }
 
         private void ApplyColor(Color color)

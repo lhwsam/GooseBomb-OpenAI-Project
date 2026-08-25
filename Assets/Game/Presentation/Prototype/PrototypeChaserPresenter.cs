@@ -18,6 +18,7 @@ namespace BombSwap
 
         private GameObject _instance;
         private Animator _animator;
+        private PrototypeHologramFeedback _hologramFeedback;
         private float _deathEndsAt;
         private bool _isShowingDeath;
 
@@ -34,6 +35,8 @@ namespace BombSwap
         public int AttackAnimationCount { get; private set; }
 
         public Animator Animator => _animator;
+
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
 
         public bool IsInitialized { get; private set; }
 
@@ -73,6 +76,7 @@ namespace BombSwap
 
             session.ChaserMoved += OnChaserMoved;
             session.PlayerDamaged += OnPlayerDamaged;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -88,6 +92,7 @@ namespace BombSwap
             {
                 session.ChaserMoved -= OnChaserMoved;
                 session.PlayerDamaged -= OnPlayerDamaged;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -98,6 +103,7 @@ namespace BombSwap
             }
 
             _instance = null;
+            _hologramFeedback = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -151,6 +157,12 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ChaserPrefab, presentationRoot);
             _instance.name = "PrototypeChaserVisual";
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_instance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _animator = _instance.GetComponentInChildren<Animator>(true);
             if (_animator != null)
             {
@@ -224,11 +236,24 @@ namespace BombSwap
             _isShowingDeath = true;
         }
 
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.ChaserActorId &&
+                _hologramFeedback != null)
+            {
+                _hologramFeedback.TriggerHitBlink();
+            }
+        }
+
         private void OnPauseStateChanged(bool isPaused)
         {
             if (_animator != null)
             {
                 _animator.speed = isPaused ? 0f : 1f;
+            }
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
             }
         }
 

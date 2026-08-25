@@ -22,6 +22,8 @@ namespace BombSwap
 
         private GameObject _instance;
         private Animator _animator;
+        private PrototypeHologramFeedback _hologramFeedback;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
         private float _deathRemaining;
         private bool _isShowingDeath;
         private readonly List<GameObject> _telegraphCells = new List<GameObject>();
@@ -40,11 +42,15 @@ namespace BombSwap
 
         public Animator Animator => _animator;
 
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
+
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
 
         public int ActiveTelegraphCellCount { get; private set; }
+
+        public bool UsesHologramTelegraph { get; private set; }
 
         public ChargerEnemyState CurrentState { get; private set; }
 
@@ -80,7 +86,11 @@ namespace BombSwap
                     "PrototypeChargerPresenter requires session and presentation-root references.");
             }
 
+            _localHologramOverrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
+
             session.ChargerAdvanced += OnChargerAdvanced;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -95,6 +105,7 @@ namespace BombSwap
             if (session != null)
             {
                 session.ChargerAdvanced -= OnChargerAdvanced;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -112,6 +123,8 @@ namespace BombSwap
             }
 
             _instance = null;
+            _hologramFeedback = null;
+            _localHologramOverrides = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -119,6 +132,7 @@ namespace BombSwap
             _animator = null;
             _telegraphCells.Clear();
             ActiveTelegraphCellCount = 0;
+            UsesHologramTelegraph = false;
             IsInitialized = false;
             _isShowingDeath = false;
         }
@@ -172,6 +186,12 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ChargerPrefab, presentationRoot);
             _instance.name = "PrototypeChargerVisual";
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_instance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _animator = _instance.GetComponentInChildren<Animator>(true);
             if (_animator != null)
             {
@@ -260,11 +280,24 @@ namespace BombSwap
             _isShowingDeath = true;
         }
 
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.ChargerActorId &&
+                _hologramFeedback != null)
+            {
+                _hologramFeedback.TriggerHitBlink();
+            }
+        }
+
         private void OnPauseStateChanged(bool isPaused)
         {
             if (_animator != null)
             {
                 _animator.speed = isPaused ? 0f : 1f;
+            }
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
             }
         }
 
@@ -375,6 +408,13 @@ namespace BombSwap
                     definition.TelegraphCellPrefab,
                     presentationRoot);
                 visual.name = $"PrototypeChargerTelegraphCell{_telegraphCells.Count}";
+                Material hologramMaterial = _localHologramOverrides != null
+                    ? _localHologramOverrides.BombRangeHologramMaterial
+                    : null;
+                UsesHologramTelegraph |=
+                    PrototypeHologramTelegraphStyle.Apply(
+                        visual,
+                        hologramMaterial);
                 visual.SetActive(false);
                 _telegraphCells.Add(visual);
             }

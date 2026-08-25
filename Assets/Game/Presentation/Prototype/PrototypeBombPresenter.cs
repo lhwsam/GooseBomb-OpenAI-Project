@@ -51,6 +51,8 @@ namespace BombSwap
             new Dictionary<GameObject, ParticleSystem[]>();
         private readonly Dictionary<GameObject, float[]> _particleSimulationSpeeds =
             new Dictionary<GameObject, float[]>();
+        private readonly HashSet<GameObject> _configuredBombReadyVfx =
+            new HashSet<GameObject>();
         private readonly Stack<GameObject> _availableCrossCenters =
             new Stack<GameObject>();
         private readonly Stack<GameObject> _availableCrossStraights =
@@ -75,6 +77,7 @@ namespace BombSwap
         private bool _initialized;
         private GameObject _bombDangerCellPrefab;
         private PrototypeLocalVfxOverrides _localVfxOverrides;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
         private GameObject _crossCenterExplosionPrefab;
         private GameObject _crossStraightExplosionPrefab;
         private bool _crossExplosionVfxConfiguredExplicitly;
@@ -98,6 +101,10 @@ namespace BombSwap
         public int ActiveThrowerFlightVisualCount => _activeThrowerFlights.Count;
 
         public int VisibleBombDangerCellCount => _visibleBombDangerCells.Count;
+
+        public bool UsesHologramBombDanger =>
+            _localHologramOverrides != null &&
+            _localHologramOverrides.BombRangeHologramMaterial != null;
 
         public bool HasBombDanger(BombId bombId)
         {
@@ -136,6 +143,20 @@ namespace BombSwap
             presentationRoot = visualRoot;
             bombPoolSize = initialBombPoolSize;
             explosionPoolSize = initialExplosionPoolSize;
+        }
+
+        public void ConfigureLocalVfxOverrides(
+            PrototypeLocalVfxOverrides authoredLocalVfxOverrides)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeBombPresenter before changing its local VFX configuration.");
+            }
+
+            _localVfxOverrides = authoredLocalVfxOverrides ??
+                throw new ArgumentNullException(nameof(authoredLocalVfxOverrides));
+            _localVfxOverrides.ValidateConfiguration();
         }
 
         public bool HasBombVisual(BombId bombId)
@@ -322,7 +343,12 @@ namespace BombSwap
                 return;
             }
 
-            _localVfxOverrides = PrototypeLocalVfxOverrides.LoadOptional();
+            if (_localVfxOverrides == null)
+            {
+                _localVfxOverrides = PrototypeLocalVfxOverrides.LoadOptional();
+            }
+            _localHologramOverrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
             if (_crossCenterExplosionPrefab == null && _localVfxOverrides != null)
             {
                 _crossCenterExplosionPrefab =
@@ -942,9 +968,39 @@ namespace BombSwap
             PrototypeBombDefinitionAsset definition)
         {
             Stack<GameObject> pool = GetBombPool(definitionId);
-            return pool.Count > 0
+            GameObject instance = pool.Count > 0
                 ? pool.Pop()
                 : CreatePooledInstance(definition.BombPrefab, "BombVisual");
+            ConfigureBombReadyVfx(instance);
+            return instance;
+        }
+
+        private void ConfigureBombReadyVfx(GameObject instance)
+        {
+            if (_localVfxOverrides == null || !_configuredBombReadyVfx.Add(instance))
+            {
+                return;
+            }
+
+            Transform anchor = instance.transform.Find("SparksEffect");
+            if (anchor == null)
+            {
+                return;
+            }
+
+            anchor.localPosition = _localVfxOverrides.BombReadyLocalPosition;
+            anchor.localRotation = _localVfxOverrides.BombReadyLocalRotation;
+            anchor.localScale = Vector3.one;
+
+            ParticleSystem[] systems = anchor.GetComponentsInChildren<ParticleSystem>(true);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+
+                ParticleSystem.CollisionModule collision = systems[index].collision;
+                collision.enabled = false;
+            }
         }
 
         private GameObject AcquireExplosion(
@@ -1071,8 +1127,17 @@ namespace BombSwap
                 GameObject instance = CreatePooledInstance(
                     _bombDangerCellPrefab,
                     $"BombDangerCellVisual{_bombDangerCellInstances.Count}");
+                ApplyBombDangerHologram(instance);
                 _bombDangerCellInstances.Add(instance);
             }
+        }
+
+        private void ApplyBombDangerHologram(GameObject instance)
+        {
+            Material hologramMaterial = _localHologramOverrides != null
+                ? _localHologramOverrides.BombRangeHologramMaterial
+                : null;
+            PrototypeHologramTelegraphStyle.Apply(instance, hologramMaterial);
         }
 
         private GameObject ResolveBombDangerCellPrefab(BombDefinitionId definitionId)

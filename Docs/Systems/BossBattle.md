@@ -77,7 +77,7 @@ Core는 Transform, Physics, Unity `Time`, Rigidbody를 읽지 않는다. `Protot
 - 투척 전 `ReturnToCenter`가 BFS 경로로 시작 셀까지 복귀한다.
 - 정확한 다음 이동 셀 고스트는 사용하지 않는다.
 - `Movements`의 확정된 여러 셀만 presenter가 패턴 실행 시간에 나눠 보간하며 pause 중 멈춘다.
-- 돌진 위험 차선, 소환 셀과 현재 parity 행은 표시한다. 보스 폭탄 목표 셀은 Core 예약으로만 유지하고 비행 전에 별도 위험 셀을 표시하지 않는다.
+- 돌진 위험 차선, 소환 셀과 현재 parity 행은 표시한다. 로컬 Holograms 설정이 있으면 이 모든 보스 위험 셀은 공용 폭탄 범위와 같은 주황 Grid material·알파·emission을 사용하고, 설정이 없으면 기존 저작 material을 유지한다. 보스 폭탄 목표 셀은 Core 예약으로만 유지하고 비행 전에 별도 위험 셀을 표시하지 않는다.
 
 ## 보스 폭탄
 
@@ -112,7 +112,7 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - One은 한 parity만 한쪽 끝에서 진행한다.
 - Two와 LastStand는 첫 parity 뒤 반대 parity를 진행하며 다음 반복에서는 시작 parity를 교대한다.
 - Execute에서 현재 행에 있는 플레이어만 패턴 피해 1을 받는다. 먼저 끝난 행은 이후 안전 공간으로 재사용할 수 있다.
-- 각 행의 Execute 순간에는 보스 소환과 같은 로컬 lightning prefab을 실제 위험 셀마다 재생한다. 인스턴스와 `ParticleSystem` 참조는 presenter가 풀링하며 로컬 VFX가 없는 clone에서는 논리 피해·위험 셀만 유지한다.
+- 각 행의 Execute 순간에는 보스 소환과 같은 로컬 lightning prefab을 실제 위험 셀마다 재생한다. 이 타격 lightning은 예고 셀 홀로그램과 별개의 Execute 피드백이다. 인스턴스와 `ParticleSystem` 참조는 presenter가 풀링하며 로컬 VFX가 없는 clone에서는 논리 피해·위험 셀만 유지한다.
 
 ## 공격 피드백
 

@@ -109,7 +109,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - `SelfDestructGatesPlaytest.unity`는 `prototype-combat-gates`와 일반 TestSandbox shell에서 생성하는 Editor 전용 미러다. 자폭병 규칙, Gates 셀이나 튜닝 수치를 중복 소유하지 않는다.
 - builder는 권위 `PrototypeCombatGates.asset`의 플레이어·추격자·자폭병 spawn, 고정 장벽 8셀, 중앙 파괴문 2셀과 적 정의를 동기화한 뒤 던전 `RunHost`, room binder, 미니맵, 외곽 문 presenter와 완료 presenter를 제거한다.
 - 중앙 파괴문과 `PrototypeDestructibleWallPresenter`, 자폭병의 경고·Telegraph presenter, HUD와 빈 다음 씬의 `PrototypeRoomAdvanceController`는 유지한다. 따라서 방 클리어 뒤에도 다른 씬으로 전환하지 않는다.
-- 표준 Build Settings enabled scene에는 넣지 않는다. 실제 던전 전환이나 WebGL 검증을 대신하지 않고 경고 scale pulse·Telegraph 애니메이션, 점화 전 이탈, 위·아래 anchor 유도와 한쪽 문 파괴를 빠르게 반복하는 용도다.
+- 표준 Build Settings enabled scene에는 넣지 않는다. 실제 던전 전환이나 WebGL 검증을 대신하지 않고 선택적 홀로그램 경고 점멸·Telegraph 애니메이션, 점화 전 이탈, 위·아래 anchor 유도와 한쪽 문 파괴를 빠르게 반복하는 용도다.
 - Editor 메뉴 `Bomb Swap > Playtest > Play Self-Destruct Gates Room`이 동기화, 단일 씬 열기와 Play 진입을 한 번에 수행한다. `Open`과 `Rebuild` 메뉴도 같은 builder 경로를 사용한다.
 - 콘텐츠 validator는 Gates 권위 room 참조·spawn·장애물·필수 session/자폭 presenter, 빈 다음 씬, 던전 adapter 부재, MainCamera와 Build Settings 제외를 검사한다.
 

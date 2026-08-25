@@ -8,6 +8,8 @@ namespace BombSwap
     public sealed class PrototypeSelfDestructPresenter : MonoBehaviour
     {
         private const float SummonVfxCleanupPaddingSeconds = 0.25f;
+        private const float WarningHologramToggleSeconds = 0.14f;
+        private const float TelegraphHologramToggleSeconds = 0.065f;
         private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
         private static readonly int TelegraphParameterId = Animator.StringToHash("Telegraph");
         private static readonly int DetonateParameterId = Animator.StringToHash("Detonate");
@@ -17,27 +19,14 @@ namespace BombSwap
         [SerializeField]
         private Transform presentationRoot;
 
-        [SerializeField]
-        private float warningPulseHz = 3f;
-
-        [SerializeField]
-        private float telegraphPulseHz = 8f;
-
-        [SerializeField]
-        private float warningScaleMultiplier = 1.08f;
-
-        [SerializeField]
-        private float telegraphScaleMultiplier = 1.18f;
-
         private GameObject instance;
         private Animator animator;
+        private PrototypeHologramFeedback hologramFeedback;
         private PrototypeLocalVfxOverrides localVfxOverrides;
         private GameObject summonVfxAnchor;
         private ParticleSystem[] summonVfxSystems = Array.Empty<ParticleSystem>();
         private float summonVfxRemaining;
-        private Vector3 baseScale;
         private float deathRemaining;
-        private float pulsePhase;
         private bool isShowingDeath;
 
         public PrototypeGameSession Session => session;
@@ -57,6 +46,8 @@ namespace BombSwap
         public int DeathCount { get; private set; }
 
         public Animator Animator => animator;
+
+        public PrototypeHologramFeedback HologramFeedback => hologramFeedback;
 
         public SelfDestructEnemyState CurrentState { get; private set; }
 
@@ -112,6 +103,7 @@ namespace BombSwap
             localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
             session.SelfDestructAdvanced += OnSelfDestructAdvanced;
             session.SelfDestructSpawned += OnSelfDestructSpawned;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -127,6 +119,7 @@ namespace BombSwap
             {
                 session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
                 session.SelfDestructSpawned -= OnSelfDestructSpawned;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -136,6 +129,7 @@ namespace BombSwap
                 Destroy(instance);
             }
             instance = null;
+            hologramFeedback = null;
             DestroySummonVfx();
             if (animator != null)
             {
@@ -175,15 +169,6 @@ namespace BombSwap
             }
 
             SyncLocomotionAnimation();
-
-            if (!isShowingDeath &&
-                instance != null &&
-                session != null &&
-                (CurrentState == SelfDestructEnemyState.WarningChase ||
-                    CurrentState == SelfDestructEnemyState.Telegraph))
-            {
-                ApplyPulse(Time.deltaTime);
-            }
 
             if (isShowingDeath && instance != null)
             {
@@ -243,6 +228,12 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             instance = Instantiate(definition.EnemyPrefab, presentationRoot);
             instance.name = "PrototypeSelfDestructVisual";
+            hologramFeedback =
+                PrototypeHologramFeedback.CreateWarningFeedback(instance);
+            if (hologramFeedback != null)
+            {
+                hologramFeedback.SetPaused(session.IsPaused);
+            }
             animator = instance.GetComponentInChildren<Animator>(true);
             if (animator != null)
             {
@@ -250,13 +241,12 @@ namespace BombSwap
                 animator.speed = session.IsPaused ? 0f : 1f;
                 animator.SetBool(IsMovingParameterId, false);
             }
-            baseScale = instance.transform.localScale;
             instance.transform.position = ToPresentationPosition(
                 session.CurrentSelfDestructGridPosition);
             instance.SetActive(session.IsSelfDestructAlive);
             CurrentState = session.CurrentSelfDestructState;
             ApplyAnimationState(CurrentState);
-            ResetScalePulse();
+            RefreshWarningHologram();
             IsInitialized = true;
         }
 
@@ -294,7 +284,16 @@ namespace BombSwap
                         session.CurrentSelfDestructGridPosition);
                 }
                 ApplyAnimationState(CurrentState);
-                ResetScalePulse();
+                RefreshWarningHologram();
+            }
+        }
+
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.SelfDestructActorId &&
+                hologramFeedback != null)
+            {
+                hologramFeedback.TriggerHitBlink();
             }
         }
 
@@ -310,7 +309,6 @@ namespace BombSwap
             }
 
             DeathCount++;
-            instance.transform.localScale = baseScale;
             deathRemaining = session.SelfDestructDefinition.DeathVisualSeconds;
             isShowingDeath = true;
         }
@@ -320,6 +318,10 @@ namespace BombSwap
             if (animator != null)
             {
                 animator.speed = isPaused ? 0f : 1f;
+            }
+            if (hologramFeedback != null)
+            {
+                hologramFeedback.SetPaused(isPaused);
             }
             SetSummonVfxPaused(isPaused);
         }
@@ -374,32 +376,25 @@ namespace BombSwap
                 EnemyLocomotionState.Moving);
         }
 
-        private void ResetScalePulse()
+        private void RefreshWarningHologram()
         {
-            pulsePhase = 0f;
-            instance.transform.localScale = baseScale;
-        }
+            if (hologramFeedback == null)
+            {
+                return;
+            }
 
-        private void ApplyPulse(float elapsedSeconds)
-        {
-            float warningProgress = CurrentState == SelfDestructEnemyState.WarningChase
-                ? Mathf.Clamp01(session.CurrentSelfDestructWarningProgress)
-                : 1f;
-            float frequency = Mathf.Lerp(
-                warningPulseHz,
-                telegraphPulseHz,
-                warningProgress);
-            float scaleMultiplier = Mathf.Lerp(
-                warningScaleMultiplier,
-                telegraphScaleMultiplier,
-                warningProgress);
-            pulsePhase = Mathf.Repeat(
-                pulsePhase + (elapsedSeconds * frequency),
-                1f);
-            float wave = 0.5f +
-                (Mathf.Sin(pulsePhase * Mathf.PI * 2f) * 0.5f);
-            instance.transform.localScale = baseScale *
-                Mathf.Lerp(1f, scaleMultiplier, wave);
+            switch (CurrentState)
+            {
+                case SelfDestructEnemyState.WarningChase:
+                    hologramFeedback.StartLooping(WarningHologramToggleSeconds);
+                    break;
+                case SelfDestructEnemyState.Telegraph:
+                    hologramFeedback.StartLooping(TelegraphHologramToggleSeconds);
+                    break;
+                default:
+                    hologramFeedback.StopAndRestore();
+                    break;
+            }
         }
 
         private void PlayBossSummonVfx()
