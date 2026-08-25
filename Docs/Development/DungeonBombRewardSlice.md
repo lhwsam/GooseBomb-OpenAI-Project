@@ -11,8 +11,9 @@
 - 새 던전 run은 `prototype-cross` 한 종류만 1번 슬롯에 장착하고 2번 슬롯은 비운 채 시작한다.
 - 빈 2번 슬롯에서는 `X` 교체가 실패하고 HUD는 `EMPTY — FIND A BOMB`과 `SWAP LOCKED`를 표시한다.
 - 첫 전투를 클리어해 `BombReward` 방에 들어가면 두 후보가 보행 가능한 논리 셀에 나타난다.
-- 왼쪽 `(-1, 0)`의 `prototype-area` 또는 오른쪽 `(1, 0)`의 `prototype-line` 위로 이동하면 해당 후보가 빈 2번 슬롯에 장착된다.
+- 왼쪽 `(-1, 0)`의 `prototype-area` 또는 오른쪽 `(1, 0)`의 `prototype-line` 선택물에 cardinal 인접하면 해당 후보 위에 `F` KeyIcon이 나타난다. `F`를 누르면 그 후보가 빈 2번 슬롯에 장착된다.
 - 선택은 한 run에서 한 번만 성공한다. 선택 결과는 방 로컬 씬이 아니라 지속 run 상태에 저장되어 전투방 왕복과 `LoadSceneMode.Single` 뒤에도 유지된다.
+- 선택 전에는 두 후보 모델과 가벼운 발광 효과가 보이고 두 후보 셀이 논리 blocker다. 선택 성공 뒤에는 선택된 후보 모델과 해당 셀의 blocker만 제거하며, 선택하지 않은 후보 모델과 blocker는 남긴다. 모든 발광·`F` KeyIcon을 끄고 재선택을 거부하며, 방 재입장에도 같은 선택 완료 표현을 복원한다.
 - 선택 뒤에는 기존 `X` 교체와 슬롯별 독립 설치 쿨타임 계약을 그대로 사용한다.
 
 ## 구현 경계
@@ -22,8 +23,10 @@
 3. `PrototypeBombRewardCatalogAsset`은 첫 폭탄·후보 asset·교체 쿨타임을 검증하고 Core run 상태로 변환한다.
 4. `PrototypeDungeonRunSession`은 `BombReward` 방에서만 후보 선택을 허용하고 결과를 씬 전환보다 긴 run 수명으로 보존한다.
 5. 각 `PrototypeDungeonRoomBinder`는 pending 대상 방을 준비할 때 run loadout을 방 로컬 `PrototypeGameSession`에 주입한다. scene commit 전에는 host의 이전 현재 방이 아니라 binder가 준비한 대상 방 ID·타입을 사용한다.
-6. `PrototypeBombRewardPresenter`는 장치 입력을 직접 읽지 않는다. 기존 Core 이동의 `PlayerMoved` 셀 사건으로 후보 접촉을 판정하고, 선택 성공 뒤에만 다른 후보를 숨기고 HUD가 갱신된다.
+6. `PrototypeBombRewardPresenter`는 장치 입력을 직접 읽지 않는다. `PlayerMoved`로 유일한 cardinal 인접 후보를 계산하고 세션의 `InteractionRequested`에서만 선택한다. 두 후보에 동시에 인접한 모호한 셀은 선택하지 않는다.
 7. `PrototypeBombPresenter`는 빈 슬롯을 미리 풀링하지 않고 선택된 정의가 실제 설치될 때 필요한 visual pool을 지연 생성한다.
+8. 상자 모델이 없는 `BombRewardChoice.prefab`과 공용 `InteractionPrompt.prefab`은 scene에 저작한다. 카탈로그에 따라 달라지는 폭탄 후보 모델만 선택물의 `DynamicContentAnchor` 아래에 생성한다. 선택 가능 발광은 실시간 `Light`가 아닌 URP Unlit 코어·halo·소량 particle을 사용하며, 바닥 halo와 particle 범위는 가장 큰 후보 모델의 footprint 밖에서도 식별될 크기를 유지한다.
+9. 보상방 전용 안내 Canvas는 사용하지 않는다. 선택 가능한 폭탄은 월드 후보의 발광과 인접 `F` KeyIcon으로, 선택 결과는 기존 무기 HUD로 전달한다.
 
 ## 현재 저작값
 
@@ -38,7 +41,7 @@
 ## 검증과 증거
 
 - Core 대상 EditMode 14/14: 빈 snapshot, 교체 차단, 단일 장착, 후보 수·중복·복사·단일 선택.
-- 던전 대상 PlayMode 17/17: catalog, 보상방 한정 선택, 실제 `DungeonReward` 씬의 빈 슬롯→수집→다음 scene 유지, 기존 host·문·재입장 회귀.
+- 기존 던전 대상 PlayMode 17/17 근거는 이동 접촉 방식의 과거 기준선이다. 현재 계약은 실제 `DungeonReward` 씬에서 `E` 무반응, 유일한 인접 후보의 `F` 선택, 빈 슬롯→수집→다음 scene 유지, 선택된 모델·blocker 제거와 미선택 모델·blocker 유지, 모든 발광·프롬프트 해제와 재입장 복원을 추가로 검증한다.
 - 최종 전체 EditMode 251/251과 PlayMode 95/95가 통과했다. 증거는 `Artifacts/Verification/ConnectedTests/20260814-151258-803.json`, `Artifacts/Verification/ConnectedTests/20260814-151310-363.json`에 있다.
 - Development WebGL 8개 씬 빌드와 Edge headless에서 시작 폭탄만으로 첫 전투 클리어, 왼쪽 광역 후보 수집, 클리어 방 왕복, 다음 전투방 `X` 교체·광역 설치, Console/page error 0을 확인했다. 증거는 `Artifacts/Verification/20260815-000500-bomb-reward-web/`에 있다.
 - 같은 선택이 나머지 주 경로 전투방 2개와 보스 placeholder까지 유지되는 전체 경로 smoke도 통과했다. 증거는 `Artifacts/Verification/20260815-003200-full-boss-path-web/`에 있다.

@@ -54,7 +54,7 @@
                 {
                     "name": "Interact",
                     "type": "Button",
-                    "id": "f61fc77d-a95a-4205-9409-c04df31110e7",
+                    "id": "07a8307c-c6ec-4ff4-ac12-c7a554804b1c",
                     "expectedControlType": "Button",
                     "processors": "",
                     "interactions": "",
@@ -284,8 +284,8 @@
                 },
                 {
                     "name": "",
-                    "id": "4f31e76f-1a7b-42c0-9652-4d8a93095a4f",
-                    "path": "<Keyboard>/e",
+                    "id": "d5ba86d1-d2bd-4cbb-b197-99e8d171d984",
+                    "path": "<Keyboard>/f",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard",
@@ -295,7 +295,7 @@
                 },
                 {
                     "name": "",
-                    "id": "64d1d533-98ff-4550-a4c9-f42f96c4f126",
+                    "id": "c2114a2f-a577-4e04-9648-2d3229d09eab",
                     "path": "<Gamepad>/buttonNorth",
                     "interactions": "",
                     "processors": "",

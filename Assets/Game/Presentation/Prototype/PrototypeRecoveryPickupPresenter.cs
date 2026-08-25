@@ -1,6 +1,5 @@
 using System;
 using BombSwap.Core;
-using TMPro;
 using UnityEngine;
 
 namespace BombSwap
@@ -17,34 +16,24 @@ namespace BombSwap
         private PrototypeDungeonRoomBinder roomBinder;
 
         [SerializeField]
-        private PrototypeInstructionView viewPrefab;
-
-        [SerializeField]
         private int recoveryAmount = DefaultRecoveryAmount;
 
         [SerializeField]
         private Vector2Int pickupCell = Vector2Int.zero;
 
         [SerializeField]
-        private Material pickupMaterial;
+        private PrototypeWorldInteractableView worldView;
 
-        private GameObject _pickupVisual;
-        private TextMeshProUGUI _instructionLabel;
-        private PrototypeInstructionView _viewInstance;
         private GridPosition _corePickupCell;
         private bool _isBlockerRegistered;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
-        public PrototypeInstructionView ViewPrefab => viewPrefab;
-
-        public PrototypeInstructionView ViewInstance => _viewInstance;
-
         public int RecoveryAmount => recoveryAmount;
 
         public Vector2Int PickupCell => pickupCell;
 
-        public Material PickupMaterial => pickupMaterial;
+        public PrototypeWorldInteractableView WorldView => worldView;
 
         public static Color DefaultPickupColor => PickupColor;
 
@@ -53,18 +42,21 @@ namespace BombSwap
         public bool IsConsumed { get; private set; }
 
         public bool IsVisualVisible =>
-            _pickupVisual != null && _pickupVisual.activeSelf;
+            worldView != null && worldView.IsVisualVisible;
+
+        public bool IsAvailabilityEffectVisible =>
+            worldView != null && worldView.IsAvailabilityEffectVisible;
+
+        public bool IsInteractionPromptVisible =>
+            worldView != null && worldView.IsInteractionPromptVisible;
 
         public bool CanInteract { get; private set; }
 
         public DungeonRecoveryUseStatus LastStatus { get; private set; }
 
-        public string InstructionText =>
-            _instructionLabel != null ? _instructionLabel.text : string.Empty;
-
         public void Configure(
             PrototypeDungeonRoomBinder authoredRoomBinder,
-            Material authoredPickupMaterial,
+            PrototypeWorldInteractableView authoredWorldView,
             int authoredRecoveryAmount = DefaultRecoveryAmount,
             Vector2Int? authoredPickupCell = null)
         {
@@ -83,37 +75,10 @@ namespace BombSwap
 
             roomBinder = authoredRoomBinder ??
                 throw new ArgumentNullException(nameof(authoredRoomBinder));
-            pickupMaterial = authoredPickupMaterial ??
-                throw new ArgumentNullException(nameof(authoredPickupMaterial));
+            worldView = authoredWorldView ??
+                throw new ArgumentNullException(nameof(authoredWorldView));
             recoveryAmount = authoredRecoveryAmount;
             pickupCell = authoredPickupCell ?? Vector2Int.zero;
-        }
-
-        public void Configure(
-            PrototypeDungeonRoomBinder authoredRoomBinder,
-            Material authoredPickupMaterial,
-            PrototypeInstructionView authoredViewPrefab,
-            int authoredRecoveryAmount = DefaultRecoveryAmount,
-            Vector2Int? authoredPickupCell = null)
-        {
-            Configure(
-                authoredRoomBinder,
-                authoredPickupMaterial,
-                authoredRecoveryAmount,
-                authoredPickupCell);
-            BindViewPrefab(authoredViewPrefab);
-        }
-
-        public void BindViewPrefab(PrototypeInstructionView authoredViewPrefab)
-        {
-            if (Application.isPlaying && isActiveAndEnabled)
-            {
-                throw new InvalidOperationException(
-                    "Disable PrototypeRecoveryPickupPresenter before changing its view prefab.");
-            }
-
-            viewPrefab = authoredViewPrefab ??
-                throw new ArgumentNullException(nameof(authoredViewPrefab));
         }
 
         private void OnEnable()
@@ -122,11 +87,10 @@ namespace BombSwap
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null ||
-                viewPrefab == null || !viewPrefab.HasRequiredReferences)
+            if (roomBinder == null || roomBinder.RoomSession == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeRecoveryPickupPresenter requires a dungeon room binder and instruction view prefab.");
+                    "PrototypeRecoveryPickupPresenter requires a dungeon room binder.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -150,6 +114,10 @@ namespace BombSwap
 
         private void OnDisable()
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
             if (roomBinder != null && roomBinder.RoomSession != null)
             {
                 roomBinder.RoomSession.Ready -= OnSessionReady;
@@ -161,6 +129,8 @@ namespace BombSwap
                     _isBlockerRegistered = false;
                 }
             }
+            CanInteract = false;
+            UpdateWorldView();
         }
 
         private void OnSessionReady()
@@ -191,10 +161,10 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "Recovery pickup amount must be positive.");
             }
-            if (pickupMaterial == null)
+            if (worldView == null || !worldView.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "Recovery pickup requires a WebGL-compatible shared material.");
+                    "Recovery shrine requires a configured world interaction view.");
             }
 
             _corePickupCell = ToCorePosition(pickupCell);
@@ -204,17 +174,9 @@ namespace BombSwap
                     $"Recovery pickup cell {_corePickupCell} must be walkable floor.");
             }
 
-            CreateInstructionUi();
             IsConsumed = roomBinder.IsCurrentRecoveryConsumed;
-            if (IsConsumed)
-            {
-                _instructionLabel.text = "RECOVERY USED";
-            }
-            else
-            {
-                CreatePickupVisual(_corePickupCell);
-                _instructionLabel.text = string.Empty;
-            }
+            worldView.transform.position =
+                roomBinder.RoomSession.GridSpace.GridToWorld(_corePickupCell);
             IsInitialized = true;
             GridPosition playerCell = roomBinder.RoomSession.CurrentGridPosition;
             EnsureBlockerRegistered(playerCell);
@@ -250,70 +212,30 @@ namespace BombSwap
                 case DungeonRecoveryUseStatus.Restored:
                     IsConsumed = true;
                     CanInteract = false;
-                    UnregisterBlocker();
-                    if (_pickupVisual != null)
-                    {
-                        _pickupVisual.SetActive(false);
-                    }
-                    _instructionLabel.text =
-                        "RECOVERED +" + result.RestoredHealth +
-                        "  |  HP " + result.CurrentHealth + " / " +
-                        roomBinder.RoomSession.MaxHealth;
+                    UpdateWorldView();
                     return true;
                 case DungeonRecoveryUseStatus.AtFullHealth:
-                    _instructionLabel.text =
-                        "HP FULL — RECOVERY SAVED FOR A LATER VISIT";
                     return false;
                 case DungeonRecoveryUseStatus.AlreadyConsumed:
                     IsConsumed = true;
                     CanInteract = false;
-                    UnregisterBlocker();
-                    if (_pickupVisual != null)
-                    {
-                        _pickupVisual.SetActive(false);
-                    }
-                    _instructionLabel.text = "RECOVERY USED";
+                    UpdateWorldView();
                     return false;
                 default:
                     return false;
             }
         }
 
-        public bool TryInteractAt(GridPosition playerCell)
-        {
-            UpdateInteractionAvailability(playerCell);
-            return TryInteract();
-        }
-
         private void UpdateInteractionAvailability(GridPosition playerCell)
         {
             CanInteract = IsInitialized && !IsConsumed &&
                 playerCell.IsCardinallyAdjacentTo(_corePickupCell);
-            if (_instructionLabel != null && !IsConsumed)
-            {
-                _instructionLabel.text = CanInteract
-                    ? "E — RECOVER +" + recoveryAmount
-                    : string.Empty;
-            }
-        }
-
-        private void UnregisterBlocker()
-        {
-            if (!_isBlockerRegistered)
-            {
-                return;
-            }
-            if (!roomBinder.RoomSession.TryUnregisterInteractable(_corePickupCell))
-            {
-                throw new InvalidOperationException(
-                    $"Recovery pickup blocker {_corePickupCell} could not be removed.");
-            }
-            _isBlockerRegistered = false;
+            UpdateWorldView();
         }
 
         private void EnsureBlockerRegistered(GridPosition playerCell)
         {
-            if (_isBlockerRegistered || IsConsumed || playerCell == _corePickupCell)
+            if (_isBlockerRegistered || playerCell == _corePickupCell)
             {
                 return;
             }
@@ -336,41 +258,12 @@ namespace BombSwap
             UpdateInteractionAvailability(playerCell);
         }
 
-        private void CreatePickupVisual(GridPosition cell)
+        private void UpdateWorldView()
         {
-            _pickupVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            _pickupVisual.name = "RecoveryPickupVisual";
-            _pickupVisual.transform.SetParent(transform, true);
-            _pickupVisual.transform.position =
-                roomBinder.RoomSession.GridSpace.GridToWorld(cell) +
-                Vector3.up * 0.55f;
-            _pickupVisual.transform.localScale = new Vector3(0.55f, 0.55f, 0.55f);
-
-            Collider pickupCollider = _pickupVisual.GetComponent<Collider>();
-            if (pickupCollider != null)
+            if (worldView != null)
             {
-                pickupCollider.enabled = false;
+                worldView.SetInteractionState(!IsConsumed, CanInteract);
             }
-            Renderer pickupRenderer = _pickupVisual.GetComponent<Renderer>();
-            if (pickupRenderer == null)
-            {
-                throw new InvalidOperationException(
-                    "Recovery pickup primitive requires a renderer.");
-            }
-            pickupRenderer.sharedMaterial = pickupMaterial;
-        }
-
-        private void CreateInstructionUi()
-        {
-            _viewInstance = Instantiate(viewPrefab, transform, false);
-            _viewInstance.name = viewPrefab.name;
-            if (!_viewInstance.HasRequiredReferences)
-            {
-                throw new InvalidOperationException(
-                    "Instantiated recovery instruction view is missing required references.");
-            }
-
-            _instructionLabel = _viewInstance.InstructionLabel;
         }
 
         private static GridPosition ToCorePosition(Vector2Int cell)

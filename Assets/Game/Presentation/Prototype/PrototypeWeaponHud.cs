@@ -16,15 +16,17 @@ namespace BombSwap
         private PrototypeWeaponHudView viewPrefab;
 
         private PrototypeWeaponHudView _viewInstance;
-        private Image[] _slotBackgrounds;
+        private Image[] _slotBombIcons;
+        private GameObject[] _slotCooldownPanels;
         private Image[] _slotCooldownFills;
-        private TextMeshProUGUI[] _slotLabels;
         private TextMeshProUGUI[] _slotCooldownLabels;
-        private TextMeshProUGUI _swapLabel;
+        private GameObject[] _slotEmptyIndicators;
+        private GameObject[] _slotSelections;
+        private Image[] _slotKeyIcons;
+        private string[] _lastDefinitionIds;
         private int _lastActiveSlot = -1;
         private int _lastFirstCooldownDeciseconds = -1;
         private int _lastSecondCooldownDeciseconds = -1;
-        private int _lastSwapCooldownDeciseconds = int.MinValue;
         private bool _initialized;
 
         public PrototypeGameSession Session => session;
@@ -37,10 +39,10 @@ namespace BombSwap
 
         public int DisplayedActiveSlotIndex => _lastActiveSlot;
 
-        public float FirstSlotReadyFraction =>
+        public float FirstSlotCooldownFraction =>
             _initialized ? _slotCooldownFills[0].fillAmount : 0f;
 
-        public float SecondSlotReadyFraction =>
+        public float SecondSlotCooldownFraction =>
             _initialized ? _slotCooldownFills[1].fillAmount : 0f;
 
         public void Configure(PrototypeGameSession gameSession)
@@ -129,21 +131,32 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "Instantiated weapon HUD view is missing required references.");
             }
-            _slotBackgrounds = new Image[BombWeaponLoadout.SlotCount];
+
+            _slotBombIcons = new Image[BombWeaponLoadout.SlotCount];
+            _slotCooldownPanels = new GameObject[BombWeaponLoadout.SlotCount];
             _slotCooldownFills = new Image[BombWeaponLoadout.SlotCount];
-            _slotLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
             _slotCooldownLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
+            _slotEmptyIndicators = new GameObject[BombWeaponLoadout.SlotCount];
+            _slotSelections = new GameObject[BombWeaponLoadout.SlotCount];
+            _slotKeyIcons = new Image[BombWeaponLoadout.SlotCount];
+            _lastDefinitionIds = new string[BombWeaponLoadout.SlotCount];
             for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
             {
-                _slotBackgrounds[slotIndex] =
-                    _viewInstance.GetSlotBackground(slotIndex);
+                _slotBombIcons[slotIndex] =
+                    _viewInstance.GetSlotBombIcon(slotIndex);
+                _slotCooldownPanels[slotIndex] =
+                    _viewInstance.GetSlotCooldownPanel(slotIndex);
                 _slotCooldownFills[slotIndex] =
                     _viewInstance.GetSlotCooldownFill(slotIndex);
-                _slotLabels[slotIndex] = _viewInstance.GetSlotLabel(slotIndex);
                 _slotCooldownLabels[slotIndex] =
                     _viewInstance.GetSlotCooldownLabel(slotIndex);
+                _slotEmptyIndicators[slotIndex] =
+                    _viewInstance.GetSlotEmptyIndicator(slotIndex);
+                _slotSelections[slotIndex] =
+                    _viewInstance.GetSlotSelection(slotIndex);
+                _slotKeyIcons[slotIndex] =
+                    _viewInstance.GetSlotKeyIcon(slotIndex);
             }
-            _swapLabel = _viewInstance.SwapLabel;
 
             _initialized = true;
             RefreshDisplay();
@@ -156,70 +169,119 @@ namespace BombSwap
             {
                 for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
                 {
-                    bool isActive = slotIndex == activeSlot;
-                    _slotBackgrounds[slotIndex].color =
-                        isActive
-                            ? _viewInstance.ActiveSlotColor
-                            : _viewInstance.InactiveSlotColor;
-                    _slotLabels[slotIndex].fontStyle =
-                        isActive ? FontStyles.Bold : FontStyles.Normal;
+                    SetActiveIfChanged(
+                        _slotSelections[slotIndex],
+                        slotIndex == activeSlot);
+                    _slotKeyIcons[slotIndex].sprite = slotIndex == activeSlot
+                        ? _viewInstance.SelectedSlotKeyIcon
+                        : _viewInstance.UnselectedSlotKeyIcon;
                 }
-
                 _lastActiveSlot = activeSlot;
             }
 
-            RefreshSlot(0, ref _lastFirstCooldownDeciseconds);
-            RefreshSlot(1, ref _lastSecondCooldownDeciseconds);
-
-            int swapDeciseconds = session.HasSecondBombSlot
-                ? ToRemainingDeciseconds(session.BombSwapCooldownRemaining)
-                : -1;
-            if (swapDeciseconds != _lastSwapCooldownDeciseconds)
-            {
-                _swapLabel.text = swapDeciseconds < 0
-                    ? "X  SWAP LOCKED"
-                    : swapDeciseconds == 0
-                        ? "X  SWAP READY"
-                        : "X  SWAP  " + FormatDeciseconds(swapDeciseconds);
-                _swapLabel.color = swapDeciseconds == 0
-                    ? _viewInstance.ReadyColor
-                    : _viewInstance.CoolingColor;
-                _lastSwapCooldownDeciseconds = swapDeciseconds;
-            }
+            TimeSpan swapCooldown = session.BombSwapCooldown;
+            TimeSpan swapCooldownRemaining = session.BombSwapCooldownRemaining;
+            RefreshSlot(
+                0,
+                activeSlot,
+                swapCooldown,
+                swapCooldownRemaining,
+                ref _lastFirstCooldownDeciseconds);
+            RefreshSlot(
+                1,
+                activeSlot,
+                swapCooldown,
+                swapCooldownRemaining,
+                ref _lastSecondCooldownDeciseconds);
         }
 
-        private void RefreshSlot(int slotIndex, ref int lastCooldownDeciseconds)
+        private void RefreshSlot(
+            int slotIndex,
+            int activeSlot,
+            TimeSpan swapCooldown,
+            TimeSpan swapCooldownRemaining,
+            ref int lastCooldownDeciseconds)
         {
             BombWeaponSlotSnapshot slot = session.GetBombSlot(slotIndex);
             if (!slot.HasDefinition)
             {
-                _slotLabels[slotIndex].text = (slotIndex + 1) + "  EMPTY — FIND A BOMB";
-                _slotLabels[slotIndex].fontStyle = FontStyles.Normal;
+                _lastDefinitionIds[slotIndex] = null;
+                _slotBombIcons[slotIndex].sprite = null;
+                SetActiveIfChanged(_slotBombIcons[slotIndex].gameObject, false);
+                SetActiveIfChanged(_slotEmptyIndicators[slotIndex], true);
+                SetActiveIfChanged(_slotCooldownPanels[slotIndex], false);
                 _slotCooldownFills[slotIndex].fillAmount = 0f;
-                _slotCooldownFills[slotIndex].color =
-                    _viewInstance.CoolingColor;
-                _slotCooldownLabels[slotIndex].text = "LOCKED";
+                _slotCooldownLabels[slotIndex].text = string.Empty;
                 lastCooldownDeciseconds = -1;
                 return;
             }
 
-            _slotLabels[slotIndex].text =
-                (slotIndex + 1) + "  " + slot.DefinitionId.Value;
-            _slotCooldownFills[slotIndex].fillAmount = (float)slot.ReadyFraction;
-            _slotCooldownFills[slotIndex].color = slot.IsReady
-                ? _viewInstance.ReadyColor
-                : _viewInstance.CoolingColor;
+            string definitionId = slot.DefinitionId.Value;
+            if (!string.Equals(
+                    _lastDefinitionIds[slotIndex],
+                    definitionId,
+                    StringComparison.Ordinal))
+            {
+                PrototypeBombDefinitionAsset definition =
+                    session.GetBombDefinitionForSlot(slotIndex);
+                if (definition == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Weapon HUD could not resolve bomb definition {definitionId}.");
+                }
 
-            int cooldownDeciseconds = ToRemainingDeciseconds(slot.PlacementCooldownRemaining);
+                _slotBombIcons[slotIndex].sprite =
+                    _viewInstance.GetBombIcon(definition.ExplosionShape);
+                _lastDefinitionIds[slotIndex] = definitionId;
+            }
+
+            SetActiveIfChanged(_slotBombIcons[slotIndex].gameObject, true);
+            SetActiveIfChanged(_slotEmptyIndicators[slotIndex], false);
+
+            TimeSpan displayedCooldown = slot.PlacementCooldown;
+            TimeSpan displayedRemaining = slot.PlacementCooldownRemaining;
+            if (slotIndex != activeSlot &&
+                swapCooldownRemaining > TimeSpan.Zero &&
+                swapCooldownRemaining >= displayedRemaining)
+            {
+                displayedCooldown = swapCooldown;
+                displayedRemaining = swapCooldownRemaining;
+            }
+
+            _slotCooldownFills[slotIndex].fillAmount =
+                CalculateRemainingFraction(displayedRemaining, displayedCooldown);
+            int cooldownDeciseconds = ToRemainingDeciseconds(displayedRemaining);
+            bool isCooling = cooldownDeciseconds > 0;
+            SetActiveIfChanged(_slotCooldownPanels[slotIndex], isCooling);
             if (cooldownDeciseconds == lastCooldownDeciseconds)
             {
                 return;
             }
 
-            _slotCooldownLabels[slotIndex].text = cooldownDeciseconds == 0
-                ? "Z  PLACE READY"
-                : "COOLDOWN  " + FormatDeciseconds(cooldownDeciseconds);
+            _slotCooldownLabels[slotIndex].text = isCooling
+                ? FormatDeciseconds(cooldownDeciseconds)
+                : string.Empty;
             lastCooldownDeciseconds = cooldownDeciseconds;
+        }
+
+        private static float CalculateRemainingFraction(
+            TimeSpan remaining,
+            TimeSpan cooldown)
+        {
+            if (remaining <= TimeSpan.Zero || cooldown <= TimeSpan.Zero)
+            {
+                return 0f;
+            }
+
+            return Mathf.Clamp01((float)(remaining.Ticks / (double)cooldown.Ticks));
+        }
+
+        private static void SetActiveIfChanged(GameObject target, bool active)
+        {
+            if (target.activeSelf != active)
+            {
+                target.SetActive(active);
+            }
         }
 
         private static int ToRemainingDeciseconds(TimeSpan remaining)

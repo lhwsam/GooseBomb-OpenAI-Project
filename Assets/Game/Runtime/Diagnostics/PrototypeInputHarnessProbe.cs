@@ -132,6 +132,7 @@ namespace BombSwap
             session.BossMoved += OnBossMoved;
             session.BossPatternTransitioned += OnBossPatternTransitioned;
             session.BossDamaged += OnBossDamaged;
+            session.BossCombatStarted += OnBossCombatStarted;
             session.RoomCleared += OnRoomCleared;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -178,6 +179,7 @@ namespace BombSwap
                 session.BossMoved -= OnBossMoved;
                 session.BossPatternTransitioned -= OnBossPatternTransitioned;
                 session.BossDamaged -= OnBossDamaged;
+                session.BossCombatStarted -= OnBossCombatStarted;
                 session.RoomCleared -= OnRoomCleared;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -209,19 +211,13 @@ namespace BombSwap
                 _lastBossPattern = session.CurrentBossPattern;
 #endif
             }
-            if (session.HasBoss &&
-                session.CurrentBossState == BossBattleState.Telegraph)
+            if (session.HasBoss && session.IsBossIntroPending)
             {
-                WebGlHarnessReporter.Report("boss-pattern-telegraph");
-                ReportBossPattern(
-                    session.CurrentBossPhase,
-                    session.CurrentBossPattern,
-                    session.CurrentBossState,
-                    session.CurrentBossDangerCells);
-                WebGlHarnessReporter.ReportBossCell(
-                    session.CurrentBossGridPosition);
-                WebGlHarnessReporter.ReportBossMoveTarget(
-                    session.NextBossGridPosition);
+                WebGlHarnessReporter.Report("boss-intro-started");
+            }
+            else
+            {
+                ReportInitialBossState();
             }
             ReportPlayerHealth(session.CurrentHealth);
             WebGlHarnessReporter.ReportPlayerCell(session.CurrentGridPosition);
@@ -239,6 +235,30 @@ namespace BombSwap
                 ReportThrowerCell(session.CurrentThrowerGridPosition);
             }
             _readyReported = true;
+        }
+
+        private void OnBossCombatStarted()
+        {
+            WebGlHarnessReporter.Report("boss-intro-completed");
+            ReportInitialBossState();
+        }
+
+        private void ReportInitialBossState()
+        {
+            if (session.HasBoss &&
+                session.CurrentBossState == BossBattleState.Telegraph)
+            {
+                WebGlHarnessReporter.Report("boss-pattern-telegraph");
+                ReportBossPattern(
+                    session.CurrentBossPhase,
+                    session.CurrentBossPattern,
+                    session.CurrentBossState,
+                    session.CurrentBossDangerCells);
+                WebGlHarnessReporter.ReportBossCell(
+                    session.CurrentBossGridPosition);
+                WebGlHarnessReporter.ReportBossMoveTarget(
+                    session.NextBossGridPosition);
+            }
         }
 
         private void OnPlayerMoved(PlayerMovementStep step)
@@ -920,6 +940,9 @@ namespace BombSwap
                 case PlayerCommandKind.Pause:
                     break;
                 case PlayerCommandKind.RestartRun:
+                    break;
+                case PlayerCommandKind.Interact:
+                    WebGlHarnessReporter.Report("interact");
                     break;
             }
         }

@@ -189,7 +189,7 @@ namespace BombSwap.Tests.PlayMode
             QueueKeyboardState();
             QueueKeyboardState(Key.R);
             QueueKeyboardState();
-            QueueKeyboardState(Key.E);
+            QueueKeyboardState(Key.F);
 
             Assert.That(_commands, Has.Member(PlayerCommand.PlaceBomb()));
             Assert.That(_commands, Has.Member(PlayerCommand.SwapBomb()));
@@ -375,7 +375,7 @@ namespace BombSwap.Tests.PlayMode
             InputAction interact = gameplay.AddAction(
                 BombSwapInputActionNames.Interact,
                 InputActionType.Button,
-                "<Keyboard>/e");
+                "<Keyboard>/f");
             interact.AddBinding("<Gamepad>/buttonNorth");
             return asset;
         }

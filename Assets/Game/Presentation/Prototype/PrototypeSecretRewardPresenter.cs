@@ -1,6 +1,5 @@
 using System;
 using BombSwap.Core;
-using TMPro;
 using UnityEngine;
 
 namespace BombSwap
@@ -17,34 +16,24 @@ namespace BombSwap
         private PrototypeDungeonRoomBinder roomBinder;
 
         [SerializeField]
-        private PrototypeInstructionView viewPrefab;
-
-        [SerializeField]
         private int tokenReward = DefaultTokenReward;
 
         [SerializeField]
         private Vector2Int pickupCell = Vector2Int.zero;
 
         [SerializeField]
-        private Material pickupMaterial;
+        private PrototypeWorldInteractableView worldView;
 
-        private GameObject _cacheVisual;
-        private TextMeshProUGUI _instructionLabel;
-        private PrototypeInstructionView _viewInstance;
         private GridPosition _corePickupCell;
         private bool _isBlockerRegistered;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
-        public PrototypeInstructionView ViewPrefab => viewPrefab;
-
-        public PrototypeInstructionView ViewInstance => _viewInstance;
-
         public int TokenReward => tokenReward;
 
         public Vector2Int PickupCell => pickupCell;
 
-        public Material PickupMaterial => pickupMaterial;
+        public PrototypeWorldInteractableView WorldView => worldView;
 
         public static Color DefaultRewardColor => RewardColor;
 
@@ -53,18 +42,21 @@ namespace BombSwap
         public bool IsCollected { get; private set; }
 
         public bool IsVisualVisible =>
-            _cacheVisual != null && _cacheVisual.activeSelf;
+            worldView != null && worldView.IsVisualVisible;
+
+        public bool IsAvailabilityEffectVisible =>
+            worldView != null && worldView.IsAvailabilityEffectVisible;
+
+        public bool IsInteractionPromptVisible =>
+            worldView != null && worldView.IsInteractionPromptVisible;
 
         public bool CanInteract { get; private set; }
 
         public DungeonSecretRewardCollectStatus LastStatus { get; private set; }
 
-        public string InstructionText =>
-            _instructionLabel != null ? _instructionLabel.text : string.Empty;
-
         public void Configure(
             PrototypeDungeonRoomBinder authoredRoomBinder,
-            Material authoredPickupMaterial,
+            PrototypeWorldInteractableView authoredWorldView,
             int authoredTokenReward = DefaultTokenReward,
             Vector2Int? authoredPickupCell = null)
         {
@@ -83,37 +75,10 @@ namespace BombSwap
 
             roomBinder = authoredRoomBinder ??
                 throw new ArgumentNullException(nameof(authoredRoomBinder));
-            pickupMaterial = authoredPickupMaterial ??
-                throw new ArgumentNullException(nameof(authoredPickupMaterial));
+            worldView = authoredWorldView ??
+                throw new ArgumentNullException(nameof(authoredWorldView));
             tokenReward = authoredTokenReward;
             pickupCell = authoredPickupCell ?? Vector2Int.zero;
-        }
-
-        public void Configure(
-            PrototypeDungeonRoomBinder authoredRoomBinder,
-            Material authoredPickupMaterial,
-            PrototypeInstructionView authoredViewPrefab,
-            int authoredTokenReward = DefaultTokenReward,
-            Vector2Int? authoredPickupCell = null)
-        {
-            Configure(
-                authoredRoomBinder,
-                authoredPickupMaterial,
-                authoredTokenReward,
-                authoredPickupCell);
-            BindViewPrefab(authoredViewPrefab);
-        }
-
-        public void BindViewPrefab(PrototypeInstructionView authoredViewPrefab)
-        {
-            if (Application.isPlaying && isActiveAndEnabled)
-            {
-                throw new InvalidOperationException(
-                    "Disable PrototypeSecretRewardPresenter before changing its view prefab.");
-            }
-
-            viewPrefab = authoredViewPrefab ??
-                throw new ArgumentNullException(nameof(authoredViewPrefab));
         }
 
         private void OnEnable()
@@ -122,11 +87,10 @@ namespace BombSwap
             {
                 return;
             }
-            if (roomBinder == null || roomBinder.RoomSession == null ||
-                viewPrefab == null || !viewPrefab.HasRequiredReferences)
+            if (roomBinder == null || roomBinder.RoomSession == null)
             {
                 throw new InvalidOperationException(
-                    "PrototypeSecretRewardPresenter requires a dungeon room binder and instruction view prefab.");
+                    "PrototypeSecretRewardPresenter requires a dungeon room binder.");
             }
 
             roomBinder.RoomSession.Ready += OnSessionReady;
@@ -150,6 +114,10 @@ namespace BombSwap
 
         private void OnDisable()
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
             if (roomBinder != null && roomBinder.RoomSession != null)
             {
                 roomBinder.RoomSession.Ready -= OnSessionReady;
@@ -161,6 +129,8 @@ namespace BombSwap
                     _isBlockerRegistered = false;
                 }
             }
+            CanInteract = false;
+            UpdateWorldView();
         }
 
         private void OnSessionReady()
@@ -186,10 +156,12 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "PrototypeSecretRewardPresenter can only run in the Secret room.");
             }
-            if (tokenReward <= 0 || pickupMaterial == null)
+            if (tokenReward <= 0 ||
+                worldView == null ||
+                !worldView.HasRequiredReferences)
             {
                 throw new InvalidOperationException(
-                    "Secret reward requires a positive token value and shared material.");
+                    "Secret reward requires a positive token value and configured world interaction view.");
             }
 
             _corePickupCell = ToCorePosition(pickupCell);
@@ -199,17 +171,9 @@ namespace BombSwap
                     $"Secret reward cell {_corePickupCell} must be walkable floor.");
             }
 
-            CreateInstructionUi();
             IsCollected = roomBinder.IsCurrentSecretRewardCollected;
-            if (IsCollected)
-            {
-                _instructionLabel.text = "SECRET CACHE COLLECTED";
-            }
-            else
-            {
-                CreateCacheVisual(_corePickupCell);
-                _instructionLabel.text = string.Empty;
-            }
+            worldView.transform.position =
+                roomBinder.RoomSession.GridSpace.GridToWorld(_corePickupCell);
             IsInitialized = true;
             GridPosition playerCell = roomBinder.RoomSession.CurrentGridPosition;
             EnsureBlockerRegistered(playerCell);
@@ -245,65 +209,28 @@ namespace BombSwap
                 case DungeonSecretRewardCollectStatus.Collected:
                     IsCollected = true;
                     CanInteract = false;
-                    UnregisterBlocker();
-                    if (_cacheVisual != null)
-                    {
-                        _cacheVisual.SetActive(false);
-                    }
-                    _instructionLabel.text =
-                        "SECRET CACHE +" + result.AwardedTokens +
-                        "  |  ROOM TOKENS " + result.CurrentTokens;
+                    UpdateWorldView();
                     return true;
                 case DungeonSecretRewardCollectStatus.AlreadyCollected:
                     IsCollected = true;
                     CanInteract = false;
-                    UnregisterBlocker();
-                    if (_cacheVisual != null)
-                    {
-                        _cacheVisual.SetActive(false);
-                    }
-                    _instructionLabel.text = "SECRET CACHE COLLECTED";
+                    UpdateWorldView();
                     return false;
                 default:
                     return false;
             }
         }
 
-        public bool TryInteractAt(GridPosition playerCell)
-        {
-            UpdateInteractionAvailability(playerCell);
-            return TryInteract();
-        }
-
         private void UpdateInteractionAvailability(GridPosition playerCell)
         {
             CanInteract = IsInitialized && !IsCollected &&
                 playerCell.IsCardinallyAdjacentTo(_corePickupCell);
-            if (_instructionLabel != null && !IsCollected)
-            {
-                _instructionLabel.text = CanInteract
-                    ? "E — OPEN SECRET CACHE"
-                    : string.Empty;
-            }
-        }
-
-        private void UnregisterBlocker()
-        {
-            if (!_isBlockerRegistered)
-            {
-                return;
-            }
-            if (!roomBinder.RoomSession.TryUnregisterInteractable(_corePickupCell))
-            {
-                throw new InvalidOperationException(
-                    $"Secret reward blocker {_corePickupCell} could not be removed.");
-            }
-            _isBlockerRegistered = false;
+            UpdateWorldView();
         }
 
         private void EnsureBlockerRegistered(GridPosition playerCell)
         {
-            if (_isBlockerRegistered || IsCollected || playerCell == _corePickupCell)
+            if (_isBlockerRegistered || playerCell == _corePickupCell)
             {
                 return;
             }
@@ -326,58 +253,12 @@ namespace BombSwap
             UpdateInteractionAvailability(playerCell);
         }
 
-        private void CreateCacheVisual(GridPosition cell)
+        private void UpdateWorldView()
         {
-            _cacheVisual = new GameObject("SecretRewardCacheVisual");
-            _cacheVisual.transform.SetParent(transform, true);
-            _cacheVisual.transform.position =
-                roomBinder.RoomSession.GridSpace.GridToWorld(cell);
-
-            CreateCachePart(
-                "Base",
-                new Vector3(0f, 0.35f, 0f),
-                new Vector3(0.9f, 0.55f, 0.7f));
-            CreateCachePart(
-                "Lid",
-                new Vector3(0f, 0.7f, -0.04f),
-                new Vector3(0.96f, 0.22f, 0.76f));
-        }
-
-        private void CreateCachePart(
-            string objectName,
-            Vector3 localPosition,
-            Vector3 localScale)
-        {
-            GameObject part = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            part.name = objectName;
-            part.transform.SetParent(_cacheVisual.transform, false);
-            part.transform.localPosition = localPosition;
-            part.transform.localScale = localScale;
-            Collider collider = part.GetComponent<Collider>();
-            if (collider != null)
+            if (worldView != null)
             {
-                collider.enabled = false;
+                worldView.SetInteractionState(!IsCollected, CanInteract);
             }
-            Renderer renderer = part.GetComponent<Renderer>();
-            if (renderer == null)
-            {
-                throw new InvalidOperationException(
-                    "Secret reward cache primitive requires a renderer.");
-            }
-            renderer.sharedMaterial = pickupMaterial;
-        }
-
-        private void CreateInstructionUi()
-        {
-            _viewInstance = Instantiate(viewPrefab, transform, false);
-            _viewInstance.name = viewPrefab.name;
-            if (!_viewInstance.HasRequiredReferences)
-            {
-                throw new InvalidOperationException(
-                    "Instantiated secret reward instruction view is missing required references.");
-            }
-
-            _instructionLabel = _viewInstance.InstructionLabel;
         }
 
         private static GridPosition ToCorePosition(Vector2Int cell)

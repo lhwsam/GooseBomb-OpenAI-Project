@@ -1,8 +1,8 @@
-"""Generate Bomb Swap's short 8-bit UI button click sound.
+"""Generate Bomb Swap's muted, tactile UI button click sound.
 
-"Goose Clack" combines a dry beak-like snap, a tiny mechanical body, and a
-quiet C#-to-D confirmation pulse. It is mono and intentionally short so rapid
-menu navigation does not build a distracting tail.
+"Goose Clack" combines a low pressure thud, filtered wood texture, and a tiny
+mechanical latch. It avoids pitch cadences and obvious chip pulses so the click
+feels physical, dark, and compatible with the adaptive BGM.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import numpy as np
 
 
 SAMPLE_RATE = 44_100
-DURATION_SECONDS = 0.145
+DURATION_SECONDS = 0.170
 FRAME_COUNT = round(SAMPLE_RATE * DURATION_SECONDS)
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -31,35 +31,14 @@ OUTPUT_PATH = (
 )
 
 
-def pulse_from_frequency(
-    frequency: np.ndarray,
-    *,
-    duty: float,
-) -> np.ndarray:
-    phase = np.cumsum(frequency, dtype=np.float64) / SAMPLE_RATE
-    return np.where(np.mod(phase, 1.0) < duty, 1.0, -1.0)
-
-
-def add_tone(
-    mix: np.ndarray,
-    *,
-    start_seconds: float,
-    duration_seconds: float,
-    frequency_hz: float,
-    amplitude: float,
-) -> None:
-    start = round(start_seconds * SAMPLE_RATE)
-    count = round(duration_seconds * SAMPLE_RATE)
-    end = min(FRAME_COUNT, start + count)
-    if end <= start:
-        return
-
-    time = np.arange(end - start, dtype=np.float64) / SAMPLE_RATE
-    phase = frequency_hz * time
-    signal = np.where(np.mod(phase, 1.0) < 0.18, 1.0, -1.0)
-    envelope = np.sin(np.linspace(0.0, math.pi, end - start)) ** 2
-    signal = np.round(signal * 7.0) / 7.0
-    mix[start:end] += signal * envelope * amplitude
+def one_pole_lowpass(signal: np.ndarray, cutoff_hz: float) -> np.ndarray:
+    alpha = 1.0 - math.exp(-2.0 * math.pi * cutoff_hz / SAMPLE_RATE)
+    filtered = np.empty_like(signal, dtype=np.float64)
+    state = 0.0
+    for index, sample in enumerate(signal):
+        state += alpha * (float(sample) - state)
+        filtered[index] = state
+    return filtered
 
 
 def synthesize() -> np.ndarray:
@@ -67,50 +46,48 @@ def synthesize() -> np.ndarray:
     mix = np.zeros(FRAME_COUNT, dtype=np.float64)
     rng = np.random.default_rng(0x6005EC1A)
 
-    # The main beak snap falls rapidly from a bright pulse into a dry clack.
-    snap_frequency = 1_420.0 * np.exp(-31.0 * time) + 305.0
-    snap = pulse_from_frequency(snap_frequency, duty=0.14)
-    snap_envelope = (1.0 - np.exp(-2_400.0 * time)) * np.exp(-52.0 * time)
-    mix += np.round(snap * 7.0) / 7.0 * snap_envelope * 0.46
+    # A sine-based pressure thud replaces the pulse oscillator. Its frequency
+    # settles slightly but never forms a recognisable melodic gesture.
+    thud_frequency = 72.0 + 62.0 * np.exp(-24.0 * time)
+    thud_phase = np.cumsum(thud_frequency, dtype=np.float64) / SAMPLE_RATE
+    thud = np.sin(2.0 * math.pi * thud_phase)
+    thud_envelope = (1.0 - np.exp(-1_100.0 * time)) * np.exp(-23.0 * time)
+    mix += thud * thud_envelope * 0.50
 
-    # A deterministic, high-passed noise transient provides the woody edge.
-    noise = rng.choice(np.array([-1.0, 1.0]), size=FRAME_COUNT)
-    high_noise = noise - np.concatenate(([0.0], noise[:-1])) * 0.78
-    noise_envelope = (1.0 - np.exp(-3_200.0 * time)) * np.exp(-76.0 * time)
-    mix += np.round(high_noise * 5.0) / 5.0 * noise_envelope * 0.115
+    # Low-passed deterministic noise supplies a padded wooden surface.
+    noise = rng.normal(0.0, 1.0, size=FRAME_COUNT)
+    wooden_noise = one_pole_lowpass(noise, 720.0)
+    wooden_noise /= max(float(np.max(np.abs(wooden_noise))), 1.0e-9)
+    noise_envelope = (1.0 - np.exp(-1_250.0 * time)) * np.exp(-43.0 * time)
+    mix += wooden_noise * noise_envelope * 0.18
 
-    # A small low body makes the click readable on laptop speakers without a
-    # long bass tail that would muddy fast navigation.
-    body_frequency = 205.0 * np.exp(-24.0 * time) + 92.0
-    body_phase = np.cumsum(body_frequency, dtype=np.float64) / SAMPLE_RATE
-    body = 1.0 - 4.0 * np.abs(np.mod(body_phase, 1.0) - 0.5)
-    body_envelope = (1.0 - np.exp(-1_100.0 * time)) * np.exp(-34.0 * time)
-    mix += np.round(body * 15.0) / 15.0 * body_envelope * 0.16
+    # A non-melodic wooden resonance and a second filtered latch impulse give
+    # the click definition without a bright arcade snap.
+    wood_envelope = (1.0 - np.exp(-850.0 * time)) * np.exp(-36.0 * time)
+    mix += np.sin(2.0 * math.pi * 172.0 * time + 0.22) * wood_envelope * 0.105
 
-    # A restrained C#5 -> D5 pulse resolves the project's dangerous leading
-    # tone without turning every click into a melodic notification.
-    add_tone(
-        mix,
-        start_seconds=0.019,
-        duration_seconds=0.028,
-        frequency_hz=554.365,
-        amplitude=0.055,
+    latch_start = round(0.026 * SAMPLE_RATE)
+    latch_count = round(0.042 * SAMPLE_RATE)
+    latch_time = np.arange(latch_count, dtype=np.float64) / SAMPLE_RATE
+    latch_noise = one_pole_lowpass(
+        rng.normal(0.0, 1.0, size=latch_count),
+        520.0,
     )
-    add_tone(
-        mix,
-        start_seconds=0.047,
-        duration_seconds=0.034,
-        frequency_hz=587.330,
-        amplitude=0.046,
+    latch_noise /= max(float(np.max(np.abs(latch_noise))), 1.0e-9)
+    latch_envelope = (1.0 - np.exp(-900.0 * latch_time)) * np.exp(-72.0 * latch_time)
+    mix[latch_start:latch_start + latch_count] += (
+        latch_noise * latch_envelope * 0.085
     )
+
+    mix = one_pole_lowpass(mix, 1_500.0)
 
     mix -= np.mean(mix)
     peak = float(np.max(np.abs(mix)))
-    mix *= 0.70 / max(peak, 1.0e-9)
+    mix *= 0.58 / max(peak, 1.0e-9)
 
     # Keep the transient immediate while landing both file edges on zero.
-    attack_frames = round(0.0007 * SAMPLE_RATE)
-    release_frames = round(0.014 * SAMPLE_RATE)
+    attack_frames = round(0.0015 * SAMPLE_RATE)
+    release_frames = round(0.038 * SAMPLE_RATE)
     attack_ramp = np.sin(
         np.linspace(0.0, math.pi / 2.0, attack_frames)
     ) ** 2
@@ -120,8 +97,9 @@ def synthesize() -> np.ndarray:
     mix[:attack_frames] *= attack_ramp
     mix[-release_frames:] *= release_ramp[::-1]
 
-    # Retain deliberate chip grain in a 16-bit delivery file.
-    mix = np.round(mix * 511.0) / 511.0
+    # Keep only a fine synthetic grain; coarse 8-bit steps made the previous
+    # version read as an arcade UI cue.
+    mix = np.round(mix * 2047.0) / 2047.0
     mix[0] = 0.0
     mix[-1] = 0.0
     return mix.astype(np.float32, copy=False)

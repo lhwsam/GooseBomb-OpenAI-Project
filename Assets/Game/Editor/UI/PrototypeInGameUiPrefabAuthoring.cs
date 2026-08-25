@@ -30,13 +30,6 @@ namespace BombSwap.Editor.UI
             PrefabFolder + "/PrototypePauseCanvas.prefab";
         public const string RunCompletionPrefabPath =
             PrefabFolder + "/PrototypeRunCompletionCanvas.prefab";
-        public const string BombRewardPrefabPath =
-            PrefabFolder + "/PrototypeBombRewardCanvas.prefab";
-        public const string RecoveryInstructionPrefabPath =
-            PrefabFolder + "/PrototypeRecoveryPickupCanvas.prefab";
-        public const string SecretRewardPrefabPath =
-            PrefabFolder + "/PrototypeSecretRewardCanvas.prefab";
-
         public const string WeaponHudResourcePath =
             "UI/PrototypeWeaponHudCanvas";
         public const string HealthHudResourcePath =
@@ -53,12 +46,16 @@ namespace BombSwap.Editor.UI
             "UI/PrototypePauseCanvas";
         public const string RunCompletionResourcePath =
             "UI/PrototypeRunCompletionCanvas";
-        public const string BombRewardResourcePath =
-            "UI/PrototypeBombRewardCanvas";
-        public const string RecoveryInstructionResourcePath =
-            "UI/PrototypeRecoveryPickupCanvas";
-        public const string SecretRewardResourcePath =
-            "UI/PrototypeSecretRewardCanvas";
+        public const string CrossBombIconPath =
+            "Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Cross.png";
+        public const string AreaBombIconPath =
+            "Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Area.png";
+        public const string LineBombIconPath =
+            "Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Line.png";
+        public const string WeaponKeyIconAtlasPath =
+            "Assets/Game/Content/UI/Sprites/CC0/Game Prompts/Transparent/Letters.png";
+        public const string SelectedWeaponKeyIconName = "Letters_51";
+        public const string UnselectedWeaponKeyIconName = "Letters_49";
 
         private const string MinimapBackgroundAtlasPath =
             "Assets/ThirdParty/UI/BlackandWhiteUI.png/BlackandWhiteUI.png";
@@ -81,19 +78,13 @@ namespace BombSwap.Editor.UI
                 PrototypeHealthHudView healthHud,
                 PrototypeDungeonMinimapView minimap,
                 PrototypePauseView pause,
-                PrototypeRunCompletionView runCompletion,
-                PrototypeInstructionView bombReward,
-                PrototypeInstructionView recoveryInstruction,
-                PrototypeInstructionView secretReward)
+                PrototypeRunCompletionView runCompletion)
             {
                 WeaponHud = weaponHud;
                 HealthHud = healthHud;
                 Minimap = minimap;
                 Pause = pause;
                 RunCompletion = runCompletion;
-                BombReward = bombReward;
-                RecoveryInstruction = recoveryInstruction;
-                SecretReward = secretReward;
             }
 
             public PrototypeWeaponHudView WeaponHud { get; }
@@ -105,12 +96,6 @@ namespace BombSwap.Editor.UI
             public PrototypePauseView Pause { get; }
 
             public PrototypeRunCompletionView RunCompletion { get; }
-
-            public PrototypeInstructionView BombReward { get; }
-
-            public PrototypeInstructionView RecoveryInstruction { get; }
-
-            public PrototypeInstructionView SecretReward { get; }
         }
 
         [MenuItem("Bomb Swap/UI/Create Missing In-Game UI Prefabs and Wire Scenes")]
@@ -127,8 +112,24 @@ namespace BombSwap.Editor.UI
             AssetDatabase.SaveAssets();
             Debug.Log(
                 "In-game UI prefab authoring complete. " +
-                $"Eight canvas views and three reusable child views are valid; " +
+                $"Five canvas views and three reusable child views are valid; " +
                 $"{changedSceneCount} scenes changed.");
+        }
+
+        [MenuItem("Bomb Swap/UI/Wire Weapon HUD Key Icons")]
+        private static void WireWeaponHudKeyIconsFromMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before wiring weapon HUD key icons.");
+            }
+
+            EnsureWeaponHudPrefab(true);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Wired PrototypeWeaponHudCanvas KeyIcon references: " +
+                "selected=Letters_51 (Z), unselected=Letters_49 (X).");
         }
 
         [MenuItem("Bomb Swap/UI/Repair Health HUD Boss Label References")]
@@ -150,12 +151,26 @@ namespace BombSwap.Editor.UI
                 "Health HUD boss name, phase, and health value labels are wired.");
         }
 
+        [MenuItem("Bomb Swap/UI/Repair Weapon HUD References")]
+        private static void RepairWeaponHudReferencesFromMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before repairing the weapon HUD prefab.");
+            }
+
+            EnsureAssetFolder(PrefabFolder);
+            EnsureWeaponHudPrefab(true);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Weapon HUD bomb icons, cooldown panels, empty states, and selections are wired.");
+        }
+
         public static PrefabSet EnsurePrefabAssets()
         {
             EnsureAssetFolder(PrefabFolder);
-            PrototypeWeaponHudView weapon = EnsurePrefab(
-                WeaponHudPrefabPath,
-                CreateWeaponHudPrefab);
+            PrototypeWeaponHudView weapon = EnsureWeaponHudPrefab(false);
             PrototypeHealthHeartView healthHeart = EnsurePrefab(
                 HealthHeartPrefabPath,
                 CreateHealthHeartPrefab);
@@ -175,42 +190,18 @@ namespace BombSwap.Editor.UI
             PrototypeRunCompletionView completion = EnsurePrefab(
                 RunCompletionPrefabPath,
                 CreateRunCompletionPrefab);
-            PrototypeInstructionView bombReward = EnsurePrefab(
-                BombRewardPrefabPath,
-                () => CreateInstructionPrefab(
-                    "PrototypeBombRewardCanvas",
-                    BombRewardPrefabPath,
-                    "BombRewardInstruction",
-                    new Vector2(0f, -24f),
-                    Color.white,
-                    "BOMB REWARD — WALK LEFT / RIGHT"));
-            PrototypeInstructionView recovery = EnsurePrefab(
-                RecoveryInstructionPrefabPath,
-                () => CreateInstructionPrefab(
-                    "PrototypeRecoveryPickupCanvas",
-                    RecoveryInstructionPrefabPath,
-                    "RecoveryPickupInstruction",
-                    new Vector2(0f, -110f),
-                    PrototypeRecoveryPickupPresenter.DefaultPickupColor,
-                    "RECOVERY +2 — WALK ONTO THE GREEN CAPSULE"));
-            PrototypeInstructionView secretReward = EnsurePrefab(
-                SecretRewardPrefabPath,
-                () => CreateInstructionPrefab(
-                    "PrototypeSecretRewardCanvas",
-                    SecretRewardPrefabPath,
-                    "SecretRewardInstruction",
-                    new Vector2(0f, -110f),
-                    PrototypeSecretRewardPresenter.DefaultRewardColor,
-                    "SECRET CACHE  |  ROOM TOKENS +3"));
+            UiButtonAudioAuthoring.ApplyToPrefabAsset(PausePrefabPath);
+            UiButtonAudioAuthoring.ApplyToPrefabAsset(RunCompletionPrefabPath);
+            pause = AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
+                PausePrefabPath);
+            completion = AssetDatabase.LoadAssetAtPath<PrototypeRunCompletionView>(
+                RunCompletionPrefabPath);
             return new PrefabSet(
                 weapon,
                 health,
                 minimap,
                 pause,
-                completion,
-                bombReward,
-                recovery,
-                secretReward);
+                completion);
         }
 
         public static int WireAllGameScenes(PrefabSet prefabs)
@@ -344,62 +335,6 @@ namespace BombSwap.Editor.UI
                     changed = true;
                 }
 
-                PrototypeBombRewardPresenter[] bombRewards = roots
-                    .SelectMany(root => root.GetComponentsInChildren<
-                        PrototypeBombRewardPresenter>(true))
-                    .ToArray();
-                for (int index = 0; index < bombRewards.Length; index++)
-                {
-                    if (bombRewards[index].ViewPrefab == prefabs.BombReward)
-                    {
-                        continue;
-                    }
-                    Undo.RecordObject(
-                        bombRewards[index],
-                        "Bind Bomb Reward View Prefab");
-                    bombRewards[index].BindViewPrefab(prefabs.BombReward);
-                    EditorUtility.SetDirty(bombRewards[index]);
-                    changed = true;
-                }
-
-                PrototypeRecoveryPickupPresenter[] recoveries = roots
-                    .SelectMany(root => root.GetComponentsInChildren<
-                        PrototypeRecoveryPickupPresenter>(true))
-                    .ToArray();
-                for (int index = 0; index < recoveries.Length; index++)
-                {
-                    if (recoveries[index].ViewPrefab ==
-                        prefabs.RecoveryInstruction)
-                    {
-                        continue;
-                    }
-                    Undo.RecordObject(
-                        recoveries[index],
-                        "Bind Recovery Instruction View Prefab");
-                    recoveries[index].BindViewPrefab(
-                        prefabs.RecoveryInstruction);
-                    EditorUtility.SetDirty(recoveries[index]);
-                    changed = true;
-                }
-
-                PrototypeSecretRewardPresenter[] secretRewards = roots
-                    .SelectMany(root => root.GetComponentsInChildren<
-                        PrototypeSecretRewardPresenter>(true))
-                    .ToArray();
-                for (int index = 0; index < secretRewards.Length; index++)
-                {
-                    if (secretRewards[index].ViewPrefab == prefabs.SecretReward)
-                    {
-                        continue;
-                    }
-                    Undo.RecordObject(
-                        secretRewards[index],
-                        "Bind Secret Reward View Prefab");
-                    secretRewards[index].BindViewPrefab(prefabs.SecretReward);
-                    EditorUtility.SetDirty(secretRewards[index]);
-                    changed = true;
-                }
-
                 if (!changed)
                 {
                     return false;
@@ -442,10 +377,19 @@ namespace BombSwap.Editor.UI
                 panelBackground.color = new Color(0.02f, 0.025f, 0.04f, 0.82f);
                 panelBackground.raycastTarget = false;
 
-                var slotBackgrounds = new Image[BombWeaponLoadout.SlotCount];
+                var slotBombIcons = new Image[BombWeaponLoadout.SlotCount];
+                var slotCooldownPanels = new GameObject[BombWeaponLoadout.SlotCount];
                 var slotFills = new Image[BombWeaponLoadout.SlotCount];
-                var slotLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
                 var cooldownLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
+                var slotEmptyIndicators = new GameObject[BombWeaponLoadout.SlotCount];
+                var slotSelections = new GameObject[BombWeaponLoadout.SlotCount];
+                var slotKeyIcons = new Image[BombWeaponLoadout.SlotCount];
+                Sprite selectedKeyIcon = LoadRequiredSpriteSubAsset(
+                    WeaponKeyIconAtlasPath,
+                    SelectedWeaponKeyIconName);
+                Sprite unselectedKeyIcon = LoadRequiredSpriteSubAsset(
+                    WeaponKeyIconAtlasPath,
+                    UnselectedWeaponKeyIconName);
                 for (int slotIndex = 0;
                      slotIndex < BombWeaponLoadout.SlotCount;
                      slotIndex++)
@@ -453,37 +397,35 @@ namespace BombSwap.Editor.UI
                     CreateWeaponSlot(
                         panel,
                         slotIndex,
-                        out slotBackgrounds[slotIndex],
+                        out slotBombIcons[slotIndex],
+                        out slotCooldownPanels[slotIndex],
                         out slotFills[slotIndex],
-                        out slotLabels[slotIndex],
-                        out cooldownLabels[slotIndex]);
+                        out cooldownLabels[slotIndex],
+                        out slotEmptyIndicators[slotIndex],
+                        out slotSelections[slotIndex],
+                        out slotKeyIcons[slotIndex]);
+                    slotKeyIcons[slotIndex].sprite = slotIndex == 0
+                        ? selectedKeyIcon
+                        : unselectedKeyIcon;
                 }
-
-                TextMeshProUGUI swapLabel = PrototypeUiFactory.CreateText(
-                    "SwapStatus",
-                    panel,
-                    18f,
-                    TextAlignmentOptions.Center,
-                    FontStyles.Bold);
-                SetRect(
-                    swapLabel.rectTransform,
-                    new Vector2(0f, 0f),
-                    new Vector2(1f, 0f),
-                    new Vector2(0.5f, 0f),
-                    new Vector2(0f, 6f),
-                    new Vector2(-16f, 24f));
-                swapLabel.text = "X  SWAP READY";
-                swapLabel.color = Color.white;
 
                 PrototypeWeaponHudView view =
                     root.AddComponent<PrototypeWeaponHudView>();
                 view.BindAuthoredView(
                     root.GetComponent<Canvas>(),
-                    slotBackgrounds,
+                    slotBombIcons,
+                    slotCooldownPanels,
                     slotFills,
-                    slotLabels,
                     cooldownLabels,
-                    swapLabel);
+                    slotEmptyIndicators,
+                    slotSelections,
+                    LoadRequiredSprite(CrossBombIconPath),
+                    LoadRequiredSprite(AreaBombIconPath),
+                    LoadRequiredSprite(LineBombIconPath));
+                view.BindKeyIcons(
+                    slotKeyIcons,
+                    selectedKeyIcon,
+                    unselectedKeyIcon);
                 return SavePrefabView(root, WeaponHudPrefabPath, view);
             }
             finally
@@ -821,67 +763,15 @@ namespace BombSwap.Editor.UI
                     new Vector2(0.51f, 0.27f),
                     new Vector2(0.73f, 0.38f));
 
-                TextMeshProUGUI status = PrototypeUiFactory.CreateText(
-                    "Status",
-                    backdrop,
-                    19f,
-                    TextAlignmentOptions.Center,
-                    FontStyles.Normal,
-                    TextWrappingModes.Normal);
-                SetAnchors(
-                    status.rectTransform,
-                    new Vector2(0.1f, 0.15f),
-                    new Vector2(0.9f, 0.25f));
-                status.text = "R 키로 즉시 다시 시작";
-                status.color = new Color(0.78f, 0.84f, 0.92f, 1f);
-
                 PrototypeRunCompletionView view =
                     root.AddComponent<PrototypeRunCompletionView>();
                 view.BindAuthoredView(
                     root.GetComponent<Canvas>(),
                     title,
                     failureCause,
-                    status,
                     restart,
                     lobby);
                 return SavePrefabView(root, RunCompletionPrefabPath, view);
-            }
-            finally
-            {
-                DestroyTemporaryRoot(root);
-            }
-        }
-
-        private static PrototypeInstructionView CreateInstructionPrefab(
-            string objectName,
-            string assetPath,
-            string labelName,
-            Vector2 anchoredPosition,
-            Color labelColor,
-            string previewText)
-        {
-            GameObject root = CreateCanvasRoot(objectName, 110, false);
-            try
-            {
-                TextMeshProUGUI instruction = PrototypeUiFactory.CreateText(
-                    labelName,
-                    root.transform,
-                    22f,
-                    TextAlignmentOptions.Center,
-                    FontStyles.Bold);
-                RectTransform rect = instruction.rectTransform;
-                rect.anchorMin = new Vector2(0.5f, 1f);
-                rect.anchorMax = new Vector2(0.5f, 1f);
-                rect.pivot = new Vector2(0.5f, 1f);
-                rect.anchoredPosition = anchoredPosition;
-                rect.sizeDelta = new Vector2(1100f, 58f);
-                instruction.color = labelColor;
-                instruction.text = previewText;
-
-                PrototypeInstructionView view =
-                    root.AddComponent<PrototypeInstructionView>();
-                view.BindAuthoredView(root.GetComponent<Canvas>(), instruction);
-                return SavePrefabView(root, assetPath, view);
             }
             finally
             {
@@ -963,10 +853,13 @@ namespace BombSwap.Editor.UI
         private static void CreateWeaponSlot(
             RectTransform panel,
             int slotIndex,
-            out Image background,
+            out Image bombIcon,
+            out GameObject cooldownPanel,
             out Image fill,
-            out TextMeshProUGUI definitionLabel,
-            out TextMeshProUGUI cooldownLabel)
+            out TextMeshProUGUI cooldownLabel,
+            out GameObject emptyIndicator,
+            out GameObject selection,
+            out Image keyIcon)
         {
             RectTransform slot = CreateRect("Slot" + (slotIndex + 1), panel);
             SetRect(
@@ -976,57 +869,70 @@ namespace BombSwap.Editor.UI
                 new Vector2(0.5f, 1f),
                 new Vector2(slotIndex == 0 ? 4f : -4f, -8f),
                 new Vector2(-16f, 82f));
-            background = slot.gameObject.AddComponent<Image>();
+            Image background = slot.gameObject.AddComponent<Image>();
             background.color = InactiveSlotColor;
             background.raycastTarget = false;
-            Outline outline = slot.gameObject.AddComponent<Outline>();
-            outline.effectColor = Color.white;
-            outline.effectDistance = new Vector2(2f, -2f);
 
-            RectTransform bar = CreateRect("CooldownBar", slot);
-            SetRect(
-                bar,
-                new Vector2(0f, 0f),
-                new Vector2(1f, 0f),
-                new Vector2(0.5f, 0f),
-                Vector2.zero,
-                new Vector2(0f, 12f));
-            Image barBackground = bar.gameObject.AddComponent<Image>();
-            barBackground.color = new Color(0.02f, 0.03f, 0.05f, 0.9f);
-            barBackground.raycastTarget = false;
+            RectTransform iconRect = CreateRect("BombIcon", slot);
+            SetAnchors(iconRect, Vector2.zero, Vector2.one);
+            bombIcon = iconRect.gameObject.AddComponent<Image>();
+            bombIcon.preserveAspect = true;
+            bombIcon.raycastTarget = false;
 
-            RectTransform fillRect = CreateRect("ReadyFill", bar);
+            RectTransform cooldownPanelRect = CreateRect("CoolDownPanel", slot);
+            SetAnchors(cooldownPanelRect, Vector2.zero, Vector2.one);
+            cooldownPanel = cooldownPanelRect.gameObject;
+
+            RectTransform fillRect = CreateRect("CooldownBar", cooldownPanelRect);
             SetAnchors(fillRect, Vector2.zero, Vector2.one);
             fill = fillRect.gameObject.AddComponent<Image>();
+            fill.color = new Color(0f, 0f, 0f, 0.7f);
             fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fill.fillMethod = Image.FillMethod.Radial360;
             fill.fillAmount = 1f;
             fill.raycastTarget = false;
 
-            definitionLabel = PrototypeUiFactory.CreateText(
-                "Definition",
-                slot,
-                18f,
-                TextAlignmentOptions.MidlineLeft);
-            definitionLabel.rectTransform.anchorMin = new Vector2(0f, 0.45f);
-            definitionLabel.rectTransform.anchorMax = Vector2.one;
-            definitionLabel.rectTransform.offsetMin = new Vector2(10f, 0f);
-            definitionLabel.rectTransform.offsetMax = new Vector2(-10f, 0f);
-            definitionLabel.text = slotIndex == 0 ? "1  BOMB" : "2  EMPTY";
-            definitionLabel.color = Color.white;
-
             cooldownLabel = PrototypeUiFactory.CreateText(
                 "Cooldown",
-                slot,
-                16f,
-                TextAlignmentOptions.MidlineLeft);
-            cooldownLabel.rectTransform.anchorMin = new Vector2(0f, 0.14f);
-            cooldownLabel.rectTransform.anchorMax = new Vector2(1f, 0.46f);
-            cooldownLabel.rectTransform.offsetMin = new Vector2(10f, 0f);
-            cooldownLabel.rectTransform.offsetMax = new Vector2(-10f, 0f);
-            cooldownLabel.text = "Z  PLACE READY";
+                cooldownPanelRect,
+                24f,
+                TextAlignmentOptions.Center);
+            SetAnchors(cooldownLabel.rectTransform, Vector2.zero, Vector2.one);
+            cooldownLabel.text = "1.0s";
             cooldownLabel.color = Color.white;
+
+            TextMeshProUGUI emptyLabel = PrototypeUiFactory.CreateText(
+                "Empty",
+                slot,
+                22f,
+                TextAlignmentOptions.Center);
+            SetAnchors(emptyLabel.rectTransform, Vector2.zero, Vector2.one);
+            emptyLabel.text = "EMPTY";
+            emptyLabel.color = new Color(0.4f, 0.4f, 0.4f, 1f);
+            emptyIndicator = emptyLabel.gameObject;
+
+            RectTransform selectionRect = CreateRect("Selection", slot);
+            SetAnchors(selectionRect, Vector2.zero, Vector2.one);
+            Image selectionImage = selectionRect.gameObject.AddComponent<Image>();
+            selectionImage.color = new Color(1f, 1f, 1f, 0.18f);
+            selectionImage.raycastTarget = false;
+            selection = selectionRect.gameObject;
+
+            RectTransform keyIconRect = CreateRect("KeyIcon", slot);
+            SetRect(
+                keyIconRect,
+                Vector2.one,
+                Vector2.one,
+                Vector2.one,
+                new Vector2(-4f, -4f),
+                new Vector2(30f, 30f));
+            keyIcon = keyIconRect.gameObject.AddComponent<Image>();
+            keyIcon.preserveAspect = true;
+            keyIcon.raycastTarget = false;
+
+            cooldownPanel.SetActive(false);
+            emptyIndicator.SetActive(slotIndex != 0);
+            selection.SetActive(slotIndex == 0);
         }
 
         private static RectTransform CreatePanel(
@@ -1226,6 +1132,188 @@ namespace BombSwap.Editor.UI
             rect.anchorMax = anchorMax;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        private static PrototypeWeaponHudView EnsureWeaponHudPrefab(
+            bool forceRebind)
+        {
+            Sprite crossIcon = LoadRequiredSprite(CrossBombIconPath);
+            Sprite areaIcon = LoadRequiredSprite(AreaBombIconPath);
+            Sprite lineIcon = LoadRequiredSprite(LineBombIconPath);
+            Sprite selectedKeyIcon = LoadRequiredSpriteSubAsset(
+                WeaponKeyIconAtlasPath,
+                SelectedWeaponKeyIconName);
+            Sprite unselectedKeyIcon = LoadRequiredSpriteSubAsset(
+                WeaponKeyIconAtlasPath,
+                UnselectedWeaponKeyIconName);
+            PrototypeWeaponHudView existing =
+                AssetDatabase.LoadAssetAtPath<PrototypeWeaponHudView>(
+                    WeaponHudPrefabPath);
+            if (existing == null)
+            {
+                return EnsurePrefab(
+                    WeaponHudPrefabPath,
+                    CreateWeaponHudPrefab);
+            }
+
+            bool hasCanonicalIcons =
+                existing.HasRequiredReferences &&
+                existing.GetBombIcon(BombExplosionShape.Cross) == crossIcon &&
+                existing.GetBombIcon(BombExplosionShape.SquareArea) == areaIcon &&
+                existing.GetBombIcon(BombExplosionShape.ForwardLine) == lineIcon &&
+                existing.SelectedSlotKeyIcon == selectedKeyIcon &&
+                existing.UnselectedSlotKeyIcon == unselectedKeyIcon;
+            if (forceRebind || !hasCanonicalIcons)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(
+                    WeaponHudPrefabPath);
+                try
+                {
+                    PrototypeWeaponHudView view =
+                        root.GetComponent<PrototypeWeaponHudView>();
+                    Canvas authoredCanvas = root.GetComponent<Canvas>();
+                    if (view == null || authoredCanvas == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Existing weapon HUD prefab is missing its root View or Canvas.");
+                    }
+
+                    var slotBombIcons = new Image[BombWeaponLoadout.SlotCount];
+                    var slotCooldownPanels =
+                        new GameObject[BombWeaponLoadout.SlotCount];
+                    var slotCooldownFills = new Image[BombWeaponLoadout.SlotCount];
+                    var slotCooldownLabels =
+                        new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
+                    var slotEmptyIndicators =
+                        new GameObject[BombWeaponLoadout.SlotCount];
+                    var slotSelections =
+                        new GameObject[BombWeaponLoadout.SlotCount];
+                    var slotKeyIcons =
+                        new Image[BombWeaponLoadout.SlotCount];
+                    for (int slotIndex = 0;
+                         slotIndex < BombWeaponLoadout.SlotCount;
+                         slotIndex++)
+                    {
+                        Transform slot = FindRequiredDescendant(
+                            root.transform,
+                            "Slot" + (slotIndex + 1));
+                        slotBombIcons[slotIndex] =
+                            FindRequiredComponent<Image>(slot, "BombIcon");
+                        slotCooldownPanels[slotIndex] =
+                            FindRequiredDescendant(slot, "CoolDownPanel").gameObject;
+                        slotCooldownFills[slotIndex] =
+                            FindRequiredComponent<Image>(slot, "CooldownBar");
+                        slotCooldownLabels[slotIndex] =
+                            FindRequiredComponent<TextMeshProUGUI>(
+                                slot,
+                                "Cooldown");
+                        slotEmptyIndicators[slotIndex] =
+                            FindRequiredDescendant(slot, "Empty").gameObject;
+                        slotSelections[slotIndex] =
+                            FindRequiredDescendant(slot, "Selection").gameObject;
+                        slotKeyIcons[slotIndex] =
+                            FindRequiredComponent<Image>(slot, "KeyIcon");
+                    }
+
+                    view.BindAuthoredView(
+                        authoredCanvas,
+                        slotBombIcons,
+                        slotCooldownPanels,
+                        slotCooldownFills,
+                        slotCooldownLabels,
+                        slotEmptyIndicators,
+                        slotSelections,
+                        crossIcon,
+                        areaIcon,
+                        lineIcon);
+                    view.BindKeyIcons(
+                        slotKeyIcons,
+                        selectedKeyIcon,
+                        unselectedKeyIcon);
+                    EditorUtility.SetDirty(view);
+                    PrefabUtility.SaveAsPrefabAsset(root, WeaponHudPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                AssetDatabase.ImportAsset(
+                    WeaponHudPrefabPath,
+                    ImportAssetOptions.ForceUpdate);
+                existing = AssetDatabase.LoadAssetAtPath<PrototypeWeaponHudView>(
+                    WeaponHudPrefabPath);
+            }
+
+            ValidatePrefabView(existing, WeaponHudPrefabPath);
+            return existing;
+        }
+
+        private static Sprite LoadRequiredSprite(string assetPath)
+        {
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+            if (sprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Required weapon HUD sprite is missing or not imported as a Sprite: {assetPath}");
+            }
+            return sprite;
+        }
+
+        private static Sprite LoadRequiredSpriteSubAsset(
+            string assetPath,
+            string spriteName)
+        {
+            Sprite[] matches = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+                .OfType<Sprite>()
+                .Where(sprite => string.Equals(
+                    sprite.name,
+                    spriteName,
+                    StringComparison.Ordinal))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Required weapon HUD sprite {spriteName} was found " +
+                    $"{matches.Length} times at {assetPath}.");
+            }
+            return matches[0];
+        }
+
+        private static Transform FindRequiredDescendant(
+            Transform parent,
+            string objectName)
+        {
+            Transform[] matches = parent
+                .GetComponentsInChildren<Transform>(true)
+                .Where(candidate =>
+                    candidate != parent &&
+                    string.Equals(
+                        candidate.name,
+                        objectName,
+                        StringComparison.Ordinal))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Weapon HUD expects one {objectName} below {parent.name}; found {matches.Length}.");
+            }
+            return matches[0];
+        }
+
+        private static T FindRequiredComponent<T>(
+            Transform parent,
+            string objectName)
+            where T : Component
+        {
+            Transform target = FindRequiredDescendant(parent, objectName);
+            T component = target.GetComponent<T>();
+            if (component == null)
+            {
+                throw new InvalidOperationException(
+                    $"Weapon HUD object {objectName} requires {typeof(T).Name}.");
+            }
+            return component;
         }
 
         private static PrototypeDungeonMinimapView EnsureMinimapPrefab(
@@ -1627,9 +1715,7 @@ namespace BombSwap.Editor.UI
                 (view is PrototypePauseView pause &&
                     pause.HasRequiredReferences) ||
                 (view is PrototypeRunCompletionView completion &&
-                    completion.HasRequiredReferences) ||
-                (view is PrototypeInstructionView instruction &&
-                    instruction.HasRequiredReferences);
+                    completion.HasRequiredReferences);
             if (!isValid)
             {
                 throw new InvalidOperationException(

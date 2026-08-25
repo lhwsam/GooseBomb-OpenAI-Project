@@ -121,7 +121,6 @@ namespace BombSwap
         private PrototypeRunCompletionView viewPrefab;
 
         private PrototypeRunCompletionView _viewInstance;
-        private TextMeshProUGUI _statusLabel;
         private TextMeshProUGUI _failureCauseLabel;
         private Button _restartButton;
         private Button _lobbyButton;
@@ -154,8 +153,6 @@ namespace BombSwap
 
         public string FailureCauseText =>
             _failureCauseLabel != null ? _failureCauseLabel.text : string.Empty;
-
-        public string StatusText => _statusLabel != null ? _statusLabel.text : string.Empty;
 
         public void Configure(
             PrototypeDungeonRoomBinder authoredRoomBinder,
@@ -212,7 +209,6 @@ namespace BombSwap
             _restartRequested = true;
             RestartRequestCount++;
             SetButtonsInteractable(false);
-            _statusLabel.text = "RESTARTING...";
             WebGlHarnessReporter.Report("run-restart-requested");
             try
             {
@@ -222,7 +218,6 @@ namespace BombSwap
             {
                 _restartRequested = false;
                 SetButtonsInteractable(true);
-                _statusLabel.text = "RESTART FAILED - PRESS R TO RETRY";
                 throw;
             }
         }
@@ -244,7 +239,6 @@ namespace BombSwap
             _restartRequested = true;
             LobbyRequestCount++;
             SetButtonsInteractable(false);
-            _statusLabel.text = "RETURNING TO LOBBY...";
             try
             {
                 host.ExitFinishedRunToScene(
@@ -254,7 +248,6 @@ namespace BombSwap
             {
                 _restartRequested = false;
                 SetButtonsInteractable(true);
-                _statusLabel.text = "LOBBY RETURN FAILED";
                 throw;
             }
         }
@@ -433,9 +426,6 @@ namespace BombSwap
 
             _lobbyButton = _viewInstance.LobbyButton;
             _lobbyButton.onClick.AddListener(RequestReturnToLobby);
-
-            _statusLabel = _viewInstance.StatusLabel;
-            _statusLabel.text = "R 키로 즉시 다시 시작";
 
             EventSystem eventSystem = PrototypeUiFactory.EnsureEventSystem();
             eventSystem.SetSelectedGameObject(_restartButton.gameObject);

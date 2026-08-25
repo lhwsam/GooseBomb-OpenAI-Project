@@ -63,6 +63,36 @@ namespace BombSwap.Tests.Harness
                 "DungeonScenes_MinimapShowsCurrentVisitedAndDiscoveredFrontier");
         }
 
+        [MenuItem("Bomb Swap/Verification/Run Boss Intro PlayMode Tests Connected")]
+        private static void RunBossIntroPlayModeMenu()
+        {
+            RunPlayMode(
+                "BombSwap.Tests.PlayMode.PrototypePlayerControllerTests." +
+                "BossIntroGate_FreezesClockAndRejectsGameplayUntilOpenedOnce",
+                "BombSwap.Tests.PlayMode.PrototypePlayerControllerTests." +
+                "BossEncounter_ThrownBombFliesThenBeginsFuseOnLanding",
+                "BombSwap.Tests.PlayMode.PrototypeDungeonRunSessionTests." +
+                "LocalVfxOverrides_ConfiguresBossIntroSpawnAndLightningAsAPair",
+                "BombSwap.Tests.PlayMode.PrototypeDungeonRunSessionTests." +
+                "DungeonBossScene_AuthorsBossInsteadOfRegularCombatEnemies");
+        }
+
+        [MenuItem("Bomb Swap/Verification/Clear Stale Connected Test Run")]
+        private static void ClearStaleRunMenu()
+        {
+            string activeRun = SessionState.GetString(ActiveRunKey, string.Empty);
+            if (string.IsNullOrEmpty(activeRun))
+            {
+                Debug.Log("[ConnectedTestHarness] No stale connected test run exists.");
+                return;
+            }
+
+            SessionState.EraseString(ActiveRunKey);
+            SessionState.EraseString(StartedAtKey);
+            Debug.LogWarning(
+                $"[ConnectedTestHarness] Cleared stale connected test run '{activeRun}'.");
+        }
+
         private static void Schedule(TestMode mode, string[] testNames)
         {
             if (!string.IsNullOrEmpty(SessionState.GetString(ActiveRunKey, string.Empty)))

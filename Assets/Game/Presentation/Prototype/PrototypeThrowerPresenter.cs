@@ -14,6 +14,8 @@ namespace BombSwap
         private static readonly int DieParameterId = Animator.StringToHash("Die");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly IReadOnlyList<GridPosition> NoDangerCells =
+            Array.Empty<GridPosition>();
 
         [SerializeField]
         private PrototypeGameSession session;
@@ -32,6 +34,15 @@ namespace BombSwap
 
         private GameObject instance;
         private readonly List<GameObject> telegraphCells = new List<GameObject>(3);
+        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
+            landedBombDangerCells =
+                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
+        private readonly List<GridPosition> visibleDangerCells =
+            new List<GridPosition>();
+        private readonly HashSet<GridPosition> visibleDangerCellSet =
+            new HashSet<GridPosition>();
+        private IReadOnlyList<GridPosition> currentTargetTelegraphCells =
+            NoDangerCells;
         private Renderer instanceRenderer;
         private Animator animator;
         private MaterialPropertyBlock propertyBlock;
@@ -52,22 +63,15 @@ namespace BombSwap
 
         public bool IsEnemyVisible => instance != null && instance.activeSelf;
 
-        public bool IsTelegraphVisible => ActiveTelegraphCellCount > 0;
+        public bool IsTelegraphVisible => currentTargetTelegraphCells.Count > 0;
 
-        public int ActiveTelegraphCellCount
+        public int ActiveTelegraphCellCount => currentTargetTelegraphCells.Count;
+
+        public int VisibleDangerCellCount => visibleDangerCells.Count;
+
+        public bool HasLandedBombDanger(BombId bombId)
         {
-            get
-            {
-                int count = 0;
-                for (int index = 0; index < telegraphCells.Count; index++)
-                {
-                    if (telegraphCells[index] != null && telegraphCells[index].activeSelf)
-                    {
-                        count++;
-                    }
-                }
-                return count;
-            }
+            return landedBombDangerCells.ContainsKey(bombId);
         }
 
         public int MoveCount { get; private set; }
@@ -102,6 +106,8 @@ namespace BombSwap
             }
 
             session.ThrowerAdvanced += OnThrowerAdvanced;
+            session.ThrowerBombPlaced += OnThrowerBombPlaced;
+            session.BombExploded += OnBombExploded;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -116,6 +122,8 @@ namespace BombSwap
             if (session != null)
             {
                 session.ThrowerAdvanced -= OnThrowerAdvanced;
+                session.ThrowerBombPlaced -= OnThrowerBombPlaced;
+                session.BombExploded -= OnBombExploded;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -138,6 +146,10 @@ namespace BombSwap
             }
             animator = null;
             telegraphCells.Clear();
+            landedBombDangerCells.Clear();
+            visibleDangerCells.Clear();
+            visibleDangerCellSet.Clear();
+            currentTargetTelegraphCells = NoDangerCells;
             IsInitialized = false;
             isShowingDeath = false;
         }
@@ -259,6 +271,36 @@ namespace BombSwap
             ApplyAnimationState(result.State);
         }
 
+        private void OnThrowerBombPlaced(BombSnapshot snapshot)
+        {
+            if (snapshot.OwnerId != session.ThrowerActorId)
+            {
+                return;
+            }
+            if (!session.TryGetBombExplosionPreview(
+                    snapshot.Id,
+                    out IReadOnlyList<GridPosition> affectedCells))
+            {
+                throw new InvalidOperationException(
+                    $"Landed thrower bomb {snapshot.Id} has no explosion preview.");
+            }
+
+            landedBombDangerCells[snapshot.Id] = affectedCells;
+            RefreshDangerCells();
+        }
+
+        private void OnBombExploded(BombExplosion explosion)
+        {
+            if (!session.HasThrower || explosion.OwnerId != session.ThrowerActorId)
+            {
+                return;
+            }
+            if (landedBombDangerCells.Remove(explosion.BombId))
+            {
+                RefreshDangerCells();
+            }
+        }
+
         private void OnEnemyDied(EnemyDamageResult damage)
         {
             if (!session.HasThrower || damage.ActorId != session.ThrowerActorId)
@@ -348,35 +390,69 @@ namespace BombSwap
             {
                 throw new ArgumentNullException(nameof(targets));
             }
-            EnsureTelegraphCapacity(targets.Count);
-            for (int index = 0; index < telegraphCells.Count; index++)
-            {
-                GameObject cell = telegraphCells[index];
-                bool shouldShow = index < targets.Count;
-                if (shouldShow)
-                {
-                    cell.transform.position = session.GridSpace.GridToWorld(targets[index]) +
-                        (Vector3.up * 0.03f);
-                }
-                cell.SetActive(shouldShow);
-            }
+            currentTargetTelegraphCells = targets;
+            RefreshDangerCells();
             pulsePhase = 0f;
         }
 
         private void HideTelegraph()
         {
-            for (int index = 0; index < telegraphCells.Count; index++)
-            {
-                if (telegraphCells[index] != null)
-                {
-                    telegraphCells[index].SetActive(false);
-                }
-            }
+            currentTargetTelegraphCells = NoDangerCells;
+            RefreshDangerCells();
             if (instance != null)
             {
                 instance.transform.localScale = baseScale;
                 ApplyColor(normalColor);
             }
+        }
+
+        private void RefreshDangerCells()
+        {
+            visibleDangerCells.Clear();
+            visibleDangerCellSet.Clear();
+
+            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
+                     landedBombDangerCells)
+            {
+                AddUniqueDangerCells(entry.Value);
+            }
+            AddUniqueDangerCells(currentTargetTelegraphCells);
+            visibleDangerCells.Sort(CompareGridPositions);
+
+            EnsureTelegraphCapacity(visibleDangerCells.Count);
+            for (int index = 0; index < telegraphCells.Count; index++)
+            {
+                GameObject cell = telegraphCells[index];
+                bool shouldShow = index < visibleDangerCells.Count;
+                if (shouldShow)
+                {
+                    cell.transform.position =
+                        session.GridSpace.GridToWorld(visibleDangerCells[index]) +
+                        (Vector3.up * 0.03f);
+                }
+                cell.SetActive(shouldShow);
+            }
+        }
+
+        private void AddUniqueDangerCells(IReadOnlyList<GridPosition> cells)
+        {
+            for (int index = 0; index < cells.Count; index++)
+            {
+                if (visibleDangerCellSet.Add(cells[index]))
+                {
+                    visibleDangerCells.Add(cells[index]);
+                }
+            }
+        }
+
+        private static int CompareGridPositions(
+            GridPosition left,
+            GridPosition right)
+        {
+            int xComparison = left.X.CompareTo(right.X);
+            return xComparison != 0
+                ? xComparison
+                : left.Z.CompareTo(right.Z);
         }
 
         private void EnsureTelegraphCapacity(int count)

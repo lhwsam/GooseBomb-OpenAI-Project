@@ -21,7 +21,7 @@ sequenceDiagram
     View->>View: interpolate, animate, play VFX/audio/UI
 ```
 
-입력은 장치 이름이 아니라 의미로 변환한다. 현재 명령 집합은 `Move`, `PlaceBomb`, `SwapBomb`, `Pause`, `RestartRun`이다. 키보드·게임패드 키 매핑, 브라우저 focus 복구는 InputReader 바깥의 플랫폼 세부사항이다.
+입력은 장치 이름이 아니라 의미로 변환한다. 현재 명령 집합은 `Move`, `PlaceBomb`, `SwapBomb`, `Interact`, `Pause`, `RestartRun`이다. 키보드·게임패드 키 매핑, 브라우저 focus 복구는 InputReader 바깥의 플랫폼 세부사항이다.
 
 현재 구현된 입력 경계는 다음과 같다.
 
@@ -31,7 +31,7 @@ sequenceDiagram
 - focus 또는 application pause 상실 시 활성 이동을 `Move(None)`으로 해제하고 action map과 바인딩 장치 상태를 초기화한다.
 - `CardinalInputInterpreter`는 아날로그·복합 입력을 결정론적인 단일 상하좌우 방향으로 바꾸며, 동일 크기 두 축에 현재 방향이 포함되면 이전 축에 직교하는 새 전환 축을 우선한다.
 - `PlayerMovementSimulation`은 주입 시계 경과량 × cells/s로 Core `GridSubcellPosition`을 진행한다. 방향 해제는 다음 10ms step부터 위치를 멈추고, 새 방향은 다음 step의 변위 축에 적용하며 정수 점유는 셀 경계에서만 전이한다.
-- TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, 전투 활성 시 `ChaserEnemySimulation`과 선택적 `ChargerEnemySimulation`·`ArmoredEnemySimulation`, `BombSimulation`, `BombWeaponLoadout`, 플레이어·각 적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`과 `SwapBomb`은 활성 폭탄 슬롯으로 전달한다. 적 비활성 placeholder는 같은 이동·폭탄·체력을 사용하지만 적 actor를 만들지 않고 처음부터 안전방으로 취급한다.
+- TestSandbox의 `PrototypeGameSession`이 하나의 `GridState`와 `ManualGameClock`을 만들고 `PlayerMovementSimulation`, 전투 활성 시 `ChaserEnemySimulation`과 선택적 `ChargerEnemySimulation`·`ArmoredEnemySimulation`, `BombSimulation`, `BombWeaponLoadout`, 플레이어·각 적 체력 simulation에 공유한다. `Move`는 플레이어 이동으로, `PlaceBomb`과 `SwapBomb`은 활성 폭탄 슬롯으로 전달하고, `Interact`는 현재 cardinal 인접 오브젝트 presenter에 알린다. 적 비활성 placeholder는 같은 이동·폭탄·체력을 사용하지만 적 actor를 만들지 않고 처음부터 안전방으로 취급한다.
 - `PrototypeCombatRoomDefinitionAsset`이 격자 크기·셀 크기·고정/파괴 가능 벽·플레이어/필수 추격자/선택적 돌진형·갑옷 적 spawn의 저작 권위이며, `TestSandboxContext`는 이 자산에서 런타임 격자를 구성한다. 씬 Transform과 장애물은 같은 셀 데이터를 표현하고 Editor validator가 일치 여부를 확인한다.
 - `PrototypePlayerController`는 Core 플레이어 연속 위치를 직접 표시한다. `PrototypeChaserPresenter`, `PrototypeChargerPresenter`, `PrototypeArmoredPresenter`, `PrototypeBombPresenter`, `PrototypePlayerHealthPresenter`는 확정된 적 상태·이동, 정의별 설치·폭발, 피해·사망 결과를 Transform, pooled placeholder, material property block으로 표현한다. `PrototypeBossPresenter`도 Core의 다음 목적지를 Telegraph ghost로 표시하고 확정 `BossMoved` step만 Execute 동안 보간하며 pause 중 멈춘다. 각 presenter는 자신의 규칙을 다시 계산하지 않는다. `PrototypeWeaponHud`는 Core 슬롯 snapshot을 표시하고, `PrototypeHealthHud`는 세션의 확정된 플레이어·보스 체력/phase snapshot을 사건 기반으로 표시한다. 두 HUD 모두 규칙이나 입력을 소유하지 않는다. `PrototypeGameSession`은 실제 pause 상태를 소유하고 입력 재샘플링과 논리 시계 진행 전에 simulation을 차단하며, `PrototypePausePresenter`는 확정 상태를 받아 UI만 표현한다.
 - `PrototypeDungeonMinimapPresenter`는 `DungeonRunState.CreateMinimapSnapshot()`의 현재·방문·직접 인접 방과 확인된 연결만 표현한다. 미공개 Secret 방·연결은 제외하고 실제 출구벽 파괴로 해당 연결이 공개되면 binder 사건에서 즉시 다시 그린다. 시작 scene은 초기화 때 한 번, 이후 scene은 `PrototypeDungeonRunHost.RoomCommitted`의 실제 Core commit 뒤 다시 그리며 `Update` polling이나 별도 persistent 지도 상태를 만들지 않는다. X/Z graph 방향을 UI 오른쪽/위쪽으로 그대로 보존한다.

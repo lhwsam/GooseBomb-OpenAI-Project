@@ -246,7 +246,8 @@ async function main() {
       "dungeon-room-ready-3-bomb-reward-safe",
     );
     await moveToCell(page, 1, -4);
-    await moveToCell(page, 1, 0);
+    await moveToCell(page, 1, -1);
+    await page.keyboard.press("KeyF");
     await waitForEvent(page, "bomb-reward-selected-prototype-line", { timeout: 5_000 });
     checks.push({ name: "line-reward-selection", status: "passed" });
 

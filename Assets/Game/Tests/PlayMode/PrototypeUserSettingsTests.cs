@@ -78,16 +78,22 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
-        public void ValueObject_ClampsVolumesAndScalesFutureScreenShake()
+        public void ValueObject_ClampsVolumesAndTreatsScreenShakeAsBinaryToggle()
         {
             var settings = new PrototypeUserSettings(-1f, 0.25f, 2f, 0.4f);
 
             Assert.That(settings.MasterVolume, Is.Zero);
             Assert.That(settings.BgmVolume, Is.EqualTo(0.25f));
             Assert.That(settings.SfxVolume, Is.EqualTo(1f));
-            Assert.That(settings.ScreenShakeIntensity, Is.EqualTo(0.4f));
-            Assert.That(settings.ScaleScreenShake(2f), Is.EqualTo(0.8f).Within(0.0001f));
+            Assert.That(settings.ScreenShakeIntensity, Is.EqualTo(1f));
+            Assert.That(settings.IsScreenShakeEnabled, Is.True);
+            Assert.That(settings.ScaleScreenShake(2f), Is.EqualTo(2f).Within(0.0001f));
             Assert.That(settings.ScaleScreenShake(-2f), Is.Zero);
+            PrototypeUserSettings disabled = settings.WithScreenShakeEnabled(false);
+            Assert.That(disabled.ScreenShakeIntensity, Is.Zero);
+            Assert.That(disabled.IsScreenShakeEnabled, Is.False);
+            Assert.That(disabled.ScaleScreenShake(2f), Is.Zero);
+            Assert.That(PrototypeUserSettings.Default.IsScreenShakeEnabled, Is.True);
             Assert.That(
                 PrototypeUserSettingsRuntime.LinearToDecibels(0f),
                 Is.EqualTo(PrototypeUserSettingsRuntime.MutedDecibels));

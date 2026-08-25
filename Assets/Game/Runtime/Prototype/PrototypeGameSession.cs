@@ -142,6 +142,8 @@ namespace BombSwap
         private bool _hasThrower;
         private bool _bossSummonedSelfDestruct;
         private TimeSpan _bossSelfDestructForceAt;
+        private bool _bossIntroRequested;
+        private bool _isBossIntroPending;
         private bool _isPaused;
         private FixedStepAccumulator _simulationAccumulator;
         private PrototypePausePresenter _pausePresenter;
@@ -206,6 +208,8 @@ namespace BombSwap
 
         public event Action<bool> PauseStateChanged;
 
+        public event Action BossCombatStarted;
+
         public event Action Ready;
 
         public TestSandboxContext Context => context;
@@ -263,6 +267,11 @@ namespace BombSwap
 
         public bool IsPaused => _isPaused;
 
+        public bool IsBossIntroPending => _isBossIntroPending;
+
+        public bool IsBossCombatStarted =>
+            IsReady && (!HasBoss || !_isBossIntroPending);
+
         public TimeSpan CurrentGameTime => _clock != null ? _clock.Now : TimeSpan.Zero;
 
         public GridPosition CurrentGridPosition =>
@@ -289,6 +298,9 @@ namespace BombSwap
 
         public TimeSpan BombSwapCooldownRemaining =>
             _weapons != null ? _weapons.SwapCooldownRemaining : TimeSpan.Zero;
+
+        public TimeSpan BombSwapCooldown =>
+            _weapons != null ? _weapons.SwapCooldown : TimeSpan.Zero;
 
         public int CurrentHealth => _health != null ? _health.CurrentHealth : 0;
 
@@ -836,6 +848,19 @@ namespace BombSwap
             return false;
         }
 
+        public bool TryGetBombExplosionPreview(
+            BombId bombId,
+            out IReadOnlyList<GridPosition> affectedCells)
+        {
+            if (_bombs != null)
+            {
+                return _bombs.TryGetExplosionPreview(bombId, out affectedCells);
+            }
+
+            affectedCells = Array.Empty<GridPosition>();
+            return false;
+        }
+
         public BombWeaponSlotSnapshot GetBombSlot(int slotIndex)
         {
             if (_weapons == null)
@@ -942,6 +967,10 @@ namespace BombSwap
             {
                 throw new InvalidOperationException("Prototype bomb loadout is not initialized.");
             }
+            if (_isBossIntroPending)
+            {
+                return false;
+            }
             if (!_weapons.TrySwap())
             {
                 return false;
@@ -958,7 +987,7 @@ namespace BombSwap
                 throw new InvalidOperationException(
                     "Prototype bomb placement is not initialized.");
             }
-            if (_health.IsDead || _isPaused)
+            if (_health.IsDead || _isPaused || _isBossIntroPending)
             {
                 return false;
             }
@@ -1044,7 +1073,7 @@ namespace BombSwap
 
         private void Update()
         {
-            if (_isPaused)
+            if (_isPaused || _isBossIntroPending)
             {
                 return;
             }
@@ -1127,11 +1156,7 @@ namespace BombSwap
                     _selfDestruct.TryForceTrigger(out selfDestructAdvance);
                 if (!forceBossSummon)
                 {
-                    selfDestructAdvance = _bossSummonedSelfDestruct &&
-                        _boss != null &&
-                        _boss.IsHeavyAttackActive
-                            ? default
-                            : _selfDestruct.Advance();
+                    selfDestructAdvance = _selfDestruct.Advance();
                 }
                 if (selfDestructAdvance.ShouldArm)
                 {
@@ -1528,6 +1553,7 @@ namespace BombSwap
                     roomDefinition.RetreatAnchors,
                     roomDefinition.SelfDestructAnchors);
             }
+            _isBossIntroPending = bossEnabledForVisit && _bossIntroRequested;
             _roomCleared = !combatEnabledForVisit;
 
         }
@@ -1541,6 +1567,11 @@ namespace BombSwap
         private void OnCommandIssued(PlayerCommand command)
         {
             if (_health.IsDead)
+            {
+                return;
+            }
+
+            if (_isBossIntroPending)
             {
                 return;
             }
@@ -1606,6 +1637,31 @@ namespace BombSwap
             {
                 TogglePause();
             }
+        }
+
+        public void PrepareBossIntroGate()
+        {
+            if (_clock != null)
+            {
+                throw new InvalidOperationException(
+                    "Boss intro must be prepared before session initialization.");
+            }
+
+            _bossIntroRequested = true;
+        }
+
+        public bool BeginBossCombat()
+        {
+            if (!_isBossIntroPending)
+            {
+                return false;
+            }
+
+            _isBossIntroPending = false;
+            _movement.ClearMoveIntent();
+            inputReader.ReleaseMoveIntent();
+            BossCombatStarted?.Invoke();
+            return true;
         }
 
         private void EnsurePausePresenter()
@@ -1722,12 +1778,16 @@ namespace BombSwap
                 SelfDestructAdvanced?.Invoke(result);
                 return;
             }
-            GridPosition position =
-                _selfDestruct.GetCurrentCellAt(explosion.DetonatedAt);
             if ((_selfDestruct.State != SelfDestructEnemyState.Chase &&
                     _selfDestruct.State != SelfDestructEnemyState.WarningChase) ||
-                !_grid.TryGetActorPosition(_selfDestruct.ActorId, out _) ||
-                !Contains(explosion.AffectedCells, position) ||
+                !_grid.TryGetActorPosition(_selfDestruct.ActorId, out _))
+            {
+                return;
+            }
+
+            GridPosition position =
+                _selfDestruct.GetCurrentCellAt(explosion.DetonatedAt);
+            if (!Contains(explosion.AffectedCells, position) ||
                 !_selfDestruct.TryTriggerFromExplosion(
                     explosion.BombId,
                     out SelfDestructEnemyAdvanceResult triggerResult))

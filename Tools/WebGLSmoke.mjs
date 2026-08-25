@@ -1255,9 +1255,14 @@ async function main() {
       page,
       "secret-reward-collected-3",
     );
+    const secretInteractionsBefore = await eventCount(page, "interact");
     await moveToCell(page, 3, 1);
     await moveToCell(page, 0, 1);
-    await moveToCell(page, 0, 0);
+    await page.keyboard.press("KeyF");
+    await waitForEvent(page, "interact", {
+      count: secretInteractionsBefore + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(page, "secret-reward-collected-3", {
       count: secretRewardsBefore + 1,
       timeout: 5_000,
@@ -1310,14 +1315,15 @@ async function main() {
     });
 
     await moveToCell(page, -1, -4);
-    await moveToCell(page, -1, 0);
+    await moveToCell(page, -1, -1);
+    await page.keyboard.press("KeyF");
     await waitForEvent(page, "bomb-reward-selected-prototype-area", {
       timeout: 5_000,
     });
     checks.push({
       name: "bomb-reward-selection",
       status: "passed",
-      detail: "Walking onto the left reward equipped prototype-area into the empty second slot.",
+      detail: "Pressing F beside the left reward chest equipped prototype-area into the empty second slot.",
     });
     await page.keyboard.press("KeyX");
     await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
@@ -1586,9 +1592,14 @@ async function main() {
       page,
       `player-health-recovered-${expectedRestoredHealth}`,
     );
+    const recoveryInteractionsBefore = await eventCount(page, "interact");
     await moveToCell(page, 1, -4);
     await moveToCell(page, 1, 0);
-    await moveToCell(page, 0, 0);
+    await page.keyboard.press("KeyF");
+    await waitForEvent(page, "interact", {
+      count: recoveryInteractionsBefore + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(
       page,
       `player-health-recovered-${expectedRestoredHealth}`,
@@ -1651,8 +1662,10 @@ async function main() {
       "ArrowDown",
       "dungeon-room-ready-7-boss-active",
     );
+    await waitForEvent(page, "boss-intro-started", { timeout: 5_000 });
+    await waitForEvent(page, "boss-intro-completed", { timeout: 10_000 });
     await waitForEvent(page, "boss-pattern-limited-chase-telegraph", {
-      timeout: 5_000,
+      timeout: 10_000,
     });
     await waitForEvent(page, "boss-cell-x-0-z-1", { timeout: 5_000 });
     const firstChargeTelegraphBefore = await eventCount(
@@ -2104,6 +2117,7 @@ async function main() {
       "minimap-current-room-10",
       "minimap-visible-rooms-4",
       "minimap-visible-connections-3",
+      "interact",
       "secret-reward-collected-3",
       "room-reward-tokens-4",
       "dungeon-room-ready-3-bomb-reward-safe",

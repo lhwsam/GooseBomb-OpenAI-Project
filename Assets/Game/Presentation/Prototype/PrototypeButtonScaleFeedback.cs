@@ -55,6 +55,10 @@ namespace BombSwap
         [SerializeField]
         private GameObject[] hoverVisualTargets = Array.Empty<GameObject>();
 
+        [Header("Button audio")]
+        [SerializeField]
+        private PrototypeUiButtonAudioPlayer audioPlayer;
+
         private Button _button;
         private Vector3 _baseScale = Vector3.one;
         private Tween _scaleTween;
@@ -91,6 +95,8 @@ namespace BombSwap
         public Color TargetColor => targetColor;
 
         public int HoverVisualTargetCount => hoverVisualTargets?.Length ?? 0;
+
+        public PrototypeUiButtonAudioPlayer AudioPlayer => audioPlayer;
 
         public void Configure(
             RectTransform authoredVisualTarget,
@@ -158,6 +164,11 @@ namespace BombSwap
                 SetHoverVisualsActive(
                     ResolveVisualState() != VisualState.Normal);
             }
+        }
+
+        public void ConfigureAudio(PrototypeUiButtonAudioPlayer authoredAudioPlayer)
+        {
+            audioPlayer = authoredAudioPlayer;
         }
 
         public GameObject GetHoverVisualTarget(int index)
@@ -300,8 +311,16 @@ namespace BombSwap
 
         public void OnPointerEnter(PointerEventData eventData)
         {
+            bool enteredInteractableButton = !_pointerInside &&
+                _button != null &&
+                _button.IsInteractable();
             _pointerInside = true;
             _ignorePointerSelection = true;
+
+            if (enteredInteractableButton)
+            {
+                audioPlayer?.PlayHover();
+            }
 
             EventSystem pointerEventSystem = EventSystem.current;
             if (pointerEventSystem != null &&
