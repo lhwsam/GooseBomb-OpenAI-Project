@@ -1462,7 +1462,7 @@ namespace BombSwap.Editor.ContentValidation
                     LineExplosionCellPrefabPath,
                     "prototype-line",
                     BombExplosionShape.ForwardLine,
-                    3,
+                    5,
                     errors);
             PrototypeBombDefinitionAsset bossThrowDefinition =
                 ValidatePrototypeBombDefinition(

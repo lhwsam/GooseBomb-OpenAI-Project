@@ -14,33 +14,14 @@ namespace BombSwap
         private static readonly int ChargeParameterId = Animator.StringToHash("Charge");
         private static readonly int RecoverParameterId = Animator.StringToHash("Recover");
         private static readonly int DieParameterId = Animator.StringToHash("Die");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform presentationRoot;
 
-        [SerializeField]
-        private Color telegraphColor = new Color(1f, 0.82f, 0.08f, 1f);
-
-        [SerializeField]
-        private Color chargeColor = new Color(1f, 0.12f, 0.04f, 1f);
-
-        [SerializeField]
-        private Color recoverColor = new Color(0.42f, 0.46f, 0.5f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.14f, 0.02f, 0.02f, 1f);
-
         private GameObject _instance;
-        private Renderer _renderer;
         private Animator _animator;
-        private MaterialPropertyBlock _propertyBlock;
-        private int _colorPropertyId;
-        private Color _normalColor;
         private float _deathRemaining;
         private bool _isShowingDeath;
         private readonly List<GameObject> _telegraphCells = new List<GameObject>();
@@ -66,8 +47,6 @@ namespace BombSwap
         public int ActiveTelegraphCellCount { get; private set; }
 
         public ChargerEnemyState CurrentState { get; private set; }
-
-        public Color CurrentColor { get; private set; }
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -133,7 +112,6 @@ namespace BombSwap
             }
 
             _instance = null;
-            _renderer = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -194,7 +172,6 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ChargerPrefab, presentationRoot);
             _instance.name = "PrototypeChargerVisual";
-            _renderer = _instance.GetComponentInChildren<Renderer>(true);
             _animator = _instance.GetComponentInChildren<Animator>(true);
             if (_animator != null)
             {
@@ -202,13 +179,11 @@ namespace BombSwap
                 _animator.speed = session.IsPaused ? 0f : 1f;
                 _animator.SetBool(IsMovingParameterId, false);
             }
-            InitializeColor();
             _instance.transform.position = ToPresentationPosition(
                 session.CurrentChargerGridPosition);
             _instance.SetActive(session.IsChargerAlive);
             CurrentState = session.CurrentChargerState;
             ApplyAnimationState(CurrentState);
-            ApplyStateColor(CurrentState);
             if (CurrentState == ChargerEnemyState.Telegraph)
             {
                 ShowTelegraphLane(
@@ -236,7 +211,6 @@ namespace BombSwap
                 StateChangeCount++;
                 CurrentState = result.State;
                 ApplyAnimationState(CurrentState);
-                ApplyStateColor(CurrentState);
                 if (CurrentState == ChargerEnemyState.Telegraph)
                 {
                     ShowTelegraphLane(
@@ -282,7 +256,6 @@ namespace BombSwap
                 ResetLivingTriggers();
                 _animator.SetTrigger(DieParameterId);
             }
-            ApplyColor(deathColor);
             _deathRemaining = session.ChargerDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
         }
@@ -353,65 +326,6 @@ namespace BombSwap
             SetMovingAnimation(
                 session.CurrentChargerState == ChargerEnemyState.Track &&
                 session.CurrentChargerLocomotionState == EnemyLocomotionState.Moving);
-        }
-
-        private void InitializeColor()
-        {
-            if (_propertyBlock == null)
-            {
-                _propertyBlock = new MaterialPropertyBlock();
-            }
-
-            Material material = _renderer.sharedMaterial;
-            if (material == null)
-            {
-                throw new InvalidOperationException("Charger prefab renderer requires a material.");
-            }
-            if (material.HasProperty(BaseColorId))
-            {
-                _colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                _colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Charger material requires a supported color property.");
-            }
-
-            _normalColor = material.GetColor(_colorPropertyId);
-            CurrentColor = _normalColor;
-        }
-
-        private void ApplyStateColor(ChargerEnemyState state)
-        {
-            switch (state)
-            {
-                case ChargerEnemyState.Track:
-                    ApplyColor(_normalColor);
-                    break;
-                case ChargerEnemyState.Telegraph:
-                    ApplyColor(telegraphColor);
-                    break;
-                case ChargerEnemyState.Charge:
-                    ApplyColor(chargeColor);
-                    break;
-                case ChargerEnemyState.Recover:
-                    ApplyColor(recoverColor);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
-            }
-        }
-
-        private void ApplyColor(Color color)
-        {
-            _renderer.GetPropertyBlock(_propertyBlock);
-            _propertyBlock.SetColor(_colorPropertyId, color);
-            _renderer.SetPropertyBlock(_propertyBlock);
-            CurrentColor = color;
         }
 
         private void ShowTelegraphLane(

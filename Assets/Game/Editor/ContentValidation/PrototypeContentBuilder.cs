@@ -1358,7 +1358,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.Configure(
                 "prototype-line",
                 2.25f,
-                3,
+                5,
                 bombPrefab,
                 explosionPrefab,
                 0.25f,

@@ -38,7 +38,7 @@
 - `PrototypeWeaponHud`: Core snapshot을 표시한다. 두 슬롯의 장착 폭탄 형태 아이콘, 빈 슬롯, 현재 선택 상태를 구분한다. 활성 슬롯의 `KeyIcon`은 Z(`Letters_51`), 비활성 슬롯은 X(`Letters_49`)이며 성공한 교체 사건을 반영해 두 sprite를 즉시 바꾼다. 선택 슬롯의 panel은 설치 쿨타임을, 비선택 슬롯은 설치·교체 중 더 오래 남은 쿨타임을 표시한다. fill은 해당 쿨타임 시작의 1에서 준비 시점의 0까지 감소하고 남은 시간은 0.1초 단위 `#.#s`다. 준비되면 panel과 문자열을 숨기며 교체 전용 문구는 추가하지 않는다.
 - `PrototypeBombRewardPresenter`: 보상방의 저작된 chest-free 선택물과 후보별 논리 blocker를 소유하고, 확정된 플레이어 셀이 단 하나의 후보에 cardinal 인접한 상태에서 세션의 `Interact` 명령을 받아 선택한다. 선택 성공 시 선택된 모델과 blocker만 제거하고 다른 후보 표현은 남기되 추가 선택은 거부하며, 이 상태를 run loadout에서 재입장 때 복원한다. 장치 상태를 직접 읽지 않는다.
 
-standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-line`(`ForwardLine`, fuse 2.25초, 범위 3, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 직선 후보는 설치 순간의 마지막 바라보기 방향 한 ray만 공격하며 비대칭 청록 설치체가 방향을 표시한다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
+standalone 검증 씬의 고정 조합은 1번 `prototype-cross`(`Cross`, fuse 2초, 범위 2, 설치 1.5초)와 2번 `prototype-area`(`SquareArea`, fuse 1.75초, 범위 1, 설치 2.5초)다. 던전은 `prototype-cross` 하나로 시작하고 첫 보상에서 `prototype-area` 또는 `prototype-line`(`ForwardLine`, fuse 2.25초, 앞쪽 범위 5·원점 포함 총 6셀, 설치 2.25초)를 고른다. 교체 2초와 모든 폭탄 수치는 `Proposed`다. 직선 후보는 설치 순간의 마지막 바라보기 방향 한 ray만 공격하며 비대칭 청록 설치체가 방향을 표시한다. 실제 재미 가설은 자동 테스트만으로 통과시키지 않는다.
 
 ## 불변식
 

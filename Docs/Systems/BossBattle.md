@@ -133,6 +133,7 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - 체력 7 이하 전환 뒤 보스는 중앙으로 복귀하고 `SummonSelfDestruct`를 한 번 실행한다.
 - Core는 저작 소환 앵커 중 비점유 바닥을 고르고 플레이어와 Manhattan 거리가 먼 셀을 안정 좌표 순으로 잠근다.
 - 소환 셀은 Telegraph 위험 셀로 먼저 표시되고 Execute에서 자폭병을 생성한다.
+- Execute의 `SelfDestructSpawned` 사건에서 `PrototypeSelfDestructPresenter`는 보스 첫 입장과 같은 로컬 spawn VFX를 생성 셀 바닥에 한 번 재생한다. VFX가 없으면 표현만 생략하고 생성·점유·AI는 그대로 진행하며, pause와 presenter 비활성화 때 재생·임시 anchor를 정리한다.
 - 자폭병은 기존 BFS·WarningChase·조기 점화·0.75초 fuse를 사용한다.
 - 생성 4.5초 뒤 아직 추격 중이면 현재 셀에서 강제 점화한다. 보스의 돌진 Telegraph/Execute 중에도 자폭병의 시계 관측과 기존 추격은 계속하며, 4.5초 강제 점화 요청만 보류해 최대 위협을 겹치지 않는다. 폭발 셀 조회는 자폭병이 `Chase` 또는 `WarningChase`이고 논리 격자에 남아 있을 때만 최신 simulation interval에서 수행한다.
 - 보스는 `WaitForSelfDestruct`에서 해결 사건을 받을 때까지 강화 투척으로 진행하지 않는다.
@@ -158,9 +159,9 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 ## Unity 연결
 
 - `PrototypeGameSession`: Core 전이, 예약 셀, 비행·착탄, 자폭병 생성/강제 점화, 보스/플레이어 피해, 방 클리어.
-- `PrototypeBossPresenter`: collider와 Rigidbody가 없는 `BossPig` 프리팹의 보스 위치 보간과 Animator를 담당한다. Telegraph 모션은 연속된 `ParityWave` 행들을 하나의 시각 공격으로 묶은 첫 Telegraph 진입에서만 재생하며, 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 고정 돌진은 Charge, 자폭병 소환은 Summon, 개별 `BossBombLaunched.Sequence`의 짝·홀에 따라 ThrowLeft/ThrowRight를 교대하고 사망은 terminal Die로 변환한다. Root Motion은 사용하지 않으며 상태/phase 색, 돌진·소환·parity 위험 셀, parity lightning 풀과 보스 공격 화면 흔들림을 유지한다. 투척 목표의 조기 위험 표시와 정확한 이동 목적지 고스트는 비활성이다.
+- `PrototypeBossPresenter`: collider와 Rigidbody가 없는 `BossPig` 프리팹의 보스 위치 보간과 Animator를 담당한다. Telegraph 모션은 연속된 `ParityWave` 행들을 하나의 시각 공격으로 묶은 첫 Telegraph 진입에서만 재생하며, 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 고정 돌진은 Charge, 자폭병 소환은 Summon, 개별 `BossBombLaunched.Sequence`의 짝·홀에 따라 ThrowLeft/ThrowRight를 교대하고 사망은 terminal Die로 변환한다. Root Motion은 사용하지 않으며 보스 본체는 상태·phase·사망과 관계없이 저작 material 색을 유지한다. 돌진·소환·parity 위험 셀, parity lightning 풀과 보스 공격 화면 흔들림은 유지한다. 투척 목표의 조기 위험 표시와 정확한 이동 목적지 고스트는 비활성이다.
 - `PrototypeBombPresenter`: 정의별 풀, 보스 포물선 비행, 착탄 뒤 fuse 표시와 폭발 셀.
-- `PrototypeSelfDestructPresenter`: 2페이즈 도중 생성 사건을 받아 동적으로 인스턴스를 만든다.
+- `PrototypeSelfDestructPresenter`: 2페이즈 도중 생성 사건을 받아 동적으로 인스턴스를 만들고, 같은 셀에서 `PrototypeLocalVfxOverrides.BossIntroSpawnVfxPrefab`을 일회 재생한다.
 - `PrototypeHealthHud`: 체력 10과 phase 1/2/3을 사건 기반으로 표시한다.
 - `PrototypeBossIntroPresenter`: 보스방 최초 준비 시 카메라 포커스, 로컬 spawn/lightning VFX, 표현 낙하, 착지 흔들림, HUD 공개, 카메라 복귀와 전투 gate 해제를 순서대로 소유한다.
 - `PrototypeBossClearPresenter`: 확정된 보스 사망 뒤 session 정지, 카메라 포커스, 느린 사망 애니메이션, 연속 폭발·화면 흔들림, curtain 전환과 결과 UI gate 해제를 순서대로 소유한다.

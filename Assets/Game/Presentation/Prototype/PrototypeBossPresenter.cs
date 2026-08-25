@@ -89,18 +89,6 @@ namespace BombSwap
         private Color executeColor = new Color(1f, 0.08f, 0.04f, 0.9f);
 
         [SerializeField]
-        private Color recoveryColor = new Color(0.16f, 1f, 0.34f, 1f);
-
-        [SerializeField]
-        private Color phaseTwoColor = new Color(0.72f, 0.18f, 1f, 1f);
-
-        [SerializeField]
-        private Color lastStandColor = new Color(1f, 0.12f, 0.42f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.12f, 0.01f, 0.02f, 1f);
-
-        [SerializeField]
         private Color moveTargetColor = new Color(0.12f, 0.86f, 1f, 1f);
 
         private readonly List<GameObject> _dangerCellInstances = new List<GameObject>();
@@ -121,16 +109,12 @@ namespace BombSwap
             new List<float>();
         private readonly Queue<GridPosition> _movementTargets = new Queue<GridPosition>();
         private GameObject _bossInstance;
-        private Renderer _bossRenderer;
         private Animator _animator;
         private GameObject _moveTargetInstance;
         private Renderer _moveTargetRenderer;
-        private MaterialPropertyBlock _bossPropertyBlock;
         private MaterialPropertyBlock _moveTargetPropertyBlock;
         private MaterialPropertyBlock _dangerCellPropertyBlock;
-        private int _bossColorPropertyId;
         private int _moveTargetColorPropertyId;
-        private Color _baseBossColor;
         private Vector3 _moveVisualFrom;
         private Vector3 _moveVisualTo;
         private float _moveVisualElapsed;
@@ -308,7 +292,6 @@ namespace BombSwap
             }
 
             _bossInstance = null;
-            _bossRenderer = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -407,7 +390,6 @@ namespace BombSwap
             _bossInstance.transform.position =
                 session.GridSpace.GridToWorld(session.CurrentBossGridPosition) +
                 (Vector3.up * definition.VisualHeight);
-            _bossRenderer = _bossInstance.GetComponentInChildren<Renderer>(true);
             _animator = _bossInstance.GetComponentInChildren<Animator>(true);
             if (_animator != null)
             {
@@ -416,17 +398,13 @@ namespace BombSwap
                 _animator.SetBool(AliveParameterId, session.IsBossAlive);
                 _animator.SetBool(IsMovingParameterId, false);
             }
-            _bossColorPropertyId = ResolveColorProperty(_bossRenderer, "Boss");
-            _bossPropertyBlock = new MaterialPropertyBlock();
             _moveTargetPropertyBlock = new MaterialPropertyBlock();
             _dangerCellPropertyBlock = new MaterialPropertyBlock();
-            _baseBossColor = _bossRenderer.sharedMaterial.GetColor(_bossColorPropertyId);
             DisplayedHealth = session.CurrentBossHealth;
             DisplayedBossPosition = session.CurrentBossGridPosition;
             CurrentState = session.CurrentBossState;
             CurrentPhase = session.CurrentBossPhase;
             CurrentPattern = session.CurrentBossPattern;
-            ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
             if (session.IsBossIntroPending)
             {
                 ApplyDangerCells(BossBattleState.Recovery, Array.Empty<GridPosition>());
@@ -632,7 +610,6 @@ namespace BombSwap
                     Mathf.Epsilon);
                 StartNextMovementSegment();
             }
-            ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
             ApplyBossAnimation(CurrentState, CurrentPattern);
             ApplyDangerCells(CurrentState, transition.DangerCells);
             ApplyMoveTarget(CurrentState, transition.NextBossPosition);
@@ -670,7 +647,6 @@ namespace BombSwap
             }
             ApplyDangerCells(CurrentState, Array.Empty<GridPosition>());
             ApplyMoveTarget(CurrentState, default);
-            ApplyBossColor(deathColor);
             _deathRemaining = session.BossDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
         }
@@ -738,10 +714,6 @@ namespace BombSwap
                 CompleteBossIntroLanding();
             }
 
-            ApplyBossState(
-                session.CurrentBossState,
-                session.CurrentBossPhase,
-                session.CurrentBossPattern);
             ApplyBossAnimation(
                 session.CurrentBossState,
                 session.CurrentBossPattern);
@@ -1007,42 +979,6 @@ namespace BombSwap
             _animator.ResetTrigger(ThrowRightParameterId);
         }
 
-        private void ApplyBossState(
-            BossBattleState state,
-            BossPhase phase,
-            BossPatternKind pattern)
-        {
-            switch (state)
-            {
-                case BossBattleState.Telegraph:
-                    ApplyBossColor(GetPhaseColor(phase));
-                    break;
-                case BossBattleState.Execute:
-                    ApplyBossColor(executeColor);
-                    break;
-                case BossBattleState.Recovery:
-                    ApplyBossColor(
-                        pattern == BossPatternKind.Overheat
-                            ? recoveryColor
-                            : GetPhaseColor(phase));
-                    break;
-                case BossBattleState.Defeated:
-                    ApplyBossColor(deathColor);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
-            }
-        }
-
-        private Color GetPhaseColor(BossPhase phase)
-        {
-            return phase == BossPhase.LastStand
-                ? lastStandColor
-                : phase == BossPhase.Two
-                    ? phaseTwoColor
-                    : _baseBossColor;
-        }
-
         private void ApplyDangerCells(
             BossBattleState state,
             IReadOnlyList<GridPosition> dangerCells)
@@ -1195,13 +1131,6 @@ namespace BombSwap
             {
                 _animator.SetBool(IsMovingParameterId, true);
             }
-        }
-
-        private void ApplyBossColor(Color color)
-        {
-            _bossRenderer.GetPropertyBlock(_bossPropertyBlock);
-            _bossPropertyBlock.SetColor(_bossColorPropertyId, color);
-            _bossRenderer.SetPropertyBlock(_bossPropertyBlock);
         }
 
         private void ApplyMoveTargetColor()

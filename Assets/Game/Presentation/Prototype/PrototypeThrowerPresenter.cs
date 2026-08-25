@@ -12,8 +12,6 @@ namespace BombSwap
         private static readonly int ThrowParameterId = Animator.StringToHash("Throw");
         private static readonly int RecoverParameterId = Animator.StringToHash("Recover");
         private static readonly int DieParameterId = Animator.StringToHash("Die");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly IReadOnlyList<GridPosition> NoDangerCells =
             Array.Empty<GridPosition>();
 
@@ -22,12 +20,6 @@ namespace BombSwap
 
         [SerializeField]
         private Transform presentationRoot;
-
-        [SerializeField]
-        private Color telegraphColor = new Color(1f, 0.12f, 0.85f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.12f, 0.01f, 0.1f, 1f);
 
         [SerializeField]
         private float pulseHz = 6f;
@@ -40,11 +32,7 @@ namespace BombSwap
             new HashSet<GridPosition>();
         private IReadOnlyList<GridPosition> currentTargetTelegraphCells =
             NoDangerCells;
-        private Renderer instanceRenderer;
         private Animator animator;
-        private MaterialPropertyBlock propertyBlock;
-        private int colorPropertyId;
-        private Color normalColor;
         private Vector3 baseScale;
         private float pulsePhase;
         private float deathRemaining;
@@ -159,7 +147,6 @@ namespace BombSwap
             {
                 pulsePhase = Mathf.Repeat(pulsePhase + (Time.deltaTime * pulseHz), 1f);
                 float wave = 0.5f + (Mathf.Sin(pulsePhase * Mathf.PI * 2f) * 0.5f);
-                ApplyColor(Color.Lerp(normalColor, telegraphColor, wave));
                 instance.transform.localScale = baseScale * Mathf.Lerp(1f, 1.12f, wave);
             }
             if (isShowingDeath && instance != null)
@@ -194,7 +181,6 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             instance = Instantiate(definition.EnemyPrefab, presentationRoot);
             instance.name = "PrototypeThrowerVisual";
-            instanceRenderer = instance.GetComponentInChildren<Renderer>(true);
             animator = instance.GetComponentInChildren<Animator>(true);
             if (animator != null)
             {
@@ -203,7 +189,6 @@ namespace BombSwap
                 animator.SetBool(IsMovingParameterId, false);
             }
             baseScale = instance.transform.localScale;
-            InitializeColor();
             instance.transform.position = ToPresentationPosition(
                 session.CurrentThrowerGridPosition);
             instance.SetActive(session.IsThrowerAlive);
@@ -279,7 +264,6 @@ namespace BombSwap
             }
             HideTelegraph();
             instance.transform.localScale = baseScale;
-            ApplyColor(deathColor);
             deathRemaining = session.ThrowerDefinition.DeathVisualSeconds;
             isShowingDeath = true;
         }
@@ -359,7 +343,6 @@ namespace BombSwap
             if (instance != null)
             {
                 instance.transform.localScale = baseScale;
-                ApplyColor(normalColor);
             }
         }
 
@@ -419,38 +402,6 @@ namespace BombSwap
                 cell.SetActive(false);
                 telegraphCells.Add(cell);
             }
-        }
-
-        private void InitializeColor()
-        {
-            propertyBlock = new MaterialPropertyBlock();
-            Material material = instanceRenderer.sharedMaterial;
-            if (material == null)
-            {
-                throw new InvalidOperationException(
-                    "Thrower enemy prefab renderer requires a material.");
-            }
-            if (material.HasProperty(BaseColorId))
-            {
-                colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Thrower enemy material requires a supported color property.");
-            }
-            normalColor = material.GetColor(colorPropertyId);
-        }
-
-        private void ApplyColor(Color color)
-        {
-            instanceRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetColor(colorPropertyId, color);
-            instanceRenderer.SetPropertyBlock(propertyBlock);
         }
 
         private Vector3 ToPresentationPosition(GridPosition position)

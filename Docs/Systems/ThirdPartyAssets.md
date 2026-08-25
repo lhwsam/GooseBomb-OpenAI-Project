@@ -48,6 +48,12 @@
 - 플레이어 폭탄의 공개 prefab은 빈 `SparksEffect` 앵커를 커밋한다. 공개 fallback 복귀는 `Bomb Swap/Local Setup/Reset Player Bomb VFX to Public Fallback`을 사용하며, 로컬 VFX 자식이 붙은 prefab과 Git 제외 `BombSwapLocalVfxOverrides.asset`은 공개 브랜치에 커밋하지 않는다.
 - 이력 재작성 전 복구 package는 저장소 밖에만 보관한다. `.unitypackage`는 사용 권한을 만들지 않으며 수신자별 license·seat 조건을 먼저 확인한다.
 
+## 선택 Holograms 로컬 랩
+
+- 공급자 Holograms 원본은 `Assets/ThirdParty/Holograms`에 두고 수정하지 않는다. 프로젝트 전용 실험 코드와 생성 씬도 Git 제외 경계인 `Assets/ThirdParty/BombSwap` 아래에 둔다.
+- `Bomb Swap > Local Setup > Create Hologram VFX Lab`은 실제 `NormalBomb`과 `PlayerDuck`의 외형만 복제해 규칙·입력 컴포넌트를 제거하고, 주황 Grid 홀로그램 폭탄 범위 9셀과 빨간 Scanline 홀로그램 플레이어 피격 교체를 비교하는 `HologramVfxLab.unity`를 생성한다. Open/Validate 메뉴도 같은 경로에 제공한다.
+- 랩은 Build Settings와 `Assets/Game` scene·prefab을 바꾸지 않는다. 실제 게임에 채택할 때는 Presentation 계층의 좁은 어댑터와 package 부재 fallback을 별도 변경으로 설계하고 WebGL에서 셰이더 호환성·가독성·오버드로를 검증한다.
+
 ## 선택 UI Sprite 직접 연결
 
 `Assets/Game/Content/UI/Sprites/CC0`의 아이콘은 private package가 아니라 Git에서 재현하는 공개 콘텐츠다. 폴더의 `README.md`가 라이선스 경계를 기록하며, 사용 중인 Sprite뿐 아니라 같은 CC0 세트의 향후 후보도 원본 PNG와 Unity `.meta`를 함께 추적할 수 있다. 이 경로에는 CC0가 확인되지 않은 이미지나 Asset Store 원본을 섞지 않는다.

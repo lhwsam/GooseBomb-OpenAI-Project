@@ -16,6 +16,7 @@ namespace BombSwap
         public const float BombDangerCellVisualHeight = 0.03f;
         public const string PlayerCrossBombDefinitionId = "prototype-cross";
         public const string PlayerLineBombDefinitionId = "prototype-line";
+        public const string SelfDestructBombDefinitionId = "prototype-self-destruct-blast";
         public const string ThrowerBombDefinitionId = "prototype-thrower-blocker";
         public const string BossThrowBombDefinitionId = "prototype-boss-throw";
         public const string BossChainBombDefinitionId = "prototype-boss-chain";
@@ -628,6 +629,11 @@ namespace BombSwap
                 return _crossExplosionVfxConfiguredExplicitly ||
                     definition.DefinitionId == PlayerCrossBombDefinitionId;
             }
+            if (explosion.OwnerId == session.SelfDestructActorId)
+            {
+                return _crossExplosionVfxConfiguredExplicitly ||
+                    definition.DefinitionId == SelfDestructBombDefinitionId;
+            }
             if (explosion.OwnerId == session.ThrowerActorId)
             {
                 return _crossExplosionVfxConfiguredExplicitly ||
@@ -660,7 +666,7 @@ namespace BombSwap
         {
             return explosion.OwnerId == session.PlayerActorId &&
                 definition.ExplosionShape == BombExplosionShape.ForwardLine &&
-                definition.Range <= 4 &&
+                definition.Range <= 5 &&
                 (_crossExplosionVfxConfiguredExplicitly ||
                  definition.DefinitionId == PlayerLineBombDefinitionId) &&
                 _crossCenterExplosionPrefab != null &&

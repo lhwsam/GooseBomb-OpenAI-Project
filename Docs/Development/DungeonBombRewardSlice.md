@@ -34,7 +34,7 @@
 |---|---|---|---:|---:|---:|---|
 | 시작 폭탄 | `prototype-cross` | `Cross` | 2.0초 | 2 | 1.5초 | 검정 구체·주황 폭발 |
 | 왼쪽 후보 | `prototype-area` | `SquareArea` | 1.75초 | 1(3×3) | 2.5초 | 보라 원통·자홍 폭발 |
-| 오른쪽 후보 | `prototype-line` | `ForwardLine` | 2.25초 | 3 | 2.25초 | 비대칭 청록 방향 표시체·청록 폭발 |
+| 오른쪽 후보 | `prototype-line` | `ForwardLine` | 2.25초 | 5(원점 포함 총 6셀) | 2.25초 | 비대칭 청록 방향 표시체·청록 폭발 |
 
 교체 쿨타임은 2초다. 모든 수치는 `Proposed`다. `prototype-line`은 설치 순간의 마지막 cardinal 바라보기 방향 앞으로만 폭발한다. 방향·벽·연쇄 계약은 [방향성 직선 폭탄 수직 슬라이스](DirectionalLineBombSlice.md)가 소유하며, 선택의 재미와 체감 위력은 아직 사람 플레이테스트 전이다.
 

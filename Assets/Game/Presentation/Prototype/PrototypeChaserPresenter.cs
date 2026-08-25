@@ -10,24 +10,14 @@ namespace BombSwap
         private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
         private static readonly int AttackParameterId = Animator.StringToHash("Attack");
         private static readonly int DieParameterId = Animator.StringToHash("Die");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform presentationRoot;
 
-        [SerializeField]
-        private Color deathColor = new Color(1f, 0.08f, 0.03f, 1f);
-
         private GameObject _instance;
-        private Renderer _renderer;
         private Animator _animator;
-        private MaterialPropertyBlock _propertyBlock;
-        private int _colorPropertyId;
-        private Color _normalColor;
         private float _deathEndsAt;
         private bool _isShowingDeath;
 
@@ -48,8 +38,6 @@ namespace BombSwap
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
-
-        public Color CurrentColor { get; private set; }
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -110,7 +98,6 @@ namespace BombSwap
             }
 
             _instance = null;
-            _renderer = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -164,7 +151,6 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ChaserPrefab, presentationRoot);
             _instance.name = "PrototypeChaserVisual";
-            _renderer = _instance.GetComponentInChildren<Renderer>(true);
             _animator = _instance.GetComponentInChildren<Animator>(true);
             if (_animator != null)
             {
@@ -172,7 +158,6 @@ namespace BombSwap
                 _animator.speed = session.IsPaused ? 0f : 1f;
                 _animator.SetBool(IsMovingParameterId, false);
             }
-            InitializeColor();
             _instance.transform.position = ToPresentationPosition(
                 session.CurrentChaserGridPosition);
             _instance.SetActive(session.IsChaserAlive);
@@ -235,7 +220,6 @@ namespace BombSwap
                 _animator.ResetTrigger(AttackParameterId);
                 _animator.SetTrigger(DieParameterId);
             }
-            ApplyColor(deathColor);
             _deathEndsAt = Time.unscaledTime + session.ChaserDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
         }
@@ -266,44 +250,6 @@ namespace BombSwap
 
             SetMovingAnimation(
                 session.CurrentChaserLocomotionState == EnemyLocomotionState.Moving);
-        }
-
-        private void InitializeColor()
-        {
-            if (_propertyBlock == null)
-            {
-                _propertyBlock = new MaterialPropertyBlock();
-            }
-
-            Material material = _renderer.sharedMaterial;
-            if (material == null)
-            {
-                throw new InvalidOperationException("Chaser prefab renderer requires a material.");
-            }
-            if (material.HasProperty(BaseColorId))
-            {
-                _colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                _colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Chaser material requires a supported color property.");
-            }
-
-            _normalColor = material.GetColor(_colorPropertyId);
-            CurrentColor = _normalColor;
-        }
-
-        private void ApplyColor(Color color)
-        {
-            _renderer.GetPropertyBlock(_propertyBlock);
-            _propertyBlock.SetColor(_colorPropertyId, color);
-            _renderer.SetPropertyBlock(_propertyBlock);
-            CurrentColor = color;
         }
 
         private Vector3 ToPresentationPosition(GridPosition position)

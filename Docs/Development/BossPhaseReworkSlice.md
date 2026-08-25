@@ -18,7 +18,7 @@
 
 - Core: 3 phase 정의, typed pattern tuning, 원자 시퀀스, 다중 이동 결과, 순차 투척 계획·flight 데이터, 상시 플레이어 폭탄 피해, 자폭병 직접 피해·해결 gate.
 - Runtime: 예약 착탄 셀, 발사·착탄 스케줄, 착탄 시 `BombSimulation` 설치, 동적 자폭병 생성·강제 점화, 패턴 피해와 phase 사건.
-- Presentation: 포물선 비행 pool, 이동 segment queue, 동적 자폭병 presenter, LastStand HUD/색, 목적지 ghost 제거.
+- Presentation: 포물선 비행 pool, 이동 segment queue, 동적 자폭병 presenter와 보스 입장 spawn VFX 재사용, LastStand HUD·애니메이션·위험 셀, 목적지 ghost 제거. 보스 본체의 상태·phase 색 변경은 사용하지 않는다.
 - Content: 체력 10/7/2 정의, 6 투척 앵커·3 소환 앵커 arena, 전용 `BossBattlePlaytest` 씬과 Open/Play/Rebuild 메뉴.
 - Tests/Docs: Core·Unity 회귀, 콘텐츠 validator, 설계·시스템·현재 상태 동기화.
 
@@ -46,7 +46,7 @@
 - 착탄 예약 중 플레이어 설치를 거부하고 비행 중 논리 폭탄 점유가 없다.
 - `BossBombLaunched`에서 포물선 시각을 시작하고 `LandsAt`에 논리 폭탄을 설치해 fuse를 시작한다.
 - 동일 frame 사건도 순번 오름차순으로 처리한다.
-- 소환 셀을 예고하고 Execute에서 자폭병 visual/simulation을 동적으로 만든다.
+- 소환 셀을 예고하고 Execute에서 자폭병 visual/simulation을 동적으로 만들며, 실제 생성 셀에서 보스 입장 spawn VFX를 한 번 재생한다.
 - 4.5초 강제 점화는 보스 돌진 최대 위협 구간과 겹치지 않는다.
 - 보스 이동은 확정 결과만 보간하고 pause 동안 멈춘다. 정확한 목적지 ghost는 표시하지 않는다.
 - HUD가 체력 10과 phase 1/2/3을 표시하고 사망 뒤 방 클리어를 한 번만 연결한다.

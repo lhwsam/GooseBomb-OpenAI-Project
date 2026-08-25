@@ -45,7 +45,7 @@
 
 - 구현: 수비 반경, 폭발 중심 기반 고정 panic 가지, 예고·달리기·조기 차단·회복·공격 추격을 Core와 Unity에 연결한다.
 - EditMode: 정의 값·거부 경계, 수비 반경, 네 방향·대각선·동률 선택, 고정 거리, 정확한 시간 경계, 동적 차단, 두 폭발·점유·시계 회귀를 검증한다.
-- PlayMode: 첫 피격의 색·scale과 전체 panic 경로 표시, 단계별 이동 보간·예고 회수, 두 번째 사망·점유 제거·단일 방 클리어를 검증한다.
+- PlayMode: 첫 피격의 scale 축소·본체 material override 부재와 전체 panic 경로 표시, 단계별 이동 보간·예고 회수, 두 번째 사망·점유 제거·단일 방 클리어를 검증한다.
 - Content/Visual: Editor builder로 정의/prefab과 Armor asset/scene을 저장하고 validator 오류 0, 대표 캡처에서 T 갈림길과 예고 경로를 확인한다.
 - WebGL/브라우저: Armor 전용 빌드에서 `Guard → Broken/Telegraph → PanicRun → Recover/Chase → Dead`와 두 폭탄 위치 변경, 기존 전체 던전 키보드·Gamepad 회귀, Console/page error 0을 확인한다.
 - 문서: `EnemyBehavior`, `RoomAuthoring`, `CurrentState`, Testing 문서와 이 계약을 실제 결과로 동기화한다.

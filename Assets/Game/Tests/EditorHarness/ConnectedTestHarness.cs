@@ -70,6 +70,8 @@ namespace BombSwap.Tests.Harness
                 "BombSwap.Tests.PlayMode.PrototypePlayerControllerTests." +
                 "BossIntroGate_FreezesClockAndRejectsGameplayUntilOpenedOnce",
                 "BombSwap.Tests.PlayMode.PrototypePlayerControllerTests." +
+                "BossEncounter_SelfDestructSummonReusesBossSpawnVfx",
+                "BombSwap.Tests.PlayMode.PrototypePlayerControllerTests." +
                 "BossEncounter_ThrownBombFliesThenBeginsFuseOnLanding",
                 "BombSwap.Tests.PlayMode.PrototypeDungeonRunSessionTests." +
                 "LocalVfxOverrides_ConfiguresBossIntroSpawnAndLightningAsAPair",
