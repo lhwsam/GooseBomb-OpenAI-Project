@@ -26,6 +26,8 @@ namespace BombSwap
 
         private GridPosition _corePickupCell;
         private bool _isBlockerRegistered;
+        private PrototypeRewardChestView _rewardChestView;
+        private PrototypeWorldInteractionAudio _interactionAudio;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
@@ -34,6 +36,10 @@ namespace BombSwap
         public Vector2Int PickupCell => pickupCell;
 
         public PrototypeWorldInteractableView WorldView => worldView;
+
+        public PrototypeRewardChestView RewardChestView => _rewardChestView;
+
+        public PrototypeWorldInteractionAudio InteractionAudio => _interactionAudio;
 
         public static Color DefaultRewardColor => RewardColor;
 
@@ -172,6 +178,12 @@ namespace BombSwap
             }
 
             IsCollected = roomBinder.IsCurrentSecretRewardCollected;
+            _rewardChestView = worldView.GetComponent<PrototypeRewardChestView>();
+            _interactionAudio = worldView.GetComponent<PrototypeWorldInteractionAudio>();
+            if (_rewardChestView != null)
+            {
+                _rewardChestView.SetOpen(IsCollected);
+            }
             worldView.transform.position =
                 roomBinder.RoomSession.GridSpace.GridToWorld(_corePickupCell);
             IsInitialized = true;
@@ -210,11 +222,23 @@ namespace BombSwap
                     IsCollected = true;
                     CanInteract = false;
                     UpdateWorldView();
+                    if (_rewardChestView != null)
+                    {
+                        _rewardChestView.SetOpen(true);
+                    }
+                    if (_interactionAudio != null)
+                    {
+                        _interactionAudio.PlaySuccess();
+                    }
                     return true;
                 case DungeonSecretRewardCollectStatus.AlreadyCollected:
                     IsCollected = true;
                     CanInteract = false;
                     UpdateWorldView();
+                    if (_rewardChestView != null)
+                    {
+                        _rewardChestView.SetOpen(true);
+                    }
                     return false;
                 default:
                     return false;

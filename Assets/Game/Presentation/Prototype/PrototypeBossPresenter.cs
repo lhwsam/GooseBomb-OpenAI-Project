@@ -493,6 +493,7 @@ namespace BombSwap
             _bossInstance.SetActive(session.IsBossAlive);
             if (_animator != null)
             {
+                _animator.SetBool(AliveParameterId, session.IsBossAlive);
                 _animator.speed = session.IsPaused ? 0f : 1f;
             }
             _isIntroLanded = true;
@@ -712,6 +713,11 @@ namespace BombSwap
             if (_isIntroPrepared && !_isIntroLanded)
             {
                 CompleteBossIntroLanding();
+            }
+
+            if (_animator != null)
+            {
+                _animator.SetBool(AliveParameterId, session.IsBossAlive);
             }
 
             ApplyBossAnimation(

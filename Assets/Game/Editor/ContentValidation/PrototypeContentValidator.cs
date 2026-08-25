@@ -3240,12 +3240,21 @@ namespace BombSwap.Editor.ContentValidation
                 true,
                 errors);
             ValidateRecoveryShrineGlow(errors);
+            ValidateWorldInteractionAudio(
+                PrototypeWorldInteractionAuthoring.RecoveryShrinePrefabPath,
+                PrototypeWorldInteractionAuthoring.RecoveryDrinkClipPath,
+                errors);
             ValidateWorldInteractablePrefab(
                 PrototypeWorldInteractionAuthoring.RewardChestPrefabPath,
                 true,
                 true,
                 errors);
             ValidateRewardChestGlow(errors);
+            ValidateRewardChestPresentation(errors);
+            ValidateWorldInteractionAudio(
+                PrototypeWorldInteractionAuthoring.RewardChestPrefabPath,
+                PrototypeWorldInteractionAuthoring.RewardChestHingeClipPath,
+                errors);
             ValidateWorldInteractablePrefab(
                 PrototypeWorldInteractionAuthoring.BombRewardChoicePrefabPath,
                 true,
@@ -3510,6 +3519,67 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Reward chest must be centered on its logical cell and use a grounded pulsing halo at least 1.25x its footprint plus one chest-width rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static void ValidateRewardChestPresentation(
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeWorldInteractionAuthoring.RewardChestPrefabPath);
+            PrototypeRewardChestView chestView = prefab != null
+                ? prefab.GetComponent<PrototypeRewardChestView>()
+                : null;
+            if (chestView == null || !chestView.HasRequiredReferences)
+            {
+                errors.Add(
+                    "Reward chest prefab requires configured closed/open roots.");
+                return;
+            }
+            if (!string.Equals(chestView.ClosedRoot.name, "Chest", StringComparison.Ordinal) ||
+                !string.Equals(chestView.OpenRoot.name, "Chest_Open", StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Reward chest presentation roots must be named Chest and Chest_Open.");
+            }
+            if (chestView.ClosedRoot.activeSelf == chestView.OpenRoot.activeSelf ||
+                !chestView.ClosedRoot.activeSelf)
+            {
+                errors.Add(
+                    "Reward chest prefab must be authored closed with Chest active and Chest_Open inactive.");
+            }
+        }
+
+        private static void ValidateWorldInteractionAudio(
+            string prefabPath,
+            string expectedClipPath,
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            PrototypeWorldInteractionAudio interactionAudio = prefab != null
+                ? prefab.GetComponent<PrototypeWorldInteractionAudio>()
+                : null;
+            AudioSource source = interactionAudio != null
+                ? interactionAudio.SuccessAudioSource
+                : null;
+            AudioMixer mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(AudioMixerPath);
+            AudioMixerGroup sfxGroup = mixer != null
+                ? mixer.FindMatchingGroups("SFX").FirstOrDefault()
+                : null;
+            if (interactionAudio == null ||
+                !interactionAudio.HasRequiredReferences ||
+                source == null ||
+                source.playOnAwake ||
+                source.loop ||
+                !Mathf.Approximately(source.spatialBlend, 0f) ||
+                source.outputAudioMixerGroup != sfxGroup ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(source.clip),
+                    expectedClipPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"World interaction prefab '{prefabPath}' must use '{expectedClipPath}' as non-looping 2D SFX without Play On Awake.");
             }
         }
 
@@ -5725,6 +5795,7 @@ namespace BombSwap.Editor.ContentValidation
                     : null;
                 bool matchesVisual = validatesEnvironmentVisuals
                     ? renderers.Length > 0 &&
+                      obstacle.childCount == 1 &&
                       IsExpectedVisualPrefab(visual, woodBoxPrefab)
                     : renderers.Length == 4 && destructibleMaterial != null &&
                       renderers.All(renderer =>

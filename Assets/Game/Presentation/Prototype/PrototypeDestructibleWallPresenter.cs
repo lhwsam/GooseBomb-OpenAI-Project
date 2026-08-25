@@ -14,6 +14,9 @@ namespace BombSwap
         [SerializeField]
         private Transform wallRoot;
 
+        [SerializeField]
+        private PrototypeRandomOneShotAudio breakAudio;
+
         private readonly Dictionary<GridPosition, GameObject> _wallVisuals =
             new Dictionary<GridPosition, GameObject>();
         private bool _initialized;
@@ -21,6 +24,14 @@ namespace BombSwap
         public PrototypeGameSession Session => session;
 
         public Transform WallRoot => wallRoot;
+
+        public PrototypeRandomOneShotAudio BreakAudio => breakAudio;
+
+        public void ConfigureBreakAudio(PrototypeRandomOneShotAudio authoredBreakAudio)
+        {
+            breakAudio = authoredBreakAudio ??
+                throw new ArgumentNullException(nameof(authoredBreakAudio));
+        }
 
         public int ActiveWallVisualCount
         {
@@ -143,6 +154,10 @@ namespace BombSwap
                         $"Destroyed wall {position} must be logical floor before presentation updates.");
                 }
 
+                if (breakAudio != null)
+                {
+                    breakAudio.Play(visual.transform.position);
+                }
                 visual.SetActive(false);
             }
         }

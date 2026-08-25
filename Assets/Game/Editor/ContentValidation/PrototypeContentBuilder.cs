@@ -3965,6 +3965,7 @@ namespace BombSwap.Editor.ContentValidation
             cameraShake.Configure(mainCamera.transform);
             playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
+            PrototypeDestructionAudioAuthoring.Synchronize(scene);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
@@ -4261,6 +4262,7 @@ namespace BombSwap.Editor.ContentValidation
             cameraShake.Configure(mainCamera.transform);
             playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
+            PrototypeDestructionAudioAuthoring.Synchronize(scene);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);

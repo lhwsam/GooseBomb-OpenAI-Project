@@ -1230,6 +1230,10 @@ namespace BombSwap.Tests.PlayMode
                     session.GetCell(new GridPosition(0, 1)).Terrain,
                     Is.EqualTo(GridTerrain.DestructibleWall));
                 Assert.That(wallPresenter.ActiveWallVisualCount, Is.EqualTo(2));
+                Assert.That(wallPresenter.BreakAudio, Is.Not.Null);
+                Assert.That(wallPresenter.BreakAudio.ClipCount, Is.EqualTo(2));
+                Assert.That(wallPresenter.BreakAudio.SpatialBlend, Is.EqualTo(1f));
+                Assert.That(wallPresenter.BreakAudio.MinDistance, Is.EqualTo(3f));
                 Assert.That(healthHud.IsInitialized, Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.False);
                 Assert.That(run.CombatRewardTokenCount, Is.GreaterThan(0));
@@ -1384,6 +1388,8 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.CurrentBossPattern, Is.EqualTo(BossPatternKind.LimitedChase));
                 Assert.That(presenter.VisibleDangerCellCount, Is.EqualTo(0));
                 Assert.That(presenter.IsMoveTargetVisible, Is.False);
+                Assert.That(presenter.Animator, Is.Not.Null);
+                presenter.Animator.SetBool("Alive", false);
 
                 yield return new WaitForSecondsRealtime(0.08f);
                 Assert.That(session.CurrentGameTime, Is.EqualTo(TimeSpan.Zero));
@@ -1400,6 +1406,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(intro.IsCompleted, Is.True);
                 Assert.That(presenter.IsBossVisible, Is.True);
                 Assert.That(presenter.IsIntroLanded, Is.True);
+                Assert.That(presenter.Animator.GetBool("Alive"), Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.True);
                 Assert.That(healthHud.BossPanelAlpha, Is.EqualTo(1f).Within(0.001f));
                 Assert.That(
@@ -2130,8 +2137,21 @@ namespace BombSwap.Tests.PlayMode
                     run.TryTravelTo(hiddenAlternateCombat).Status,
                     Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 Assert.That(reward.IsInitialized, Is.True);
+                Assert.That(secretBinder.DoorPresenter.SecretWallBreakAudio, Is.Not.Null);
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.ClipCount,
+                    Is.EqualTo(2));
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.SpatialBlend,
+                    Is.EqualTo(1f));
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.MinDistance,
+                    Is.EqualTo(8f));
                 Assert.That(reward.IsCollected, Is.False);
                 Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.RewardChestView, Is.Not.Null);
+                Assert.That(reward.RewardChestView.IsOpen, Is.False);
+                Assert.That(reward.InteractionAudio, Is.Not.Null);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
 
                 GridPosition secretPickupCell = new GridPosition(0, 0);
@@ -2164,6 +2184,7 @@ namespace BombSwap.Tests.PlayMode
 
                 Assert.That(reward.IsCollected, Is.True);
                 Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.RewardChestView.IsOpen, Is.True);
                 Assert.That(reward.IsAvailabilityEffectVisible, Is.False);
                 Assert.That(reward.IsInteractionPromptVisible, Is.False);
                 Assert.That(reward.CanInteract, Is.False);
@@ -2218,6 +2239,8 @@ namespace BombSwap.Tests.PlayMode
                     secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
                 Assert.That(reentryReward.IsVisualVisible, Is.True);
+                Assert.That(reentryReward.RewardChestView, Is.Not.Null);
+                Assert.That(reentryReward.RewardChestView.IsOpen, Is.True);
                 Assert.That(reentryReward.IsAvailabilityEffectVisible, Is.False);
                 Assert.That(reentryReward.IsInteractionPromptVisible, Is.False);
                 Assert.That(
@@ -2439,6 +2462,7 @@ namespace BombSwap.Tests.PlayMode
                     damagedPresenter.LastStatus,
                     Is.EqualTo(DungeonRecoveryUseStatus.Restored));
                 Assert.That(damagedPresenter.IsConsumed, Is.True);
+                Assert.That(damagedPresenter.InteractionAudio, Is.Not.Null);
                 Assert.That(damagedPresenter.IsVisualVisible, Is.True);
                 Assert.That(
                     damagedPresenter.IsAvailabilityEffectVisible,
