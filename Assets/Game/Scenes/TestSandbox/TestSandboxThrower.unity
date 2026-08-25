@@ -15492,7 +15492,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRandomOneShotAudio
   clips:
   - {fileID: 8300000, guid: bca86de765a1b7e498b27970f8a880bf, type: 3}
-  - {fileID: 8300000, guid: f421087439ae7c448b0b504e3180fae4, type: 3}
   outputGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
   voiceCount: 4
   spatialBlend: 1
