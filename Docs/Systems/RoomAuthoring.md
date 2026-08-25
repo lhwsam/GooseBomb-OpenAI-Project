@@ -30,7 +30,7 @@
 - 최소 두 개의 퇴로 anchor.
 - 순서가 있는 닫힌 폭탄 유도 순환 경로.
 
-범용 적 spawn 목록과 제약, 일반화된 보상·전환 anchor는 아직 구현하지 않았다. 첫 폭탄 보상만 안전방 shell의 보행 가능한 `(-1,0)`·`(1,0)` 논리 셀을 고정 후보 위치로 사용하고 presenter가 초기화 때 Floor 여부를 검증한다. 첫 구현은 독립 방 prefab 대신 이 데이터와 `TestSandbox` 씬 표현을 연결한다. 향후 prefab으로 분리해도 논리 셀 데이터가 권위 원본이라는 경계는 유지한다.
+범용 적 spawn 목록과 제약, 일반화된 보상·전환 anchor는 아직 구현하지 않았다. 첫 폭탄 보상은 안전방 shell의 보행 가능한 `(-1,0)`·`(1,0)` 논리 셀을 고정 후보 위치로 사용하고 presenter가 초기화 때 Floor 여부를 검증한다. `DungeonReward`에는 상자 모델이 없는 전용 `BombRewardChoice.prefab` 인스턴스를 미리 저작하고, 카탈로그에 따라 달라지는 폭탄 후보 모델만 각 선택물의 `DynamicContentAnchor` 아래에 생성한다. 선택 가능 발광은 모델 중심을 가리는 구체가 아니라 후보보다 넓은 바닥 halo와 후보 폭을 덮는 상승 입자로 저작한다. `RewardChest.prefab`은 비밀 cache와 향후 돈 상자처럼 실제 상자가 필요한 보상에만 사용한다. 논리 셀 데이터가 권위 원본이라는 경계는 유지한다.
 
 ## 현재 수제 전투방 세트
 
@@ -75,11 +75,10 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 ## 회복방 저작 계약
 
 - `DungeonRecovery.unity`는 기존 안전방 shell과 문·HUD·run binder를 재사용하며 적 actor와 클리어 조건을 만들지 않는다.
-- `PrototypeRecoveryPickupPresenter`는 중앙 논리 셀 `(0,0)`을 `Interactable`로 등록한다. Collider나 Transform 접촉이 아니라 cardinal 인접 셀의 확정 플레이어 위치와 `E`/게임패드 North 명령만 회복을 요청한다.
+- `PrototypeRecoveryPickupPresenter`는 중앙 논리 셀 `(0,0)`을 `Interactable`로 등록한다. Collider나 Transform 접촉이 아니라 cardinal 인접 셀의 확정 플레이어 위치와 `F`/게임패드 North 명령만 회복을 요청한다.
 - 직접 scene을 시작해 플레이어가 이미 pickup 셀에 겹친 과거 저작 상태에서는 actor와 blocker를 중복 등록하지 않는다. 플레이어가 그 셀을 처음 이탈한 뒤 blocker를 등록하며, 정상 던전 진입 spawn은 pickup 셀 밖에 두는 것이 권위 계약이다.
 - 회복량 `2`와 1회 사용은 GDD에 없는 `Proposed` 튜닝이다. 실제 소비 여부는 scene이 아니라 Core `DungeonRunState`의 Recovery 노드 상태가 소유한다.
-- 최대 체력에서는 pickup을 소비하지 않아 월드 표현과 논리 blocker가 남고, 유효한 회복이나 이미 소비한 방에서는 둘 다 제거한다. 별도 회복 안내 Canvas는 사용하지 않으며 현재 체력 변화는 공용 체력 HUD로 확인한다.
-- pickup renderer는 `RecoveryPickup.mat`의 URP Lit shared material을 사용한다. 런타임 material 인스턴스를 만들지 않으며 WebGL에서 shader fallback 색으로 보이지 않아야 한다.
+- 중앙에는 공용 `RecoveryShrine.prefab`을 scene 저작한다. 석조 우물 모델은 획득 전후 계속 남고 중앙 논리 blocker도 유지한다. 미소비 상태에는 실시간 `Light` 대신 URP Unlit 발광 코어·반투명 halo·최대 12개 상승 입자로 구성한 `RecoveryShrineGlow`와 인접 시 공용 `F` KeyIcon만 켠다. 유효한 회복이나 이미 소비한 방에서는 glow와 프롬프트만 끄고, 최대 체력에서는 소비하지 않으므로 둘을 유지한다. 별도 회복 안내 Canvas는 사용하지 않으며 현재 체력 변화는 공용 체력 HUD로 확인한다.
 
 ## 비밀방과 금 간 출구 저작 계약
 
@@ -91,10 +90,10 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - `DungeonRoomExitStatus.SecretWall`일 때만 해당 root가 활성화되고 바깥 장식 문 renderer는 숨긴다. 폭발로 공개되면 root도 숨겨 빈 통로를 남기며, 같은 방에 재진입해도 원래 Secret 연결에는 일반 문을 복원하지 않는다. 문·root의 활성 여부는 표현이고 연결 공개 상태는 Core run state가 소유한다.
 - 비밀 연결이 실제 폭발로 처음 공개될 때는 해당 `SecretCracks` root의 world position보다 Y축으로 `0.5` 높은 위치에서 효과를 한 번 재생한다. 씬에 직접 연결한 prefab, Git에서 제외된 `Resources/BombSwapLocalVfxOverrides`의 로컬 prefab, first-party 절차형 fallback 순서로 선택한다. 로컬 패키지 prefab의 저작 회전은 유지하며, 재진입과 상태 재적용에서는 어느 경로도 다시 재생하지 않는다.
 - 미공개 Secret 출구의 저작 출구 셀은 계속 `Floor`다. `PrototypeDungeonRoomBinder`가 이 셀과 Secret 연결 방향을 매핑하고, 확정 폭발의 `AffectedCells`가 셀에 닿으면 같은 run의 해당 연결만 공개한다. 공개 전 바깥 이동은 지형이 아니라 `DungeonRoomExitStatus.SecretWall` 경계 상태가 막는다.
-- `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 해당 셀을 `Interactable`로 막고 Collider 접촉이나 셀 진입이 아니라 cardinal 인접 셀의 `E`/게임패드 North 명령으로만 수집한다.
+- `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 해당 셀을 `Interactable`로 막고 Collider 접촉이나 셀 진입이 아니라 cardinal 인접 셀의 `F`/게임패드 North 명령으로만 수집한다.
 - 직접 scene을 시작해 플레이어가 이미 cache 셀에 겹친 과거 저작 상태도 같은 이탈 후 blocker 등록 호환 경로를 사용한다. 이 예외는 겹친 actor를 가두지 않기 위한 것이며 셀 진입 수집을 다시 허용하지 않는다.
-- cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.
-- 비밀 cache는 미수집일 때 월드 표현과 논리 blocker를 유지하고 수집 뒤 둘 다 제거한다. 별도 비밀방 안내 Canvas는 사용하지 않으며 합계 변화는 공용 토큰 HUD로 확인한다.
+- cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. 소비 상태와 합계는 Core run state가 소유한다.
+- 중앙 cache는 공용 `RewardChest.prefab`을 사용한다. import pivot과 무관하게 상자 footprint를 논리 셀 중심과 바닥에 맞추며, 미수집 availability는 상자보다 넓은 URP Unlit 바닥 halo·최대 12개 상승 입자와 공용 pulse component로 표시한다. 상자 모델과 논리 blocker는 수집 뒤에도 남고 availability effect와 인접 `F` KeyIcon만 수집 뒤 꺼진다. 별도 비밀방 안내 Canvas는 사용하지 않으며 합계 변화는 공용 토큰 HUD로 확인한다.
 
 ## 장갑병 독립 플레이테스트 씬
 
@@ -140,7 +139,7 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - 회전된 room 정의의 모든 셀이 교환된 경계 안에 있고, scene `GridRoot`의 같은 Y 회전 뒤 논리 셀·시각 위치가 일치한다.
 - 폭발을 끊는 벽/기둥과 향후 파괴 가능 벽은 시각적으로 구분되어야 한다.
 - 둘 이상의 폭탄 역할이 도입되면 서로 다른 위치 선택을 만들 공간이 있어야 한다.
-- 보상 후보 visual은 Collider나 Transform 접촉을 규칙으로 사용하지 않는다. 플레이어의 확정된 논리 셀 전이만 선택을 일으킨다.
+- 보상 후보 visual은 Collider나 Transform 접촉을 규칙으로 사용하지 않는다. 플레이어의 확정된 논리 셀과 `Interact` 명령이 함께 있어야 선택되며, 둘 이상의 후보에 동시에 인접한 모호한 셀에서는 어느 후보도 선택하지 않는다. 선택 전에는 모든 후보의 발광과 논리 blocker를 유지하고, 선택 성공 뒤에는 선택된 후보 모델과 그 셀의 blocker만 제거한다. 선택하지 않은 후보는 방의 지속 표현과 이동 차단을 유지하지만 더는 상호작용할 수 없다.
 - secret door surface·crack visual·cache primitive에는 Collider가 없다. 보이는 secret door는 대응 일반 문과 같은 위치이고, 폭발 판정은 별도 저작 출구 `Floor` 셀과 `AffectedCells`의 교집합으로만 수행한다.
 
 ## Editor 검증기
@@ -165,8 +164,9 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - `ThrowerLanesPlaytest`에 던전 adapter가 남아 있거나 다음 씬이 비어 있지 않거나 MainCamera가 없거나 표준 enabled Build Settings에 포함된 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeHealthHud`가 정확히 하나가 아니거나 해당 씬의 `PrototypeGameSession`을 참조하지 않는 상태.
 - 11개 던전·TestSandbox 씬에 `PrototypeDungeonMinimapPresenter`가 정확히 하나가 아니거나 해당 씬의 `PrototypeDungeonRoomBinder` 참조와 일치하지 않는 상태.
-- Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·URP material 참조가 계약과 다른 상태.
-- Secret special catalog entry·`DungeonSecret` scene·단일 cache presenter·`+3`·중앙 셀·URP material 또는 11개 scene의 네 방향 secret door root가 계약과 다른 상태. 각 root는 대응 `Door.prefab`과 같은 위치의 collider-free `CrackedBrickBlock.prefab` 인스턴스여야 한다.
+- 공용 `InteractionPrompt.prefab`의 투명 `Letters_31` F sprite, `RecoveryShrine.prefab`·`RewardChest.prefab`·`BombRewardChoice.prefab`의 필수 참조 또는 필요한 dynamic content anchor가 누락된 상태. Recovery·RewardChest·BombReward 발광에 pulse core·halo·단일 ParticleSystem이 없거나 실시간 `Light`·Collider가 포함된 상태를 거부한다. RewardChest는 모델의 셀 중심·바닥 정렬, BombReward와 함께 halo가 대상 footprint의 1.25배 이상이고 입자 지름이 대상보다 큰지도 검사한다. BombRewardChoice의 빈 persistent visual 아래에 상자 같은 renderer가 남은 상태도 거부한다.
+- Recovery special catalog entry·`DungeonRecovery` scene·pickup presenter가 누락되거나 회복량·논리 셀·session·binder·저작한 성소 view 참조가 계약과 다른 상태.
+- Secret special catalog entry·`DungeonSecret` scene·단일 cache presenter·`+3`·중앙 셀·저작한 상자 view 또는 11개 scene의 네 방향 secret door root가 계약과 다른 상태. 각 root는 대응 `Door.prefab`과 같은 위치의 collider-free `CrackedBrickBlock.prefab` 인스턴스여야 한다.
 - Build Settings의 첫 enabled 씬 11개가 시작→폭탄 보상→보스 전실→회복→비밀방→보스→중앙 루프→평행 통로→엇갈린 기둥→갑옷 실험→중앙 게이트 순서가 아닌 상태.
 
 자동 검증이 방의 재미를 보증하지는 않는다. 시각 확인과 플레이테스트를 함께 수행한다.

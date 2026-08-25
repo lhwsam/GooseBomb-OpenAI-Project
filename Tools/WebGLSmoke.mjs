@@ -1258,7 +1258,7 @@ async function main() {
     const secretInteractionsBefore = await eventCount(page, "interact");
     await moveToCell(page, 3, 1);
     await moveToCell(page, 0, 1);
-    await page.keyboard.press("KeyE");
+    await page.keyboard.press("KeyF");
     await waitForEvent(page, "interact", {
       count: secretInteractionsBefore + 1,
       timeout: 5_000,
@@ -1315,14 +1315,15 @@ async function main() {
     });
 
     await moveToCell(page, -1, -4);
-    await moveToCell(page, -1, 0);
+    await moveToCell(page, -1, -1);
+    await page.keyboard.press("KeyF");
     await waitForEvent(page, "bomb-reward-selected-prototype-area", {
       timeout: 5_000,
     });
     checks.push({
       name: "bomb-reward-selection",
       status: "passed",
-      detail: "Walking onto the left reward equipped prototype-area into the empty second slot.",
+      detail: "Pressing F beside the left reward chest equipped prototype-area into the empty second slot.",
     });
     await page.keyboard.press("KeyX");
     await waitForEvent(page, "active-bomb-slot-1", { timeout: 5_000 });
@@ -1594,7 +1595,7 @@ async function main() {
     const recoveryInteractionsBefore = await eventCount(page, "interact");
     await moveToCell(page, 1, -4);
     await moveToCell(page, 1, 0);
-    await page.keyboard.press("KeyE");
+    await page.keyboard.press("KeyF");
     await waitForEvent(page, "interact", {
       count: recoveryInteractionsBefore + 1,
       timeout: 5_000,

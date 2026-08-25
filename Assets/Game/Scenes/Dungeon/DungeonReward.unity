@@ -1585,6 +1585,40 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4071174161660407445, guid: 7307d859d50093144aa28367a5efab09, type: 3}
   m_PrefabInstance: {fileID: 130878052}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &135547502
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 135547503}
+  m_Layer: 0
+  m_Name: WorldInteractables
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &135547503
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 135547502}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1033151565}
+  - {fileID: 693481027}
+  - {fileID: 746553714}
+  m_Father: {fileID: 826194692}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &138039536
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4490,6 +4524,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBombRewardPresenter
   roomBinder: {fileID: 549228493}
+  candidateViews:
+  - {fileID: 1033151566}
+  - {fileID: 693481028}
+  - {fileID: 746553715}
 --- !u!114 &549228496
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4504,6 +4542,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
+  attackFeedbackSettings: {fileID: 0}
+  attackCameraShake: {fileID: 0}
+  localVfxOverrides: {fileID: 0}
+  chargeShakeAmplitude: 0.2
+  chargeShakeDuration: 0.22
+  chargeShakeFrequency: 22
+  parityShakeAmplitude: 0.11
+  parityShakeDuration: 0.13
+  parityShakeFrequency: 26
+  bossBombShakeAmplitude: 0.13
+  bossBombShakeDuration: 0.16
+  bossBombShakeFrequency: 24
   telegraphColor: {r: 1, g: 0.72, b: 0.08, a: 0.68}
   executeColor: {r: 1, g: 0.08, b: 0.04, a: 0.9}
   recoveryColor: {r: 0.16, g: 1, b: 0.34, a: 1}
@@ -5046,6 +5096,79 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4071174161660407445, guid: 7307d859d50093144aa28367a5efab09, type: 3}
   m_PrefabInstance: {fileID: 666466812}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &693481026
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 135547503}
+    m_Modifications:
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4589764041691154211, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_Name
+      value: BombRewardChoiceCenter
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+--- !u!4 &693481027 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+  m_PrefabInstance: {fileID: 693481026}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &693481028 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5579746582060277413, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+  m_PrefabInstance: {fileID: 693481026}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7fb4063c29dc9a48b2945bda0e29323, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeWorldInteractableView
 --- !u!1 &702138284
 GameObject:
   m_ObjectHideFlags: 0
@@ -5329,6 +5452,79 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 9091574772479243372, guid: dbc7c15af4542f14882418574ee76925, type: 3}
   m_PrefabInstance: {fileID: 743190869}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &746553713
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 135547503}
+    m_Modifications:
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4589764041691154211, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_Name
+      value: BombRewardChoiceRight
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+--- !u!4 &746553714 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+  m_PrefabInstance: {fileID: 746553713}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &746553715 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5579746582060277413, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+  m_PrefabInstance: {fileID: 746553713}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7fb4063c29dc9a48b2945bda0e29323, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeWorldInteractableView
 --- !u!1001 &750660984
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5767,6 +5963,7 @@ Transform:
   - {fileID: 1931743760}
   - {fileID: 538507677}
   - {fileID: 1906179410}
+  - {fileID: 135547503}
   m_Father: {fileID: 1165390088}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &849968225
@@ -6355,6 +6552,79 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 9091574772479243372, guid: dbc7c15af4542f14882418574ee76925, type: 3}
   m_PrefabInstance: {fileID: 1018788241}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1033151564
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 135547503}
+    m_Modifications:
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4589764041691154211, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+      propertyPath: m_Name
+      value: BombRewardChoiceLeft
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+--- !u!4 &1033151565 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2719255354230885646, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+  m_PrefabInstance: {fileID: 1033151564}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1033151566 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5579746582060277413, guid: ad34cc2228017c44790d39f1d1664099, type: 3}
+  m_PrefabInstance: {fileID: 1033151564}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7fb4063c29dc9a48b2945bda0e29323, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeWorldInteractableView
 --- !u!1 &1034727586
 GameObject:
   m_ObjectHideFlags: 0

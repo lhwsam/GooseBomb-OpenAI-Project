@@ -1234,6 +1234,7 @@ namespace BombSwap.Tests.PlayMode
         public IEnumerator BombRewardScene_CollectsEmptySecondSlotAndPersistsAcrossSceneLoad()
         {
             Scene loadedDungeonScene = default;
+            Keyboard keyboard = null;
             try
             {
                 yield return SceneManager.LoadSceneAsync(
@@ -1278,13 +1279,71 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo("prototype-cross"));
                 Assert.That(rewardSession.GetBombSlot(1).HasDefinition, Is.False);
                 Assert.That(rewardSession.HasSecondBombSlot, Is.False);
-
                 Assert.That(
-                    rewardPresenter.TryCollectAt(new GridPosition(-1, 0)),
+                    rewardPresenter.IsCandidateVisualVisible(0),
                     Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateVisualVisible(1),
+                    Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(0),
+                    Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(1),
+                    Is.True);
+
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                GridPosition leftChestCell = new GridPosition(-1, 0);
+                GridPosition rightChestCell = new GridPosition(1, 0);
+                GridPosition leftInteractionCell = new GridPosition(-1, -1);
+                Assert.That(
+                    rewardSession.GetCell(leftChestCell).HasInteractable,
+                    Is.True);
+                Assert.That(
+                    rewardSession.GetCell(rightChestCell).HasInteractable,
+                    Is.True);
+                yield return MoveSessionTo(
+                    rewardSession,
+                    keyboard,
+                    leftInteractionCell);
+                Assert.That(rewardPresenter.CanInteract, Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateInteractionPromptVisible(0),
+                    Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(0),
+                    Is.True);
+
+                PressAndRelease(keyboard, Key.E);
+                yield return null;
+                Assert.That(rewardPresenter.SelectedDefinitionId.HasValue, Is.False);
+                PressAndRelease(keyboard, Key.F);
+                yield return null;
 
                 BombDefinitionId selected = new BombDefinitionId("prototype-area");
                 Assert.That(rewardPresenter.SelectedDefinitionId, Is.EqualTo(selected));
+                Assert.That(rewardPresenter.CandidateVisualCount, Is.EqualTo(2));
+                Assert.That(
+                    rewardPresenter.IsCandidateVisualVisible(0),
+                    Is.False);
+                Assert.That(
+                    rewardPresenter.IsCandidateVisualVisible(1),
+                    Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(0),
+                    Is.False);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(1),
+                    Is.False);
+                Assert.That(
+                    rewardPresenter.IsCandidateInteractionPromptVisible(0),
+                    Is.False);
+                Assert.That(
+                    rewardSession.GetCell(leftChestCell).HasInteractable,
+                    Is.False);
+                Assert.That(
+                    rewardSession.GetCell(rightChestCell).HasInteractable,
+                    Is.True);
                 Assert.That(run.BombLoadoutState.SecondSlot, Is.EqualTo(selected));
                 Assert.That(rewardSession.HasSecondBombSlot, Is.True);
                 Assert.That(
@@ -1315,10 +1374,53 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     nextSession.GetBombDefinitionForSlot(nextSession.ActiveBombSlotIndex).DefinitionId,
                     Is.EqualTo(selected.Value));
+
+                Assert.That(run.TryTravelTo(path[2]).Moved, Is.True);
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonReward",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                rewardBinder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                rewardPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeBombRewardPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                rewardSession = rewardBinder.RoomSession;
+                Assert.That(rewardPresenter.SelectedDefinitionId, Is.EqualTo(selected));
+                Assert.That(rewardPresenter.CanInteract, Is.False);
+                Assert.That(
+                    rewardPresenter.IsCandidateVisualVisible(0),
+                    Is.False);
+                Assert.That(
+                    rewardPresenter.IsCandidateVisualVisible(1),
+                    Is.True);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(0),
+                    Is.False);
+                Assert.That(
+                    rewardPresenter.IsCandidateAvailabilityEffectVisible(1),
+                    Is.False);
+                Assert.That(
+                    rewardSession.GetCell(leftChestCell).HasInteractable,
+                    Is.False);
+                Assert.That(
+                    rewardSession.GetCell(rightChestCell).HasInteractable,
+                    Is.True);
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
             finally
             {
+                if (keyboard != null && keyboard.added)
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                    InputSystem.Update();
+                    InputSystem.RemoveDevice(keyboard);
+                }
+
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
                         FindObjectsInactive.Include);
@@ -1746,15 +1848,19 @@ namespace BombSwap.Tests.PlayMode
                     secretInteractionCell.IsCardinallyAdjacentTo(secretPickupCell),
                     Is.True);
                 Assert.That(reward.CanInteract, Is.True);
-                PressAndRelease(keyboard, Key.E);
+                Assert.That(reward.IsAvailabilityEffectVisible, Is.True);
+                Assert.That(reward.IsInteractionPromptVisible, Is.True);
+                PressAndRelease(keyboard, Key.F);
                 yield return null;
 
                 Assert.That(reward.IsCollected, Is.True);
-                Assert.That(reward.IsVisualVisible, Is.False);
+                Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.IsAvailabilityEffectVisible, Is.False);
+                Assert.That(reward.IsInteractionPromptVisible, Is.False);
                 Assert.That(reward.CanInteract, Is.False);
                 Assert.That(
                     secretSession.GetCell(secretPickupCell).HasInteractable,
-                    Is.False);
+                    Is.True);
                 Assert.That(
                     reward.LastStatus,
                     Is.EqualTo(DungeonSecretRewardCollectStatus.Collected));
@@ -1802,7 +1908,14 @@ namespace BombSwap.Tests.PlayMode
                     run,
                     secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
-                Assert.That(reentryReward.IsVisualVisible, Is.False);
+                Assert.That(reentryReward.IsVisualVisible, Is.True);
+                Assert.That(reentryReward.IsAvailabilityEffectVisible, Is.False);
+                Assert.That(reentryReward.IsInteractionPromptVisible, Is.False);
+                Assert.That(
+                    secretReentryBinder.RoomSession
+                        .GetCell(secretPickupCell)
+                        .HasInteractable,
+                    Is.True);
                 Assert.That(
                     run.RoomRewardTokenCount,
                     Is.EqualTo(tokensBeforeCache + PrototypeSecretRewardPresenter.DefaultTokenReward));
@@ -1909,6 +2022,42 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
                 Assert.That(fullPresenter.IsInitialized, Is.True);
                 Assert.That(fullPresenter.IsVisualVisible, Is.True);
+                PrototypeWorldInteractableView shrineView =
+                    fullPresenter.WorldView;
+                PrototypeRecoveryShrineGlow shrineGlow =
+                    shrineView.AvailabilityEffectRoot.GetComponent<
+                        PrototypeRecoveryShrineGlow>();
+                Assert.That(
+                    shrineView.AvailabilityEffectRoot.name,
+                    Is.EqualTo("RecoveryShrineGlow"));
+                Assert.That(shrineGlow, Is.Not.Null);
+                Assert.That(shrineGlow.HasRequiredReferences, Is.True);
+                Assert.That(
+                    shrineView.AvailabilityEffectRoot.GetComponentsInChildren<
+                        Light>(true),
+                    Is.Empty);
+                Assert.That(
+                    shrineView.AvailabilityEffectRoot.GetComponentsInChildren<
+                        Collider>(true),
+                    Is.Empty);
+                ParticleSystem[] shrineParticles =
+                    shrineView.AvailabilityEffectRoot.GetComponentsInChildren<
+                        ParticleSystem>(true);
+                Assert.That(shrineParticles, Has.Length.EqualTo(1));
+                ParticleSystem.VelocityOverLifetimeModule shrineVelocity =
+                    shrineParticles[0].velocityOverLifetime;
+                Assert.That(
+                    shrineVelocity.x.mode,
+                    Is.EqualTo(ParticleSystemCurveMode.TwoConstants));
+                Assert.That(shrineVelocity.y.mode, Is.EqualTo(shrineVelocity.x.mode));
+                Assert.That(shrineVelocity.z.mode, Is.EqualTo(shrineVelocity.x.mode));
+                Assert.That(shrineVelocity.x.constantMin, Is.Zero);
+                Assert.That(shrineVelocity.x.constantMax, Is.Zero);
+                Assert.That(shrineVelocity.y.constantMin, Is.EqualTo(0.18f));
+                Assert.That(shrineVelocity.y.constantMax, Is.EqualTo(0.32f));
+                Assert.That(shrineVelocity.z.constantMin, Is.Zero);
+                Assert.That(shrineVelocity.z.constantMax, Is.Zero);
+                Assert.That(shrineParticles[0].isPlaying, Is.True);
 
                 keyboard = InputSystem.AddDevice<Keyboard>();
                 GridPosition recoveryCell = new GridPosition(0, 0);
@@ -1921,7 +2070,9 @@ namespace BombSwap.Tests.PlayMode
                     fullBinder.RoomSession.GetCell(recoveryCell).HasInteractable,
                     Is.True);
                 Assert.That(fullPresenter.CanInteract, Is.True);
-                PressAndRelease(keyboard, Key.E);
+                Assert.That(fullPresenter.IsAvailabilityEffectVisible, Is.True);
+                Assert.That(fullPresenter.IsInteractionPromptVisible, Is.True);
+                PressAndRelease(keyboard, Key.F);
                 yield return null;
                 Assert.That(
                     fullPresenter.LastStatus,
@@ -1972,16 +2123,23 @@ namespace BombSwap.Tests.PlayMode
                     keyboard,
                     recoveryInteractionCell);
                 Assert.That(damagedPresenter.CanInteract, Is.True);
-                PressAndRelease(keyboard, Key.E);
+                Assert.That(damagedPresenter.IsInteractionPromptVisible, Is.True);
+                PressAndRelease(keyboard, Key.F);
                 yield return null;
                 Assert.That(
                     damagedPresenter.LastStatus,
                     Is.EqualTo(DungeonRecoveryUseStatus.Restored));
                 Assert.That(damagedPresenter.IsConsumed, Is.True);
-                Assert.That(damagedPresenter.IsVisualVisible, Is.False);
+                Assert.That(damagedPresenter.IsVisualVisible, Is.True);
+                Assert.That(
+                    damagedPresenter.IsAvailabilityEffectVisible,
+                    Is.False);
+                Assert.That(
+                    damagedPresenter.IsInteractionPromptVisible,
+                    Is.False);
                 Assert.That(
                     damagedBinder.RoomSession.GetCell(recoveryCell).HasInteractable,
-                    Is.False);
+                    Is.True);
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(5));
                 Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(5));
@@ -2003,7 +2161,13 @@ namespace BombSwap.Tests.PlayMode
                             FindObjectsInactive.Include)
                         .Single();
                 Assert.That(consumedPresenter.IsConsumed, Is.True);
-                Assert.That(consumedPresenter.IsVisualVisible, Is.False);
+                Assert.That(consumedPresenter.IsVisualVisible, Is.True);
+                Assert.That(
+                    consumedPresenter.IsAvailabilityEffectVisible,
+                    Is.False);
+                Assert.That(
+                    consumedPresenter.IsInteractionPromptVisible,
+                    Is.False);
                 loadedDungeonScene = SceneManager.GetActiveScene();
             }
             finally

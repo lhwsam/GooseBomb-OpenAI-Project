@@ -3544,7 +3544,7 @@ namespace BombSwap.Tests.PlayMode
             gameplay.AddAction(BombSwapInputActionNames.SwapBomb, InputActionType.Button, "<Keyboard>/x");
             gameplay.AddAction(BombSwapInputActionNames.Pause, InputActionType.Button, "<Keyboard>/escape");
             gameplay.AddAction(BombSwapInputActionNames.RestartRun, InputActionType.Button, "<Keyboard>/r");
-            gameplay.AddAction(BombSwapInputActionNames.Interact, InputActionType.Button, "<Keyboard>/e");
+            gameplay.AddAction(BombSwapInputActionNames.Interact, InputActionType.Button, "<Keyboard>/f");
             return asset;
         }
     }

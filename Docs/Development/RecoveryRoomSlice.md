@@ -46,7 +46,7 @@ Recovery room item interaction
 - 방 로컬 `PlayerHealthSimulation`은 run snapshot의 현재 체력으로 시작한다. 무적 종료 시각과 처리한 폭발 ID는 방을 넘어 보존하지 않는다.
 - 적용된 피해와 회복만 run 상태에 즉시 반영한다. 표현과 HUD는 별도 체력을 만들지 않는다.
 - 새 run은 검증된 `PrototypePlayerVitalsAsset`의 최대 체력으로 시작한다.
-- 회복 아이템의 사용 여부는 해당 회복방 노드의 run 수명 상태다. 방 재진입이나 scene 재로드로 다시 생성되지 않는다.
+- 회복 성소의 사용 여부는 해당 회복방 노드의 run 수명 상태다. 방 재진입이나 scene 재로드에서도 저작된 성소 모델과 논리 blocker는 남고, 사용 가능 효과·프롬프트만 소비 상태에 따라 복원한다.
 - 체력이 0인 terminal run은 회복할 수 없다.
 
 ## 던전 그래프 계약
@@ -74,9 +74,9 @@ Recovery room item interaction
 
 ### 3. Unity 콘텐츠와 표현
 
-- `Complete`: Unity Editor builder로 `DungeonRecovery` scene, special catalog entry, 중앙 논리 셀 `(0,0)`의 회복 pickup과 URP shared material을 저작했다.
-- `Complete`: 미소비 상태에서는 pickup 월드 표현과 중앙 셀의 논리 `Interactable` 점유를 유지하고 유효한 회복·사용 완료 상태에서는 둘 다 제거한다. 별도 안내 Canvas 없이 현재 체력 변화는 공용 체력 HUD로 확인한다.
-- `Complete`: pickup의 cardinal 인접 셀에서 고정 `E`/게임패드 North 상호작용만 회복을 요청하며 기존 체력 HUD를 즉시 갱신한다. 최대 체력이면 소비·점유 제거 없이 남고, room 재진입에서는 Core 소비 상태를 복원한다.
+- `Complete`: Unity Editor authoring으로 `DungeonRecovery` scene, special catalog entry, 중앙 논리 셀 `(0,0)`의 공용 `RecoveryShrine.prefab`과 presenter 참조를 저작했다.
+- `Complete`: 석조 우물 모델과 중앙 셀의 논리 `Interactable` 점유는 사용 뒤에도 유지한다. 미소비 상태에는 실시간 `Light` 없는 발광 코어·halo·최대 12개 상승 입자의 `RecoveryShrineGlow`와 cardinal 인접 시 공용 `F` KeyIcon만 표시하며 유효한 회복·이미 소비 상태에서는 두 표시를 끈다. 별도 안내 Canvas 없이 현재 체력 변화는 공용 체력 HUD로 확인한다.
+- `Complete`: 성소의 cardinal 인접 셀에서 고정 `F`/게임패드 North 상호작용만 회복을 요청하며 기존 체력 HUD를 즉시 갱신한다. 최대 체력이면 소비하지 않아 효과·프롬프트를 유지하고, room 재진입에서는 Core 소비 상태와 지속 모델을 복원한다.
 
 ## 비목표
 
@@ -100,7 +100,7 @@ Recovery room item interaction
 
 - 피해를 받은 뒤 다음 방과 이전 방으로 이동해도 같은 체력이 HUD와 session에 표시된다.
 - 회복방 입장과 재입장은 자동 회복하지 않는다.
-- 인접 셀의 `E`/North 상호작용 한 번만 체력과 HUD를 갱신하고 blocker를 제거하며, 재입장해도 아이템이 복원되지 않는다.
+- 인접 셀의 `F`/North 상호작용 한 번만 체력과 HUD를 갱신한다. 모델과 blocker는 유지하고 availability effect·프롬프트만 끄며, 재입장해도 다시 지급하지 않는다.
 - 최대 체력에서의 비소비 동작과 회복 뒤 보스방 진입을 검증한다.
 - 회복방은 적 actor 없이 열려 있고 전투 보상 토큰을 지급하지 않는다.
 

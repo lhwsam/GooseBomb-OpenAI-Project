@@ -60,7 +60,9 @@ pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직�
 
 ### 방 보상 표현과 런 결과
 
-폭탄 보상·회복·비밀방은 별도의 화면 상단 안내 Canvas를 만들지 않는다. 각 gameplay presenter는 보상 폭탄 후보·회복 pickup·비밀 cache의 월드 표현과 논리 셀 획득만 소유하며, 선택·회복·토큰 결과는 기존 무기·체력 HUD의 확정 상태로 확인한다. 향후 상자·성소·선택 가능한 폭탄의 가독성은 이 공용 UI에 문구를 되살리지 않고 전용 월드 프리팹이나 VFX 계약으로 추가한다.
+폭탄 보상·회복·비밀방은 별도의 화면 상단 안내 Canvas를 만들지 않는다. `Assets/Game/Content/Prefabs/Interaction`의 `InteractionPrompt.prefab`, `RecoveryShrine.prefab`, `RewardChest.prefab`을 scene에 저작하고, 각 gameplay presenter는 보상 폭탄 후보·회복 성소·비밀 cache의 확정 상태만 반영한다. 공용 prompt는 무기 HUD와 같은 투명 키 atlas의 `Letters_31` F sprite를 사용하고 카메라를 향하는 world-space Canvas다. 플레이어가 유일한 활성 오브젝트의 cardinal 인접 셀에 있을 때만 표시한다.
+
+성소와 상자 모델, 해당 논리 `Interactable` blocker는 획득 뒤에도 남는다. 미소비 상태의 availability effect와 인접 `F` prompt만 획득 뒤 끄며, 선택·회복·토큰 결과는 기존 무기·체력 HUD의 확정 상태로 확인한다. 폭탄 보상 후보처럼 카탈로그마다 달라지는 콘텐츠만 저작 프리팹의 `DynamicContentAnchor` 아래에 런타임 생성한다.
 
 완료·실패 화면의 배경, 제목, 사망 원인과 두 Button은 `PrototypeRunCompletionCanvas.prefab`에서 저작한다. 별도의 `Status` 또는 `R 키로 즉시 다시 시작` 안내 TMP는 사용하지 않으며, 키보드 `R`·게임패드 Select 재시작 입력은 UI 문구와 무관하게 유지한다. presenter는 Core 결과에 따라 제목·사망 원인 활성 상태와 제목 상태 색을 갱신하고 Button listener와 기본 선택만 연결한다. 결과가 확정되기 전에는 프리팹을 만들지 않으며 확정 시 한 번만 인스턴스화한다.
 
@@ -79,7 +81,7 @@ pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직�
 ## 검증 계약
 
 - Editor validator는 여덟 Canvas 프리팹과 하트·미니맵 방·연결의 세 재사용 자식 프리팹에 있는 View·필수 참조, Canvas와 자식 프리팹의 조합, pause의 직접 Sprite·per-Image 폴백과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
-- PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 프리팹 자식 기반 미니맵 snapshot 갱신, 보상·회복·비밀방 안내, 결과 프리팹 참조, pause 열기·설정 이동·닫기를 확인한다.
+- PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 프리팹 자식 기반 미니맵 snapshot 갱신, 보상·회복·비밀방의 인접 F prompt와 획득 뒤 지속 visual, 결과 프리팹 참조, pause 열기·설정 이동·닫기를 확인한다.
 - 실제 WebGL에서는 960×600 Canvas, 브라우저 축소, 키보드·마우스 포커스, pause 중 unscaled UI 입력과 Console/page error를 확인한다.
 
 ## 비목표

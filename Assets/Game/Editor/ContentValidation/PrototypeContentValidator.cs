@@ -310,6 +310,7 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeThirdPartyAssetAuthoring.ValidateNoObsoleteVendorDefines(
                 errors);
             ValidateInputActions(errors);
+            ValidateWorldInteractionPrefabs(errors);
             ValidatePrototypeBombDefinitions(errors);
             ValidatePrototypePlayerVitals(errors);
             ValidatePlayerPrefab(errors);
@@ -3165,6 +3166,398 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
+        private static void ValidateWorldInteractionPrefabs(
+            ICollection<string> errors)
+        {
+            GameObject promptPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeWorldInteractionAuthoring.InteractionPromptPrefabPath);
+            Image promptImage = promptPrefab != null
+                ? promptPrefab.GetComponentInChildren<Image>(true)
+                : null;
+            if (promptImage == null ||
+                promptImage.sprite == null ||
+                !string.Equals(
+                    promptImage.sprite.name,
+                    PrototypeWorldInteractionAuthoring.InteractionKeySpriteName,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "World interaction prompt prefab must use the shared transparent F KeyIcon sprite.");
+            }
+
+            ValidateWorldInteractablePrefab(
+                PrototypeWorldInteractionAuthoring.RecoveryShrinePrefabPath,
+                false,
+                true,
+                errors);
+            ValidateRecoveryShrineGlow(errors);
+            ValidateWorldInteractablePrefab(
+                PrototypeWorldInteractionAuthoring.RewardChestPrefabPath,
+                true,
+                true,
+                errors);
+            ValidateRewardChestGlow(errors);
+            ValidateWorldInteractablePrefab(
+                PrototypeWorldInteractionAuthoring.BombRewardChoicePrefabPath,
+                true,
+                false,
+                errors);
+            ValidateBombRewardChoiceGlow(errors);
+        }
+
+        private static void ValidateRecoveryShrineGlow(
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeWorldInteractionAuthoring.RecoveryShrinePrefabPath);
+            PrototypeWorldInteractableView view = prefab != null
+                ? prefab.GetComponent<PrototypeWorldInteractableView>()
+                : null;
+            GameObject glowRoot = view != null
+                ? view.AvailabilityEffectRoot
+                : null;
+            PrototypeRecoveryShrineGlow glow = glowRoot != null
+                ? glowRoot.GetComponent<PrototypeRecoveryShrineGlow>()
+                : null;
+            ParticleSystem[] particles = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<ParticleSystem>(true)
+                : Array.Empty<ParticleSystem>();
+            Light[] lights = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<Light>(true)
+                : Array.Empty<Light>();
+            Collider[] colliders = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<Collider>(true)
+                : Array.Empty<Collider>();
+            Material expectedCore = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeWorldInteractionAuthoring.RecoveryGlowCoreMaterialPath);
+            Material expectedHalo = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeWorldInteractionAuthoring.RecoveryGlowHaloMaterialPath);
+            MeshRenderer coreRenderer = glow != null && glow.Core != null
+                ? glow.Core.GetComponent<MeshRenderer>()
+                : null;
+            MeshRenderer haloRenderer = glow != null && glow.Halo != null
+                ? glow.Halo.GetComponent<MeshRenderer>()
+                : null;
+
+            if (glowRoot == null ||
+                !string.Equals(
+                    glowRoot.name,
+                    "RecoveryShrineGlow",
+                    StringComparison.Ordinal) ||
+                glow == null ||
+                !glow.HasRequiredReferences ||
+                particles.Length != 1 ||
+                lights.Length != 0 ||
+                colliders.Length != 0 ||
+                coreRenderer == null ||
+                haloRenderer == null ||
+                coreRenderer.sharedMaterial != expectedCore ||
+                haloRenderer.sharedMaterial != expectedHalo)
+            {
+                errors.Add(
+                    "Recovery shrine availability effect must use the authored pulsing core, halo and one rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static void ValidateRewardChestGlow(
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeWorldInteractionAuthoring.RewardChestPrefabPath);
+            PrototypeWorldInteractableView view = prefab != null
+                ? prefab.GetComponent<PrototypeWorldInteractableView>()
+                : null;
+            GameObject glowRoot = view != null
+                ? view.AvailabilityEffectRoot
+                : null;
+            PrototypeWorldInteractionGlow glow = glowRoot != null
+                ? glowRoot.GetComponent<PrototypeWorldInteractionGlow>()
+                : null;
+            ParticleSystem[] particles = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<ParticleSystem>(true)
+                : Array.Empty<ParticleSystem>();
+            Light[] lights = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<Light>(true)
+                : Array.Empty<Light>();
+            Collider[] colliders = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<Collider>(true)
+                : Array.Empty<Collider>();
+            Renderer[] modelRenderers = view != null
+                ? view.PersistentVisualRoot.GetComponentsInChildren<Renderer>(true)
+                : Array.Empty<Renderer>();
+            Material expectedCore = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeWorldInteractionAuthoring.BombRewardGlowCoreMaterialPath);
+            Material expectedHalo = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeWorldInteractionAuthoring.BombRewardGlowHaloMaterialPath);
+            MeshRenderer coreRenderer = glow != null && glow.Core != null
+                ? glow.Core.GetComponent<MeshRenderer>()
+                : null;
+            MeshRenderer haloRenderer = glow != null && glow.Halo != null
+                ? glow.Halo.GetComponent<MeshRenderer>()
+                : null;
+
+            Bounds modelBounds = default;
+            if (modelRenderers.Length > 0)
+            {
+                modelBounds = modelRenderers[0].bounds;
+                for (int index = 1; index < modelRenderers.Length; index++)
+                {
+                    modelBounds.Encapsulate(modelRenderers[index].bounds);
+                }
+            }
+            float modelFootprint = Mathf.Max(
+                modelBounds.size.x,
+                modelBounds.size.z);
+            Vector3 modelCenter = view != null
+                ? view.transform.InverseTransformPoint(modelBounds.center)
+                : Vector3.zero;
+            Vector3 modelBottom = view != null
+                ? view.transform.InverseTransformPoint(new Vector3(
+                    modelBounds.center.x,
+                    modelBounds.min.y,
+                    modelBounds.center.z))
+                : Vector3.zero;
+            float haloFootprint = glow != null && glow.Halo != null
+                ? Mathf.Max(
+                    Mathf.Abs(glow.Halo.localScale.x),
+                    Mathf.Abs(glow.Halo.localScale.z))
+                : 0f;
+            float moteDiameter = particles.Length == 1
+                ? particles[0].shape.radius * 2f
+                : 0f;
+            bool modelIsCenteredAndGrounded =
+                modelRenderers.Length > 0 &&
+                Mathf.Abs(modelCenter.x) <= 0.01f &&
+                Mathf.Abs(modelCenter.z) <= 0.01f &&
+                Mathf.Abs(modelBottom.y) <= 0.01f;
+            bool glowExtendsBeyondChest =
+                modelFootprint > 0f &&
+                haloFootprint >= modelFootprint * 1.25f &&
+                moteDiameter >= modelFootprint;
+
+            if (glowRoot == null ||
+                !string.Equals(
+                    glowRoot.name,
+                    "RewardChestGlow",
+                    StringComparison.Ordinal) ||
+                glow == null ||
+                !glow.HasRequiredReferences ||
+                particles.Length != 1 ||
+                lights.Length != 0 ||
+                colliders.Length != 0 ||
+                !modelIsCenteredAndGrounded ||
+                !glowExtendsBeyondChest ||
+                coreRenderer == null ||
+                haloRenderer == null ||
+                coreRenderer.sharedMaterial != expectedCore ||
+                haloRenderer.sharedMaterial != expectedHalo)
+            {
+                errors.Add(
+                    "Reward chest must be centered on its logical cell and use a grounded pulsing halo at least 1.25x its footprint plus one chest-width rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static void ValidateBombRewardChoiceGlow(
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeWorldInteractionAuthoring.BombRewardChoicePrefabPath);
+            PrototypeWorldInteractableView view = prefab != null
+                ? prefab.GetComponent<PrototypeWorldInteractableView>()
+                : null;
+            GameObject glowRoot = view != null
+                ? view.AvailabilityEffectRoot
+                : null;
+            PrototypeWorldInteractionGlow glow = glowRoot != null
+                ? glowRoot.GetComponent<PrototypeWorldInteractionGlow>()
+                : null;
+            ParticleSystem[] particles = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<ParticleSystem>(true)
+                : Array.Empty<ParticleSystem>();
+            Light[] lights = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<Light>(true)
+                : Array.Empty<Light>();
+            Collider[] colliders = glowRoot != null
+                ? glowRoot.GetComponentsInChildren<Collider>(true)
+                : Array.Empty<Collider>();
+            Renderer[] persistentRenderers = view != null
+                ? view.PersistentVisualRoot.GetComponentsInChildren<Renderer>(true)
+                : Array.Empty<Renderer>();
+            Material expectedCore = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeWorldInteractionAuthoring.BombRewardGlowCoreMaterialPath);
+            Material expectedHalo = AssetDatabase.LoadAssetAtPath<Material>(
+                PrototypeWorldInteractionAuthoring.BombRewardGlowHaloMaterialPath);
+            MeshRenderer coreRenderer = glow != null && glow.Core != null
+                ? glow.Core.GetComponent<MeshRenderer>()
+                : null;
+            MeshRenderer haloRenderer = glow != null && glow.Halo != null
+                ? glow.Halo.GetComponent<MeshRenderer>()
+                : null;
+            float largestCandidateFootprint =
+                GetLargestBombRewardCandidateFootprint();
+            float haloFootprint = glow != null && glow.Halo != null
+                ? Mathf.Max(
+                    Mathf.Abs(glow.Halo.localScale.x),
+                    Mathf.Abs(glow.Halo.localScale.z))
+                : 0f;
+            float moteDiameter = particles.Length == 1
+                ? particles[0].shape.radius * 2f
+                : 0f;
+            bool glowExtendsBeyondCandidates =
+                largestCandidateFootprint > 0f &&
+                haloFootprint >= largestCandidateFootprint * 1.25f &&
+                moteDiameter >= largestCandidateFootprint;
+            bool glowIsGroundedBelowCandidate =
+                view != null &&
+                view.DynamicContentAnchor != null &&
+                glow != null &&
+                glow.Core != null &&
+                glow.Halo != null &&
+                glow.Core.localPosition.y <=
+                    view.DynamicContentAnchor.localPosition.y + 0.1f &&
+                glow.Halo.localPosition.y <=
+                    view.DynamicContentAnchor.localPosition.y + 0.05f;
+
+            if (glowRoot == null ||
+                !string.Equals(
+                    glowRoot.name,
+                    "BombRewardChoiceGlow",
+                    StringComparison.Ordinal) ||
+                glow == null ||
+                !glow.HasRequiredReferences ||
+                particles.Length != 1 ||
+                lights.Length != 0 ||
+                colliders.Length != 0 ||
+                persistentRenderers.Length != 0 ||
+                !glowExtendsBeyondCandidates ||
+                !glowIsGroundedBelowCandidate ||
+                coreRenderer == null ||
+                haloRenderer == null ||
+                coreRenderer.sharedMaterial != expectedCore ||
+                haloRenderer.sharedMaterial != expectedHalo)
+            {
+                errors.Add(
+                    "Bomb reward choice must be chest-free and use a grounded pulsing core, halo at least 1.25x the largest candidate footprint, and one candidate-width rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static float GetLargestBombRewardCandidateFootprint()
+        {
+            PrototypeBombRewardCatalogAsset catalog =
+                AssetDatabase.LoadAssetAtPath<PrototypeBombRewardCatalogAsset>(
+                    PrototypeBombRewardCatalogPath);
+            if (catalog == null)
+            {
+                return 0f;
+            }
+
+            float largestFootprint = 0f;
+            IReadOnlyList<PrototypeBombDefinitionAsset> candidates =
+                catalog.RewardCandidates;
+            for (int candidateIndex = 0;
+                candidateIndex < candidates.Count;
+                candidateIndex++)
+            {
+                GameObject candidatePrefab =
+                    candidates[candidateIndex] != null
+                        ? candidates[candidateIndex].BombPrefab
+                        : null;
+                Renderer[] renderers = candidatePrefab != null
+                    ? candidatePrefab.GetComponentsInChildren<Renderer>(true)
+                    : Array.Empty<Renderer>();
+                if (renderers.Length == 0)
+                {
+                    continue;
+                }
+
+                Bounds bounds = renderers[0].bounds;
+                for (int rendererIndex = 1;
+                    rendererIndex < renderers.Length;
+                    rendererIndex++)
+                {
+                    bounds.Encapsulate(renderers[rendererIndex].bounds);
+                }
+                largestFootprint = Mathf.Max(
+                    largestFootprint,
+                    bounds.size.x,
+                    bounds.size.z);
+            }
+            return largestFootprint;
+        }
+
+        private static void ValidateWorldInteractablePrefab(
+            string prefabPath,
+            bool requiresDynamicContentAnchor,
+            bool requiresPersistentModelRenderer,
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                prefabPath);
+            PrototypeWorldInteractableView view = prefab != null
+                ? prefab.GetComponent<PrototypeWorldInteractableView>()
+                : null;
+            if (view == null ||
+                !view.HasRequiredReferences ||
+                (requiresDynamicContentAnchor &&
+                 view.DynamicContentAnchor == null))
+            {
+                errors.Add(
+                    $"World interactable prefab '{prefabPath}' is missing required visual, effect, prompt, or content references.");
+                return;
+            }
+
+            Renderer[] visibleModelRenderers = view.PersistentVisualRoot
+                .GetComponentsInChildren<Renderer>(true)
+                .Where(renderer =>
+                    renderer.enabled &&
+                    IsActiveInsidePrefab(
+                        renderer.transform,
+                        view.PersistentVisualRoot.transform))
+                .ToArray();
+            if (visibleModelRenderers.Length == 0)
+            {
+                if (requiresPersistentModelRenderer)
+                {
+                    errors.Add(
+                        $"World interactable prefab '{prefabPath}' has no enabled persistent model renderer.");
+                }
+                return;
+            }
+
+            Bounds modelBounds = visibleModelRenderers[0].bounds;
+            for (int index = 1; index < visibleModelRenderers.Length; index++)
+            {
+                modelBounds.Encapsulate(visibleModelRenderers[index].bounds);
+            }
+
+            float footprint = Mathf.Max(modelBounds.size.x, modelBounds.size.z);
+            if (footprint < 0.5f || footprint > 1.1f)
+            {
+                errors.Add(
+                    $"World interactable prefab '{prefabPath}' persistent model footprint is {footprint:0.###}; expected 0.5..1.1 world units for one grid cell.");
+            }
+        }
+
+        private static bool IsActiveInsidePrefab(
+            Transform candidate,
+            Transform expectedRoot)
+        {
+            for (Transform current = candidate;
+                current != null;
+                current = current.parent)
+            {
+                if (!current.gameObject.activeSelf)
+                {
+                    return false;
+                }
+                if (current == expectedRoot)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private static void ValidateInputActions(ICollection<string> errors)
         {
             InputActionAsset asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
@@ -3242,8 +3635,26 @@ namespace BombSwap.Editor.ContentValidation
                 "<Keyboard>/r",
                 "<Gamepad>/select");
             RequireBindings(gameplay, BombSwapInputActionNames.Interact, errors,
-                "<Keyboard>/e",
+                "<Keyboard>/f",
                 "<Gamepad>/buttonNorth");
+            InputAction interact = gameplay.FindAction(
+                BombSwapInputActionNames.Interact,
+                false);
+            if (interact != null && interact.bindings.Any(binding =>
+                    !binding.isComposite &&
+                    !binding.isPartOfComposite &&
+                    binding.path != null &&
+                    binding.path.StartsWith(
+                        "<Keyboard>/",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(
+                        binding.path,
+                        "<Keyboard>/f",
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add(
+                    "Input action 'Interact' must not retain a legacy keyboard binding other than '<Keyboard>/f'.");
+            }
 
             RequireControlScheme(asset, "Keyboard", "<Keyboard>", errors);
             RequireControlScheme(asset, "Gamepad", "<Gamepad>", errors);
@@ -4064,6 +4475,8 @@ namespace BombSwap.Editor.ContentValidation
                     FindComponents<PrototypeRecoveryPickupPresenter>(scene);
                 PrototypeSecretRewardPresenter[] secretRewardPresenters =
                     FindComponents<PrototypeSecretRewardPresenter>(scene);
+                PrototypeWorldInteractableView[] worldInteractionViews =
+                    FindComponents<PrototypeWorldInteractableView>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
                 Light[] lights = FindComponents<Light>(scene);
 
@@ -4229,6 +4642,17 @@ namespace BombSwap.Editor.ContentValidation
                         $"Dungeon room must contain {expectedSecretRewardPresenterCount} " +
                         "PrototypeSecretRewardPresenter component(s); found " +
                         $"{secretRewardPresenters.Length}.");
+                }
+                int expectedWorldInteractionViewCount =
+                    expectedBombRewardPresenterCount * 3 +
+                    expectedRecoveryPresenterCount +
+                    expectedSecretRewardPresenterCount;
+                if (worldInteractionViews.Length != expectedWorldInteractionViewCount)
+                {
+                    errors.Add(
+                        $"Dungeon room must contain {expectedWorldInteractionViewCount} " +
+                        "authored world interaction view(s); found " +
+                        $"{worldInteractionViews.Length}.");
                 }
                 if (!cameras.Any(camera => camera.enabled && camera.CompareTag("MainCamera")))
                 {
@@ -4542,28 +4966,41 @@ namespace BombSwap.Editor.ContentValidation
                     }
                 }
 
-                if (bombRewardPresenters.Length == 1 && roomBinders.Length == 1 &&
-                    bombRewardPresenters[0].RoomBinder != roomBinders[0])
+                if (bombRewardPresenters.Length == 1 && roomBinders.Length == 1)
                 {
-                    errors.Add(
-                        "Bomb reward presenter has an inconsistent dungeon room binder reference.");
+                    PrototypeBombRewardPresenter presenter =
+                        bombRewardPresenters[0];
+                    GameObject expectedChoicePrefab =
+                        AssetDatabase.LoadAssetAtPath<GameObject>(
+                            PrototypeWorldInteractionAuthoring
+                                .BombRewardChoicePrefabPath);
+                    if (presenter.RoomBinder != roomBinders[0] ||
+                        presenter.CandidateViews.Count != 3 ||
+                        presenter.CandidateViews.Any(view =>
+                            view == null ||
+                            !view.HasRequiredReferences ||
+                            view.DynamicContentAnchor == null ||
+                            PrefabUtility.GetCorrespondingObjectFromSource(
+                                view.gameObject) != expectedChoicePrefab))
+                    {
+                        errors.Add(
+                            "Bomb reward presenter must reference its room binder and three configured chest-free bomb choice prefab views.");
+                    }
                 }
 
                 if (recoveryPresenters.Length == 1 && roomBinders.Length == 1)
                 {
                     PrototypeRecoveryPickupPresenter presenter =
                         recoveryPresenters[0];
-                    Material expectedPickupMaterial =
-                        AssetDatabase.LoadAssetAtPath<Material>(
-                            RecoveryPickupMaterialPath);
                     if (presenter.RoomBinder != roomBinders[0] ||
                         presenter.RecoveryAmount !=
                             PrototypeRecoveryPickupPresenter.DefaultRecoveryAmount ||
                         presenter.PickupCell != Vector2Int.zero ||
-                        presenter.PickupMaterial != expectedPickupMaterial)
+                        presenter.WorldView == null ||
+                        !presenter.WorldView.HasRequiredReferences)
                     {
                         errors.Add(
-                            "Recovery pickup presenter has inconsistent binder, material, amount, or cell configuration.");
+                            "Recovery pickup presenter has inconsistent binder, authored shrine view, amount, or cell configuration.");
                     }
                 }
 
@@ -4571,17 +5008,15 @@ namespace BombSwap.Editor.ContentValidation
                 {
                     PrototypeSecretRewardPresenter presenter =
                         secretRewardPresenters[0];
-                    Material expectedRewardMaterial =
-                        AssetDatabase.LoadAssetAtPath<Material>(
-                            SecretRewardMaterialPath);
                     if (presenter.RoomBinder != roomBinders[0] ||
                         presenter.TokenReward !=
                             PrototypeSecretRewardPresenter.DefaultTokenReward ||
                         presenter.PickupCell != Vector2Int.zero ||
-                        presenter.PickupMaterial != expectedRewardMaterial)
+                        presenter.WorldView == null ||
+                        !presenter.WorldView.HasRequiredReferences)
                     {
                         errors.Add(
-                            "Secret reward presenter has inconsistent binder, material, amount, or cell configuration.");
+                            "Secret reward presenter has inconsistent binder, authored cache view, amount, or cell configuration.");
                     }
                 }
 

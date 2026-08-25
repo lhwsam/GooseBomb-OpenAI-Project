@@ -4446,6 +4446,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
+  attackFeedbackSettings: {fileID: 0}
+  attackCameraShake: {fileID: 0}
+  localVfxOverrides: {fileID: 0}
+  chargeShakeAmplitude: 0.2
+  chargeShakeDuration: 0.22
+  chargeShakeFrequency: 22
+  parityShakeAmplitude: 0.11
+  parityShakeDuration: 0.13
+  parityShakeFrequency: 26
+  bossBombShakeAmplitude: 0.13
+  bossBombShakeDuration: 0.16
+  bossBombShakeFrequency: 24
   telegraphColor: {r: 1, g: 0.72, b: 0.08, a: 0.68}
   executeColor: {r: 1, g: 0.08, b: 0.04, a: 0.9}
   recoveryColor: {r: 0.16, g: 1, b: 0.34, a: 1}
@@ -4497,7 +4509,7 @@ MonoBehaviour:
   roomBinder: {fileID: 549228493}
   recoveryAmount: 2
   pickupCell: {x: 0, y: 0}
-  pickupMaterial: {fileID: 2100000, guid: 41bb1e2f8e57ad24ea40cae14232eb4f, type: 2}
+  worldView: {fileID: 1255526296}
 --- !u!114 &549228501
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5770,6 +5782,7 @@ Transform:
   - {fileID: 1931743760}
   - {fileID: 538507677}
   - {fileID: 1906179410}
+  - {fileID: 1598084245}
   m_Father: {fileID: 1165390088}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &849968225
@@ -7814,6 +7827,79 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1251112446}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1001 &1255526294
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1598084245}
+    m_Modifications:
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7325363884752124782, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+      propertyPath: m_Name
+      value: RecoveryShrine
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+--- !u!4 &1255526295 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2012136842180212978, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+  m_PrefabInstance: {fileID: 1255526294}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1255526296 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4032837307244749554, guid: 232b035d565c03e4cbc2b3dd38e5d4cc, type: 3}
+  m_PrefabInstance: {fileID: 1255526294}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7fb4063c29dc9a48b2945bda0e29323, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeWorldInteractableView
 --- !u!1001 &1279083006
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10370,6 +10456,38 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 9091574772479243372, guid: dbc7c15af4542f14882418574ee76925, type: 3}
   m_PrefabInstance: {fileID: 1589667012}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1598084244
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1598084245}
+  m_Layer: 0
+  m_Name: WorldInteractables
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1598084245
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598084244}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1255526295}
+  m_Father: {fileID: 826194692}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1617590562
 PrefabInstance:
   m_ObjectHideFlags: 0

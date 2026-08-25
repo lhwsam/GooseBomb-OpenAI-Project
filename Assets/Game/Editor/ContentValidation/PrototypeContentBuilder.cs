@@ -1078,13 +1078,20 @@ namespace BombSwap.Editor.ContentValidation
                         "<Gamepad>/select");
                     requiresInputUpgrade = true;
                 }
-                if (gameplay.FindAction(BombSwapInputActionNames.Interact, false) == null)
+                InputAction interact = gameplay.FindAction(
+                    BombSwapInputActionNames.Interact,
+                    false);
+                if (interact == null)
                 {
                     AddButtonBindings(
                         gameplay,
                         BombSwapInputActionNames.Interact,
-                        "<Keyboard>/e",
+                        "<Keyboard>/f",
                         "<Gamepad>/buttonNorth");
+                    requiresInputUpgrade = true;
+                }
+                else if (EnsureInteractionKeyboardBinding(interact))
+                {
                     requiresInputUpgrade = true;
                 }
                 if (requiresInputUpgrade)
@@ -1162,7 +1169,7 @@ namespace BombSwap.Editor.ContentValidation
                 AddButtonBindings(
                     gameplay,
                     BombSwapInputActionNames.Interact,
-                    "<Keyboard>/e",
+                    "<Keyboard>/f",
                     "<Gamepad>/buttonNorth");
 
                 asset.AddControlScheme("Keyboard").WithRequiredDevice("<Keyboard>");
@@ -3060,10 +3067,12 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeDungeonRoomBinder binder =
                 FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
+            PrototypeWorldInteractableView[] candidateViews =
+                PrototypeWorldInteractionAuthoring.EnsureBombRewardViews(scene);
             PrototypeBombRewardPresenter presenter = presenters.Length > 0
                 ? presenters[0]
                 : binder.gameObject.AddComponent<PrototypeBombRewardPresenter>();
-            presenter.Configure(binder);
+            presenter.Configure(binder, candidateViews);
             EditorUtility.SetDirty(presenter);
         }
 
@@ -3091,19 +3100,14 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeDungeonRoomBinder binder =
                 FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
-            Material pickupMaterial = AssetDatabase.LoadAssetAtPath<Material>(
-                PrototypeContentValidator.RecoveryPickupMaterialPath);
-            if (pickupMaterial == null)
-            {
-                throw new InvalidOperationException(
-                    "Prototype recovery pickup material is missing.");
-            }
+            PrototypeWorldInteractableView worldView =
+                PrototypeWorldInteractionAuthoring.EnsureRecoveryView(scene);
             PrototypeRecoveryPickupPresenter presenter = presenters.Length > 0
                 ? presenters[0]
                 : binder.gameObject.AddComponent<PrototypeRecoveryPickupPresenter>();
             presenter.Configure(
                 binder,
-                pickupMaterial,
+                worldView,
                 PrototypeRecoveryPickupPresenter.DefaultRecoveryAmount,
                 Vector2Int.zero);
             EditorUtility.SetDirty(presenter);
@@ -3133,19 +3137,14 @@ namespace BombSwap.Editor.ContentValidation
 
             PrototypeDungeonRoomBinder binder =
                 FindExactlyOne<PrototypeDungeonRoomBinder>(scene);
-            Material rewardMaterial = AssetDatabase.LoadAssetAtPath<Material>(
-                PrototypeContentValidator.SecretRewardMaterialPath);
-            if (rewardMaterial == null)
-            {
-                throw new InvalidOperationException(
-                    "Prototype secret reward material is missing.");
-            }
+            PrototypeWorldInteractableView worldView =
+                PrototypeWorldInteractionAuthoring.EnsureSecretRewardView(scene);
             PrototypeSecretRewardPresenter presenter = presenters.Length > 0
                 ? presenters[0]
                 : binder.gameObject.AddComponent<PrototypeSecretRewardPresenter>();
             presenter.Configure(
                 binder,
-                rewardMaterial,
+                worldView,
                 PrototypeSecretRewardPresenter.DefaultTokenReward,
                 Vector2Int.zero);
             EditorUtility.SetDirty(presenter);
@@ -4639,6 +4638,61 @@ namespace BombSwap.Editor.ContentValidation
                 expectedControlLayout: "Button");
             action.AddBinding(keyboardPath, groups: "Keyboard");
             action.AddBinding(gamepadPath, groups: "Gamepad");
+        }
+
+        private static bool EnsureInteractionKeyboardBinding(
+            InputAction interact)
+        {
+            const string requiredPath = "<Keyboard>/f";
+            var keyboardBindingIndices = new List<int>();
+            int bindingToKeep = -1;
+            for (int index = 0; index < interact.bindings.Count; index++)
+            {
+                InputBinding binding = interact.bindings[index];
+                if (binding.isComposite || binding.isPartOfComposite ||
+                    binding.path == null ||
+                    !binding.path.StartsWith(
+                        "<Keyboard>/",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                keyboardBindingIndices.Add(index);
+                if (string.Equals(
+                        binding.path,
+                        requiredPath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    bindingToKeep = index;
+                }
+            }
+
+            if (keyboardBindingIndices.Count == 0)
+            {
+                interact.AddBinding(requiredPath, groups: "Keyboard");
+                return true;
+            }
+
+            bool changed = keyboardBindingIndices.Count > 1;
+            if (bindingToKeep < 0)
+            {
+                bindingToKeep = keyboardBindingIndices[0];
+                interact.ChangeBinding(bindingToKeep).WithPath(requiredPath);
+                changed = true;
+            }
+
+            for (int index = keyboardBindingIndices.Count - 1;
+                index >= 0;
+                index--)
+            {
+                int bindingIndex = keyboardBindingIndices[index];
+                if (bindingIndex != bindingToKeep)
+                {
+                    interact.ChangeBinding(bindingIndex).Erase();
+                }
+            }
+            return changed;
         }
 
         private static Material GetOrCreateMaterial(string assetPath, Shader shader, Color color)
