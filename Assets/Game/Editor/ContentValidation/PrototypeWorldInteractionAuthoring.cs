@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Audio;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -26,8 +27,14 @@ namespace BombSwap.Editor.ContentValidation
         public const string InteractionKeySpriteName = "Letters_31";
         public const string RecoveryWellModelPath =
             "Assets/Arts/Environments/HealStruct/Stone Water Well.fbx";
+        public const string RecoveryDrinkClipPath =
+            "Assets/Arts/Sound/WaterDrink/Gulp_water.wav";
         public const string RewardChestModelPath =
-            "Assets/Arts/Environments/Block/나무상자/WoodBox.fbx";
+            "Assets/Arts/Environments/Chest/Closed/Chest.fbx";
+        public const string RewardChestOpenModelPath =
+            "Assets/Arts/Environments/Chest/Opened/Chest_Open.fbx";
+        public const string RewardChestHingeClipPath =
+            "Assets/Arts/Sound/ChestHinge/Chest_hinge.wav";
         public const string RecoveryGlowCoreMaterialPath =
             "Assets/Game/Content/Materials/Prototype/RecoveryShrineGlowCore.mat";
         public const string RecoveryGlowHaloMaterialPath =
@@ -99,17 +106,23 @@ namespace BombSwap.Editor.ContentValidation
             SynchronizeRecoveryShrineGlow(
                 recoveryGlowCore,
                 recoveryGlowHalo);
+            SynchronizeRecoveryShrineAudio();
             EnsureBombRewardChoicePrefab(
                 bombRewardGlowCore,
                 bombRewardGlowHalo);
-            EnsureWorldInteractablePrefab(
-                RewardChestPrefabPath,
-                "RewardChest",
-                RewardChestModelPath,
-                0.85f,
-                PrototypeContentValidator.SecretRewardMaterialPath,
-                1.65f,
-                true);
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(
+                    RewardChestPrefabPath) == null)
+            {
+                EnsureWorldInteractablePrefab(
+                    RewardChestPrefabPath,
+                    "RewardChest",
+                    RewardChestModelPath,
+                    1.1f,
+                    PrototypeContentValidator.SecretRewardMaterialPath,
+                    1.65f,
+                    true);
+            }
+            SynchronizeRewardChestPresentation();
             SynchronizeRewardChestGlow(
                 bombRewardGlowCore,
                 bombRewardGlowHalo);
@@ -752,29 +765,7 @@ namespace BombSwap.Editor.ContentValidation
                         "Reward chest prefab is missing its world interaction view references.");
                 }
 
-                Transform modelTransform =
-                    view.PersistentVisualRoot.transform.Find("Model");
-                if (modelTransform == null)
-                {
-                    throw new InvalidOperationException(
-                        "Reward chest prefab is missing its persistent Model child.");
-                }
-
                 Bounds modelBounds = GetCombinedRendererBounds(
-                    view.PersistentVisualRoot);
-                Vector3 modelCenter = root.transform.InverseTransformPoint(
-                    modelBounds.center);
-                Vector3 modelBottom = root.transform.InverseTransformPoint(
-                    new Vector3(
-                        modelBounds.center.x,
-                        modelBounds.min.y,
-                        modelBounds.center.z));
-                modelTransform.localPosition += new Vector3(
-                    -modelCenter.x,
-                    -modelBottom.y,
-                    -modelCenter.z);
-
-                modelBounds = GetCombinedRendererBounds(
                     view.PersistentVisualRoot);
                 float modelFootprint = Mathf.Max(
                     modelBounds.size.x,
@@ -853,6 +844,135 @@ namespace BombSwap.Editor.ContentValidation
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        public static void SynchronizeRewardChestPresentation()
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(
+                RewardChestPrefabPath);
+            try
+            {
+                PrototypeWorldInteractableView worldView =
+                    root.GetComponent<PrototypeWorldInteractableView>();
+                if (worldView == null || !worldView.HasRequiredReferences)
+                {
+                    throw new InvalidOperationException(
+                        "Reward chest prefab is missing its world interaction view references.");
+                }
+
+                Transform closed = worldView.PersistentVisualRoot.transform.Find("Chest");
+                Transform opened = worldView.PersistentVisualRoot.transform.Find("Chest_Open");
+                if (closed == null)
+                {
+                    closed = worldView.PersistentVisualRoot.transform.Find("Model");
+                    if (closed != null)
+                    {
+                        closed.name = "Chest";
+                    }
+                }
+                if (opened == null)
+                {
+                    GameObject openModel = AssetDatabase.LoadAssetAtPath<GameObject>(
+                        RewardChestOpenModelPath);
+                    if (openModel == null || closed == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Reward chest open model '{RewardChestOpenModelPath}' is missing.");
+                    }
+                    GameObject openInstance = (GameObject)PrefabUtility.InstantiatePrefab(
+                        openModel,
+                        root.scene);
+                    openInstance.name = "Chest_Open";
+                    openInstance.transform.SetParent(
+                        worldView.PersistentVisualRoot.transform,
+                        false);
+                    openInstance.transform.localPosition = closed.localPosition;
+                    openInstance.transform.localRotation = closed.localRotation;
+                    openInstance.transform.localScale = closed.localScale;
+                    opened = openInstance.transform;
+                }
+                if (closed == null || opened == null)
+                {
+                    throw new InvalidOperationException(
+                        "Reward chest presentation requires Chest and Chest_Open.");
+                }
+
+                PrototypeRewardChestView chestView =
+                    root.GetComponent<PrototypeRewardChestView>();
+                if (chestView == null)
+                {
+                    chestView = root.AddComponent<PrototypeRewardChestView>();
+                }
+                chestView.Configure(closed.gameObject, opened.gameObject);
+                chestView.SetOpen(false);
+                ConfigureWorldInteractionAudio(root, RewardChestHingeClipPath);
+
+                if (PrefabUtility.SaveAsPrefabAsset(root, RewardChestPrefabPath) == null)
+                {
+                    throw new InvalidOperationException(
+                        "Unity failed to save the reward chest presentation prefab.");
+                }
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        public static void SynchronizeRecoveryShrineAudio()
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(
+                RecoveryShrinePrefabPath);
+            try
+            {
+                ConfigureWorldInteractionAudio(root, RecoveryDrinkClipPath);
+                if (PrefabUtility.SaveAsPrefabAsset(
+                        root,
+                        RecoveryShrinePrefabPath) == null)
+                {
+                    throw new InvalidOperationException(
+                        "Unity failed to save the recovery shrine interaction audio.");
+                }
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static void ConfigureWorldInteractionAudio(
+            GameObject root,
+            string clipPath)
+        {
+            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
+            AudioMixer mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(
+                PrototypeContentValidator.AudioMixerPath);
+            AudioMixerGroup sfxGroup = mixer != null
+                ? mixer.FindMatchingGroups("SFX").FirstOrDefault()
+                : null;
+            if (clip == null || sfxGroup == null)
+            {
+                throw new InvalidOperationException(
+                    $"World interaction audio requires clip '{clipPath}' and the SFX mixer group.");
+            }
+
+            PrototypeWorldInteractionAudio interactionAudio =
+                root.GetComponent<PrototypeWorldInteractionAudio>();
+            if (interactionAudio == null)
+            {
+                interactionAudio = root.AddComponent<PrototypeWorldInteractionAudio>();
+            }
+            AudioSource source = root.GetComponent<AudioSource>();
+            if (source == null)
+            {
+                source = root.AddComponent<AudioSource>();
+            }
+            source.playOnAwake = false;
+            source.loop = false;
+            source.clip = clip;
+            source.outputAudioMixerGroup = sfxGroup;
+            source.spatialBlend = 0f;
+            interactionAudio.Configure(source);
         }
 
         private static Bounds GetCombinedRendererBounds(

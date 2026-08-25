@@ -1826,6 +1826,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(reward.IsInitialized, Is.True);
                 Assert.That(reward.IsCollected, Is.False);
                 Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.RewardChestView, Is.Not.Null);
+                Assert.That(reward.RewardChestView.IsOpen, Is.False);
+                Assert.That(reward.InteractionAudio, Is.Not.Null);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
 
                 GridPosition secretPickupCell = new GridPosition(0, 0);
@@ -1858,6 +1861,7 @@ namespace BombSwap.Tests.PlayMode
 
                 Assert.That(reward.IsCollected, Is.True);
                 Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.RewardChestView.IsOpen, Is.True);
                 Assert.That(reward.IsAvailabilityEffectVisible, Is.False);
                 Assert.That(reward.IsInteractionPromptVisible, Is.False);
                 Assert.That(reward.CanInteract, Is.False);
@@ -1912,6 +1916,8 @@ namespace BombSwap.Tests.PlayMode
                     secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
                 Assert.That(reentryReward.IsVisualVisible, Is.True);
+                Assert.That(reentryReward.RewardChestView, Is.Not.Null);
+                Assert.That(reentryReward.RewardChestView.IsOpen, Is.True);
                 Assert.That(reentryReward.IsAvailabilityEffectVisible, Is.False);
                 Assert.That(reentryReward.IsInteractionPromptVisible, Is.False);
                 Assert.That(
@@ -2133,6 +2139,7 @@ namespace BombSwap.Tests.PlayMode
                     damagedPresenter.LastStatus,
                     Is.EqualTo(DungeonRecoveryUseStatus.Restored));
                 Assert.That(damagedPresenter.IsConsumed, Is.True);
+                Assert.That(damagedPresenter.InteractionAudio, Is.Not.Null);
                 Assert.That(damagedPresenter.IsVisualVisible, Is.True);
                 Assert.That(
                     damagedPresenter.IsAvailabilityEffectVisible,
