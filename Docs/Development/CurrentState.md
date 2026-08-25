@@ -9,6 +9,8 @@
 
 ## 완료
 
+- 플레이어에게 실제 피해가 적용되면 11개 런타임 던전·TestSandbox scene의 Volume Chromatic Aberration intensity가 0→1→0→1→0으로 0.24초 동안 선형 pulse한다. scene 공유 profile asset은 수정하지 않고 런타임 인스턴스만 구동하며, 연속 피격 시 처음부터 다시 시작한다.
+
 - Chaser·Charger·SelfDestruct·Thrower·Boss 프리팹에 공용 Pig 음성을 연결했다. 사망은 Long 3종, 일반 공격과 이동은 Short 6종을 비반복 무작위 재생하며, 보스 스킬 Execute는 Boss 전용 3종을 사용한다. 이동 음성은 기존 발걸음 이벤트 기준 25% 확률·캐릭터별 최소 2초 간격, 적 위치 기반 3D SFX로 제한한다.
 
 - 플레이어 액션 SFX를 연결했다. 적용된 피해에는 `Duck_call_1/3/5`, 성공한 플레이어 폭탄 설치에는 `Duck_call_2/4/6` 중 하나를 무작위 재생하며, 두 그룹 모두 SFX Mixer 기반 2D one-shot으로 플레이 가능한 16개 씬에 저작되어 있다.

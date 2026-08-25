@@ -3800,6 +3800,7 @@ GameObject:
   - component: {fileID: 549228508}
   - component: {fileID: 549228507}
   - component: {fileID: 549228509}
+  - component: {fileID: 549228510}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -4219,6 +4220,21 @@ MonoBehaviour:
   session: {fileID: 549228485}
   damageAudio: {fileID: 1460600176}
   bombPlacementAudio: {fileID: 1896391132}
+--- !u!114 &549228510
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afde0f96c8aed9343bf94c535b67ecd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerDamageChromaticPresenter
+  session: {fileID: 549228485}
+  volume: {fileID: 1532218647}
+  pulseSeconds: 0.24
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
