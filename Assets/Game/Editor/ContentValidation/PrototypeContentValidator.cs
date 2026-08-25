@@ -5639,6 +5639,7 @@ namespace BombSwap.Editor.ContentValidation
                     : null;
                 bool matchesVisual = validatesEnvironmentVisuals
                     ? renderers.Length > 0 &&
+                      obstacle.childCount == 1 &&
                       IsExpectedVisualPrefab(visual, woodBoxPrefab)
                     : renderers.Length == 4 && destructibleMaterial != null &&
                       renderers.All(renderer =>

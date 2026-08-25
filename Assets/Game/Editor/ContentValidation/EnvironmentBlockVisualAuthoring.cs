@@ -36,6 +36,19 @@ namespace BombSwap.Editor.ContentValidation
             SynchronizeDestructibles(environment, woodBox);
         }
 
+        public static void SynchronizeDestructibles(Transform gridRoot)
+        {
+            if (gridRoot == null)
+            {
+                throw new ArgumentNullException(nameof(gridRoot));
+            }
+
+            Transform environment = gridRoot.Find("Environment") ??
+                throw new InvalidOperationException("GridRoot is missing Environment.");
+            GameObject woodBox = LoadPrefab(WoodBoxPrefabPath);
+            SynchronizeDestructibles(environment, woodBox);
+        }
+
         private static void SynchronizeFloor(
             Transform environment,
             CombatRoomDefinition room,
@@ -151,6 +164,19 @@ namespace BombSwap.Editor.ContentValidation
             {
                 Transform obstacle = obstacles.GetChild(index);
                 EnsureVisual(prefab, obstacle, "Visual", Vector3.zero, Quaternion.identity);
+                for (int childIndex = obstacle.childCount - 1;
+                    childIndex >= 0;
+                    childIndex--)
+                {
+                    Transform child = obstacle.GetChild(childIndex);
+                    if (!string.Equals(
+                            child.name,
+                            "Visual",
+                            StringComparison.Ordinal))
+                    {
+                        UnityEngine.Object.DestroyImmediate(child.gameObject);
+                    }
+                }
             }
         }
 

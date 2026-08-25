@@ -998,6 +998,10 @@ namespace BombSwap.Tests.PlayMode
                     session.GetCell(new GridPosition(0, 1)).Terrain,
                     Is.EqualTo(GridTerrain.DestructibleWall));
                 Assert.That(wallPresenter.ActiveWallVisualCount, Is.EqualTo(2));
+                Assert.That(wallPresenter.BreakAudio, Is.Not.Null);
+                Assert.That(wallPresenter.BreakAudio.ClipCount, Is.EqualTo(2));
+                Assert.That(wallPresenter.BreakAudio.SpatialBlend, Is.EqualTo(1f));
+                Assert.That(wallPresenter.BreakAudio.MinDistance, Is.EqualTo(3f));
                 Assert.That(healthHud.IsInitialized, Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.False);
                 Assert.That(run.CombatRewardTokenCount, Is.GreaterThan(0));
@@ -1824,6 +1828,16 @@ namespace BombSwap.Tests.PlayMode
                     run.TryTravelTo(hiddenAlternateCombat).Status,
                     Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 Assert.That(reward.IsInitialized, Is.True);
+                Assert.That(secretBinder.DoorPresenter.SecretWallBreakAudio, Is.Not.Null);
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.ClipCount,
+                    Is.EqualTo(2));
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.SpatialBlend,
+                    Is.EqualTo(1f));
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.MinDistance,
+                    Is.EqualTo(8f));
                 Assert.That(reward.IsCollected, Is.False);
                 Assert.That(reward.IsVisualVisible, Is.True);
                 Assert.That(reward.RewardChestView, Is.Not.Null);

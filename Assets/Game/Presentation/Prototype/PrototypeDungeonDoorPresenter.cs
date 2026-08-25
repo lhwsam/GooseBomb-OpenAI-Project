@@ -60,6 +60,9 @@ namespace BombSwap
         [SerializeField]
         private GameObject secretWallBreakVfxPrefab;
 
+        [SerializeField]
+        private PrototypeRandomOneShotAudio secretWallBreakAudio;
+
         private PrototypeLocalVfxOverrides _localVfxOverrides;
 
         private readonly DungeonRoomExitStatus[] _localStatuses =
@@ -100,6 +103,15 @@ namespace BombSwap
         public GameObject WestSecretCracks => westSecretCracks;
 
         public GameObject SecretWallBreakVfxPrefab => secretWallBreakVfxPrefab;
+
+        public PrototypeRandomOneShotAudio SecretWallBreakAudio => secretWallBreakAudio;
+
+        public void ConfigureSecretWallBreakAudio(
+            PrototypeRandomOneShotAudio authoredBreakAudio)
+        {
+            secretWallBreakAudio = authoredBreakAudio ??
+                throw new ArgumentNullException(nameof(authoredBreakAudio));
+        }
 
         public void Configure(
             Renderer authoredNorthDoor,
@@ -169,6 +181,10 @@ namespace BombSwap
             Vector3 position =
                 GetSecretCracks(localDirection).transform.position +
                 (Vector3.up * SecretWallBreakVfxHeightOffset);
+            if (secretWallBreakAudio != null)
+            {
+                secretWallBreakAudio.Play(position);
+            }
             GameObject resolvedVfxPrefab = ResolveSecretWallBreakVfxPrefab();
             GameObject instance = resolvedVfxPrefab != null
                 ? Instantiate(resolvedVfxPrefab)
