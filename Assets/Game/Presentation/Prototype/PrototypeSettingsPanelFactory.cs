@@ -8,20 +8,30 @@ namespace BombSwap
 {
     public static class PrototypeSettingsPanelFactory
     {
-        public const int KeyboardBindingCount = 8;
+        public const int KeyboardBindingCount = 9;
 
         private static readonly (string Label, string Action, string BindingId)[]
             KeyboardBindingDefinitions =
             {
-                ("위로 이동", BombSwapInputActionNames.Move, "0748632d-5703-4556-8b80-6e94e4db6b42"),
-                ("아래로 이동", BombSwapInputActionNames.Move, "479adb8d-b1b7-40c0-9900-3c1a1531bea5"),
-                ("왼쪽 이동", BombSwapInputActionNames.Move, "3f5a4d01-be9e-465b-a969-fe26d2a25f94"),
-                ("오른쪽 이동", BombSwapInputActionNames.Move, "9775c482-4489-4d74-9808-11dce0263701"),
+                ("위로 이동", BombSwapInputActionNames.Move, "8f743a8b-1ef3-487a-ba99-24bc64bfb28f"),
+                ("아래로 이동", BombSwapInputActionNames.Move, "9aacb120-3f33-4e29-83c2-cc8e59a70c17"),
+                ("왼쪽 이동", BombSwapInputActionNames.Move, "afed060e-c7be-46df-909f-1a33461f5c27"),
+                ("오른쪽 이동", BombSwapInputActionNames.Move, "b2dc2ca6-82bd-4486-9d25-cba64912bcfb"),
                 ("폭탄 설치", BombSwapInputActionNames.PlaceBomb, "24d48abd-8c97-47c9-9ccc-2dddad0ea27c"),
                 ("폭탄 교체", BombSwapInputActionNames.SwapBomb, "7aa5d5cf-fbf6-4762-a8a5-29917b368c7d"),
                 ("일시정지", BombSwapInputActionNames.Pause, "afedc0a1-6906-45b8-90ce-f0eebf188ab2"),
                 ("결과 재시작", BombSwapInputActionNames.RestartRun, "e4f7d305-22d9-42f0-a19f-2ab3c59ecc5d"),
+                ("상호작용", BombSwapInputActionNames.Interact, "d5ba86d1-d2bd-4cbb-b197-99e8d171d984"),
             };
+
+        public static string GetKeyboardBindingLabel(int index) =>
+            KeyboardBindingDefinitions[index].Label;
+
+        public static string GetKeyboardBindingAction(int index) =>
+            KeyboardBindingDefinitions[index].Action;
+
+        public static string GetKeyboardBindingId(int index) =>
+            KeyboardBindingDefinitions[index].BindingId;
 
         public static PrototypeSettingsPanelPresenter Create(
             Transform parent,

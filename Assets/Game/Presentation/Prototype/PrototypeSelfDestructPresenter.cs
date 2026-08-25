@@ -150,7 +150,7 @@ namespace BombSwap
 
             if (summonVfxAnchor != null)
             {
-                summonVfxRemaining -= Time.unscaledDeltaTime;
+                summonVfxRemaining -= Time.deltaTime;
                 if (summonVfxRemaining <= 0f)
                 {
                     DestroySummonVfx();
@@ -426,6 +426,9 @@ namespace BombSwap
             RestartSummonVfxParticles();
             summonVfxRemaining = GetParticleLifetime(summonVfxSystems) +
                 SummonVfxCleanupPaddingSeconds;
+            session.BeginBossSelfDestructSpawnProtection(
+                session.SelfDestructActorId,
+                summonVfxRemaining);
             SummonVfxPlayCount++;
         }
 

@@ -74,6 +74,20 @@ namespace BombSwap.Tests
             Assert.That(footsteps.LastPlayedClip, Is.Null);
         }
 
+        [Test]
+        public void StopPlayback_StopsAnActiveFootstepVoice()
+        {
+            CharacterFootstepAudio footsteps = CreateFootsteps();
+            AudioSource source = _root.GetComponent<AudioSource>();
+
+            footsteps.PlayFootstep();
+            Assert.That(source.isPlaying, Is.True);
+
+            footsteps.StopPlayback();
+
+            Assert.That(source.isPlaying, Is.False);
+        }
+
         private CharacterFootstepAudio CreateFootsteps()
         {
             CharacterFootstepAudio footsteps = _root.AddComponent<CharacterFootstepAudio>();

@@ -2375,7 +2375,6 @@ namespace BombSwap.Editor.ContentValidation
                     throwerRoomDefinition,
                     "TestSandboxThrower"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[2], "TestSandboxPillars"),
-                new PrototypeDungeonCombatRoomEntry(roomDefinitions[3], "TestSandboxArmor"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[4], "TestSandboxGates"),
             });
             EditorUtility.SetDirty(catalog);
@@ -3957,6 +3956,7 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            ConfigureBombAudio(bombPresenter);
             cameraShake.Configure(mainCamera.transform);
             playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
@@ -4254,6 +4254,7 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            ConfigureBombAudio(bombPresenter);
             Camera mainCamera = FindExactlyOne<Camera>(scene);
             cameraShake.Configure(mainCamera.transform);
             playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
@@ -4769,6 +4770,35 @@ namespace BombSwap.Editor.ContentValidation
 
                 current = next;
             }
+        }
+
+        private static void ConfigureBombAudio(PrototypeBombPresenter presenter)
+        {
+            if (presenter == null)
+            {
+                throw new ArgumentNullException(nameof(presenter));
+            }
+
+            AudioMixer mixer = LoadRequiredAsset<AudioMixer>(
+                PrototypeContentValidator.AudioMixerPath);
+            AudioMixerGroup sfxGroup = mixer.FindMatchingGroups("SFX").SingleOrDefault() ??
+                throw new InvalidOperationException(
+                    "Prototype AudioMixer must contain exactly one SFX group.");
+            presenter.ConfigureBombAudio(
+                LoadRequiredAsset<AudioClip>(
+                    PrototypeContentValidator.BombFuseAudioClipPath),
+                new[]
+                {
+                    LoadRequiredAsset<AudioClip>(
+                        PrototypeContentValidator.BombExplosionAudioClip1Path),
+                    LoadRequiredAsset<AudioClip>(
+                        PrototypeContentValidator.BombExplosionAudioClip2Path),
+                },
+                sfxGroup,
+                PrototypeBombPresenter.DefaultFuseAudioVolume,
+                PrototypeBombPresenter.DefaultExplosionAudioVolume,
+                PrototypeBombPresenter.DefaultBombAudioMinDistance,
+                PrototypeBombPresenter.DefaultBombAudioMaxDistance);
         }
 
         private static T LoadRequiredAsset<T>(string assetPath)

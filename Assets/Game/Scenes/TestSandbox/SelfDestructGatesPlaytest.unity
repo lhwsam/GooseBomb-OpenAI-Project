@@ -1806,6 +1806,15 @@ MonoBehaviour:
   bombPoolSize: 8
   explosionPoolSize: 32
   bossThrowArcHeight: 2.2
+  fuseAudioClip: {fileID: 8300000, guid: 3ae9ebb76729a954e81ba13f58222fae, type: 3}
+  explosionAudioClips:
+  - {fileID: 8300000, guid: 4885a742dc736e0439755c40b2f47056, type: 3}
+  - {fileID: 8300000, guid: ef2c26d9f966ee640a5d3cb9470429b2, type: 3}
+  bombAudioMixerGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  fuseAudioVolume: 1
+  explosionAudioVolume: 0.9
+  bombAudioMinDistance: 18
+  bombAudioMaxDistance: 30
 --- !u!114 &549228485
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1865,7 +1874,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChaserPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  deathColor: {r: 1, g: 0.08, b: 0.03, a: 1}
 --- !u!114 &549228489
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1909,10 +1917,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChargerPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  telegraphColor: {r: 1, g: 0.82, b: 0.08, a: 1}
-  chargeColor: {r: 1, g: 0.12, b: 0.04, a: 1}
-  recoverColor: {r: 0.42, g: 0.46, b: 0.5, a: 1}
-  deathColor: {r: 0.14, g: 0.02, b: 0.02, a: 1}
 --- !u!114 &549228492
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1927,8 +1931,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeArmoredPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  brokenColor: {r: 1, g: 0.34, b: 0.06, a: 1}
-  deathColor: {r: 0.16, g: 0.02, b: 0.01, a: 1}
 --- !u!114 &549228496
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1957,10 +1959,6 @@ MonoBehaviour:
   bossBombShakeFrequency: 24
   telegraphColor: {r: 1, g: 0.72, b: 0.08, a: 0.68}
   executeColor: {r: 1, g: 0.08, b: 0.04, a: 0.9}
-  recoveryColor: {r: 0.16, g: 1, b: 0.34, a: 1}
-  phaseTwoColor: {r: 0.72, g: 0.18, b: 1, a: 1}
-  lastStandColor: {r: 1, g: 0.12, b: 0.42, a: 1}
-  deathColor: {r: 0.12, g: 0.01, b: 0.02, a: 1}
   moveTargetColor: {r: 0.12, g: 0.86, b: 1, a: 1}
 --- !u!114 &549228499
 MonoBehaviour:
@@ -1990,12 +1988,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeSelfDestructPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  telegraphColor: {r: 1, g: 0.2, b: 0.04, a: 1}
-  deathColor: {r: 0.18, g: 0.01, b: 0.01, a: 1}
-  warningPulseHz: 3
-  telegraphPulseHz: 8
-  warningScaleMultiplier: 1.08
-  telegraphScaleMultiplier: 1.18
 --- !u!114 &549228503
 MonoBehaviour:
   m_ObjectHideFlags: 0

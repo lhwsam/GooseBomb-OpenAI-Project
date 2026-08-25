@@ -35,6 +35,12 @@ namespace BombSwap.Editor.ContentValidation
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
         public const string AudioMixerPath =
             "Assets/Game/Content/Audio/BombSwapAudioMixer.mixer";
+        public const string BombFuseAudioClipPath =
+            "Assets/Arts/Sound/Bomb/Fuse/Fuse_burn.wav";
+        public const string BombExplosionAudioClip1Path =
+            "Assets/Arts/Sound/Bomb/Explosion/Bomb_blast_1.wav";
+        public const string BombExplosionAudioClip2Path =
+            "Assets/Arts/Sound/Bomb/Explosion/Bomb_blast_2.wav";
         public const string UiButtonHoverClipPath =
             "Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonHover_GooseNudge_8Bit.wav";
         public const string UiButtonClickClipPath =
@@ -609,6 +615,94 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         $"Prototype AudioMixer is missing exposed parameter '{requiredParameters[index]}'.");
                 }
+            }
+        }
+
+        private static void ValidateBombAudioConfiguration(
+            PrototypeBombPresenter presenter,
+            ICollection<string> errors)
+        {
+            if (!presenter.HasBombAudioConfiguration)
+            {
+                errors.Add(
+                    "TestSandbox bomb presenter must reference fuse audio, explosion audio, and the SFX mixer group.");
+                return;
+            }
+
+            string fusePath = AssetDatabase.GetAssetPath(presenter.FuseAudioClip);
+            if (!string.Equals(
+                    fusePath,
+                    BombFuseAudioClipPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Bomb fuse audio must reference '{BombFuseAudioClipPath}', found '{fusePath}'.");
+            }
+
+            string[] expectedExplosionPaths =
+            {
+                BombExplosionAudioClip1Path,
+                BombExplosionAudioClip2Path,
+            };
+            if (presenter.ExplosionAudioClips.Count != expectedExplosionPaths.Length)
+            {
+                errors.Add("Bomb explosion audio must contain exactly two clips.");
+            }
+            else
+            {
+                for (int index = 0; index < expectedExplosionPaths.Length; index++)
+                {
+                    string actualPath = AssetDatabase.GetAssetPath(
+                        presenter.ExplosionAudioClips[index]);
+                    if (!string.Equals(
+                            actualPath,
+                            expectedExplosionPaths[index],
+                            StringComparison.Ordinal))
+                    {
+                        errors.Add(
+                            $"Bomb explosion audio {index} must reference " +
+                            $"'{expectedExplosionPaths[index]}', found '{actualPath}'.");
+                    }
+                }
+            }
+
+            AudioMixer mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(AudioMixerPath);
+            AudioMixerGroup[] sfxGroups = mixer != null
+                ? mixer.FindMatchingGroups("SFX")
+                : Array.Empty<AudioMixerGroup>();
+            if (sfxGroups.Length != 1 ||
+                presenter.BombAudioMixerGroup != sfxGroups[0])
+            {
+                errors.Add("Bomb audio must route through the prototype SFX mixer group.");
+            }
+
+            if (!Mathf.Approximately(
+                    presenter.FuseAudioVolume,
+                    PrototypeBombPresenter.DefaultFuseAudioVolume))
+            {
+                errors.Add(
+                    $"Bomb fuse audio volume must be " +
+                    $"{PrototypeBombPresenter.DefaultFuseAudioVolume:0.##}.");
+            }
+            if (!Mathf.Approximately(
+                    presenter.ExplosionAudioVolume,
+                    PrototypeBombPresenter.DefaultExplosionAudioVolume))
+            {
+                errors.Add(
+                    $"Bomb explosion audio volume must be " +
+                    $"{PrototypeBombPresenter.DefaultExplosionAudioVolume:0.##}.");
+            }
+            if (!Mathf.Approximately(
+                    presenter.BombAudioMinDistance,
+                    PrototypeBombPresenter.DefaultBombAudioMinDistance) ||
+                !Mathf.Approximately(
+                    presenter.BombAudioMaxDistance,
+                    PrototypeBombPresenter.DefaultBombAudioMaxDistance))
+            {
+                errors.Add(
+                    "Bomb spatial audio distance must match the top-down camera contract " +
+                    $"({PrototypeBombPresenter.DefaultBombAudioMinDistance:0.##}-" +
+                    $"{PrototypeBombPresenter.DefaultBombAudioMaxDistance:0.##}).");
             }
         }
 
@@ -1245,6 +1339,13 @@ namespace BombSwap.Editor.ContentValidation
                         {
                             errors.Add(
                                 "Lobby settings panel must not contain the obsolete SettingsStatusText label.");
+                        }
+                        if (presenter.SettingsPanel != null)
+                        {
+                            ValidateSettingsKeyboardBindings(
+                                presenter.SettingsPanel,
+                                "Lobby",
+                                errors);
                         }
 
                         Image settingsPanelImage = presenter.SettingsPanel != null
@@ -3050,7 +3151,6 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatRoomDefinitionPath,
                 PrototypeCombatThrowerDefinitionPath,
                 PrototypeCombatPillarsDefinitionPath,
-                PrototypeCombatArmorDefinitionPath,
                 PrototypeCombatGatesDefinitionPath,
             };
             string[] expectedSceneNames =
@@ -3058,12 +3158,11 @@ namespace BombSwap.Editor.ContentValidation
                 "TestSandbox",
                 "TestSandboxThrower",
                 "TestSandboxPillars",
-                "TestSandboxArmor",
                 "TestSandboxGates",
             };
             if (catalog.Entries.Count != expectedRoomPaths.Length)
             {
-                errors.Add("Prototype dungeon combat room catalog must contain five entries.");
+                errors.Add("Prototype dungeon combat room catalog must contain four entries.");
                 return;
             }
 
@@ -4072,6 +4171,46 @@ namespace BombSwap.Editor.ContentValidation
                 errors);
         }
 
+        private static void ValidateSettingsKeyboardBindings(
+            PrototypeSettingsPanelPresenter panel,
+            string owner,
+            ICollection<string> errors)
+        {
+            if (panel.KeyboardBindingCount !=
+                PrototypeSettingsPanelFactory.KeyboardBindingCount)
+            {
+                errors.Add(
+                    $"{owner} settings must contain " +
+                    $"{PrototypeSettingsPanelFactory.KeyboardBindingCount} keyboard bindings.");
+                return;
+            }
+
+            for (int index = 0;
+                 index < PrototypeSettingsPanelFactory.KeyboardBindingCount;
+                 index++)
+            {
+                PrototypeSettingsPanelPresenter.KeyboardBindingView binding =
+                    panel.GetKeyboardBinding(index);
+                string expectedAction =
+                    PrototypeSettingsPanelFactory.GetKeyboardBindingAction(index);
+                string expectedBindingId =
+                    PrototypeSettingsPanelFactory.GetKeyboardBindingId(index);
+                if (!string.Equals(
+                        binding.ActionName,
+                        expectedAction,
+                        StringComparison.Ordinal) ||
+                    !string.Equals(
+                        binding.BindingId,
+                        expectedBindingId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add(
+                        $"{owner} settings binding {index} must map " +
+                        $"'{expectedAction}' to '{expectedBindingId}'.");
+                }
+            }
+        }
+
         private static void ValidateInGameUiPrefabs(
             ICollection<string> errors)
         {
@@ -4136,6 +4275,26 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeInGameUiPrefabAuthoring.PausePrefabPath,
                 view => view.HasRequiredReferences,
                 errors);
+            PrototypePauseView pausePrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
+                    PrototypeInGameUiPrefabAuthoring.PausePrefabPath);
+            if (pausePrefab != null)
+            {
+                PrototypeSettingsPanelPresenter pauseSettings =
+                    pausePrefab.GetComponentInChildren<
+                        PrototypeSettingsPanelPresenter>(true);
+                if (pauseSettings == null)
+                {
+                    errors.Add("Pause UI prefab is missing its settings panel.");
+                }
+                else
+                {
+                    ValidateSettingsKeyboardBindings(
+                        pauseSettings,
+                        "Pause",
+                        errors);
+                }
+            }
             ValidateInGameUiPrefab<PrototypeRunCompletionView>(
                 PrototypeInGameUiPrefabAuthoring.RunCompletionPrefabPath,
                 view =>
@@ -5032,6 +5191,7 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add("TestSandbox bomb presenter pool sizes cannot be negative.");
                     }
+                    ValidateBombAudioConfiguration(presenter, errors);
                 }
 
                 if (destructibleWallPresenters.Length == 1 &&

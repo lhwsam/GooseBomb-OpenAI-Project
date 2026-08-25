@@ -1,7 +1,7 @@
 # 사용자 설정, 오디오와 화면 흔들림
 
 - 상태: 설정 저장·공통 UI·키보드 리바인딩 `Accepted`
-- 상태: 캐릭터 발소리, 로비·던전·보스 적응형 BGM, UI 버튼 Hover/Click SFX 재생과 플레이어 폭탄·보스 소환·보스 공격 화면 흔들림 `Accepted`, 화면 흔들림 세부 튜닝 `Proposed`, 나머지 gameplay SFX `Deferred`
+- 상태: 캐릭터 발소리, 폭탄 fuse/폭발음, 로비·던전·보스 적응형 BGM, UI 버튼 Hover/Click SFX 재생과 플레이어 폭탄·보스 소환·보스 공격 화면 흔들림 `Accepted`, 화면 흔들림 세부 튜닝 `Proposed`, 나머지 gameplay SFX `Deferred`
 - 기준일: 2026-08-25
 - 코드 소유: `BombSwap.Unity`의 `PrototypeUserSettingsRuntime`, `PrototypeUserSettingsStorage`, `PrototypeSettingsPanelPresenter`, `PrototypeBgmPresenter`, `PrototypeBgmMixPolicy`, `PrototypeUiButtonAudioPlayer`, `PrototypeCameraShake`, `PrototypePlayerBombCameraShakePresenter`
 
@@ -13,7 +13,7 @@
 
 - 로비의 `조작 방법`과 일시정지의 `설정`은 같은 조작/오디오·화면 페이지를 사용한다.
 - 조작 페이지에는 키보드 배치만 표시한다. 게임패드 binding과 지원은 유지하지만 이번 설정 UI에는 표시하지 않는다.
-- 변경 가능한 기본 키는 WASD 네 방향, 폭탄 설치, 폭탄 교체, 일시정지, 결과 재시작이다. 방향키 이동은 고정 fallback으로 남는다.
+- 변경 가능한 기본 키는 방향키 네 방향, 폭탄 설치, 폭탄 교체, 일시정지, 결과 재시작과 `F` 상호작용의 아홉 개다. WASD 이동과 게임패드 binding은 고정 fallback으로 남는다.
 - 키 버튼을 누른 뒤 새 키를 입력하면 즉시 반영하고 저장한다. 이미 표시된 다른 명령이 사용하는 키는 거부하며 `Esc`는 변경만 취소한다.
 - 중복 키를 입력하면 별도 상태 문구를 만들지 않는다. 선택한 키 버튼 안에 `이미 사용 중`을 잠시 표시하고 짧게 좌우로 흔든 뒤 기존 키 표시로 복원한다.
 - 전체 음량, 배경음과 효과음은 0~100% Slider로 즉시 반영한다. 화면 흔들림은 `켜짐/꺼짐` Button이며 기본값은 `켜짐`이다.
@@ -47,6 +47,7 @@
 - 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹은 루트에 `CharacterFootstepAudio`와 SFX 그룹으로 route한 AudioSource를 하나씩 가진다. 이동 Animation Clip의 발 접지 프레임에 저작한 `PlayFootstep` Animation Event가 재생 시점을 결정하며 Core 이동 주기나 별도 타이머는 사용하지 않는다.
 - Animator가 중첩 FBX `Visual`에 있으므로 `CharacterFootstepAudio`는 실행 시 Animator GameObject에 `CharacterFootstepAnimationEventRelay`를 한 번 추가한다. Relay는 이벤트를 부모 프리팹 루트의 재생기로 전달한다. FBX를 unpack하거나 모델 계층을 복제하지 않는다.
 - 플레이어는 `Assets/Arts/Sound/FootStep/Player`, 적과 보스는 `Assets/Arts/Sound/FootStep/Enemy`의 네 clip 중 직전 clip을 제외해 무작위 재생한다. 플레이어는 2D, 적은 지면에서 떨어진 카메라 AudioListener까지 포함하는 기본 볼륨 `0.8`·`minDistance 12`·`maxDistance 35`의 logarithmic 3D 감쇠를 사용하고 적 AudioSource의 동시 재생은 최대 4개로 제한한다. 피치에는 작은 표현 변화만 적용하며 일시정지 중에는 재생하지 않는다.
+- 모든 소유자의 폭탄은 공통 `BombActivated`에서 `Assets/Arts/Sound/Bomb/Fuse/Fuse_burn.wav`를 해당 논리 셀의 loop 3D SFX로 시작하고, `BombExploded`에서 fuse음을 정지한 뒤 `Assets/Arts/Sound/Bomb/Explosion/Bomb_blast_1.wav`·`Bomb_blast_2.wav` 중 직전 clip을 피해서 하나를 재생한다. 플레이어·자폭병·투척병·보스 폭탄 모두 같은 SFX Mixer와 선형 3D 거리 감쇠를 사용한다. 탑다운 Camera Listener 높이에서 폭탄음이 최대 거리 밖으로 잘리지 않도록 `minDistance 18`·`maxDistance 30`, fuse volume `1`, 폭발 volume `0.9`로 저작하며 pause, presenter 비활성화와 보스 클리어 정리에서 남은 voice를 멈춘다.
 - BGM의 런타임 권위 데이터는 `Assets/Game/Content/Audio/PrototypeBgmCatalog.asset`이다. 정확히 여덟 개 clip과 BGM 출력 그룹, 1초 crossfade, 0.5 pause gain, 0.25초 pause duck 전환, 0.1초 DSP 예약 여유를 소유한다. full-mix 미리보기 세 파일은 런타임에서 참조하지 않는다.
 - 로비 BGM은 `Assets/Game/Content/Audio/Music/BGM_Lobby_GooseExodus_8Bit_Loop.wav`다. D 단조, 96 BPM, 32마디·80초, 44.1 kHz stereo 16-bit PCM이며 마지막 A장조 도미넌트가 다음 재생의 첫 D 단조로 해결된다. 합성 source는 `Tools/Audio/GenerateLobbyBgm.py`이고 고정 seed와 순환 delay로 같은 파일을 재현한다.
 - 던전 BGM은 D 단조, 116 BPM, 32마디·약 66.207초, 44.1 kHz stereo 16-bit PCM의 공통 timeline을 사용한다. 합성 source `Tools/Audio/GenerateDungeonCombatBgm.py`는 2,919,724 frame으로 정렬된 `BGM_Dungeon_PowderCorridor_BaseLayer_8Bit_Loop.wav`, `CombatLayer`, `DangerLayer`, `SanctuaryLayer` 네 stem을 함께 만든다.
@@ -63,7 +64,7 @@
 - UI 버튼 Click SFX는 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`다. 44.1 kHz mono 16-bit PCM, 7,497 frame·약 0.170초의 저압 충격·필터된 나무 body·기계식 latch 질감이며 `Tools/Audio/GenerateUiButtonClickSfx.py`가 고정 seed로 재현한다. 포인터 click과 키보드·게임패드 Submit이 확정한 interactable Button의 `onClick`에서 같은 소리를 재생한다.
 - 로비, 일시정지, 런 완료 UI는 Canvas마다 `PrototypeUiButtonAudioPlayer`와 2D·비반복 `AudioSource`를 하나만 공유한다. 모든 Button 피드백은 재생기를 직렬화 참조하고 Source는 SFX Mixer 그룹으로 route한다. `PlayClick`은 각 Button의 유일한 persistent `onClick` listener이며 런타임 화면 전환·비활성화 listener보다 먼저 실행되어야 한다. 확정 click은 끝나지 않은 hover음을 교체한 뒤 SFX Mixer 설정을 복제한 짧은 scene-independent voice로 재생해, 같은 프레임의 Canvas 비활성화·scene 전환에도 0.170초 tail을 보존하고 unscaled 시간으로 voice를 정리한다. Disabled·비활성화 상태에서는 재생하지 않는다.
 - BGM clip의 처음과 끝은 digital zero이며 `AudioSource.loop`로 전체 clip을 반복한다. catalog validator는 44.1 kHz stereo와 family별 정확한 sample 수, 여덟 clip의 고유성, full-mix 미리보기 비참조를 검사한다. UI SFX도 양 끝을 digital zero로 마감하고 정확한 mono sample 수, 공유 재생기·clip·SFX route·Button 참조를 검사한다.
-- BGM·발소리·UI 버튼 SFX 연결은 구현됐지만 최종 청감·상대 stem gain·효과음 음량·브라우저별 실제 출력 승인은 해당 화면·room과 실제 WebGL에서 사람이 판단한다. 발소리와 UI 버튼을 제외한 gameplay SFX의 실제 `AudioSource` 연결은 아직 없다. `audio-unlocked`와 `bgm-audio-started` marker만으로 가청 오디오 통과를 기록하지 않는다.
+- BGM·발소리·폭탄·UI 버튼 SFX 연결은 구현됐지만 최종 청감·상대 stem gain·효과음 음량·브라우저별 실제 출력 승인은 해당 화면·room과 실제 WebGL에서 사람이 판단한다. 그 밖의 gameplay SFX는 별도 계약에 따라 단계적으로 연결하며 `audio-unlocked`와 `bgm-audio-started` marker만으로 가청 오디오 통과를 기록하지 않는다.
 
 ## 화면 흔들림 계약
 
@@ -97,8 +98,8 @@
 
 ## 검증
 
-- PlayMode: 수치 clamp·dB 변환·화면 흔들림 ON/OFF 정규화와 배율, PlayerPrefs round-trip, 로비 Button 교대와 pause 프리팹 참조, 플레이어 폭탄·보스 착지·돌진·parity·보스 폭탄 폭발 요청, binding override round-trip, 손상 JSON 복구, 발소리 무작위 비반복·Animation Event relay·일시정지 차단.
-- scene 통합: 로비의 Mixer 그룹/파라미터·키보드 8개·gamepad 문구 부재, 로비/일시정지의 같은 설정 panel, 설정 중 `Esc`와 실제 pause 수명.
+- PlayMode: 수치 clamp·dB 변환·화면 흔들림 ON/OFF 정규화와 배율, PlayerPrefs round-trip, 로비 Button 교대와 pause 프리팹 참조, 플레이어 폭탄·보스 착지·돌진·parity·보스 폭탄 폭발 요청, binding override round-trip, 손상 JSON 복구, 발소리 무작위 비반복·Animation Event relay·강제 정지·일시정지 차단, 폭탄 fuse/폭발 voice 시작과 정리.
+- scene 통합: 로비의 Mixer 그룹/파라미터·키보드 9개·gamepad 문구 부재, 방향키 네 방향과 `F` 상호작용의 안정 binding ID, 로비/일시정지의 같은 설정 panel, 설정 중 `Esc`와 실제 pause 수명.
 - PlayMode: room/clear별 던전 mix, boss phase mix, DSP 다음 마디 계산, Boss room의 던전 정책 오사용 거부.
 - Editor validator: AudioMixer 그룹/노출 파라미터, BGM catalog의 8개 clip·sample alignment·미리보기 비참조, 대상 17개 scene의 root presenter 정확히 한 개·catalog 참조·직렬화 `AudioSource` 부재.
 - WebGL 자동: 첫 사용자 입력 뒤 `bgm-audio-started`, 기존 `audio-unlocked`, Console/page error를 확인한다. WebGL 수동: 로비→던전→보스 family 전환, 전투/안전/회복/보상/클리어 mix, 보스 phase 상승, pause duck/복귀, 사망·격파 fade-out, 설정 BGM 0/70/100%를 실제 청감으로 확인한다.

@@ -133,9 +133,9 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - 체력 7 이하 전환 뒤 보스는 중앙으로 복귀하고 `SummonSelfDestruct`를 한 번 실행한다.
 - Core는 저작 소환 앵커 중 비점유 바닥을 고르고 플레이어와 Manhattan 거리가 먼 셀을 안정 좌표 순으로 잠근다.
 - 소환 셀은 Telegraph 위험 셀로 먼저 표시되고 Execute에서 자폭병을 생성한다.
-- Execute의 `SelfDestructSpawned` 사건에서 `PrototypeSelfDestructPresenter`는 보스 첫 입장과 같은 로컬 spawn VFX를 생성 셀 바닥에 한 번 재생한다. VFX가 없으면 표현만 생략하고 생성·점유·AI는 그대로 진행하며, pause와 presenter 비활성화 때 재생·임시 anchor를 정리한다.
+- Execute의 `SelfDestructSpawned` 사건에서 `PrototypeSelfDestructPresenter`는 보스 첫 입장과 같은 로컬 spawn VFX를 생성 셀 바닥에 한 번 재생한다. 로컬 VFX가 있으면 실제 파티클 duration과 lifetime을 합친 종료 시각을 세션에 등록하며, 그때까지 자폭병은 같은 셀에 머물고 플레이어·다른 폭탄의 폭발 피해와 조기 점화를 무시한다. VFX가 없는 공개 clone에서는 대기 없이 기존 행동을 시작하며, pause와 presenter 비활성화 때 재생·임시 anchor를 정리한다.
 - 자폭병은 기존 BFS·WarningChase·조기 점화·0.75초 fuse를 사용한다.
-- 생성 4.5초 뒤 아직 추격 중이면 현재 셀에서 강제 점화한다. 보스의 돌진 Telegraph/Execute 중에도 자폭병의 시계 관측과 기존 추격은 계속하며, 4.5초 강제 점화 요청만 보류해 최대 위협을 겹치지 않는다. 폭발 셀 조회는 자폭병이 `Chase` 또는 `WarningChase`이고 논리 격자에 남아 있을 때만 최신 simulation interval에서 수행한다.
+- 소환 VFX 보호가 끝난 뒤 4.5초 동안 아직 추격 중이면 현재 셀에서 강제 점화한다. 보스의 돌진 Telegraph/Execute 중에도 보호 종료 뒤 자폭병의 시계 관측과 기존 추격은 계속하며, 강제 점화 요청만 보류해 최대 위협을 겹치지 않는다. 폭발 셀 조회는 자폭병이 `Chase` 또는 `WarningChase`이고 논리 격자에 남아 있을 때만 최신 simulation interval에서 수행한다.
 - 보스는 `WaitForSelfDestruct`에서 해결 사건을 받을 때까지 강화 투척으로 진행하지 않는다.
 - 자폭병 폭발이 보스 셀을 포함하면 과열 여부와 무관하게 1피해를 준다. 같은 폭탄 ID는 한 번만 처리한다.
 

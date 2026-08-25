@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using BombSwap.Core;
 using NUnit.Framework;
 using UnityEngine;
@@ -32,6 +33,8 @@ namespace BombSwap.Tests.PlayMode
         private GameObject _bossDangerCellPrefab;
         private GameObject _bossSummonVfxPrefab;
         private GameObject _bossSummonLightningVfxPrefab;
+        private AudioClip _testBombFuseAudioClip;
+        private AudioClip[] _testBombExplosionAudioClips;
         private PrototypeBombDefinitionAsset _definition;
         private PrototypeBombDefinitionAsset _areaDefinition;
         private PrototypeBombLoadoutAsset _loadout;
@@ -157,6 +160,23 @@ namespace BombSwap.Tests.PlayMode
             if (_bossSummonLightningVfxPrefab != null)
             {
                 Object.DestroyImmediate(_bossSummonLightningVfxPrefab);
+            }
+            if (_testBombFuseAudioClip != null)
+            {
+                Object.DestroyImmediate(_testBombFuseAudioClip);
+            }
+            if (_testBombExplosionAudioClips != null)
+            {
+                for (int index = 0;
+                     index < _testBombExplosionAudioClips.Length;
+                     index++)
+                {
+                    if (_testBombExplosionAudioClips[index] != null)
+                    {
+                        Object.DestroyImmediate(
+                            _testBombExplosionAudioClips[index]);
+                    }
+                }
             }
             if (_definition != null)
             {
@@ -2569,6 +2589,99 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator BombAudio_CommonActivationStartsFuseAndExplosionStopsIt()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includePresenter: true,
+                includeBombAudio: true,
+                fuseSeconds: 0.03f);
+            yield return null;
+
+            Assert.That(_presenter.HasBombAudioConfiguration, Is.True);
+            Assert.That(_session.TryPlaceBomb(), Is.True);
+            Assert.That(_presenter.FuseAudioPlayCount, Is.EqualTo(1));
+            Assert.That(_presenter.ActiveFuseAudioCount, Is.EqualTo(1));
+            AudioSource fuseSource = _root
+                .GetComponentsInChildren<AudioSource>(true)
+                .Single(source => source.clip == _presenter.FuseAudioClip);
+            Assert.That(fuseSource.isPlaying, Is.True);
+            Assert.That(fuseSource.spatialBlend, Is.EqualTo(1f));
+            Assert.That(fuseSource.rolloffMode, Is.EqualTo(AudioRolloffMode.Linear));
+            Assert.That(
+                fuseSource.volume,
+                Is.EqualTo(PrototypeBombPresenter.DefaultFuseAudioVolume));
+            Assert.That(
+                fuseSource.minDistance,
+                Is.EqualTo(PrototypeBombPresenter.DefaultBombAudioMinDistance));
+            Assert.That(
+                fuseSource.maxDistance,
+                Is.EqualTo(PrototypeBombPresenter.DefaultBombAudioMaxDistance));
+            float representativeListenerDistance =
+                new Vector3(0f, 13.55f, -11.3f).magnitude;
+            Assert.That(
+                representativeListenerDistance,
+                Is.LessThanOrEqualTo(fuseSource.minDistance),
+                "A centered bomb must remain at full volume from the top-down listener.");
+
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(_presenter.ActiveFuseAudioCount, Is.Zero);
+            Assert.That(_presenter.ExplosionAudioPlayCount, Is.EqualTo(1));
+            AudioSource explosionSource = _root
+                .GetComponentsInChildren<AudioSource>(true)
+                .Single(source =>
+                    source.clip != null &&
+                    _testBombExplosionAudioClips.Contains(source.clip));
+            Assert.That(explosionSource.isPlaying, Is.True);
+            Assert.That(
+                explosionSource.volume,
+                Is.EqualTo(PrototypeBombPresenter.DefaultExplosionAudioVolume));
+            Assert.That(
+                representativeListenerDistance,
+                Is.LessThan(explosionSource.maxDistance),
+                "An explosion must not be culled by the top-down listener distance.");
+        }
+
+        [UnityTest]
+        public IEnumerator BossClear_StopsHeldMovementAndReleasesInputIntent()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                combatEnabled: true,
+                bossEnabled: true,
+                bossSpawnPosition: new Vector2Int(0, 1),
+                bossMaxHealth: 3,
+                bossPhaseTwoHealthThreshold: 2);
+            int movementStoppedCount = 0;
+            _session.PlayerMovementStopped += () => movementStoppedCount++;
+            yield return null;
+
+            QueueKeyboardState(Key.D);
+            yield return new WaitForSecondsRealtime(0.02f);
+
+            Assert.That(_session.IsPlayerMoving, Is.True);
+            Assert.That(
+                _reader.CurrentMoveDirection,
+                Is.EqualTo(CardinalDirection.East));
+            DefeatBossForClearTest();
+
+            yield return new WaitForSecondsRealtime(0.03f);
+
+            Assert.That(_session.IsBossAlive, Is.False);
+            Assert.That(_session.IsRoomCleared, Is.True);
+            Assert.That(_session.IsPlayerMoving, Is.False);
+            Assert.That(
+                _reader.CurrentMoveDirection,
+                Is.EqualTo(CardinalDirection.None));
+            Assert.That(movementStoppedCount, Is.EqualTo(1));
+
+            QueueKeyboardState();
+        }
+
+        [UnityTest]
         public IEnumerator BossEncounter_SelfDestructSummonReusesBossSpawnVfx()
         {
             CreateRuntime(
@@ -2588,9 +2701,22 @@ namespace BombSwap.Tests.PlayMode
                 bossPhaseOneRecoverySeconds: 0.01f,
                 bossPhaseTwoTelegraphSeconds: 0.01f,
                 bossPhaseTwoExecuteSeconds: 0.01f,
-                bossPhaseTwoRecoverySeconds: 0.01f);
+                bossPhaseTwoRecoverySeconds: 0.01f,
+                selfDestructSpawnPosition: new Vector2Int(-2, -2),
+                selfDestructAnchors: new[]
+                {
+                    new Vector2Int(-2, 0),
+                    new Vector2Int(2, 0),
+                });
             _bossSummonVfxPrefab = new GameObject("BossSummonVfxTestPrefab");
-            _bossSummonVfxPrefab.AddComponent<ParticleSystem>();
+            ParticleSystem summonParticles =
+                _bossSummonVfxPrefab.AddComponent<ParticleSystem>();
+            summonParticles.Stop(
+                true,
+                ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.MainModule summonMain = summonParticles.main;
+            summonMain.duration = 0.05f;
+            summonMain.startLifetime = 0.02f;
             _bossSummonVfxPrefab.SetActive(false);
             _bossSummonLightningVfxPrefab =
                 new GameObject("BossSummonLightningVfxTestPrefab");
@@ -2609,7 +2735,7 @@ namespace BombSwap.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.08f);
             Assert.That(_session.CurrentBossHealth, Is.EqualTo(2));
 
-            Time.timeScale = 10f;
+            Time.timeScale = 4f;
             float deadline = Time.realtimeSinceStartup + 10f;
             while (_selfDestructPresenter.SummonVfxPlayCount == 0 &&
                    Time.realtimeSinceStartup < deadline)
@@ -2621,6 +2747,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_selfDestructPresenter.Instance, Is.Not.Null);
             Assert.That(_selfDestructPresenter.SummonVfxPlayCount, Is.EqualTo(1));
             Assert.That(_selfDestructPresenter.IsSummonVfxActive, Is.True);
+            Assert.That(_session.IsBossSelfDestructSpawnProtected, Is.True);
+            Assert.That(_selfDestructPresenter.MoveCount, Is.Zero);
             Transform vfxAnchor = _selfDestructPresenter.PresentationRoot.Find(
                 "PrototypeBossSelfDestructSummonVfx");
             Assert.That(vfxAnchor, Is.Not.Null);
@@ -2628,8 +2756,41 @@ namespace BombSwap.Tests.PlayMode
                 Vector3.Distance(
                     vfxAnchor.position,
                     _session.GridSpace.GridToWorld(
-                        _session.CurrentSelfDestructGridPosition)),
+                    _session.CurrentSelfDestructGridPosition)),
                 Is.LessThan(0.001f));
+
+            GridPosition protectedPosition =
+                _session.CurrentSelfDestructGridPosition;
+            int armedCount = 0;
+            _session.SelfDestructArmed += _ => armedCount++;
+            PressAndRelease(Key.Z);
+            yield return new WaitForSecondsRealtime(0.03f);
+
+            Assert.That(_session.IsBossSelfDestructSpawnProtected, Is.True);
+            Assert.That(_session.IsSelfDestructAlive, Is.True);
+            Assert.That(
+                _session.CurrentSelfDestructState,
+                Is.EqualTo(SelfDestructEnemyState.Chase));
+            Assert.That(_session.CurrentSelfDestructGridPosition, Is.EqualTo(protectedPosition));
+            Assert.That(_selfDestructPresenter.MoveCount, Is.Zero);
+            Assert.That(armedCount, Is.Zero);
+
+            deadline = Time.realtimeSinceStartup + 2f;
+            while (_session.IsBossSelfDestructSpawnProtected &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(_session.IsBossSelfDestructSpawnProtected, Is.False);
+            Assert.That(_selfDestructPresenter.IsSummonVfxActive, Is.False);
+
+            deadline = Time.realtimeSinceStartup + 2f;
+            while (_selfDestructPresenter.MoveCount == 0 &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(_selfDestructPresenter.MoveCount, Is.GreaterThan(0));
         }
 
         [UnityTest]
@@ -3225,11 +3386,37 @@ namespace BombSwap.Tests.PlayMode
             return false;
         }
 
+        private void DefeatBossForClearTest()
+        {
+            System.Reflection.FieldInfo bossField =
+                typeof(PrototypeGameSession).GetField(
+                    "_boss",
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic);
+            Assert.That(bossField, Is.Not.Null);
+            var boss = bossField.GetValue(_session) as BossBattleSimulation;
+            Assert.That(boss, Is.Not.Null);
+
+            for (int index = 0; index < _session.MaxBossHealth; index++)
+            {
+                var bombId = (BombId)System.Activator.CreateInstance(
+                    typeof(BombId),
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic,
+                    null,
+                    new object[] { 10000L + index },
+                    null);
+                BossDamageResult result = boss.ApplyExplosion(bombId, 1);
+                Assert.That(result.WasApplied, Is.True);
+            }
+        }
+
         private void CreateRuntime(
             Vector2Int blocker,
             bool includeBlocker,
             bool includeProbe = false,
             bool includePresenter = false,
+            bool includeBombAudio = false,
             bool includeBombAnimator = false,
             bool includeAuthoredBombReadyVfx = false,
             bool includeHealthPresenter = false,
@@ -3860,6 +4047,44 @@ namespace BombSwap.Tests.PlayMode
             {
                 _presenter = _root.AddComponent<PrototypeBombPresenter>();
                 _presenter.Configure(_session, presentationRoot, 1, 5);
+                if (includeBombAudio)
+                {
+                    _testBombFuseAudioClip = AudioClip.Create(
+                        "TestBombFuse",
+                        4410,
+                        1,
+                        44100,
+                        false);
+                    _testBombExplosionAudioClips = new[]
+                    {
+                        AudioClip.Create(
+                            "TestBombExplosionA",
+                            44100,
+                            1,
+                            44100,
+                            false),
+                        AudioClip.Create(
+                            "TestBombExplosionB",
+                            44100,
+                            1,
+                            44100,
+                            false),
+                    };
+                    PrototypePauseView pausePrefab =
+                        LoadUiPrefab<PrototypePauseView>("UI/PrototypePauseCanvas");
+                    PrototypeUiButtonAudioPlayer uiAudio =
+                        pausePrefab.GetComponentInChildren<
+                            PrototypeUiButtonAudioPlayer>(true);
+                    Assert.That(uiAudio, Is.Not.Null);
+                    Assert.That(uiAudio.AudioSource, Is.Not.Null);
+                    Assert.That(
+                        uiAudio.AudioSource.outputAudioMixerGroup,
+                        Is.Not.Null);
+                    _presenter.ConfigureBombAudio(
+                        _testBombFuseAudioClip,
+                        _testBombExplosionAudioClips,
+                        uiAudio.AudioSource.outputAudioMixerGroup);
+                }
                 if (_localVfxOverrides != null)
                 {
                     _presenter.ConfigureLocalVfxOverrides(_localVfxOverrides);

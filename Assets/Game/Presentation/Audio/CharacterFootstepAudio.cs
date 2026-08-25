@@ -77,6 +77,11 @@ namespace BombSwap
         private void OnDisable()
         {
             SharedEnemyEmitters.Remove(this);
+            StopPlayback();
+        }
+
+        public void StopPlayback()
+        {
             if (audioSource != null)
             {
                 audioSource.Stop();

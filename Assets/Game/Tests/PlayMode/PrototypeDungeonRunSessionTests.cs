@@ -1371,6 +1371,13 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(clear.Settings, Is.SameAs(settings));
                 Assert.That(clear.GameplayCamera, Is.SameAs(gameplayCamera));
                 Assert.That(clear.CameraShake, Is.SameAs(cameraShake));
+                Assert.That(bombPresenter.HasBombAudioConfiguration, Is.True);
+                Assert.That(bombPresenter.FuseAudioClip.name, Is.EqualTo("Fuse_burn"));
+                Assert.That(bombPresenter.ExplosionAudioClips.Count, Is.EqualTo(2));
+                Assert.That(
+                    bombPresenter.ExplosionAudioClips.Select(clip => clip.name),
+                    Is.EquivalentTo(new[] { "Bomb_blast_1", "Bomb_blast_2" }));
+                Assert.That(bombPresenter.BombAudioMixerGroup.name, Is.EqualTo("SFX"));
                 Assert.That(clear.TransitionViewPrefab, Is.Not.Null);
                 Assert.That(clear.TransitionViewPrefab.HasRequiredReferences, Is.True);
                 Assert.That(completionPresenter.BossClearPresenter, Is.SameAs(clear));
@@ -1438,6 +1445,8 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     presenter.BossBombExplosionFeedbackCount,
                     Is.GreaterThan(0));
+                Assert.That(bombPresenter.FuseAudioPlayCount, Is.GreaterThan(0));
+                Assert.That(bombPresenter.ExplosionAudioPlayCount, Is.GreaterThan(0));
                 if (settings.Current.IsScreenShakeEnabled)
                 {
                     Assert.That(presenter.AttackShakePlayCount, Is.GreaterThan(0));
@@ -3150,6 +3159,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     lobby.SettingsPanel.KeyboardBindingCount,
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                AssertSettingsKeyboardBindingContract(lobby.SettingsPanel);
                 Assert.That(lobby.SettingsPanel.KeyboardResetButton, Is.Not.Null);
                 Assert.That(
                     lobby.SettingsPanel.KeyboardResetButton.transform
@@ -3183,13 +3193,14 @@ namespace BombSwap.Tests.PlayMode
                 lobby.SettingsPanel.KeyboardResetButton.onClick.Invoke();
                 PrototypeSettingsPanelPresenter.KeyboardBindingView upBinding =
                     lobby.SettingsPanel.GetKeyboardBinding(0);
+                string defaultUpBindingLabel = upBinding.ValueLabel.text;
                 feedbackKeyboard = InputSystem.AddDevice<Keyboard>();
                 upBinding.Button.onClick.Invoke();
                 Assert.That(lobby.SettingsPanel.IsRebinding, Is.True);
 
                 InputSystem.QueueStateEvent(
                     feedbackKeyboard,
-                    new KeyboardState(Key.S));
+                    new KeyboardState(Key.DownArrow));
                 InputSystem.Update();
                 InputSystem.QueueStateEvent(
                     feedbackKeyboard,
@@ -3215,7 +3226,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     lobby.SettingsPanel.IsDuplicateBindingFeedbackPlaying,
                     Is.False);
-                Assert.That(upBinding.ValueLabel.text, Is.EqualTo("W"));
+                Assert.That(
+                    upBinding.ValueLabel.text,
+                    Is.EqualTo(defaultUpBindingLabel));
                 Assert.That(
                     lobby.SettingsPanel
                         .GetComponentsInChildren<TextMeshProUGUI>(true)
@@ -3322,6 +3335,8 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     pausePresenter.SettingsPanel.KeyboardBindingCount,
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                AssertSettingsKeyboardBindingContract(
+                    pausePresenter.SettingsPanel);
                 Assert.That(
                     pausePresenter.SettingsPanel.KeyboardResetButton,
                     Is.Not.Null);
@@ -3992,6 +4007,28 @@ namespace BombSwap.Tests.PlayMode
                     Is.True,
                     $"Door {doors[index].name} must preserve its authored material properties.");
                 propertyBlock.Clear();
+            }
+        }
+
+        private static void AssertSettingsKeyboardBindingContract(
+            PrototypeSettingsPanelPresenter panel)
+        {
+            for (int index = 0;
+                 index < PrototypeSettingsPanelFactory.KeyboardBindingCount;
+                 index++)
+            {
+                PrototypeSettingsPanelPresenter.KeyboardBindingView binding =
+                    panel.GetKeyboardBinding(index);
+                Assert.That(
+                    binding.ActionName,
+                    Is.EqualTo(
+                        PrototypeSettingsPanelFactory.GetKeyboardBindingAction(index)));
+                Assert.That(
+                    binding.BindingId,
+                    Is.EqualTo(
+                        PrototypeSettingsPanelFactory.GetKeyboardBindingId(index)));
+                Assert.That(binding.Button, Is.Not.Null);
+                Assert.That(binding.ValueLabel, Is.Not.Null);
             }
         }
 

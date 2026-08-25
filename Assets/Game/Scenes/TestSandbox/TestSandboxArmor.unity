@@ -3886,6 +3886,15 @@ MonoBehaviour:
   bombPoolSize: 8
   explosionPoolSize: 32
   bossThrowArcHeight: 2.2
+  fuseAudioClip: {fileID: 8300000, guid: 3ae9ebb76729a954e81ba13f58222fae, type: 3}
+  explosionAudioClips:
+  - {fileID: 8300000, guid: 4885a742dc736e0439755c40b2f47056, type: 3}
+  - {fileID: 8300000, guid: ef2c26d9f966ee640a5d3cb9470429b2, type: 3}
+  bombAudioMixerGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  fuseAudioVolume: 1
+  explosionAudioVolume: 0.9
+  bombAudioMinDistance: 18
+  bombAudioMaxDistance: 30
 --- !u!114 &549228485
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -13,6 +13,7 @@
 - 보스방 진입만으로 런이 끝나지 않는다. 보스방의 Core 클리어는 보스 격파 시 즉시 확정하되 `FLOOR CLEARED` 결과 화면은 격파 연출의 curtain이 완전히 닫힌 뒤 표시한다.
 - 어느 방에서든 플레이어 체력이 0이 되면 런은 즉시 실패한다. 카메라가 플레이어의 현재 보이는 위치를 포커스하고 줌인한 채 느린 사망 애니메이션을 끝까지 재생한 뒤 curtain을 닫고 `RUN FAILED`와 사망 원인을 표시한다. 현재 원인 문구는 `BOMB EXPLOSION`, `CHASER CONTACT`, `CHARGER CHARGE`, `ARMORED ENEMY CONTACT`, 일반 `ENEMY CONTACT`, `BOSS ATTACK`이다.
 - 결과가 확정되면 현재 방 simulation을 멈춘다.
+- 보스 격파 순간 플레이어가 이동 중이면 셀 중심 도착을 기다리지 않고 그 위치에서 이동·목적지 예약과 유지 입력을 취소하며 발걸음 애니메이션 상태와 재생 중인 발자국 voice도 즉시 정지한다.
 - 키보드 `R` 또는 게임패드 Select를 한 번 누르면 같은 브라우저 페이지에서 새 런을 시작한다.
 - 결과 프리팹에는 별도의 `R 키로 즉시 다시 시작` 안내 라벨을 두지 않는다. 재시작 단축키 계약은 화면의 `다시 시작` Button과 함께 그대로 유지한다.
 - 결과 화면의 `다시 시작`은 같은 즉시 재시작을 수행하고, `로비로 돌아가기`는 현재 run host를 제거한 뒤 `DungeonLobby`로 이동한다.
@@ -22,7 +23,7 @@
 ## 책임과 상태 전이
 
 1. Core `DungeonRunState`가 `InProgress → Completed | Failed` 단방향 결과를 소유한다.
-2. `PrototypeGameSession`이 치명 피해에서 `PlayerDied`, 보스 사망에서 `RoomCleared`를 각각 한 번 발행한다.
+2. `PrototypeGameSession`이 치명 피해에서 `PlayerDied`, 보스 사망에서 이동·예약·입력 정리를 먼저 수행한 뒤 `RoomCleared`를 각각 한 번 발행한다.
 3. `PrototypeDungeonRoomBinder`가 `PlayerDied`의 정확한 치명 `PlayerDamageResult`를 run 실패와 `FailureDamage` snapshot으로, `RoomCleared`를 현재 노드 클리어로 기록한다.
 4. 현재 simulation 사건 순서는 `PlayerDied`가 `RoomCleared`보다 앞선다. 같은 frame에 플레이어와 보스가 함께 죽으면 먼저 기록된 `Failed`가 유지되고 뒤의 클리어 요청은 terminal 상태로 거부된다.
 5. `PrototypeBossClearPresenter`는 보스만 죽은 완료 결과에서 방 session을 즉시 비활성화하고, 카메라·사망 VFX·curtain 표현이 끝날 때까지 완료 결과 화면 공개 gate를 닫는다. 같은 step에 플레이어도 죽은 실패 결과는 이 보스 gate를 사용하지 않는다.
