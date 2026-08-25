@@ -1135,6 +1135,8 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.CurrentBossPattern, Is.EqualTo(BossPatternKind.LimitedChase));
                 Assert.That(presenter.VisibleDangerCellCount, Is.EqualTo(0));
                 Assert.That(presenter.IsMoveTargetVisible, Is.False);
+                Assert.That(presenter.Animator, Is.Not.Null);
+                presenter.Animator.SetBool("Alive", false);
 
                 yield return new WaitForSecondsRealtime(0.08f);
                 Assert.That(session.CurrentGameTime, Is.EqualTo(TimeSpan.Zero));
@@ -1151,6 +1153,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(intro.IsCompleted, Is.True);
                 Assert.That(presenter.IsBossVisible, Is.True);
                 Assert.That(presenter.IsIntroLanded, Is.True);
+                Assert.That(presenter.Animator.GetBool("Alive"), Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.True);
                 Assert.That(healthHud.BossPanelAlpha, Is.EqualTo(1f).Within(0.001f));
                 Assert.That(
