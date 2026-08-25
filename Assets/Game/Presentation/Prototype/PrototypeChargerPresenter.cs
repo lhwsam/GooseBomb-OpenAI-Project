@@ -24,6 +24,7 @@ namespace BombSwap
         private Animator _animator;
         private PrototypeHologramFeedback _hologramFeedback;
         private PrototypeLocalHologramOverrides _localHologramOverrides;
+        private PigCharacterVocalAudio _vocalAudio;
         private float _deathRemaining;
         private bool _isShowingDeath;
         private readonly List<GameObject> _telegraphCells = new List<GameObject>();
@@ -193,6 +194,7 @@ namespace BombSwap
                 _hologramFeedback.SetPaused(session.IsPaused);
             }
             _animator = _instance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
@@ -230,6 +232,10 @@ namespace BombSwap
             {
                 StateChangeCount++;
                 CurrentState = result.State;
+                if (CurrentState == ChargerEnemyState.Charge)
+                {
+                    _vocalAudio?.PlayAttackVocal();
+                }
                 ApplyAnimationState(CurrentState);
                 if (CurrentState == ChargerEnemyState.Telegraph)
                 {
@@ -269,6 +275,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             HideTelegraphLane();
             if (_animator != null)
             {

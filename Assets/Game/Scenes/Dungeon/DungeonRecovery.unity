@@ -3297,6 +3297,59 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4071174161660407445, guid: 7307d859d50093144aa28367a5efab09, type: 3}
   m_PrefabInstance: {fileID: 414668593}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &435050767
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 435050769}
+  - component: {fileID: 435050768}
+  m_Layer: 0
+  m_Name: PlayerDamageAudio
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &435050768
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 435050767}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce4a045754be44248b8abd4a7f6efcea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRandomOneShotAudio
+  clips:
+  - {fileID: 8300000, guid: 352e79873d9750046aa8002d464a742c, type: 3}
+  - {fileID: 8300000, guid: f0788f5c3cc124b46a31fcff1aa8c5dd, type: 3}
+  - {fileID: 8300000, guid: 9d13f353ad4b7014895cbb09d3a2da01, type: 3}
+  outputGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  voiceCount: 4
+  spatialBlend: 0
+  minDistance: 1
+  maxDistance: 1
+--- !u!4 &435050769
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 435050767}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 549228482}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &447650319
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4191,6 +4244,8 @@ GameObject:
   - component: {fileID: 549228506}
   - component: {fileID: 549228505}
   - component: {fileID: 549228507}
+  - component: {fileID: 549228509}
+  - component: {fileID: 549228508}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -4240,6 +4295,8 @@ Transform:
   m_Children:
   - {fileID: 1832346423}
   - {fileID: 1728545544}
+  - {fileID: 435050769}
+  - {fileID: 1031331447}
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &549228483
@@ -4332,7 +4389,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChaserPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  deathColor: {r: 1, g: 0.08, b: 0.03, a: 1}
 --- !u!114 &549228489
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4376,10 +4432,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeChargerPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  telegraphColor: {r: 1, g: 0.82, b: 0.08, a: 1}
-  chargeColor: {r: 1, g: 0.12, b: 0.04, a: 1}
-  recoverColor: {r: 0.42, g: 0.46, b: 0.5, a: 1}
-  deathColor: {r: 0.14, g: 0.02, b: 0.02, a: 1}
 --- !u!114 &549228492
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4394,8 +4446,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeArmoredPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  brokenColor: {r: 1, g: 0.34, b: 0.06, a: 1}
-  deathColor: {r: 0.16, g: 0.02, b: 0.01, a: 1}
 --- !u!114 &549228493
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4465,10 +4515,6 @@ MonoBehaviour:
   bossBombShakeFrequency: 24
   telegraphColor: {r: 1, g: 0.72, b: 0.08, a: 0.68}
   executeColor: {r: 1, g: 0.08, b: 0.04, a: 0.9}
-  recoveryColor: {r: 0.16, g: 1, b: 0.34, a: 1}
-  phaseTwoColor: {r: 0.72, g: 0.18, b: 1, a: 1}
-  lastStandColor: {r: 1, g: 0.12, b: 0.42, a: 1}
-  deathColor: {r: 0.12, g: 0.01, b: 0.02, a: 1}
   moveTargetColor: {r: 0.12, g: 0.86, b: 1, a: 1}
 --- !u!114 &549228497
 MonoBehaviour:
@@ -4545,12 +4591,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeSelfDestructPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
-  telegraphColor: {r: 1, g: 0.2, b: 0.04, a: 1}
-  deathColor: {r: 0.18, g: 0.01, b: 0.01, a: 1}
-  warningPulseHz: 3
-  telegraphPulseHz: 8
-  warningScaleMultiplier: 1.08
-  telegraphScaleMultiplier: 1.18
 --- !u!114 &549228503
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4631,6 +4671,36 @@ MonoBehaviour:
   transitionViewPrefab: {fileID: 3347041615783577207, guid: ccb9b1abb8cdd7d448e7f55933b841bd, type: 3}
   focusedOrthographicSize: 4.2
   deathAnimatorSpeed: 0.75
+--- !u!114 &549228508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afde0f96c8aed9343bf94c535b67ecd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerDamageChromaticPresenter
+  session: {fileID: 549228485}
+  volume: {fileID: 2019996296}
+  pulseSeconds: 0.24
+--- !u!114 &549228509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1400a2b8070b2fd49b4857fc243d3abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerActionAudioPresenter
+  session: {fileID: 549228485}
+  damageAudio: {fileID: 435050768}
+  bombPlacementAudio: {fileID: 1031331446}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
@@ -6567,6 +6637,59 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 9091574772479243372, guid: dbc7c15af4542f14882418574ee76925, type: 3}
   m_PrefabInstance: {fileID: 1018788241}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1031331445
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1031331447}
+  - component: {fileID: 1031331446}
+  m_Layer: 0
+  m_Name: PlayerBombPlacementAudio
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1031331446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031331445}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce4a045754be44248b8abd4a7f6efcea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRandomOneShotAudio
+  clips:
+  - {fileID: 8300000, guid: 5791df2bab0f03249bd8e5230a9866e4, type: 3}
+  - {fileID: 8300000, guid: 9726214fc98c8404ebdc0d1d92c15f00, type: 3}
+  - {fileID: 8300000, guid: 09f68157d6be86b41b8fdb1398517e21, type: 3}
+  outputGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  voiceCount: 4
+  spatialBlend: 0
+  minDistance: 1
+  maxDistance: 1
+--- !u!4 &1031331447
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031331445}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 549228482}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1034727586
 GameObject:
   m_ObjectHideFlags: 0

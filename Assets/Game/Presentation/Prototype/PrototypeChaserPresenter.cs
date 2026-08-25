@@ -19,6 +19,7 @@ namespace BombSwap
         private GameObject _instance;
         private Animator _animator;
         private PrototypeHologramFeedback _hologramFeedback;
+        private PigCharacterVocalAudio _vocalAudio;
         private float _deathEndsAt;
         private bool _isShowingDeath;
 
@@ -164,6 +165,7 @@ namespace BombSwap
                 _hologramFeedback.SetPaused(session.IsPaused);
             }
             _animator = _instance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
@@ -208,6 +210,7 @@ namespace BombSwap
             }
 
             AttackAnimationCount++;
+            _vocalAudio?.PlayAttackVocal();
             if (_animator != null)
             {
                 _animator.SetTrigger(AttackParameterId);
@@ -226,6 +229,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             if (_animator != null)
             {
                 _animator.SetBool(IsMovingParameterId, false);

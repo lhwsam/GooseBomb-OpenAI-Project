@@ -405,7 +405,10 @@ namespace BombSwap
                     : null;
             if (instance == null)
             {
-                instance = AcquireBomb(snapshot.DefinitionId, definition);
+                instance = AcquireBomb(
+                    snapshot.DefinitionId,
+                    definition,
+                    snapshot.OwnerId == session.PlayerActorId);
             }
             instance.transform.position = session.GridSpace.GridToWorld(snapshot.Position);
             instance.transform.rotation = definition.ExplosionShape == BombExplosionShape.ForwardLine
@@ -466,7 +469,10 @@ namespace BombSwap
             Initialize();
             BombDefinitionId definitionId = flight.Definition.Id;
             PrototypeBombDefinitionAsset definition = session.GetBombDefinition(definitionId);
-            GameObject instance = AcquireBomb(definitionId, definition);
+            GameObject instance = AcquireBomb(
+                definitionId,
+                definition,
+                applyPlayerFuseOffset: false);
             instance.transform.position = ToFlightPoint(flight.Origin, 0f);
             instance.transform.rotation = Quaternion.identity;
             instance.SetActive(true);
@@ -482,7 +488,10 @@ namespace BombSwap
             Initialize();
             BombDefinitionId definitionId = flight.Definition.Id;
             PrototypeBombDefinitionAsset definition = session.GetBombDefinition(definitionId);
-            GameObject instance = AcquireBomb(definitionId, definition);
+            GameObject instance = AcquireBomb(
+                definitionId,
+                definition,
+                applyPlayerFuseOffset: false);
             instance.transform.position = ToFlightPoint(flight.Origin, 0f);
             instance.transform.rotation = Quaternion.identity;
             instance.SetActive(true);
@@ -965,17 +974,20 @@ namespace BombSwap
 
         private GameObject AcquireBomb(
             BombDefinitionId definitionId,
-            PrototypeBombDefinitionAsset definition)
+            PrototypeBombDefinitionAsset definition,
+            bool applyPlayerFuseOffset)
         {
             Stack<GameObject> pool = GetBombPool(definitionId);
             GameObject instance = pool.Count > 0
                 ? pool.Pop()
                 : CreatePooledInstance(definition.BombPrefab, "BombVisual");
-            ConfigureBombReadyVfx(instance);
+            ConfigureBombReadyVfx(instance, applyPlayerFuseOffset);
             return instance;
         }
 
-        private void ConfigureBombReadyVfx(GameObject instance)
+        private void ConfigureBombReadyVfx(
+            GameObject instance,
+            bool applyPlayerFuseOffset)
         {
             if (_localVfxOverrides == null || !_configuredBombReadyVfx.Add(instance))
             {
@@ -988,9 +1000,12 @@ namespace BombSwap
                 return;
             }
 
-            anchor.localPosition = _localVfxOverrides.BombReadyLocalPosition;
-            anchor.localRotation = _localVfxOverrides.BombReadyLocalRotation;
-            anchor.localScale = Vector3.one;
+            if (applyPlayerFuseOffset)
+            {
+                anchor.localPosition = _localVfxOverrides.BombReadyLocalPosition;
+                anchor.localRotation = _localVfxOverrides.BombReadyLocalRotation;
+                anchor.localScale = Vector3.one;
+            }
 
             ParticleSystem[] systems = anchor.GetComponentsInChildren<ParticleSystem>(true);
             for (int index = 0; index < systems.Length; index++)

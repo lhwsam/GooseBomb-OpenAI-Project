@@ -188,12 +188,14 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab";
         public const string LineExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/LineExplosionCellPlaceholder.prefab";
+        public const string EnemyBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Bomb/Enemy/EnemyBomb.prefab";
         public const string BossThrowBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BossThrowBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Boss/BossBomb.prefab";
         public const string BossThrowExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossThrowExplosionCellPlaceholder.prefab";
         public const string BossChainBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BossChainBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Boss/BossBomb.prefab";
         public const string BossChainExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossChainExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
@@ -1482,6 +1484,15 @@ namespace BombSwap.Editor.ContentValidation
                     BombExplosionShape.Cross,
                     2,
                     errors);
+            PrototypeBombDefinitionAsset throwerDefinition =
+                ValidatePrototypeBombDefinition(
+                    PrototypeThrowerBombDefinitionPath,
+                    EnemyBombPrefabPath,
+                    ExplosionCellPrefabPath,
+                    "prototype-thrower-blocker",
+                    BombExplosionShape.Cross,
+                    1,
+                    errors);
             if ((firstDefinition != null &&
                  firstDefinition.FuseSeconds != 2f) ||
                 (secondDefinition != null &&
@@ -1491,7 +1502,9 @@ namespace BombSwap.Editor.ContentValidation
                 (bossThrowDefinition != null &&
                  bossThrowDefinition.FuseSeconds != 1.25f) ||
                 (bossChainDefinition != null &&
-                 bossChainDefinition.FuseSeconds != 2.25f))
+                 bossChainDefinition.FuseSeconds != 2.25f) ||
+                (throwerDefinition != null &&
+                 throwerDefinition.FuseSeconds != 1.5f))
             {
                 errors.Add(
                     "Prototype cross, area, line, boss throw, and boss chain bomb " +

@@ -103,6 +103,21 @@
 - Editor validator: AudioMixer 그룹/노출 파라미터, BGM catalog의 8개 clip·sample alignment·미리보기 비참조, 대상 17개 scene의 root presenter 정확히 한 개·catalog 참조·직렬화 `AudioSource` 부재.
 - WebGL 자동: 첫 사용자 입력 뒤 `bgm-audio-started`, 기존 `audio-unlocked`, Console/page error를 확인한다. WebGL 수동: 로비→던전→보스 family 전환, 전투/안전/회복/보상/클리어 mix, 보스 phase 상승, pause duck/복귀, 사망·격파 fade-out, 설정 BGM 0/70/100%를 실제 청감으로 확인한다.
 
+## 플레이어 액션 SFX
+
+- 플레이어 피격음은 `PrototypeGameSession.PlayerDamaged`가 실제 적용된 피해를 발행할 때 재생한다.
+- 플레이어 폭탄 설치음은 입력 시점이 아니라 `PrototypeGameSession.BombPlaced`가 성공한 설치를 발행할 때 재생한다.
+- `Assets/Arts/Sound/Player/Duck_call_1.wav`, `3`, `5`는 피격음 후보이며 `2`, `4`, `6`은 폭탄 설치음 후보이다. 각 이벤트마다 해당 그룹에서 무작위로 하나를 선택한다.
+- 두 그룹은 거리 감쇠가 없는 2D one-shot이며 `SFX` AudioMixer 그룹으로 출력한다.
+
+## 적 캐릭터 음성 SFX
+
+- Chaser, Charger, SelfDestruct, Thrower, Boss는 `Assets/Arts/Sound/Pig`의 공용 음성 집합을 사용한다.
+- 사망 시 `Long/Pig_Long_1~3` 중 하나를 재생한다. SelfDestruct는 폭발 공격과 사망이 같은 사건이므로 중복 Short 없이 Long만 재생한다.
+- 일반 적의 실제 공격 시작 시 `Short/Pig_Short_1~6` 중 하나를 한 번 재생한다. 보스 스킬 Execute는 대신 `Boss/Pig_boss_1~3` 중 하나를 재생한다. Parity Wave는 연속 Wave의 첫 Execute에서만 한 번 재생하고, 다음 Parity Wave 패턴이 새로 시작되면 다시 한 번 재생한다. 추격 이동과 중앙 복귀 같은 비공격 행동은 공격 음성을 재생하지 않는다.
+- 이동 애니메이션의 기존 `PlayFootstep` 이벤트를 음성 기회로 재사용하되, 발걸음마다 재생하지 않고 캐릭터별 25% 확률과 최소 2초 간격을 적용한다.
+- 적 음성은 SFX Mixer로 출력하는 logarithmic 3D 사운드이며 발소리와 별도 AudioSource를 사용한다.
+
 ## 관련 문서
 
 - [입력과 플레이어 명령](InputAndCommands.md)

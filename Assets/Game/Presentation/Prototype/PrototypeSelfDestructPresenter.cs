@@ -26,6 +26,7 @@ namespace BombSwap
         private GameObject summonVfxAnchor;
         private ParticleSystem[] summonVfxSystems = Array.Empty<ParticleSystem>();
         private float summonVfxRemaining;
+        private PigCharacterVocalAudio vocalAudio;
         private float deathRemaining;
         private bool isShowingDeath;
 
@@ -235,6 +236,7 @@ namespace BombSwap
                 hologramFeedback.SetPaused(session.IsPaused);
             }
             animator = instance.GetComponentInChildren<Animator>(true);
+            vocalAudio = instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (animator != null)
             {
                 animator.applyRootMotion = false;
@@ -309,6 +311,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            vocalAudio?.PlayDeathVocal();
             deathRemaining = session.SelfDestructDefinition.DeathVisualSeconds;
             isShowingDeath = true;
         }

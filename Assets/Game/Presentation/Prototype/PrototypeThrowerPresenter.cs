@@ -23,6 +23,7 @@ namespace BombSwap
         private GameObject instance;
         private Animator animator;
         private PrototypeHologramFeedback hologramFeedback;
+        private PigCharacterVocalAudio vocalAudio;
         private Vector3 baseScale;
         private float pulsePhase;
         private float deathRemaining;
@@ -168,6 +169,7 @@ namespace BombSwap
                 hologramFeedback.SetPaused(session.IsPaused);
             }
             animator = instance.GetComponentInChildren<Animator>(true);
+            vocalAudio = instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (animator != null)
             {
                 animator.applyRootMotion = false;
@@ -219,6 +221,7 @@ namespace BombSwap
             {
                 TelegraphCount++;
                 pulsePhase = 0f;
+                vocalAudio?.PlayAttackVocal();
             }
             else if (instance != null)
             {
@@ -239,6 +242,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            vocalAudio?.PlayDeathVocal();
             if (animator != null)
             {
                 animator.SetBool(IsMovingParameterId, false);

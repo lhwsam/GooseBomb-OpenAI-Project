@@ -17,6 +17,6 @@ MonoBehaviour:
   range: 2
   explosionShape: 0
   placementCooldownSeconds: 1.5
-  bombPrefab: {fileID: 603074756620585941, guid: 6319845d46fa6c64883b5c6fb101352a, type: 3}
+  bombPrefab: {fileID: 1911908732602445833, guid: b521787c10d86034aa1f7d1038649704, type: 3}
   explosionCellPrefab: {fileID: 9138470579567362906, guid: 42f1f5192c8d5e143b927f2cf819425e, type: 3}
   explosionVisualSeconds: 0.25
