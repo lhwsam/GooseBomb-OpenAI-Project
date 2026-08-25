@@ -1705,30 +1705,17 @@ namespace BombSwap.Editor.ContentValidation
 
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
-            Material throwBombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/BossThrowBomb.mat",
-                shader,
-                new Color(0.95f, 0.22f, 0.04f, 1f));
             Material throwExplosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/BossThrowExplosion.mat",
                 shader,
                 new Color(1f, 0.46f, 0.03f, 1f));
-            Material chainBombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/BossChainBomb.mat",
-                shader,
-                new Color(0.78f, 0.06f, 0.68f, 1f));
             Material chainExplosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/BossChainExplosion.mat",
                 shader,
                 new Color(1f, 0.08f, 0.72f, 1f));
 
-            GameObject throwBombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.BossThrowBombPrefabPath,
-                "BossThrowBombPlaceholder",
-                PrimitiveType.Sphere,
-                new Vector3(0f, 0.34f, 0f),
-                new Vector3(0.7f, 0.7f, 0.7f),
-                throwBombMaterial);
+            GameObject throwBombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BossThrowBombPrefabPath);
             GameObject throwExplosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.BossThrowExplosionCellPrefabPath,
                 "BossThrowExplosionCellPlaceholder",
@@ -1736,13 +1723,8 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector3(0f, 0.09f, 0f),
                 new Vector3(0.92f, 0.18f, 0.92f),
                 throwExplosionMaterial);
-            GameObject chainBombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.BossChainBombPrefabPath,
-                "BossChainBombPlaceholder",
-                PrimitiveType.Cylinder,
-                new Vector3(0f, 0.2f, 0f),
-                new Vector3(0.58f, 0.2f, 0.58f),
-                chainBombMaterial);
+            GameObject chainBombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BossChainBombPrefabPath);
             GameObject chainExplosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.BossChainExplosionCellPrefabPath,
                 "BossChainExplosionCellPlaceholder",
@@ -1804,7 +1786,7 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector3(0.88f, 0.05f, 0.88f),
                 telegraphMaterial);
             GameObject bombPrefab = LoadRequiredAsset<GameObject>(
-                PrototypeContentValidator.BombPrefabPath);
+                PrototypeContentValidator.EnemyBombPrefabPath);
             GameObject explosionPrefab = LoadRequiredAsset<GameObject>(
                 PrototypeContentValidator.ExplosionCellPrefabPath);
 
