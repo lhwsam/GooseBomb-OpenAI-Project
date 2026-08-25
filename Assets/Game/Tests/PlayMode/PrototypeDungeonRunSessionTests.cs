@@ -1723,14 +1723,38 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(reward.IsVisualVisible, Is.True);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
 
+                GridPosition secretPickupCell = new GridPosition(0, 0);
+                Assert.That(
+                    secretSession.GetCell(secretPickupCell).HasInteractable,
+                    Is.True);
+                GridPosition secretInteractionCell =
+                    secretSession.CurrentGridPosition.X != 0
+                        ? new GridPosition(
+                            Math.Sign(secretSession.CurrentGridPosition.X),
+                            0)
+                        : new GridPosition(
+                            0,
+                            secretSession.CurrentGridPosition.Z == 0
+                                ? -1
+                                : Math.Sign(secretSession.CurrentGridPosition.Z));
+
                 yield return MoveSessionTo(
                     secretSession,
                     keyboard,
-                    new GridPosition(0, 0));
+                    secretInteractionCell);
+                Assert.That(
+                    secretInteractionCell.IsCardinallyAdjacentTo(secretPickupCell),
+                    Is.True);
+                Assert.That(reward.CanInteract, Is.True);
+                PressAndRelease(keyboard, Key.E);
                 yield return null;
 
                 Assert.That(reward.IsCollected, Is.True);
                 Assert.That(reward.IsVisualVisible, Is.False);
+                Assert.That(reward.CanInteract, Is.False);
+                Assert.That(
+                    secretSession.GetCell(secretPickupCell).HasInteractable,
+                    Is.False);
                 Assert.That(
                     reward.LastStatus,
                     Is.EqualTo(DungeonSecretRewardCollectStatus.Collected));
@@ -1835,6 +1859,7 @@ namespace BombSwap.Tests.PlayMode
         public IEnumerator RecoveryScene_SavesAtFullHealthRestoresOnceAndPersistsAcrossReentry()
         {
             Scene loadedDungeonScene = default;
+            Keyboard keyboard = null;
             try
             {
                 yield return SceneManager.LoadSceneAsync(
@@ -1884,13 +1909,27 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(run.RunState.IsCurrentRoomLocked, Is.False);
                 Assert.That(fullPresenter.IsInitialized, Is.True);
                 Assert.That(fullPresenter.IsVisualVisible, Is.True);
+
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                GridPosition recoveryCell = new GridPosition(0, 0);
+                GridPosition recoveryInteractionCell = new GridPosition(-1, 0);
+                yield return MoveSessionTo(
+                    fullBinder.RoomSession,
+                    keyboard,
+                    recoveryInteractionCell);
                 Assert.That(
-                    fullPresenter.TryCollectAt(new GridPosition(0, 0)),
-                    Is.False);
+                    fullBinder.RoomSession.GetCell(recoveryCell).HasInteractable,
+                    Is.True);
+                Assert.That(fullPresenter.CanInteract, Is.True);
+                PressAndRelease(keyboard, Key.E);
+                yield return null;
                 Assert.That(
                     fullPresenter.LastStatus,
                     Is.EqualTo(DungeonRecoveryUseStatus.AtFullHealth));
                 Assert.That(fullPresenter.IsVisualVisible, Is.True);
+                Assert.That(
+                    fullBinder.RoomSession.GetCell(recoveryCell).HasInteractable,
+                    Is.True);
                 Assert.That(
                     run.RunState.IsRecoveryConsumed(run.Graph.RecoveryRoomId),
                     Is.False);
@@ -1928,14 +1967,21 @@ namespace BombSwap.Tests.PlayMode
                         .Single();
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(3));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(3));
-                Assert.That(
-                    damagedPresenter.TryCollectAt(new GridPosition(0, 0)),
-                    Is.True);
+                yield return MoveSessionTo(
+                    damagedBinder.RoomSession,
+                    keyboard,
+                    recoveryInteractionCell);
+                Assert.That(damagedPresenter.CanInteract, Is.True);
+                PressAndRelease(keyboard, Key.E);
+                yield return null;
                 Assert.That(
                     damagedPresenter.LastStatus,
                     Is.EqualTo(DungeonRecoveryUseStatus.Restored));
                 Assert.That(damagedPresenter.IsConsumed, Is.True);
                 Assert.That(damagedPresenter.IsVisualVisible, Is.False);
+                Assert.That(
+                    damagedBinder.RoomSession.GetCell(recoveryCell).HasInteractable,
+                    Is.False);
                 Assert.That(damagedBinder.RoomSession.CurrentHealth, Is.EqualTo(5));
                 Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(5));
                 Assert.That(damagedHud.DisplayedPlayerHealth, Is.EqualTo(5));
@@ -1962,6 +2008,13 @@ namespace BombSwap.Tests.PlayMode
             }
             finally
             {
+                if (keyboard != null && keyboard.added)
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                    InputSystem.Update();
+                    InputSystem.RemoveDevice(keyboard);
+                }
+
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
                         FindObjectsInactive.Include);

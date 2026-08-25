@@ -15,7 +15,7 @@
 - 한 입구를 파괴하면 그 연결만 공개·통행 가능해진다. 다른 인접 입구는 각각 별도로 파괴해야 한다.
 - 공개된 비밀방은 미니맵 frontier로 나타나며, 입장 뒤 방문방으로 표시된다.
 - 비밀방은 적·클리어 잠금이 없는 안전방이다.
-- 중앙 cache는 한 run에서 한 번만 `ROOM TOKENS +3`을 지급한다. 일반 전투 `+1`보다 높은 발견 보상이지만 최종 재화 가치·사용처를 확정하지 않는 `Proposed` 임시 점수다.
+- 중앙 cache는 접근을 막는 논리 `Interactable`이며 cardinal 인접 셀에서 `E`/게임패드 North로 상호작용하면 한 run에서 한 번만 `ROOM TOKENS +3`을 지급하고 blocker와 월드 표현을 제거한다. 일반 전투 `+1`보다 높은 발견 보상이지만 최종 재화 가치·사용처를 확정하지 않는 `Proposed` 임시 점수다.
 - 같은 seed의 새 run에서는 비밀벽 공개와 cache 소비가 모두 초기화된다.
 
 ## 생성·상태 계약
@@ -54,7 +54,7 @@ DungeonSecret central cache → run token state
 ## 완료 조건
 
 - EditMode: seed 재현, 후보 우선순위·없음, normal tree 보존, 2~3 Secret 연결, 개별 reveal·travel 차단/허용, minimap 숨김/공개, cache `+3` 단일 소비·terminal 거부·새 run 초기화.
-- PlayMode: 실제 전투방의 문 앞 출구 셀이 `Floor`이고 접근·폭탄 설치가 가능하지만 미공개 경계 이동은 차단된다. 그 셀이 실제 폭발 영향에 포함되면 `DestroyedWalls` 없이 해당 문·미니맵만 갱신한다. `DungeonSecret`은 적 없이 입장·왕복 가능하고 cache가 HUD를 `+3` 갱신하며 재입장에서 재지급하지 않는다.
+- PlayMode: 실제 전투방의 문 앞 출구 셀이 `Floor`이고 접근·폭탄 설치가 가능하지만 미공개 경계 이동은 차단된다. 그 셀이 실제 폭발 영향에 포함되면 `DestroyedWalls` 없이 해당 문·미니맵만 갱신한다. `DungeonSecret`은 적 없이 입장·왕복 가능하고 중앙 cache 셀은 이동·폭탄을 막는다. 인접 `E` 상호작용 뒤 HUD를 `+3` 갱신하고 blocker를 제거하며 재입장에서 재지급하지 않는다.
 - Content: special catalog에 `Secret`, 11번째 enabled scene, 네 방향 secret door root와 대응 일반 문의 위치 일치·Collider 부재·surface 1개·crack bar 3개, 중앙 cache material/reference와 단일 presenter를 validator가 확인한다.
 - WebGL: seed 0에서 비밀벽이 미니맵에 숨겨지고, 폭발로 공개·입장·cache 획득·다른 입구 개방 또는 원래 입구 왕복 뒤 기존 전체 경로와 Console/page error 0을 확인한다.
 - 사람 검증: 금이 간 벽이 설명 없이 폭파 가능한 단서로 읽히는지, cache가 탐색 비용에 비해 충분한지, 모든 벽을 검사하는 노동을 유발하지 않는지 관찰한다.

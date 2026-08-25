@@ -941,6 +941,9 @@ namespace BombSwap
                     break;
                 case PlayerCommandKind.RestartRun:
                     break;
+                case PlayerCommandKind.Interact:
+                    WebGlHarnessReporter.Report("interact");
+                    break;
             }
         }
 

@@ -1255,9 +1255,14 @@ async function main() {
       page,
       "secret-reward-collected-3",
     );
+    const secretInteractionsBefore = await eventCount(page, "interact");
     await moveToCell(page, 3, 1);
     await moveToCell(page, 0, 1);
-    await moveToCell(page, 0, 0);
+    await page.keyboard.press("KeyE");
+    await waitForEvent(page, "interact", {
+      count: secretInteractionsBefore + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(page, "secret-reward-collected-3", {
       count: secretRewardsBefore + 1,
       timeout: 5_000,
@@ -1586,9 +1591,14 @@ async function main() {
       page,
       `player-health-recovered-${expectedRestoredHealth}`,
     );
+    const recoveryInteractionsBefore = await eventCount(page, "interact");
     await moveToCell(page, 1, -4);
     await moveToCell(page, 1, 0);
-    await moveToCell(page, 0, 0);
+    await page.keyboard.press("KeyE");
+    await waitForEvent(page, "interact", {
+      count: recoveryInteractionsBefore + 1,
+      timeout: 5_000,
+    });
     await waitForEvent(
       page,
       `player-health-recovered-${expectedRestoredHealth}`,
@@ -2106,6 +2116,7 @@ async function main() {
       "minimap-current-room-10",
       "minimap-visible-rooms-4",
       "minimap-visible-connections-3",
+      "interact",
       "secret-reward-collected-3",
       "room-reward-tokens-4",
       "dungeon-room-ready-3-bomb-reward-safe",

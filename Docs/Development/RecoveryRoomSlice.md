@@ -75,8 +75,8 @@ Recovery room item interaction
 ### 3. Unity 콘텐츠와 표현
 
 - `Complete`: Unity Editor builder로 `DungeonRecovery` scene, special catalog entry, 중앙 논리 셀 `(0,0)`의 회복 pickup과 URP shared material을 저작했다.
-- `Complete`: 미소비 상태에서는 pickup 월드 표현을 유지하고 유효한 회복·사용 완료 상태에서는 숨긴다. 별도 안내 Canvas 없이 현재 체력 변화는 공용 체력 HUD로 확인한다.
-- `Complete`: 논리 셀 진입만 획득을 일으키며 기존 체력 HUD를 즉시 갱신하고, room 재진입에서는 Core 소비 상태를 복원한다.
+- `Complete`: 미소비 상태에서는 pickup 월드 표현과 중앙 셀의 논리 `Interactable` 점유를 유지하고 유효한 회복·사용 완료 상태에서는 둘 다 제거한다. 별도 안내 Canvas 없이 현재 체력 변화는 공용 체력 HUD로 확인한다.
+- `Complete`: pickup의 cardinal 인접 셀에서 고정 `E`/게임패드 North 상호작용만 회복을 요청하며 기존 체력 HUD를 즉시 갱신한다. 최대 체력이면 소비·점유 제거 없이 남고, room 재진입에서는 Core 소비 상태를 복원한다.
 
 ## 비목표
 
@@ -100,7 +100,7 @@ Recovery room item interaction
 
 - 피해를 받은 뒤 다음 방과 이전 방으로 이동해도 같은 체력이 HUD와 session에 표시된다.
 - 회복방 입장과 재입장은 자동 회복하지 않는다.
-- 유효한 상호작용 한 번만 체력과 HUD를 갱신하고, 재입장해도 아이템이 복원되지 않는다.
+- 인접 셀의 `E`/North 상호작용 한 번만 체력과 HUD를 갱신하고 blocker를 제거하며, 재입장해도 아이템이 복원되지 않는다.
 - 최대 체력에서의 비소비 동작과 회복 뒤 보스방 진입을 검증한다.
 - 회복방은 적 actor 없이 열려 있고 전투 보상 토큰을 지급하지 않는다.
 

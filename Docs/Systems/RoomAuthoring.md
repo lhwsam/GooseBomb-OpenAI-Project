@@ -75,9 +75,10 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 ## 회복방 저작 계약
 
 - `DungeonRecovery.unity`는 기존 안전방 shell과 문·HUD·run binder를 재사용하며 적 actor와 클리어 조건을 만들지 않는다.
-- `PrototypeRecoveryPickupPresenter`는 중앙 논리 셀 `(0,0)`을 감시한다. Collider나 Transform 접촉이 아니라 `PlayerMovementStep`의 확정 논리 셀만 획득을 일으킨다.
+- `PrototypeRecoveryPickupPresenter`는 중앙 논리 셀 `(0,0)`을 `Interactable`로 등록한다. Collider나 Transform 접촉이 아니라 cardinal 인접 셀의 확정 플레이어 위치와 `E`/게임패드 North 명령만 회복을 요청한다.
+- 직접 scene을 시작해 플레이어가 이미 pickup 셀에 겹친 과거 저작 상태에서는 actor와 blocker를 중복 등록하지 않는다. 플레이어가 그 셀을 처음 이탈한 뒤 blocker를 등록하며, 정상 던전 진입 spawn은 pickup 셀 밖에 두는 것이 권위 계약이다.
 - 회복량 `2`와 1회 사용은 GDD에 없는 `Proposed` 튜닝이다. 실제 소비 여부는 scene이 아니라 Core `DungeonRunState`의 Recovery 노드 상태가 소유한다.
-- 최대 체력에서는 pickup을 소비하지 않아 월드 표현이 남고, 유효한 회복이나 이미 소비한 방에서는 월드 표현을 숨긴다. 별도 회복 안내 Canvas는 사용하지 않으며 현재 체력 변화는 공용 체력 HUD로 확인한다.
+- 최대 체력에서는 pickup을 소비하지 않아 월드 표현과 논리 blocker가 남고, 유효한 회복이나 이미 소비한 방에서는 둘 다 제거한다. 별도 회복 안내 Canvas는 사용하지 않으며 현재 체력 변화는 공용 체력 HUD로 확인한다.
 - pickup renderer는 `RecoveryPickup.mat`의 URP Lit shared material을 사용한다. 런타임 material 인스턴스를 만들지 않으며 WebGL에서 shader fallback 색으로 보이지 않아야 한다.
 
 ## 비밀방과 금 간 출구 저작 계약
@@ -90,9 +91,10 @@ special catalog는 `Start`, `BombReward`, `BossAntechamber`, `Recovery`, `Secret
 - `DungeonRoomExitStatus.SecretWall`일 때만 해당 root가 활성화되고 바깥 장식 문 renderer는 숨긴다. 폭발로 공개되면 root도 숨겨 빈 통로를 남기며, 같은 방에 재진입해도 원래 Secret 연결에는 일반 문을 복원하지 않는다. 문·root의 활성 여부는 표현이고 연결 공개 상태는 Core run state가 소유한다.
 - 비밀 연결이 실제 폭발로 처음 공개될 때는 해당 `SecretCracks` root의 world position보다 Y축으로 `0.5` 높은 위치에서 효과를 한 번 재생한다. 씬에 직접 연결한 prefab, Git에서 제외된 `Resources/BombSwapLocalVfxOverrides`의 로컬 prefab, first-party 절차형 fallback 순서로 선택한다. 로컬 패키지 prefab의 저작 회전은 유지하며, 재진입과 상태 재적용에서는 어느 경로도 다시 재생하지 않는다.
 - 미공개 Secret 출구의 저작 출구 셀은 계속 `Floor`다. `PrototypeDungeonRoomBinder`가 이 셀과 Secret 연결 방향을 매핑하고, 확정 폭발의 `AffectedCells`가 셀에 닿으면 같은 run의 해당 연결만 공개한다. 공개 전 바깥 이동은 지형이 아니라 `DungeonRoomExitStatus.SecretWall` 경계 상태가 막는다.
-- `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 Collider 접촉이 아니라 확정 `PlayerMovementStep`으로만 수집한다.
+- `DungeonSecret.unity`는 적 없는 안전방이며 중앙 `(0,0)`에 `PrototypeSecretRewardPresenter` 하나를 둔다. cache는 해당 셀을 `Interactable`로 막고 Collider 접촉이나 셀 진입이 아니라 cardinal 인접 셀의 `E`/게임패드 North 명령으로만 수집한다.
+- 직접 scene을 시작해 플레이어가 이미 cache 셀에 겹친 과거 저작 상태도 같은 이탈 후 blocker 등록 호환 경로를 사용한다. 이 예외는 겹친 actor를 가두지 않기 위한 것이며 셀 진입 수집을 다시 허용하지 않는다.
 - cache 보상 `ROOM TOKENS +3`은 일반 전투 `+1`보다 높은 `Proposed` 값이다. `SecretReward.mat` shared material을 사용하고 소비 상태와 합계는 Core run state가 소유한다.
-- 비밀 cache는 미수집일 때만 월드 표현을 보이고 수집 뒤 숨긴다. 별도 비밀방 안내 Canvas는 사용하지 않으며 합계 변화는 공용 토큰 HUD로 확인한다.
+- 비밀 cache는 미수집일 때 월드 표현과 논리 blocker를 유지하고 수집 뒤 둘 다 제거한다. 별도 비밀방 안내 Canvas는 사용하지 않으며 합계 변화는 공용 토큰 HUD로 확인한다.
 
 ## 장갑병 독립 플레이테스트 씬
 

@@ -3211,6 +3211,12 @@ namespace BombSwap.Editor.ContentValidation
                 InputActionType.Button,
                 "Button",
                 errors);
+            ValidateAction(
+                gameplay,
+                BombSwapInputActionNames.Interact,
+                InputActionType.Button,
+                "Button",
+                errors);
 
             RequireBindings(gameplay, BombSwapInputActionNames.Move, errors,
                 "<Keyboard>/w",
@@ -3235,6 +3241,9 @@ namespace BombSwap.Editor.ContentValidation
             RequireBindings(gameplay, BombSwapInputActionNames.RestartRun, errors,
                 "<Keyboard>/r",
                 "<Gamepad>/select");
+            RequireBindings(gameplay, BombSwapInputActionNames.Interact, errors,
+                "<Keyboard>/e",
+                "<Gamepad>/buttonNorth");
 
             RequireControlScheme(asset, "Keyboard", "<Keyboard>", errors);
             RequireControlScheme(asset, "Gamepad", "<Gamepad>", errors);

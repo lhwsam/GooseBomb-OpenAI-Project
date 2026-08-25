@@ -112,6 +112,20 @@ namespace BombSwap.Editor.ContentValidation
                 "Refreshed prototype thrower definition, bomb, room, and presentation content.");
         }
 
+        [MenuItem("Bomb Swap/Prototype/Refresh Input Actions")]
+        public static void RefreshInputActionsMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Exit Play Mode before refreshing prototype Input Actions.");
+            }
+
+            InputActionAsset inputActions = CreateInputActionsIfMissing();
+            Debug.Log(
+                $"Refreshed prototype Input Actions at '{AssetDatabase.GetAssetPath(inputActions)}'.");
+        }
+
         [MenuItem("Bomb Swap/Prototype/Restore Authored Bomb Fuse Timings")]
         public static void RestoreAuthoredBombFuseTimingsMenu()
         {
@@ -1054,6 +1068,7 @@ namespace BombSwap.Editor.ContentValidation
                     throw new InvalidOperationException(
                         $"Input Actions asset is missing map '{BombSwapInputActionNames.GameplayMap}'.");
                 }
+                bool requiresInputUpgrade = false;
                 if (gameplay.FindAction(BombSwapInputActionNames.RestartRun, false) == null)
                 {
                     AddButtonBindings(
@@ -1061,6 +1076,19 @@ namespace BombSwap.Editor.ContentValidation
                         BombSwapInputActionNames.RestartRun,
                         "<Keyboard>/r",
                         "<Gamepad>/select");
+                    requiresInputUpgrade = true;
+                }
+                if (gameplay.FindAction(BombSwapInputActionNames.Interact, false) == null)
+                {
+                    AddButtonBindings(
+                        gameplay,
+                        BombSwapInputActionNames.Interact,
+                        "<Keyboard>/e",
+                        "<Gamepad>/buttonNorth");
+                    requiresInputUpgrade = true;
+                }
+                if (requiresInputUpgrade)
+                {
                     File.WriteAllText(
                         absolutePath,
                         imported.ToJson(),
@@ -1131,6 +1159,11 @@ namespace BombSwap.Editor.ContentValidation
                     BombSwapInputActionNames.RestartRun,
                     "<Keyboard>/r",
                     "<Gamepad>/select");
+                AddButtonBindings(
+                    gameplay,
+                    BombSwapInputActionNames.Interact,
+                    "<Keyboard>/e",
+                    "<Gamepad>/buttonNorth");
 
                 asset.AddControlScheme("Keyboard").WithRequiredDevice("<Keyboard>");
                 asset.AddControlScheme("Gamepad").WithRequiredDevice("<Gamepad>");
