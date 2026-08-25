@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
 
@@ -12,11 +11,6 @@ namespace BombSwap
         private static readonly int ThrowParameterId = Animator.StringToHash("Throw");
         private static readonly int RecoverParameterId = Animator.StringToHash("Recover");
         private static readonly int DieParameterId = Animator.StringToHash("Die");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-        private static readonly IReadOnlyList<GridPosition> NoDangerCells =
-            Array.Empty<GridPosition>();
-
         [SerializeField]
         private PrototypeGameSession session;
 
@@ -24,30 +18,12 @@ namespace BombSwap
         private Transform presentationRoot;
 
         [SerializeField]
-        private Color telegraphColor = new Color(1f, 0.12f, 0.85f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.12f, 0.01f, 0.1f, 1f);
-
-        [SerializeField]
         private float pulseHz = 6f;
 
         private GameObject instance;
-        private readonly List<GameObject> telegraphCells = new List<GameObject>(3);
-        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
-            landedBombDangerCells =
-                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
-        private readonly List<GridPosition> visibleDangerCells =
-            new List<GridPosition>();
-        private readonly HashSet<GridPosition> visibleDangerCellSet =
-            new HashSet<GridPosition>();
-        private IReadOnlyList<GridPosition> currentTargetTelegraphCells =
-            NoDangerCells;
-        private Renderer instanceRenderer;
         private Animator animator;
-        private MaterialPropertyBlock propertyBlock;
-        private int colorPropertyId;
-        private Color normalColor;
+        private PrototypeHologramFeedback hologramFeedback;
+        private PigCharacterVocalAudio vocalAudio;
         private Vector3 baseScale;
         private float pulsePhase;
         private float deathRemaining;
@@ -63,17 +39,6 @@ namespace BombSwap
 
         public bool IsEnemyVisible => instance != null && instance.activeSelf;
 
-        public bool IsTelegraphVisible => currentTargetTelegraphCells.Count > 0;
-
-        public int ActiveTelegraphCellCount => currentTargetTelegraphCells.Count;
-
-        public int VisibleDangerCellCount => visibleDangerCells.Count;
-
-        public bool HasLandedBombDanger(BombId bombId)
-        {
-            return landedBombDangerCells.ContainsKey(bombId);
-        }
-
         public int MoveCount { get; private set; }
 
         public int TelegraphCount { get; private set; }
@@ -81,6 +46,8 @@ namespace BombSwap
         public int DeathCount { get; private set; }
 
         public Animator Animator => animator;
+
+        public PrototypeHologramFeedback HologramFeedback => hologramFeedback;
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -106,8 +73,7 @@ namespace BombSwap
             }
 
             session.ThrowerAdvanced += OnThrowerAdvanced;
-            session.ThrowerBombPlaced += OnThrowerBombPlaced;
-            session.BombExploded += OnBombExploded;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -122,8 +88,7 @@ namespace BombSwap
             if (session != null)
             {
                 session.ThrowerAdvanced -= OnThrowerAdvanced;
-                session.ThrowerBombPlaced -= OnThrowerBombPlaced;
-                session.BombExploded -= OnBombExploded;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -132,24 +97,13 @@ namespace BombSwap
             {
                 Destroy(instance);
             }
-            for (int index = 0; index < telegraphCells.Count; index++)
-            {
-                if (telegraphCells[index] != null)
-                {
-                    Destroy(telegraphCells[index]);
-                }
-            }
             instance = null;
+            hologramFeedback = null;
             if (animator != null)
             {
                 animator.speed = 1f;
             }
             animator = null;
-            telegraphCells.Clear();
-            landedBombDangerCells.Clear();
-            visibleDangerCells.Clear();
-            visibleDangerCellSet.Clear();
-            currentTargetTelegraphCells = NoDangerCells;
             IsInitialized = false;
             isShowingDeath = false;
         }
@@ -168,11 +122,12 @@ namespace BombSwap
                     (Vector3.up * session.ThrowerDefinition.VisualHeight);
             }
             SyncLocomotionAnimation();
-            if (!isShowingDeath && IsTelegraphVisible && !session.IsPaused)
+            if (!isShowingDeath &&
+                session.CurrentThrowerState == ThrowerEnemyState.Telegraph &&
+                !session.IsPaused)
             {
                 pulsePhase = Mathf.Repeat(pulsePhase + (Time.deltaTime * pulseHz), 1f);
                 float wave = 0.5f + (Mathf.Sin(pulsePhase * Mathf.PI * 2f) * 0.5f);
-                ApplyColor(Color.Lerp(normalColor, telegraphColor, wave));
                 instance.transform.localScale = baseScale * Mathf.Lerp(1f, 1.12f, wave);
             }
             if (isShowingDeath && instance != null)
@@ -207,8 +162,14 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             instance = Instantiate(definition.EnemyPrefab, presentationRoot);
             instance.name = "PrototypeThrowerVisual";
-            instanceRenderer = instance.GetComponentInChildren<Renderer>(true);
+            hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(instance);
+            if (hologramFeedback != null)
+            {
+                hologramFeedback.SetPaused(session.IsPaused);
+            }
             animator = instance.GetComponentInChildren<Animator>(true);
+            vocalAudio = instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (animator != null)
             {
                 animator.applyRootMotion = false;
@@ -216,18 +177,15 @@ namespace BombSwap
                 animator.SetBool(IsMovingParameterId, false);
             }
             baseScale = instance.transform.localScale;
-            InitializeColor();
             instance.transform.position = ToPresentationPosition(
                 session.CurrentThrowerGridPosition);
             instance.SetActive(session.IsThrowerAlive);
 
             ApplyAnimationState(session.CurrentThrowerState);
 
-            EnsureTelegraphCapacity(definition.BombsPerVolley);
-            HideTelegraph();
             if (session.CurrentThrowerState == ThrowerEnemyState.Telegraph)
             {
-                ShowTelegraphs(session.CurrentThrowerLockedTargets);
+                pulsePhase = 0f;
             }
         }
 
@@ -262,43 +220,14 @@ namespace BombSwap
             if (result.State == ThrowerEnemyState.Telegraph)
             {
                 TelegraphCount++;
-                ShowTelegraphs(result.LockedTargets);
+                pulsePhase = 0f;
+                vocalAudio?.PlayAttackVocal();
             }
-            else
+            else if (instance != null)
             {
-                HideTelegraph();
+                instance.transform.localScale = baseScale;
             }
             ApplyAnimationState(result.State);
-        }
-
-        private void OnThrowerBombPlaced(BombSnapshot snapshot)
-        {
-            if (snapshot.OwnerId != session.ThrowerActorId)
-            {
-                return;
-            }
-            if (!session.TryGetBombExplosionPreview(
-                    snapshot.Id,
-                    out IReadOnlyList<GridPosition> affectedCells))
-            {
-                throw new InvalidOperationException(
-                    $"Landed thrower bomb {snapshot.Id} has no explosion preview.");
-            }
-
-            landedBombDangerCells[snapshot.Id] = affectedCells;
-            RefreshDangerCells();
-        }
-
-        private void OnBombExploded(BombExplosion explosion)
-        {
-            if (!session.HasThrower || explosion.OwnerId != session.ThrowerActorId)
-            {
-                return;
-            }
-            if (landedBombDangerCells.Remove(explosion.BombId))
-            {
-                RefreshDangerCells();
-            }
         }
 
         private void OnEnemyDied(EnemyDamageResult damage)
@@ -313,6 +242,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            vocalAudio?.PlayDeathVocal();
             if (animator != null)
             {
                 animator.SetBool(IsMovingParameterId, false);
@@ -320,11 +250,18 @@ namespace BombSwap
                 animator.ResetTrigger(RecoverParameterId);
                 animator.SetTrigger(DieParameterId);
             }
-            HideTelegraph();
             instance.transform.localScale = baseScale;
-            ApplyColor(deathColor);
             deathRemaining = session.ThrowerDefinition.DeathVisualSeconds;
             isShowingDeath = true;
+        }
+
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.ThrowerActorId &&
+                hologramFeedback != null)
+            {
+                hologramFeedback.TriggerHitBlink();
+            }
         }
 
         private void OnPauseStateChanged(bool isPaused)
@@ -332,6 +269,10 @@ namespace BombSwap
             if (animator != null)
             {
                 animator.speed = isPaused ? 0f : 1f;
+            }
+            if (hologramFeedback != null)
+            {
+                hologramFeedback.SetPaused(isPaused);
             }
         }
 
@@ -382,123 +323,6 @@ namespace BombSwap
             SetMovingAnimation(
                 session.CurrentThrowerState == ThrowerEnemyState.Track &&
                 session.CurrentThrowerLocomotionState == EnemyLocomotionState.Moving);
-        }
-
-        private void ShowTelegraphs(IReadOnlyList<GridPosition> targets)
-        {
-            if (targets == null)
-            {
-                throw new ArgumentNullException(nameof(targets));
-            }
-            currentTargetTelegraphCells = targets;
-            RefreshDangerCells();
-            pulsePhase = 0f;
-        }
-
-        private void HideTelegraph()
-        {
-            currentTargetTelegraphCells = NoDangerCells;
-            RefreshDangerCells();
-            if (instance != null)
-            {
-                instance.transform.localScale = baseScale;
-                ApplyColor(normalColor);
-            }
-        }
-
-        private void RefreshDangerCells()
-        {
-            visibleDangerCells.Clear();
-            visibleDangerCellSet.Clear();
-
-            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
-                     landedBombDangerCells)
-            {
-                AddUniqueDangerCells(entry.Value);
-            }
-            AddUniqueDangerCells(currentTargetTelegraphCells);
-            visibleDangerCells.Sort(CompareGridPositions);
-
-            EnsureTelegraphCapacity(visibleDangerCells.Count);
-            for (int index = 0; index < telegraphCells.Count; index++)
-            {
-                GameObject cell = telegraphCells[index];
-                bool shouldShow = index < visibleDangerCells.Count;
-                if (shouldShow)
-                {
-                    cell.transform.position =
-                        session.GridSpace.GridToWorld(visibleDangerCells[index]) +
-                        (Vector3.up * 0.03f);
-                }
-                cell.SetActive(shouldShow);
-            }
-        }
-
-        private void AddUniqueDangerCells(IReadOnlyList<GridPosition> cells)
-        {
-            for (int index = 0; index < cells.Count; index++)
-            {
-                if (visibleDangerCellSet.Add(cells[index]))
-                {
-                    visibleDangerCells.Add(cells[index]);
-                }
-            }
-        }
-
-        private static int CompareGridPositions(
-            GridPosition left,
-            GridPosition right)
-        {
-            int xComparison = left.X.CompareTo(right.X);
-            return xComparison != 0
-                ? xComparison
-                : left.Z.CompareTo(right.Z);
-        }
-
-        private void EnsureTelegraphCapacity(int count)
-        {
-            PrototypeThrowerDefinitionAsset definition = session.ThrowerDefinition;
-            while (telegraphCells.Count < count)
-            {
-                GameObject cell = Instantiate(
-                    definition.TelegraphCellPrefab,
-                    presentationRoot);
-                cell.name = "PrototypeThrowerTargetTelegraph" + telegraphCells.Count;
-                cell.SetActive(false);
-                telegraphCells.Add(cell);
-            }
-        }
-
-        private void InitializeColor()
-        {
-            propertyBlock = new MaterialPropertyBlock();
-            Material material = instanceRenderer.sharedMaterial;
-            if (material == null)
-            {
-                throw new InvalidOperationException(
-                    "Thrower enemy prefab renderer requires a material.");
-            }
-            if (material.HasProperty(BaseColorId))
-            {
-                colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Thrower enemy material requires a supported color property.");
-            }
-            normalColor = material.GetColor(colorPropertyId);
-        }
-
-        private void ApplyColor(Color color)
-        {
-            instanceRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetColor(colorPropertyId, color);
-            instanceRenderer.SetPropertyBlock(propertyBlock);
         }
 
         private Vector3 ToPresentationPosition(GridPosition position)

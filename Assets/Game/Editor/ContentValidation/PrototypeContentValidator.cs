@@ -35,6 +35,12 @@ namespace BombSwap.Editor.ContentValidation
         public const string InputActionsPath = "Assets/Game/Content/Input/BombSwapInputActions.inputactions";
         public const string AudioMixerPath =
             "Assets/Game/Content/Audio/BombSwapAudioMixer.mixer";
+        public const string BombFuseAudioClipPath =
+            "Assets/Arts/Sound/Bomb/Fuse/Fuse_burn.wav";
+        public const string BombExplosionAudioClip1Path =
+            "Assets/Arts/Sound/Bomb/Explosion/Bomb_blast_1.wav";
+        public const string BombExplosionAudioClip2Path =
+            "Assets/Arts/Sound/Bomb/Explosion/Bomb_blast_2.wav";
         public const string UiButtonHoverClipPath =
             "Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonHover_GooseNudge_8Bit.wav";
         public const string UiButtonClickClipPath =
@@ -103,6 +109,10 @@ namespace BombSwap.Editor.ContentValidation
             DungeonBossScenePath,
             BossBattlePlaytestScenePath,
         };
+
+        public static readonly string[] PlayerDeathScenePaths = BgmScenePaths
+            .Where(IsDungeonPresentationScenePath)
+            .ToArray();
 
         public static bool IsDungeonPresentationScenePath(string scenePath)
         {
@@ -184,12 +194,14 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab";
         public const string LineExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/LineExplosionCellPlaceholder.prefab";
+        public const string EnemyBombPrefabPath =
+            "Assets/Game/Content/Prefabs/Bomb/Enemy/EnemyBomb.prefab";
         public const string BossThrowBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BossThrowBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Boss/BossBomb.prefab";
         public const string BossThrowExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossThrowExplosionCellPlaceholder.prefab";
         public const string BossChainBombPrefabPath =
-            "Assets/Game/Content/Prefabs/Prototype/BossChainBombPlaceholder.prefab";
+            "Assets/Game/Content/Prefabs/Bomb/Boss/BossBomb.prefab";
         public const string BossChainExplosionCellPrefabPath =
             "Assets/Game/Content/Prefabs/Prototype/BossChainExplosionCellPlaceholder.prefab";
         public const string ChaserPrefabPath =
@@ -303,6 +315,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateBgmContent(errors);
             ValidateCameraShakeScenes(errors);
             ValidateBossIntroScenes(errors);
+            ValidatePlayerDeathScenes(errors);
             ValidateInGameUiPrefabs(errors);
             ValidateLobbyScene(errors);
             PrototypeThirdPartyAssetAuthoring.ValidatePublicDependencies(errors);
@@ -602,6 +615,94 @@ namespace BombSwap.Editor.ContentValidation
                     errors.Add(
                         $"Prototype AudioMixer is missing exposed parameter '{requiredParameters[index]}'.");
                 }
+            }
+        }
+
+        private static void ValidateBombAudioConfiguration(
+            PrototypeBombPresenter presenter,
+            ICollection<string> errors)
+        {
+            if (!presenter.HasBombAudioConfiguration)
+            {
+                errors.Add(
+                    "TestSandbox bomb presenter must reference fuse audio, explosion audio, and the SFX mixer group.");
+                return;
+            }
+
+            string fusePath = AssetDatabase.GetAssetPath(presenter.FuseAudioClip);
+            if (!string.Equals(
+                    fusePath,
+                    BombFuseAudioClipPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"Bomb fuse audio must reference '{BombFuseAudioClipPath}', found '{fusePath}'.");
+            }
+
+            string[] expectedExplosionPaths =
+            {
+                BombExplosionAudioClip1Path,
+                BombExplosionAudioClip2Path,
+            };
+            if (presenter.ExplosionAudioClips.Count != expectedExplosionPaths.Length)
+            {
+                errors.Add("Bomb explosion audio must contain exactly two clips.");
+            }
+            else
+            {
+                for (int index = 0; index < expectedExplosionPaths.Length; index++)
+                {
+                    string actualPath = AssetDatabase.GetAssetPath(
+                        presenter.ExplosionAudioClips[index]);
+                    if (!string.Equals(
+                            actualPath,
+                            expectedExplosionPaths[index],
+                            StringComparison.Ordinal))
+                    {
+                        errors.Add(
+                            $"Bomb explosion audio {index} must reference " +
+                            $"'{expectedExplosionPaths[index]}', found '{actualPath}'.");
+                    }
+                }
+            }
+
+            AudioMixer mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(AudioMixerPath);
+            AudioMixerGroup[] sfxGroups = mixer != null
+                ? mixer.FindMatchingGroups("SFX")
+                : Array.Empty<AudioMixerGroup>();
+            if (sfxGroups.Length != 1 ||
+                presenter.BombAudioMixerGroup != sfxGroups[0])
+            {
+                errors.Add("Bomb audio must route through the prototype SFX mixer group.");
+            }
+
+            if (!Mathf.Approximately(
+                    presenter.FuseAudioVolume,
+                    PrototypeBombPresenter.DefaultFuseAudioVolume))
+            {
+                errors.Add(
+                    $"Bomb fuse audio volume must be " +
+                    $"{PrototypeBombPresenter.DefaultFuseAudioVolume:0.##}.");
+            }
+            if (!Mathf.Approximately(
+                    presenter.ExplosionAudioVolume,
+                    PrototypeBombPresenter.DefaultExplosionAudioVolume))
+            {
+                errors.Add(
+                    $"Bomb explosion audio volume must be " +
+                    $"{PrototypeBombPresenter.DefaultExplosionAudioVolume:0.##}.");
+            }
+            if (!Mathf.Approximately(
+                    presenter.BombAudioMinDistance,
+                    PrototypeBombPresenter.DefaultBombAudioMinDistance) ||
+                !Mathf.Approximately(
+                    presenter.BombAudioMaxDistance,
+                    PrototypeBombPresenter.DefaultBombAudioMaxDistance))
+            {
+                errors.Add(
+                    "Bomb spatial audio distance must match the top-down camera contract " +
+                    $"({PrototypeBombPresenter.DefaultBombAudioMinDistance:0.##}-" +
+                    $"{PrototypeBombPresenter.DefaultBombAudioMaxDistance:0.##}).");
             }
         }
 
@@ -933,6 +1034,14 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void ValidateBossIntroScenes(ICollection<string> errors)
         {
+            PrototypeBossClearTransitionView transitionView =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossClearTransitionView>(
+                    PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath);
+            if (transitionView == null || !transitionView.HasRequiredReferences)
+            {
+                errors.Add(
+                    $"Missing or invalid boss-clear transition prefab: {PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath}");
+            }
             for (int index = 0; index < BossIntroScenePaths.Length; index++)
             {
                 ValidateBossIntroScene(BossIntroScenePaths[index], errors);
@@ -960,8 +1069,12 @@ namespace BombSwap.Editor.ContentValidation
             {
                 PrototypeBossIntroPresenter[] intros =
                     FindComponents<PrototypeBossIntroPresenter>(scene);
+                PrototypeBossClearPresenter[] clears =
+                    FindComponents<PrototypeBossClearPresenter>(scene);
                 PrototypeBossPresenter[] bosses =
                     FindComponents<PrototypeBossPresenter>(scene);
+                PrototypeBombPresenter[] bombs =
+                    FindComponents<PrototypeBombPresenter>(scene);
                 PrototypeHealthHud[] healthHuds =
                     FindComponents<PrototypeHealthHud>(scene);
                 PrototypeGameSession[] sessions =
@@ -971,22 +1084,26 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCameraShake[] shakes =
                     FindComponents<PrototypeCameraShake>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
+                PrototypeRunCompletionPresenter[] completions =
+                    FindComponents<PrototypeRunCompletionPresenter>(scene);
 
-                if (intros.Length != 1 || bosses.Length != 1 ||
+                if (intros.Length != 1 || clears.Length != 1 ||
+                    bosses.Length != 1 || bombs.Length != 1 ||
                     healthHuds.Length != 1 || sessions.Length != 1 ||
                     settings.Length != 1 || shakes.Length != 1 ||
                     cameras.Length != 1)
                 {
                     errors.Add(
-                        $"Boss-intro scene '{scenePath}' requires exactly one intro, boss " +
-                        "presenter, health HUD, session, settings runtime, camera shake, and " +
-                        $"camera; found {intros.Length}, {bosses.Length}, {healthHuds.Length}, " +
+                        $"Boss presentation scene '{scenePath}' requires exactly one intro, clear, boss " +
+                        "presenter, bomb presenter, health HUD, session, settings runtime, camera shake, and " +
+                        $"camera; found {intros.Length}, {clears.Length}, {bosses.Length}, {bombs.Length}, {healthHuds.Length}, " +
                         $"{sessions.Length}, {settings.Length}, {shakes.Length}, " +
                         $"{cameras.Length}.");
                     return;
                 }
 
                 PrototypeBossIntroPresenter intro = intros[0];
+                PrototypeBossClearPresenter clear = clears[0];
                 Camera camera = cameras[0];
                 if (intro.gameObject != sessions[0].gameObject ||
                     intro.Session != sessions[0] ||
@@ -995,21 +1112,49 @@ namespace BombSwap.Editor.ContentValidation
                     intro.Settings != settings[0] ||
                     intro.GameplayCamera != camera ||
                     intro.CameraShake != shakes[0] ||
+                    clear.gameObject != sessions[0].gameObject ||
+                    clear.Session != sessions[0] ||
+                    clear.BossPresenter != bosses[0] ||
+                    clear.BombPresenter != bombs[0] ||
+                    clear.Settings != settings[0] ||
+                    clear.GameplayCamera != camera ||
+                    clear.CameraShake != shakes[0] ||
+                    clear.TransitionViewPrefab == null ||
+                    AssetDatabase.GetAssetPath(clear.TransitionViewPrefab) !=
+                        PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath ||
                     bosses[0].AttackFeedbackSettings != settings[0] ||
                     bosses[0].AttackCameraShake != shakes[0])
                 {
                     errors.Add(
-                        $"Boss-intro scene '{scenePath}' has inconsistent intro or attack-feedback references.");
+                        $"Boss presentation scene '{scenePath}' has inconsistent intro, clear, or attack-feedback references.");
                 }
                 if (!sessions[0].IsBossEnabledByDefault ||
                     !camera.enabled || !camera.CompareTag("MainCamera") ||
                     !camera.orthographic ||
                     intro.FocusedOrthographicSize <= 0f ||
-                    intro.DropHeight <= 0f)
+                    intro.DropHeight <= 0f ||
+                    clear.FocusedOrthographicSize <= 0f ||
+                    clear.DeathAnimatorSpeed <= 0f ||
+                    clear.DeathAnimatorSpeed > 1f)
                 {
                     errors.Add(
-                        $"Boss-intro scene '{scenePath}' requires an authored boss, enabled " +
-                        "orthographic MainCamera, and positive focus/drop tuning.");
+                        $"Boss presentation scene '{scenePath}' requires an authored boss, enabled " +
+                        "orthographic MainCamera, and valid intro/clear tuning.");
+                }
+
+                bool expectsCompletion = string.Equals(
+                    scenePath,
+                    DungeonBossScenePath,
+                    StringComparison.Ordinal);
+                if ((expectsCompletion &&
+                     (completions.Length != 1 ||
+                      completions[0].BossClearPresenter != clear)) ||
+                    (!expectsCompletion && completions.Length != 0))
+                {
+                    errors.Add(
+                        expectsCompletion
+                            ? $"Dungeon boss scene '{scenePath}' must gate its single run-completion presenter with the boss-clear presentation."
+                            : $"Boss playtest scene '{scenePath}' must not contain a run-completion presenter.");
                 }
             }
             finally
@@ -1194,6 +1339,13 @@ namespace BombSwap.Editor.ContentValidation
                         {
                             errors.Add(
                                 "Lobby settings panel must not contain the obsolete SettingsStatusText label.");
+                        }
+                        if (presenter.SettingsPanel != null)
+                        {
+                            ValidateSettingsKeyboardBindings(
+                                presenter.SettingsPanel,
+                                "Lobby",
+                                errors);
                         }
 
                         Image settingsPanelImage = presenter.SettingsPanel != null
@@ -1413,7 +1565,7 @@ namespace BombSwap.Editor.ContentValidation
                     LineExplosionCellPrefabPath,
                     "prototype-line",
                     BombExplosionShape.ForwardLine,
-                    3,
+                    5,
                     errors);
             PrototypeBombDefinitionAsset bossThrowDefinition =
                 ValidatePrototypeBombDefinition(
@@ -1433,6 +1585,15 @@ namespace BombSwap.Editor.ContentValidation
                     BombExplosionShape.Cross,
                     2,
                     errors);
+            PrototypeBombDefinitionAsset throwerDefinition =
+                ValidatePrototypeBombDefinition(
+                    PrototypeThrowerBombDefinitionPath,
+                    EnemyBombPrefabPath,
+                    ExplosionCellPrefabPath,
+                    "prototype-thrower-blocker",
+                    BombExplosionShape.Cross,
+                    1,
+                    errors);
             if ((firstDefinition != null &&
                  firstDefinition.FuseSeconds != 2f) ||
                 (secondDefinition != null &&
@@ -1442,7 +1603,9 @@ namespace BombSwap.Editor.ContentValidation
                 (bossThrowDefinition != null &&
                  bossThrowDefinition.FuseSeconds != 1.25f) ||
                 (bossChainDefinition != null &&
-                 bossChainDefinition.FuseSeconds != 2.25f))
+                 bossChainDefinition.FuseSeconds != 2.25f) ||
+                (throwerDefinition != null &&
+                 throwerDefinition.FuseSeconds != 1.5f))
             {
                 errors.Add(
                     "Prototype cross, area, line, boss throw, and boss chain bomb " +
@@ -2988,7 +3151,6 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCombatRoomDefinitionPath,
                 PrototypeCombatThrowerDefinitionPath,
                 PrototypeCombatPillarsDefinitionPath,
-                PrototypeCombatArmorDefinitionPath,
                 PrototypeCombatGatesDefinitionPath,
             };
             string[] expectedSceneNames =
@@ -2996,12 +3158,11 @@ namespace BombSwap.Editor.ContentValidation
                 "TestSandbox",
                 "TestSandboxThrower",
                 "TestSandboxPillars",
-                "TestSandboxArmor",
                 "TestSandboxGates",
             };
             if (catalog.Entries.Count != expectedRoomPaths.Length)
             {
-                errors.Add("Prototype dungeon combat room catalog must contain five entries.");
+                errors.Add("Prototype dungeon combat room catalog must contain four entries.");
                 return;
             }
 
@@ -3191,12 +3352,21 @@ namespace BombSwap.Editor.ContentValidation
                 true,
                 errors);
             ValidateRecoveryShrineGlow(errors);
+            ValidateWorldInteractionAudio(
+                PrototypeWorldInteractionAuthoring.RecoveryShrinePrefabPath,
+                PrototypeWorldInteractionAuthoring.RecoveryDrinkClipPath,
+                errors);
             ValidateWorldInteractablePrefab(
                 PrototypeWorldInteractionAuthoring.RewardChestPrefabPath,
                 true,
                 true,
                 errors);
             ValidateRewardChestGlow(errors);
+            ValidateRewardChestPresentation(errors);
+            ValidateWorldInteractionAudio(
+                PrototypeWorldInteractionAuthoring.RewardChestPrefabPath,
+                PrototypeWorldInteractionAuthoring.RewardChestHingeClipPath,
+                errors);
             ValidateWorldInteractablePrefab(
                 PrototypeWorldInteractionAuthoring.BombRewardChoicePrefabPath,
                 true,
@@ -3256,6 +3426,113 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Recovery shrine availability effect must use the authored pulsing core, halo and one rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static void ValidatePlayerDeathScenes(
+            ICollection<string> errors)
+        {
+            PrototypeBossClearTransitionView transitionView =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossClearTransitionView>(
+                    PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath);
+            if (transitionView == null || !transitionView.HasRequiredReferences)
+            {
+                errors.Add(
+                    $"Missing or invalid player-death transition prefab: {PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath}");
+            }
+
+            for (int index = 0; index < PlayerDeathScenePaths.Length; index++)
+            {
+                ValidatePlayerDeathScene(PlayerDeathScenePaths[index], errors);
+            }
+        }
+
+        private static void ValidatePlayerDeathScene(
+            string scenePath,
+            ICollection<string> errors)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                errors.Add($"Missing player-death target scene: {scenePath}");
+                return;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
+            if (openedForValidation)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                PrototypePlayerDeathPresenter[] deathPresenters =
+                    FindComponents<PrototypePlayerDeathPresenter>(scene);
+                PrototypeGameSession[] sessions =
+                    FindComponents<PrototypeGameSession>(scene);
+                PrototypePlayerController[] controllers =
+                    FindComponents<PrototypePlayerController>(scene);
+                PrototypePlayerAnimationPresenter[] animations =
+                    FindComponents<PrototypePlayerAnimationPresenter>(scene);
+                PrototypeCameraShake[] shakes =
+                    FindComponents<PrototypeCameraShake>(scene);
+                PrototypeRunCompletionPresenter[] completions =
+                    FindComponents<PrototypeRunCompletionPresenter>(scene);
+                Camera[] cameras = FindComponents<Camera>(scene);
+
+                if (deathPresenters.Length != 1 || sessions.Length != 1 ||
+                    controllers.Length != 1 || animations.Length != 1 ||
+                    shakes.Length != 1 || completions.Length != 1 ||
+                    cameras.Length != 1)
+                {
+                    errors.Add(
+                        $"Player-death scene '{scenePath}' requires exactly one death presenter, session, player controller, player animation presenter, camera shake, run-completion presenter, and camera; found {deathPresenters.Length}, {sessions.Length}, {controllers.Length}, {animations.Length}, {shakes.Length}, {completions.Length}, and {cameras.Length}.");
+                    return;
+                }
+
+                PrototypePlayerDeathPresenter presenter = deathPresenters[0];
+                Camera camera = cameras[0];
+                Animator animator = animations[0].Animator;
+                bool hasDeathClip = animator != null &&
+                    animator.runtimeAnimatorController != null &&
+                    animator.runtimeAnimatorController.animationClips.Any(clip =>
+                        clip != null && string.Equals(
+                            clip.name,
+                            PrototypePlayerDeathPresenter.DeathAnimationClipName,
+                            StringComparison.Ordinal));
+                if (presenter.gameObject != sessions[0].gameObject ||
+                    presenter.Session != sessions[0] ||
+                    presenter.PlayerController != controllers[0] ||
+                    presenter.PlayerAnimationPresenter != animations[0] ||
+                    presenter.GameplayCamera != camera ||
+                    presenter.CameraShake != shakes[0] ||
+                    presenter.TransitionViewPrefab == null ||
+                    AssetDatabase.GetAssetPath(presenter.TransitionViewPrefab) !=
+                        PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath ||
+                    completions[0].PlayerDeathPresenter != presenter ||
+                    controllers[0].Session != sessions[0] ||
+                    animations[0].Session != sessions[0] ||
+                    shakes[0].ShakeTarget != camera.transform)
+                {
+                    errors.Add(
+                        $"Player-death scene '{scenePath}' has inconsistent session, player, camera, transition, or result-gate references.");
+                }
+                if (!camera.enabled || !camera.CompareTag("MainCamera") ||
+                    !camera.orthographic || !hasDeathClip ||
+                    presenter.FocusedOrthographicSize <= 0f ||
+                    presenter.DeathAnimatorSpeed <= 0f ||
+                    presenter.DeathAnimatorSpeed > 1f)
+                {
+                    errors.Add(
+                        $"Player-death scene '{scenePath}' requires an enabled orthographic MainCamera, the player death clip, and valid presentation tuning.");
+                }
+            }
+            finally
+            {
+                if (openedForValidation && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
             }
         }
 
@@ -3354,6 +3631,67 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Reward chest must be centered on its logical cell and use a grounded pulsing halo at least 1.25x its footprint plus one chest-width rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static void ValidateRewardChestPresentation(
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                PrototypeWorldInteractionAuthoring.RewardChestPrefabPath);
+            PrototypeRewardChestView chestView = prefab != null
+                ? prefab.GetComponent<PrototypeRewardChestView>()
+                : null;
+            if (chestView == null || !chestView.HasRequiredReferences)
+            {
+                errors.Add(
+                    "Reward chest prefab requires configured closed/open roots.");
+                return;
+            }
+            if (!string.Equals(chestView.ClosedRoot.name, "Chest", StringComparison.Ordinal) ||
+                !string.Equals(chestView.OpenRoot.name, "Chest_Open", StringComparison.Ordinal))
+            {
+                errors.Add(
+                    "Reward chest presentation roots must be named Chest and Chest_Open.");
+            }
+            if (chestView.ClosedRoot.activeSelf == chestView.OpenRoot.activeSelf ||
+                !chestView.ClosedRoot.activeSelf)
+            {
+                errors.Add(
+                    "Reward chest prefab must be authored closed with Chest active and Chest_Open inactive.");
+            }
+        }
+
+        private static void ValidateWorldInteractionAudio(
+            string prefabPath,
+            string expectedClipPath,
+            ICollection<string> errors)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            PrototypeWorldInteractionAudio interactionAudio = prefab != null
+                ? prefab.GetComponent<PrototypeWorldInteractionAudio>()
+                : null;
+            AudioSource source = interactionAudio != null
+                ? interactionAudio.SuccessAudioSource
+                : null;
+            AudioMixer mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(AudioMixerPath);
+            AudioMixerGroup sfxGroup = mixer != null
+                ? mixer.FindMatchingGroups("SFX").FirstOrDefault()
+                : null;
+            if (interactionAudio == null ||
+                !interactionAudio.HasRequiredReferences ||
+                source == null ||
+                source.playOnAwake ||
+                source.loop ||
+                !Mathf.Approximately(source.spatialBlend, 0f) ||
+                source.outputAudioMixerGroup != sfxGroup ||
+                !string.Equals(
+                    AssetDatabase.GetAssetPath(source.clip),
+                    expectedClipPath,
+                    StringComparison.Ordinal))
+            {
+                errors.Add(
+                    $"World interaction prefab '{prefabPath}' must use '{expectedClipPath}' as non-looping 2D SFX without Play On Awake.");
             }
         }
 
@@ -3833,6 +4171,46 @@ namespace BombSwap.Editor.ContentValidation
                 errors);
         }
 
+        private static void ValidateSettingsKeyboardBindings(
+            PrototypeSettingsPanelPresenter panel,
+            string owner,
+            ICollection<string> errors)
+        {
+            if (panel.KeyboardBindingCount !=
+                PrototypeSettingsPanelFactory.KeyboardBindingCount)
+            {
+                errors.Add(
+                    $"{owner} settings must contain " +
+                    $"{PrototypeSettingsPanelFactory.KeyboardBindingCount} keyboard bindings.");
+                return;
+            }
+
+            for (int index = 0;
+                 index < PrototypeSettingsPanelFactory.KeyboardBindingCount;
+                 index++)
+            {
+                PrototypeSettingsPanelPresenter.KeyboardBindingView binding =
+                    panel.GetKeyboardBinding(index);
+                string expectedAction =
+                    PrototypeSettingsPanelFactory.GetKeyboardBindingAction(index);
+                string expectedBindingId =
+                    PrototypeSettingsPanelFactory.GetKeyboardBindingId(index);
+                if (!string.Equals(
+                        binding.ActionName,
+                        expectedAction,
+                        StringComparison.Ordinal) ||
+                    !string.Equals(
+                        binding.BindingId,
+                        expectedBindingId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add(
+                        $"{owner} settings binding {index} must map " +
+                        $"'{expectedAction}' to '{expectedBindingId}'.");
+                }
+            }
+        }
+
         private static void ValidateInGameUiPrefabs(
             ICollection<string> errors)
         {
@@ -3897,6 +4275,26 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeInGameUiPrefabAuthoring.PausePrefabPath,
                 view => view.HasRequiredReferences,
                 errors);
+            PrototypePauseView pausePrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
+                    PrototypeInGameUiPrefabAuthoring.PausePrefabPath);
+            if (pausePrefab != null)
+            {
+                PrototypeSettingsPanelPresenter pauseSettings =
+                    pausePrefab.GetComponentInChildren<
+                        PrototypeSettingsPanelPresenter>(true);
+                if (pauseSettings == null)
+                {
+                    errors.Add("Pause UI prefab is missing its settings panel.");
+                }
+                else
+                {
+                    ValidateSettingsKeyboardBindings(
+                        pauseSettings,
+                        "Pause",
+                        errors);
+                }
+            }
             ValidateInGameUiPrefab<PrototypeRunCompletionView>(
                 PrototypeInGameUiPrefabAuthoring.RunCompletionPrefabPath,
                 view =>
@@ -4793,6 +5191,7 @@ namespace BombSwap.Editor.ContentValidation
                     {
                         errors.Add("TestSandbox bomb presenter pool sizes cannot be negative.");
                     }
+                    ValidateBombAudioConfiguration(presenter, errors);
                 }
 
                 if (destructibleWallPresenters.Length == 1 &&
@@ -5569,6 +5968,7 @@ namespace BombSwap.Editor.ContentValidation
                     : null;
                 bool matchesVisual = validatesEnvironmentVisuals
                     ? renderers.Length > 0 &&
+                      obstacle.childCount == 1 &&
                       IsExpectedVisualPrefab(visual, woodBoxPrefab)
                     : renderers.Length == 4 && destructibleMaterial != null &&
                       renderers.All(renderer =>

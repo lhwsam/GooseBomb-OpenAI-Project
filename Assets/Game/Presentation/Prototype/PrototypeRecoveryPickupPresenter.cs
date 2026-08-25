@@ -26,6 +26,7 @@ namespace BombSwap
 
         private GridPosition _corePickupCell;
         private bool _isBlockerRegistered;
+        private PrototypeWorldInteractionAudio _interactionAudio;
 
         public PrototypeDungeonRoomBinder RoomBinder => roomBinder;
 
@@ -34,6 +35,8 @@ namespace BombSwap
         public Vector2Int PickupCell => pickupCell;
 
         public PrototypeWorldInteractableView WorldView => worldView;
+
+        public PrototypeWorldInteractionAudio InteractionAudio => _interactionAudio;
 
         public static Color DefaultPickupColor => PickupColor;
 
@@ -175,6 +178,7 @@ namespace BombSwap
             }
 
             IsConsumed = roomBinder.IsCurrentRecoveryConsumed;
+            _interactionAudio = worldView.GetComponent<PrototypeWorldInteractionAudio>();
             worldView.transform.position =
                 roomBinder.RoomSession.GridSpace.GridToWorld(_corePickupCell);
             IsInitialized = true;
@@ -213,6 +217,10 @@ namespace BombSwap
                     IsConsumed = true;
                     CanInteract = false;
                     UpdateWorldView();
+                    if (_interactionAudio != null)
+                    {
+                        _interactionAudio.PlaySuccess();
+                    }
                     return true;
                 case DungeonRecoveryUseStatus.AtFullHealth:
                     return false;

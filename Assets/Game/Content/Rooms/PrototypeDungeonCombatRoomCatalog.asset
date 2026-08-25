@@ -19,7 +19,5 @@ MonoBehaviour:
     sceneName: TestSandboxThrower
   - roomDefinition: {fileID: 11400000, guid: 6ea6a6577252e034d81b4f3e26eeed31, type: 2}
     sceneName: TestSandboxPillars
-  - roomDefinition: {fileID: 11400000, guid: 45d9508772be0744696d9304b9d63b4b, type: 2}
-    sceneName: TestSandboxArmor
   - roomDefinition: {fileID: 11400000, guid: 30b6d79e8847ee64ba4f705b1229caac, type: 2}
     sceneName: TestSandboxGates

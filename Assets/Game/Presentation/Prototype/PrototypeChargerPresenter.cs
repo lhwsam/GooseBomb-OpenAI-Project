@@ -14,33 +14,17 @@ namespace BombSwap
         private static readonly int ChargeParameterId = Animator.StringToHash("Charge");
         private static readonly int RecoverParameterId = Animator.StringToHash("Recover");
         private static readonly int DieParameterId = Animator.StringToHash("Die");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform presentationRoot;
 
-        [SerializeField]
-        private Color telegraphColor = new Color(1f, 0.82f, 0.08f, 1f);
-
-        [SerializeField]
-        private Color chargeColor = new Color(1f, 0.12f, 0.04f, 1f);
-
-        [SerializeField]
-        private Color recoverColor = new Color(0.42f, 0.46f, 0.5f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.14f, 0.02f, 0.02f, 1f);
-
         private GameObject _instance;
-        private Renderer _renderer;
         private Animator _animator;
-        private MaterialPropertyBlock _propertyBlock;
-        private int _colorPropertyId;
-        private Color _normalColor;
+        private PrototypeHologramFeedback _hologramFeedback;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
+        private PigCharacterVocalAudio _vocalAudio;
         private float _deathRemaining;
         private bool _isShowingDeath;
         private readonly List<GameObject> _telegraphCells = new List<GameObject>();
@@ -59,15 +43,17 @@ namespace BombSwap
 
         public Animator Animator => _animator;
 
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
+
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
 
         public int ActiveTelegraphCellCount { get; private set; }
 
-        public ChargerEnemyState CurrentState { get; private set; }
+        public bool UsesHologramTelegraph { get; private set; }
 
-        public Color CurrentColor { get; private set; }
+        public ChargerEnemyState CurrentState { get; private set; }
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -101,7 +87,11 @@ namespace BombSwap
                     "PrototypeChargerPresenter requires session and presentation-root references.");
             }
 
+            _localHologramOverrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
+
             session.ChargerAdvanced += OnChargerAdvanced;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -116,6 +106,7 @@ namespace BombSwap
             if (session != null)
             {
                 session.ChargerAdvanced -= OnChargerAdvanced;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -133,7 +124,8 @@ namespace BombSwap
             }
 
             _instance = null;
-            _renderer = null;
+            _hologramFeedback = null;
+            _localHologramOverrides = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -141,6 +133,7 @@ namespace BombSwap
             _animator = null;
             _telegraphCells.Clear();
             ActiveTelegraphCellCount = 0;
+            UsesHologramTelegraph = false;
             IsInitialized = false;
             _isShowingDeath = false;
         }
@@ -194,21 +187,25 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ChargerPrefab, presentationRoot);
             _instance.name = "PrototypeChargerVisual";
-            _renderer = _instance.GetComponentInChildren<Renderer>(true);
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_instance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _animator = _instance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
                 _animator.speed = session.IsPaused ? 0f : 1f;
                 _animator.SetBool(IsMovingParameterId, false);
             }
-            InitializeColor();
             _instance.transform.position = ToPresentationPosition(
                 session.CurrentChargerGridPosition);
             _instance.SetActive(session.IsChargerAlive);
             CurrentState = session.CurrentChargerState;
             ApplyAnimationState(CurrentState);
-            ApplyStateColor(CurrentState);
             if (CurrentState == ChargerEnemyState.Telegraph)
             {
                 ShowTelegraphLane(
@@ -235,8 +232,11 @@ namespace BombSwap
             {
                 StateChangeCount++;
                 CurrentState = result.State;
+                if (CurrentState == ChargerEnemyState.Charge)
+                {
+                    _vocalAudio?.PlayAttackVocal();
+                }
                 ApplyAnimationState(CurrentState);
-                ApplyStateColor(CurrentState);
                 if (CurrentState == ChargerEnemyState.Telegraph)
                 {
                     ShowTelegraphLane(
@@ -275,6 +275,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             HideTelegraphLane();
             if (_animator != null)
             {
@@ -282,9 +283,17 @@ namespace BombSwap
                 ResetLivingTriggers();
                 _animator.SetTrigger(DieParameterId);
             }
-            ApplyColor(deathColor);
             _deathRemaining = session.ChargerDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
+        }
+
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.ChargerActorId &&
+                _hologramFeedback != null)
+            {
+                _hologramFeedback.TriggerHitBlink();
+            }
         }
 
         private void OnPauseStateChanged(bool isPaused)
@@ -292,6 +301,10 @@ namespace BombSwap
             if (_animator != null)
             {
                 _animator.speed = isPaused ? 0f : 1f;
+            }
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
             }
         }
 
@@ -355,65 +368,6 @@ namespace BombSwap
                 session.CurrentChargerLocomotionState == EnemyLocomotionState.Moving);
         }
 
-        private void InitializeColor()
-        {
-            if (_propertyBlock == null)
-            {
-                _propertyBlock = new MaterialPropertyBlock();
-            }
-
-            Material material = _renderer.sharedMaterial;
-            if (material == null)
-            {
-                throw new InvalidOperationException("Charger prefab renderer requires a material.");
-            }
-            if (material.HasProperty(BaseColorId))
-            {
-                _colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                _colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Charger material requires a supported color property.");
-            }
-
-            _normalColor = material.GetColor(_colorPropertyId);
-            CurrentColor = _normalColor;
-        }
-
-        private void ApplyStateColor(ChargerEnemyState state)
-        {
-            switch (state)
-            {
-                case ChargerEnemyState.Track:
-                    ApplyColor(_normalColor);
-                    break;
-                case ChargerEnemyState.Telegraph:
-                    ApplyColor(telegraphColor);
-                    break;
-                case ChargerEnemyState.Charge:
-                    ApplyColor(chargeColor);
-                    break;
-                case ChargerEnemyState.Recover:
-                    ApplyColor(recoverColor);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
-            }
-        }
-
-        private void ApplyColor(Color color)
-        {
-            _renderer.GetPropertyBlock(_propertyBlock);
-            _propertyBlock.SetColor(_colorPropertyId, color);
-            _renderer.SetPropertyBlock(_propertyBlock);
-            CurrentColor = color;
-        }
-
         private void ShowTelegraphLane(
             GridPosition origin,
             CardinalDirection direction,
@@ -461,6 +415,13 @@ namespace BombSwap
                     definition.TelegraphCellPrefab,
                     presentationRoot);
                 visual.name = $"PrototypeChargerTelegraphCell{_telegraphCells.Count}";
+                Material hologramMaterial = _localHologramOverrides != null
+                    ? _localHologramOverrides.BombRangeHologramMaterial
+                    : null;
+                UsesHologramTelegraph |=
+                    PrototypeHologramTelegraphStyle.Apply(
+                        visual,
+                        hologramMaterial);
                 visual.SetActive(false);
                 _telegraphCells.Add(visual);
             }

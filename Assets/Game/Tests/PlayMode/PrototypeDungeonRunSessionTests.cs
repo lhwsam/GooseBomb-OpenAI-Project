@@ -262,6 +262,63 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator BossClearTransitionPrefab_ClosesAndRevealsAuthoredCurtains()
+        {
+            PrototypeBossClearTransitionView prefab =
+                Resources.Load<PrototypeBossClearTransitionView>(
+                    "UI/PrototypeBossClearCanvas");
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.HasRequiredReferences, Is.True);
+            Assert.That(prefab.Canvas.sortingOrder, Is.EqualTo(290));
+
+            PrototypeBossClearTransitionView instance =
+                UnityEngine.Object.Instantiate(prefab);
+            float previousTimeScale = Time.timeScale;
+            try
+            {
+                Time.timeScale = 0f;
+                Vector2 topClosedPosition = instance.TopCurtain.anchoredPosition;
+                Vector2 bottomClosedPosition =
+                    instance.BottomCurtain.anchoredPosition;
+                instance.PrepareForClosing();
+
+                Assert.That(instance.IsPrepared, Is.True);
+                Assert.That(instance.IsClosed, Is.False);
+                Assert.That(
+                    instance.TopCurtain.anchoredPosition.y,
+                    Is.GreaterThan(topClosedPosition.y));
+                Assert.That(
+                    instance.BottomCurtain.anchoredPosition.y,
+                    Is.LessThan(bottomClosedPosition.y));
+
+                instance.PlayClose(0.02f);
+                yield return new WaitForSecondsRealtime(0.08f);
+
+                Assert.That(instance.IsClosed, Is.True);
+                Assert.That(
+                    Vector2.Distance(
+                        instance.TopCurtain.anchoredPosition,
+                        topClosedPosition),
+                    Is.LessThan(0.01f));
+                Assert.That(
+                    Vector2.Distance(
+                        instance.BottomCurtain.anchoredPosition,
+                        bottomClosedPosition),
+                    Is.LessThan(0.01f));
+
+                instance.PlayReveal(0.02f);
+                yield return new WaitForSecondsRealtime(0.08f);
+                Assert.That(instance.CanvasGroup.alpha, Is.EqualTo(0f).Within(0.01f));
+                Assert.That(instance.CanvasGroup.blocksRaycasts, Is.False);
+            }
+            finally
+            {
+                Time.timeScale = previousTimeScale;
+                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator MinimapChildPrefabs_InstantiateAuthoredViews()
         {
             PrototypeDungeonMinimapRoomView roomPrefab =
@@ -322,6 +379,181 @@ namespace BombSwap.Tests.PlayMode
             {
                 UnityEngine.Object.DestroyImmediate(roomInstance.gameObject);
                 UnityEngine.Object.DestroyImmediate(connectionInstance.gameObject);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerDeathPresentation_FocusesUntilAnimationEndsThenShowsFailure()
+        {
+            Scene loadedDungeonScene = default;
+            float previousTimeScale = Time.timeScale;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRunHost host =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                            FindObjectsInactive.Include)
+                        .Single(candidate => candidate.IsPrimary);
+                PrototypeDungeonRunSession run = host.RunSession;
+                var roomHealth = new PlayerHealthSimulation(
+                    new ActorId(1),
+                    new ManualGameClock(),
+                    new PlayerHealthDefinition(
+                        run.PlayerHealthState.MaxHealth,
+                        TimeSpan.FromSeconds(0.75)),
+                    run.PlayerHealthState.CurrentHealth);
+                PlayerDamageResult setupDamage = roomHealth.ApplyContactDamage(
+                    new ActorId(2),
+                    run.PlayerHealthState.MaxHealth - 1);
+                run.PlayerHealthState.RecordAppliedDamage(setupDamage);
+                Assert.That(run.PlayerHealthState.CurrentHealth, Is.EqualTo(1));
+
+                yield return SceneManager.LoadSceneAsync(
+                    "DungeonStart",
+                    LoadSceneMode.Single);
+                yield return null;
+
+                PrototypeDungeonRoomBinder binder =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRoomBinder>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeGameSession session = binder.RoomSession;
+                PrototypePlayerDeathPresenter deathPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypePlayerDeathPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypePlayerAnimationPresenter animationPresenter =
+                    UnityEngine.Object.FindObjectsByType<
+                            PrototypePlayerAnimationPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeRunCompletionPresenter completionPresenter =
+                    UnityEngine.Object.FindObjectsByType<
+                            PrototypeRunCompletionPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Camera gameplayCamera = deathPresenter.GameplayCamera;
+                Animator playerAnimator = animationPresenter.Animator;
+                Vector3 restingCameraPosition =
+                    gameplayCamera.transform.position;
+                float restingOrthographicSize = gameplayCamera.orthographicSize;
+                AnimatorUpdateMode restingUpdateMode = playerAnimator.updateMode;
+                float restingAnimatorSpeed = playerAnimator.speed;
+
+                Assert.That(session.CurrentHealth, Is.EqualTo(1));
+                Assert.That(deathPresenter.Session, Is.SameAs(session));
+                Assert.That(
+                    completionPresenter.PlayerDeathPresenter,
+                    Is.SameAs(deathPresenter));
+                Assert.That(session.TryPlaceBomb(), Is.True);
+
+                float deathDeadline = Time.realtimeSinceStartup + 4f;
+                while (!session.IsPlayerDead &&
+                       Time.realtimeSinceStartup < deathDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(session.IsPlayerDead, Is.True);
+                Assert.That(run.IsFailed, Is.True);
+                Assert.That(deathPresenter.HasStarted, Is.True);
+                Assert.That(deathPresenter.IsCompleted, Is.False);
+                Assert.That(deathPresenter.IsPlaying, Is.True);
+                Assert.That(session.enabled, Is.False);
+                Assert.That(animationPresenter.DeathAnimationCount, Is.EqualTo(1));
+                Assert.That(
+                    playerAnimator.speed,
+                    Is.EqualTo(deathPresenter.DeathAnimatorSpeed).Within(0.001f));
+                Assert.That(
+                    playerAnimator.updateMode,
+                    Is.EqualTo(AnimatorUpdateMode.UnscaledTime));
+                Assert.That(
+                    deathPresenter.DeathAnimationDurationSeconds,
+                    Is.GreaterThan(2.5f));
+                Assert.That(deathPresenter.TransitionViewInstance, Is.Not.Null);
+                Assert.That(completionPresenter.IsVisible, Is.False);
+                Assert.That(
+                    Time.timeScale,
+                    Is.EqualTo(previousTimeScale).Within(0.001f));
+
+                yield return new WaitForSecondsRealtime(
+                    PrototypePlayerDeathPresenter.DefaultFocusSeconds + 0.1f);
+                Assert.That(
+                    gameplayCamera.orthographicSize,
+                    Is.EqualTo(deathPresenter.FocusedOrthographicSize)
+                        .Within(0.03f));
+                Assert.That(completionPresenter.IsVisible, Is.False);
+
+                float presentationDeadline = Time.realtimeSinceStartup + 5f;
+                while ((!deathPresenter.IsCompleted ||
+                        !completionPresenter.IsVisible) &&
+                       Time.realtimeSinceStartup < presentationDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(deathPresenter.IsCompleted, Is.True);
+                Assert.That(deathPresenter.CompletionCount, Is.EqualTo(1));
+                Assert.That(completionPresenter.IsVisible, Is.True);
+                Assert.That(completionPresenter.FailureCount, Is.EqualTo(1));
+                Assert.That(
+                    completionPresenter.FailureCause,
+                    Is.EqualTo(PrototypePlayerDeathCause.BombExplosion));
+                Assert.That(
+                    Vector3.Distance(
+                        gameplayCamera.transform.position,
+                        restingCameraPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    gameplayCamera.orthographicSize,
+                    Is.EqualTo(restingOrthographicSize).Within(0.001f));
+                Assert.That(
+                    playerAnimator.speed,
+                    Is.EqualTo(restingAnimatorSpeed).Within(0.001f));
+                Assert.That(playerAnimator.updateMode, Is.EqualTo(restingUpdateMode));
+                Assert.That(
+                    UnityEngine.Object.FindObjectsByType<Transform>(
+                            FindObjectsInactive.Include)
+                        .Any(candidate => candidate.name.StartsWith(
+                            "PrototypeBossClearBurst",
+                            StringComparison.Ordinal)),
+                    Is.False);
+
+                yield return new WaitForSecondsRealtime(
+                    PrototypePlayerDeathPresenter.DefaultCoverHoldSeconds +
+                    PrototypePlayerDeathPresenter.DefaultRevealSeconds +
+                    0.1f);
+                Assert.That(deathPresenter.TransitionViewInstance, Is.Null);
+                loadedDungeonScene = SceneManager.GetActiveScene();
+            }
+            finally
+            {
+                Time.timeScale = previousTimeScale;
+                PrototypeDungeonRunHost[] hosts =
+                    UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
+                        FindObjectsInactive.Include);
+                for (int index = 0; index < hosts.Length; index++)
+                {
+                    UnityEngine.Object.DestroyImmediate(hosts[index].gameObject);
+                }
+
+                if (!loadedDungeonScene.IsValid())
+                {
+                    loadedDungeonScene = SceneManager.GetActiveScene();
+                }
+                Scene cleanup = SceneManager.CreateScene(
+                    "PlayerDeathPresentationPlayModeCleanup");
+                SceneManager.SetActiveScene(cleanup);
+                if (loadedDungeonScene.IsValid() && loadedDungeonScene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(loadedDungeonScene);
+                }
             }
 
             yield return null;
@@ -998,6 +1230,10 @@ namespace BombSwap.Tests.PlayMode
                     session.GetCell(new GridPosition(0, 1)).Terrain,
                     Is.EqualTo(GridTerrain.DestructibleWall));
                 Assert.That(wallPresenter.ActiveWallVisualCount, Is.EqualTo(2));
+                Assert.That(wallPresenter.BreakAudio, Is.Not.Null);
+                Assert.That(wallPresenter.BreakAudio.ClipCount, Is.EqualTo(2));
+                Assert.That(wallPresenter.BreakAudio.SpatialBlend, Is.EqualTo(1f));
+                Assert.That(wallPresenter.BreakAudio.MinDistance, Is.EqualTo(3f));
                 Assert.That(healthHud.IsInitialized, Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.False);
                 Assert.That(run.CombatRewardTokenCount, Is.GreaterThan(0));
@@ -1083,8 +1319,16 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeBossPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
+                PrototypeBombPresenter bombPresenter =
+                    UnityEngine.Object.FindObjectsByType<PrototypeBombPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
                 PrototypeBossIntroPresenter intro =
                     UnityEngine.Object.FindObjectsByType<PrototypeBossIntroPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeBossClearPresenter clear =
+                    UnityEngine.Object.FindObjectsByType<PrototypeBossClearPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
                 PrototypeHealthHud healthHud =
@@ -1099,10 +1343,7 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeCameraShake>(
                             FindObjectsInactive.Include)
                         .Single();
-                Camera gameplayCamera =
-                    UnityEngine.Object.FindObjectsByType<Camera>(
-                            FindObjectsInactive.Include)
-                        .Single(camera => camera.enabled && camera.CompareTag("MainCamera"));
+                Camera gameplayCamera = intro.GameplayCamera;
                 PrototypeRunCompletionPresenter completionPresenter =
                     UnityEngine.Object.FindObjectsByType<PrototypeRunCompletionPresenter>(
                             FindObjectsInactive.Include)
@@ -1122,6 +1363,25 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.IsBossCombatStarted, Is.False);
                 Assert.That(session.CurrentGameTime, Is.EqualTo(TimeSpan.Zero));
                 Assert.That(intro.IsPlaying, Is.True);
+                Assert.That(gameplayCamera, Is.Not.Null);
+                Assert.That(gameplayCamera.orthographic, Is.True);
+                Assert.That(clear.Session, Is.SameAs(session));
+                Assert.That(clear.BossPresenter, Is.SameAs(presenter));
+                Assert.That(clear.BombPresenter, Is.SameAs(bombPresenter));
+                Assert.That(clear.Settings, Is.SameAs(settings));
+                Assert.That(clear.GameplayCamera, Is.SameAs(gameplayCamera));
+                Assert.That(clear.CameraShake, Is.SameAs(cameraShake));
+                Assert.That(bombPresenter.HasBombAudioConfiguration, Is.True);
+                Assert.That(bombPresenter.FuseAudioClip.name, Is.EqualTo("Fuse_burn"));
+                Assert.That(bombPresenter.ExplosionAudioClips.Count, Is.EqualTo(2));
+                Assert.That(
+                    bombPresenter.ExplosionAudioClips.Select(clip => clip.name),
+                    Is.EquivalentTo(new[] { "Bomb_blast_1", "Bomb_blast_2" }));
+                Assert.That(bombPresenter.BombAudioMixerGroup.name, Is.EqualTo("SFX"));
+                Assert.That(clear.TransitionViewPrefab, Is.Not.Null);
+                Assert.That(clear.TransitionViewPrefab.HasRequiredReferences, Is.True);
+                Assert.That(completionPresenter.BossClearPresenter, Is.SameAs(clear));
+                Assert.That(clear.HasStarted, Is.False);
                 Assert.That(presenter.IsInitialized, Is.True);
                 Assert.That(presenter.AttackFeedbackSettings, Is.SameAs(settings));
                 Assert.That(presenter.AttackCameraShake, Is.SameAs(cameraShake));
@@ -1135,6 +1395,8 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.CurrentBossPattern, Is.EqualTo(BossPatternKind.LimitedChase));
                 Assert.That(presenter.VisibleDangerCellCount, Is.EqualTo(0));
                 Assert.That(presenter.IsMoveTargetVisible, Is.False);
+                Assert.That(presenter.Animator, Is.Not.Null);
+                presenter.Animator.SetBool("Alive", false);
 
                 yield return new WaitForSecondsRealtime(0.08f);
                 Assert.That(session.CurrentGameTime, Is.EqualTo(TimeSpan.Zero));
@@ -1151,6 +1413,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(intro.IsCompleted, Is.True);
                 Assert.That(presenter.IsBossVisible, Is.True);
                 Assert.That(presenter.IsIntroLanded, Is.True);
+                Assert.That(presenter.Animator.GetBool("Alive"), Is.True);
                 Assert.That(healthHud.IsBossPanelVisible, Is.True);
                 Assert.That(healthHud.BossPanelAlpha, Is.EqualTo(1f).Within(0.001f));
                 Assert.That(
@@ -1182,10 +1445,74 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     presenter.BossBombExplosionFeedbackCount,
                     Is.GreaterThan(0));
+                Assert.That(bombPresenter.FuseAudioPlayCount, Is.GreaterThan(0));
+                Assert.That(bombPresenter.ExplosionAudioPlayCount, Is.GreaterThan(0));
                 if (settings.Current.IsScreenShakeEnabled)
                 {
                     Assert.That(presenter.AttackShakePlayCount, Is.GreaterThan(0));
                 }
+
+                Vector3 restingCameraPosition = gameplayCamera.transform.position;
+                float restingOrthographicSize = gameplayCamera.orthographicSize;
+                DefeatBossAndRaiseRoomClear(session);
+
+                Assert.That(session.IsRoomCleared, Is.True);
+                Assert.That(session.enabled, Is.False);
+                Assert.That(run.Outcome, Is.EqualTo(DungeonRunOutcome.Completed));
+                Assert.That(clear.HasStarted, Is.True);
+                Assert.That(clear.IsCompleted, Is.False);
+                Assert.That(presenter.IsBossClearPresentationActive, Is.True);
+                Assert.That(completionPresenter.IsVisible, Is.False);
+                Assert.That(completionPresenter.ViewInstance, Is.Null);
+                Assert.That(bombPresenter.ActiveBombVisualCount, Is.Zero);
+                Assert.That(bombPresenter.ActiveExplosionVisualCount, Is.Zero);
+                Assert.That(bombPresenter.ActiveBossFlightVisualCount, Is.Zero);
+                Assert.That(bombPresenter.VisibleBombDangerCellCount, Is.Zero);
+
+                Time.timeScale = 0f;
+                yield return new WaitForSecondsRealtime(0.7f);
+                Assert.That(clear.BurstVfxPlayCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(clear.IsCompleted, Is.False);
+                Assert.That(completionPresenter.IsVisible, Is.False);
+
+                yield return new WaitForSecondsRealtime(1.55f);
+                Assert.That(clear.BurstVfxPlayCount, Is.EqualTo(4));
+                Assert.That(clear.IsCompleted, Is.False);
+                Assert.That(presenter.IsBossClearPresentationActive, Is.True);
+                Assert.That(presenter.IsBossVisible, Is.True);
+                Assert.That(completionPresenter.IsVisible, Is.False);
+
+                float clearDeadline = Time.realtimeSinceStartup + 4f;
+                while (!clear.IsCompleted &&
+                       Time.realtimeSinceStartup < clearDeadline)
+                {
+                    yield return null;
+                }
+                yield return null;
+
+                Assert.That(clear.IsCompleted, Is.True);
+                Assert.That(clear.CompletionCount, Is.EqualTo(1));
+                Assert.That(clear.BurstVfxPlayCount, Is.EqualTo(4));
+                Assert.That(presenter.IsBossClearPresentationActive, Is.False);
+                Assert.That(presenter.IsBossVisible, Is.False);
+                Assert.That(completionPresenter.IsVisible, Is.True);
+                Assert.That(completionPresenter.ViewInstance, Is.Not.Null);
+                Assert.That(
+                    Vector3.Distance(
+                        gameplayCamera.transform.position,
+                        restingCameraPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    gameplayCamera.orthographicSize,
+                    Is.EqualTo(restingOrthographicSize).Within(0.001f));
+                Assert.That(
+                    clear.ShakePlayCount,
+                    settings.Current.IsScreenShakeEnabled
+                        ? Is.EqualTo(4)
+                        : Is.Zero);
+
+                yield return new WaitForSecondsRealtime(0.6f);
+                Assert.That(clear.TransitionViewInstance, Is.Null);
                 Assert.That(session.BeginBossCombat(), Is.False);
                 Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
                 Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
@@ -1193,8 +1520,6 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     completionPresenter.ViewPrefab.HasRequiredReferences,
                     Is.True);
-                Assert.That(completionPresenter.ViewInstance, Is.Null);
-                Assert.That(completionPresenter.IsVisible, Is.False);
                 AssertDisplayedStatusesMatchGraph(
                     binder.DoorPresenter,
                     run,
@@ -1821,8 +2146,21 @@ namespace BombSwap.Tests.PlayMode
                     run.TryTravelTo(hiddenAlternateCombat).Status,
                     Is.EqualTo(DungeonTravelStatus.BlockedBySecretWall));
                 Assert.That(reward.IsInitialized, Is.True);
+                Assert.That(secretBinder.DoorPresenter.SecretWallBreakAudio, Is.Not.Null);
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.ClipCount,
+                    Is.EqualTo(2));
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.SpatialBlend,
+                    Is.EqualTo(1f));
+                Assert.That(
+                    secretBinder.DoorPresenter.SecretWallBreakAudio.MinDistance,
+                    Is.EqualTo(8f));
                 Assert.That(reward.IsCollected, Is.False);
                 Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.RewardChestView, Is.Not.Null);
+                Assert.That(reward.RewardChestView.IsOpen, Is.False);
+                Assert.That(reward.InteractionAudio, Is.Not.Null);
                 Assert.That(reward.PickupCell, Is.EqualTo(Vector2Int.zero));
 
                 GridPosition secretPickupCell = new GridPosition(0, 0);
@@ -1855,6 +2193,7 @@ namespace BombSwap.Tests.PlayMode
 
                 Assert.That(reward.IsCollected, Is.True);
                 Assert.That(reward.IsVisualVisible, Is.True);
+                Assert.That(reward.RewardChestView.IsOpen, Is.True);
                 Assert.That(reward.IsAvailabilityEffectVisible, Is.False);
                 Assert.That(reward.IsInteractionPromptVisible, Is.False);
                 Assert.That(reward.CanInteract, Is.False);
@@ -1909,6 +2248,8 @@ namespace BombSwap.Tests.PlayMode
                     secretReentryBinder.RoomRotation);
                 Assert.That(reentryReward.IsCollected, Is.True);
                 Assert.That(reentryReward.IsVisualVisible, Is.True);
+                Assert.That(reentryReward.RewardChestView, Is.Not.Null);
+                Assert.That(reentryReward.RewardChestView.IsOpen, Is.True);
                 Assert.That(reentryReward.IsAvailabilityEffectVisible, Is.False);
                 Assert.That(reentryReward.IsInteractionPromptVisible, Is.False);
                 Assert.That(
@@ -2130,6 +2471,7 @@ namespace BombSwap.Tests.PlayMode
                     damagedPresenter.LastStatus,
                     Is.EqualTo(DungeonRecoveryUseStatus.Restored));
                 Assert.That(damagedPresenter.IsConsumed, Is.True);
+                Assert.That(damagedPresenter.InteractionAudio, Is.Not.Null);
                 Assert.That(damagedPresenter.IsVisualVisible, Is.True);
                 Assert.That(
                     damagedPresenter.IsAvailabilityEffectVisible,
@@ -2817,6 +3159,7 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     lobby.SettingsPanel.KeyboardBindingCount,
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                AssertSettingsKeyboardBindingContract(lobby.SettingsPanel);
                 Assert.That(lobby.SettingsPanel.KeyboardResetButton, Is.Not.Null);
                 Assert.That(
                     lobby.SettingsPanel.KeyboardResetButton.transform
@@ -2850,13 +3193,14 @@ namespace BombSwap.Tests.PlayMode
                 lobby.SettingsPanel.KeyboardResetButton.onClick.Invoke();
                 PrototypeSettingsPanelPresenter.KeyboardBindingView upBinding =
                     lobby.SettingsPanel.GetKeyboardBinding(0);
+                string defaultUpBindingLabel = upBinding.ValueLabel.text;
                 feedbackKeyboard = InputSystem.AddDevice<Keyboard>();
                 upBinding.Button.onClick.Invoke();
                 Assert.That(lobby.SettingsPanel.IsRebinding, Is.True);
 
                 InputSystem.QueueStateEvent(
                     feedbackKeyboard,
-                    new KeyboardState(Key.S));
+                    new KeyboardState(Key.DownArrow));
                 InputSystem.Update();
                 InputSystem.QueueStateEvent(
                     feedbackKeyboard,
@@ -2882,7 +3226,9 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     lobby.SettingsPanel.IsDuplicateBindingFeedbackPlaying,
                     Is.False);
-                Assert.That(upBinding.ValueLabel.text, Is.EqualTo("W"));
+                Assert.That(
+                    upBinding.ValueLabel.text,
+                    Is.EqualTo(defaultUpBindingLabel));
                 Assert.That(
                     lobby.SettingsPanel
                         .GetComponentsInChildren<TextMeshProUGUI>(true)
@@ -2989,6 +3335,8 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(
                     pausePresenter.SettingsPanel.KeyboardBindingCount,
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
+                AssertSettingsKeyboardBindingContract(
+                    pausePresenter.SettingsPanel);
                 Assert.That(
                     pausePresenter.SettingsPanel.KeyboardResetButton,
                     Is.Not.Null);
@@ -3662,6 +4010,28 @@ namespace BombSwap.Tests.PlayMode
             }
         }
 
+        private static void AssertSettingsKeyboardBindingContract(
+            PrototypeSettingsPanelPresenter panel)
+        {
+            for (int index = 0;
+                 index < PrototypeSettingsPanelFactory.KeyboardBindingCount;
+                 index++)
+            {
+                PrototypeSettingsPanelPresenter.KeyboardBindingView binding =
+                    panel.GetKeyboardBinding(index);
+                Assert.That(
+                    binding.ActionName,
+                    Is.EqualTo(
+                        PrototypeSettingsPanelFactory.GetKeyboardBindingAction(index)));
+                Assert.That(
+                    binding.BindingId,
+                    Is.EqualTo(
+                        PrototypeSettingsPanelFactory.GetKeyboardBindingId(index)));
+                Assert.That(binding.Button, Is.Not.Null);
+                Assert.That(binding.ValueLabel, Is.Not.Null);
+            }
+        }
+
         private static void AssertButtonClickAudioIsFirst(
             Button button,
             PrototypeButtonScaleFeedback feedback)
@@ -3725,6 +4095,61 @@ namespace BombSwap.Tests.PlayMode
                 new ManualGameClock(),
                 new PlayerHealthDefinition(1, TimeSpan.FromSeconds(0.75)));
             return health.ApplyContactDamage(new ActorId(2), 1);
+        }
+
+        private static void DefeatBossAndRaiseRoomClear(
+            PrototypeGameSession session)
+        {
+            FieldInfo bossField = typeof(PrototypeGameSession).GetField(
+                "_boss",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(bossField, Is.Not.Null);
+            var boss = bossField.GetValue(session) as BossBattleSimulation;
+            Assert.That(boss, Is.Not.Null);
+
+            FieldInfo bossDamagedField = typeof(PrototypeGameSession).GetField(
+                nameof(PrototypeGameSession.BossDamaged),
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(bossDamagedField, Is.Not.Null);
+            var bossDamaged = bossDamagedField.GetValue(session) as
+                Action<BossDamageResult>;
+            Assert.That(bossDamaged, Is.Not.Null);
+
+            for (int index = 0; index < session.MaxBossHealth; index++)
+            {
+                BossDamageResult damage = boss.ApplyExplosion(
+                    CreateTestBombId(10000L + index),
+                    1);
+                Assert.That(damage.WasApplied, Is.True);
+                bossDamaged.Invoke(damage);
+            }
+            Assert.That(boss.IsDead, Is.True);
+
+            FieldInfo roomClearedStateField =
+                typeof(PrototypeGameSession).GetField(
+                    "_roomCleared",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(roomClearedStateField, Is.Not.Null);
+            roomClearedStateField.SetValue(session, true);
+
+            FieldInfo roomClearedEventField =
+                typeof(PrototypeGameSession).GetField(
+                    nameof(PrototypeGameSession.RoomCleared),
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(roomClearedEventField, Is.Not.Null);
+            var roomCleared = roomClearedEventField.GetValue(session) as Action;
+            Assert.That(roomCleared, Is.Not.Null);
+            roomCleared.Invoke();
+        }
+
+        private static BombId CreateTestBombId(long value)
+        {
+            return (BombId)Activator.CreateInstance(
+                typeof(BombId),
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new object[] { value },
+                null);
         }
 
         private PrototypePlayerVitalsAsset CreatePlayerVitals()

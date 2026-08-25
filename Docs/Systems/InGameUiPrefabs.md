@@ -22,6 +22,7 @@
 | 미니맵 방 노드 | `Assets/Game/Content/Resources/UI/PrototypeDungeonMinimapRoom.prefab` | `PrototypeDungeonMinimapPresenter` |
 | 미니맵 연결선 | `Assets/Game/Content/Resources/UI/PrototypeDungeonMinimapConnection.prefab` | `PrototypeDungeonMinimapPresenter` |
 | 일시정지·공통 설정 | `Assets/Game/Content/Resources/UI/PrototypePauseCanvas.prefab` | `PrototypeGameSession`과 `PrototypePausePresenter` |
+| 보스 격파·플레이어 사망 화면 전환 | `Assets/Game/Content/Resources/UI/PrototypeBossClearCanvas.prefab` | `PrototypeBossClearPresenter`, `PrototypePlayerDeathPresenter` |
 | 런 완료·실패 결과 | `Assets/Game/Content/Resources/UI/PrototypeRunCompletionCanvas.prefab` | `PrototypeRunCompletionPresenter` |
 
 production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로는 scene 없이 만드는 합성 PlayMode fixture도 같은 프리팹을 불러 검증하기 위한 보조 진입점이며, 런타임 이름·태그·계층 검색에는 사용하지 않는다.
@@ -32,7 +33,7 @@ production scene은 위 에셋을 직렬화 참조한다. `Resources/UI` 경로�
 - 계층 이름은 사람이 읽기 위한 것이며 기능 연결의 권위가 아니다. 이름이나 배치 순서를 바꿔도 View 참조가 유지되면 동작해야 한다.
 - presenter는 프리팹 인스턴스의 Text, fill amount, 활성 상태와 정의된 상태 색만 갱신한다. 플레이어 체력은 최대 체력만큼 공용 하트 프리팹을 준비하고 현재 체력만큼 `Full`, 나머지는 `Empty` 표현을 보인다. 미니맵처럼 개수가 상태에 따라 달라지는 자식도 C#에서 Image·TMP 계층을 조립하지 않고 공용 자식 프리팹을 필요한 수만큼 인스턴스화한다. RectTransform 배치, sprite, font, material, outline과 장식 계층은 바꾸지 않는다.
 - View root 컴포넌트와 필수 참조를 삭제하거나 비우면 validator와 PlayMode가 실패해야 한다.
-- 모든 Canvas 프리팹은 공통 960×600 `CanvasScaler` 기준을 유지한다. 기본 sorting order는 무기 100, 미니맵 109, 체력 110, pause 250, 런 결과 300이다.
+- 모든 Canvas 프리팹은 공통 960×600 `CanvasScaler` 기준을 유지한다. 기본 sorting order는 무기 100, 미니맵 109, 체력 110, pause 250, 보스 격파 curtain 290, 런 결과 300이다.
 
 ### 무기 HUD
 
@@ -66,6 +67,8 @@ pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직�
 
 완료·실패 화면의 배경, 제목, 사망 원인과 두 Button은 `PrototypeRunCompletionCanvas.prefab`에서 저작한다. 별도의 `Status` 또는 `R 키로 즉시 다시 시작` 안내 TMP는 사용하지 않으며, 키보드 `R`·게임패드 Select 재시작 입력은 UI 문구와 무관하게 유지한다. presenter는 Core 결과에 따라 제목·사망 원인 활성 상태와 제목 상태 색을 갱신하고 Button listener와 기본 선택만 연결한다. 결과가 확정되기 전에는 프리팹을 만들지 않으며 확정 시 한 번만 인스턴스화한다.
 
+sorting order 290의 `PrototypeBossClearCanvas.prefab`은 보스 격파와 플레이어 사망이 공유하는 상·하 검은 curtain만 소유한다. 각 연출이 curtain을 닫아 gameplay를 완전히 가린 순간 자신의 결과 gate를 열고, sorting order 300의 기존 결과 프리팹을 그 위에 표시한 뒤 curtain CanvasGroup을 fade-out한다. 전환 View는 RectTransform과 CanvasGroup만 제어하며 사망·완료 판정이나 결과 Button을 중복 소유하지 않는다. 플레이어 실패는 카메라 focus와 사망 애니메이션을 완주한 뒤 같은 전환을 사용하며 보스 burst VFX는 재사용하지 않는다.
+
 ## 디자이너 작업 절차
 
 1. Play Mode를 끈다.
@@ -80,7 +83,7 @@ pause 프리팹에는 외부 Sprite를 사용하는 16개 `Image` 슬롯이 직�
 
 ## 검증 계약
 
-- Editor validator는 여덟 Canvas 프리팹과 하트·미니맵 방·연결의 세 재사용 자식 프리팹에 있는 View·필수 참조, Canvas와 자식 프리팹의 조합, pause의 직접 Sprite·per-Image 폴백과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
+- Editor validator는 아홉 Canvas 프리팹과 하트·미니맵 방·연결의 세 재사용 자식 프리팹에 있는 View·필수 참조, Canvas와 자식 프리팹의 조합, pause의 직접 Sprite·per-Image 폴백과 모든 gameplay/playtest scene의 정확한 공유 프리팹 참조를 확인한다.
 - PlayMode는 프리팹 인스턴스 생성, 무기·체력 표시, 프리팹 자식 기반 미니맵 snapshot 갱신, 보상·회복·비밀방의 인접 F prompt와 획득 뒤 지속 visual, 결과 프리팹 참조, pause 열기·설정 이동·닫기를 확인한다.
 - 실제 WebGL에서는 960×600 Canvas, 브라우저 축소, 키보드·마우스 포커스, pause 중 unscaled UI 입력과 Console/page error를 확인한다.
 

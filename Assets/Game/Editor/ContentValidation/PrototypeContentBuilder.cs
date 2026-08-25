@@ -93,6 +93,19 @@ namespace BombSwap.Editor.ContentValidation
             Debug.Log(summary);
         }
 
+        public static void SynchronizePlayerFeedback(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                throw new ArgumentException(
+                    "Player feedback authoring requires a valid loaded scene.",
+                    nameof(scene));
+            }
+
+            PrototypePlayerActionAudioAuthoring.Synchronize(scene);
+            PrototypePlayerDamageChromaticAuthoring.SynchronizeIfPresent(scene);
+        }
+
         [MenuItem("Bomb Swap/Prototype/Refresh Self-Destruct Content")]
         public static void RefreshSelfDestructContentMenu()
         {
@@ -1358,7 +1371,7 @@ namespace BombSwap.Editor.ContentValidation
             definition.Configure(
                 "prototype-line",
                 2.25f,
-                3,
+                5,
                 bombPrefab,
                 explosionPrefab,
                 0.25f,
@@ -1705,30 +1718,17 @@ namespace BombSwap.Editor.ContentValidation
 
             EnsureAssetFolder(PrototypePrefabsPath);
             EnsureAssetFolder("Assets/Game/Content/Bombs");
-            Material throwBombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/BossThrowBomb.mat",
-                shader,
-                new Color(0.95f, 0.22f, 0.04f, 1f));
             Material throwExplosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/BossThrowExplosion.mat",
                 shader,
                 new Color(1f, 0.46f, 0.03f, 1f));
-            Material chainBombMaterial = GetOrCreateMaterial(
-                MaterialsPath + "/BossChainBomb.mat",
-                shader,
-                new Color(0.78f, 0.06f, 0.68f, 1f));
             Material chainExplosionMaterial = GetOrCreateMaterial(
                 MaterialsPath + "/BossChainExplosion.mat",
                 shader,
                 new Color(1f, 0.08f, 0.72f, 1f));
 
-            GameObject throwBombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.BossThrowBombPrefabPath,
-                "BossThrowBombPlaceholder",
-                PrimitiveType.Sphere,
-                new Vector3(0f, 0.34f, 0f),
-                new Vector3(0.7f, 0.7f, 0.7f),
-                throwBombMaterial);
+            GameObject throwBombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BossThrowBombPrefabPath);
             GameObject throwExplosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.BossThrowExplosionCellPrefabPath,
                 "BossThrowExplosionCellPlaceholder",
@@ -1736,13 +1736,8 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector3(0f, 0.09f, 0f),
                 new Vector3(0.92f, 0.18f, 0.92f),
                 throwExplosionMaterial);
-            GameObject chainBombPrefab = CreateVisualPrefabIfMissing(
-                PrototypeContentValidator.BossChainBombPrefabPath,
-                "BossChainBombPlaceholder",
-                PrimitiveType.Cylinder,
-                new Vector3(0f, 0.2f, 0f),
-                new Vector3(0.58f, 0.2f, 0.58f),
-                chainBombMaterial);
+            GameObject chainBombPrefab = LoadRequiredAsset<GameObject>(
+                PrototypeContentValidator.BossChainBombPrefabPath);
             GameObject chainExplosionPrefab = CreateVisualPrefabIfMissing(
                 PrototypeContentValidator.BossChainExplosionCellPrefabPath,
                 "BossChainExplosionCellPlaceholder",
@@ -1804,7 +1799,7 @@ namespace BombSwap.Editor.ContentValidation
                 new Vector3(0.88f, 0.05f, 0.88f),
                 telegraphMaterial);
             GameObject bombPrefab = LoadRequiredAsset<GameObject>(
-                PrototypeContentValidator.BombPrefabPath);
+                PrototypeContentValidator.EnemyBombPrefabPath);
             GameObject explosionPrefab = LoadRequiredAsset<GameObject>(
                 PrototypeContentValidator.ExplosionCellPrefabPath);
 
@@ -2380,7 +2375,6 @@ namespace BombSwap.Editor.ContentValidation
                     throwerRoomDefinition,
                     "TestSandboxThrower"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[2], "TestSandboxPillars"),
-                new PrototypeDungeonCombatRoomEntry(roomDefinitions[3], "TestSandboxArmor"),
                 new PrototypeDungeonCombatRoomEntry(roomDefinitions[4], "TestSandboxGates"),
             });
             EditorUtility.SetDirty(catalog);
@@ -3962,9 +3956,12 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            ConfigureBombAudio(bombPresenter);
             cameraShake.Configure(mainCamera.transform);
             playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
+            PrototypeDestructionAudioAuthoring.Synchronize(scene);
+            SynchronizePlayerFeedback(scene);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
@@ -4257,10 +4254,13 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            ConfigureBombAudio(bombPresenter);
             Camera mainCamera = FindExactlyOne<Camera>(scene);
             cameraShake.Configure(mainCamera.transform);
             playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
+            PrototypeDestructionAudioAuthoring.Synchronize(scene);
+            SynchronizePlayerFeedback(scene);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
             chargerPresenter.Configure(gameSession, runtimePresentation);
@@ -4770,6 +4770,35 @@ namespace BombSwap.Editor.ContentValidation
 
                 current = next;
             }
+        }
+
+        private static void ConfigureBombAudio(PrototypeBombPresenter presenter)
+        {
+            if (presenter == null)
+            {
+                throw new ArgumentNullException(nameof(presenter));
+            }
+
+            AudioMixer mixer = LoadRequiredAsset<AudioMixer>(
+                PrototypeContentValidator.AudioMixerPath);
+            AudioMixerGroup sfxGroup = mixer.FindMatchingGroups("SFX").SingleOrDefault() ??
+                throw new InvalidOperationException(
+                    "Prototype AudioMixer must contain exactly one SFX group.");
+            presenter.ConfigureBombAudio(
+                LoadRequiredAsset<AudioClip>(
+                    PrototypeContentValidator.BombFuseAudioClipPath),
+                new[]
+                {
+                    LoadRequiredAsset<AudioClip>(
+                        PrototypeContentValidator.BombExplosionAudioClip1Path),
+                    LoadRequiredAsset<AudioClip>(
+                        PrototypeContentValidator.BombExplosionAudioClip2Path),
+                },
+                sfxGroup,
+                PrototypeBombPresenter.DefaultFuseAudioVolume,
+                PrototypeBombPresenter.DefaultExplosionAudioVolume,
+                PrototypeBombPresenter.DefaultBombAudioMinDistance,
+                PrototypeBombPresenter.DefaultBombAudioMaxDistance);
         }
 
         private static T LoadRequiredAsset<T>(string assetPath)

@@ -120,7 +120,7 @@ namespace BombSwap.Tests.EditMode
         {
             var grid = new GridState();
             grid.TrySetTerrain(Origin, GridTerrain.Floor);
-            for (int distance = 1; distance <= 3; distance++)
+            for (int distance = 1; distance <= 5; distance++)
             {
                 grid.TrySetTerrain(
                     Origin.Offset(deltaX * distance, deltaZ * distance),
@@ -137,7 +137,7 @@ namespace BombSwap.Tests.EditMode
                 CreateDefinition(
                     "forward-line",
                     TimeSpan.FromSeconds(1),
-                    3,
+                    5,
                     BombExplosionShape.ForwardLine),
                 Origin,
                 Owner,
@@ -154,6 +154,8 @@ namespace BombSwap.Tests.EditMode
                 Origin.Offset(deltaX, deltaZ),
                 Origin.Offset(deltaX * 2, deltaZ * 2),
                 Origin.Offset(deltaX * 3, deltaZ * 3),
+                Origin.Offset(deltaX * 4, deltaZ * 4),
+                Origin.Offset(deltaX * 5, deltaZ * 5),
             }));
             Assert.That(explosion.AffectedCells, Has.No.Member(Origin.Offset(-deltaX, -deltaZ)));
             Assert.That(explosion.AffectedCells, Has.No.Member(Origin.Offset(deltaZ, deltaX)));

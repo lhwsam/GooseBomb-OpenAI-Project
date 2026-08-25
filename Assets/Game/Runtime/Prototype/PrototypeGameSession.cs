@@ -142,6 +142,8 @@ namespace BombSwap
         private bool _hasThrower;
         private bool _bossSummonedSelfDestruct;
         private TimeSpan _bossSelfDestructForceAt;
+        private TimeSpan _bossSelfDestructSpawnProtectionEndsAt;
+        private bool _bossSelfDestructSpawnProtectionRegistered;
         private bool _bossIntroRequested;
         private bool _isBossIntroPending;
         private bool _isPaused;
@@ -150,9 +152,13 @@ namespace BombSwap
 
         public event Action<PlayerMovementStep> PlayerMoved;
 
+        public event Action PlayerMovementStopped;
+
         public event Action InteractionRequested;
 
         public event Action<GridSubcellPosition, CardinalDirection> PlayerPositionChanged;
+
+        public event Action<BombSnapshot> BombActivated;
 
         public event Action<BombSnapshot> BombPlaced;
 
@@ -407,6 +413,13 @@ namespace BombSwap
 
         public bool IsSelfDestructAlive =>
             _hasSelfDestruct && _selfDestructHealth != null && !_selfDestructHealth.IsDead;
+
+        public bool IsBossSelfDestructSpawnProtected =>
+            _bossSummonedSelfDestruct &&
+            _bossSelfDestructSpawnProtectionRegistered &&
+            IsSelfDestructAlive &&
+            _clock != null &&
+            _clock.Now < _bossSelfDestructSpawnProtectionEndsAt;
 
         public IReadOnlyList<GridPosition> CurrentSelfDestructTelegraphCells =>
             _selfDestruct != null
@@ -1006,6 +1019,7 @@ namespace BombSwap
             }
 
             _movement.GrantBombPassThrough(snapshot);
+            BombActivated?.Invoke(snapshot);
             BombPlaced?.Invoke(snapshot);
             return true;
         }
@@ -1092,7 +1106,10 @@ namespace BombSwap
                 return;
             }
 
-            inputReader.RefreshMoveIntent();
+            if (!_roomCleared || !HasBoss)
+            {
+                inputReader.RefreshMoveIntent();
+            }
             for (int stepIndex = 0; stepIndex < simulationStepCount; stepIndex++)
             {
                 AdvanceSimulationStep();
@@ -1147,7 +1164,8 @@ namespace BombSwap
                     ArmoredMoved?.Invoke(armoredAdvance.Movement);
                 }
             }
-            if (_hasSelfDestruct && !_selfDestructHealth.IsDead)
+            if (_hasSelfDestruct && !_selfDestructHealth.IsDead &&
+                !IsBossSelfDestructSpawnProtected)
             {
                 SelfDestructEnemyAdvanceResult selfDestructAdvance = default;
                 bool forceBossSummon = _bossSummonedSelfDestruct &&
@@ -1354,6 +1372,10 @@ namespace BombSwap
             }
             if (!_roomCleared && EnemyActiveCount == 0)
             {
+                if (HasBoss)
+                {
+                    StopPlayerForBossClear();
+                }
                 _roomCleared = true;
                 RoomCleared?.Invoke();
             }
@@ -1591,6 +1613,10 @@ namespace BombSwap
             {
                 return;
             }
+            if (_roomCleared && HasBoss)
+            {
+                return;
+            }
 
             switch (command.Kind)
             {
@@ -1631,6 +1657,13 @@ namespace BombSwap
             PauseStateChanged?.Invoke(_isPaused);
         }
 
+        private void StopPlayerForBossClear()
+        {
+            _movement.CancelMovement();
+            inputReader.ReleaseMoveIntent();
+            PlayerMovementStopped?.Invoke();
+        }
+
         public void ResumeFromPause()
         {
             if (_isPaused)
@@ -1662,6 +1695,40 @@ namespace BombSwap
             inputReader.ReleaseMoveIntent();
             BossCombatStarted?.Invoke();
             return true;
+        }
+
+        public void BeginBossSelfDestructSpawnProtection(
+            ActorId actorId,
+            float durationSeconds)
+        {
+            if (!_bossSummonedSelfDestruct || _selfDestruct == null ||
+                actorId != _selfDestruct.ActorId)
+            {
+                throw new InvalidOperationException(
+                    "Spawn protection can only be registered for the active boss-summoned self-destruct enemy.");
+            }
+            if (_bossSelfDestructSpawnProtectionRegistered)
+            {
+                throw new InvalidOperationException(
+                    "Boss self-destruct spawn protection can only be registered once.");
+            }
+            if (durationSeconds <= 0f || float.IsNaN(durationSeconds) ||
+                float.IsInfinity(durationSeconds))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(durationSeconds),
+                    durationSeconds,
+                    "Spawn protection duration must be finite and positive.");
+            }
+
+            TimeSpan protectionDuration = TimeSpan.FromSeconds(durationSeconds);
+            _bossSelfDestructSpawnProtectionEndsAt =
+                _clock.Now.Add(protectionDuration);
+            _bossSelfDestructForceAt =
+                _bossSelfDestructSpawnProtectionEndsAt.Add(
+                    TimeSpan.FromSeconds(
+                        bossDefinition.SelfDestructForceSeconds));
+            _bossSelfDestructSpawnProtectionRegistered = true;
         }
 
         private void EnsurePausePresenter()
@@ -1746,7 +1813,7 @@ namespace BombSwap
 
         private void ApplySelfDestructExplosion(BombExplosion explosion)
         {
-            if (_selfDestructHealth.IsDead)
+            if (_selfDestructHealth.IsDead || IsBossSelfDestructSpawnProtected)
             {
                 return;
             }
@@ -1818,6 +1885,7 @@ namespace BombSwap
                     "Armed self-destruct bomb could not be read from the simulation.");
             }
 
+            BombActivated?.Invoke(snapshot);
             SelfDestructArmed?.Invoke(snapshot);
         }
 
@@ -1909,6 +1977,7 @@ namespace BombSwap
                 }
 
                 _bossReservedBombCells.Remove(pending.Flight.Target);
+                BombActivated?.Invoke(snapshot);
                 BossBombPlaced?.Invoke(snapshot);
                 _pendingBossBombFlights.RemoveAt(index);
             }
@@ -1973,6 +2042,7 @@ namespace BombSwap
                 }
 
                 _thrower.ConfirmBombPlaced(bombId);
+                BombActivated?.Invoke(snapshot);
                 ThrowerBombPlaced?.Invoke(snapshot);
             }
         }
@@ -2001,6 +2071,8 @@ namespace BombSwap
             _bossSummonedSelfDestruct = true;
             _bossSelfDestructForceAt = _clock.Now.Add(
                 TimeSpan.FromSeconds(bossDefinition.SelfDestructForceSeconds));
+            _bossSelfDestructSpawnProtectionEndsAt = default;
+            _bossSelfDestructSpawnProtectionRegistered = false;
             SelfDestructSpawned?.Invoke(_selfDestruct.ActorId);
         }
 

@@ -33,7 +33,7 @@ function maxOrZero(values) {
 }
 
 function isSignificantEvent(name) {
-  return /^(?:lobby-ready$|lobby-start-requested$|run-lobby-requested$|dungeon-room-ready-|dungeon-run-restarted$|secret-wall-revealed-|secret-reward-collected-|bomb-reward-selected-|player-health-recovered-|recovery-consumed-|boss-pattern-|boss-move-target-|boss-moved$|boss-phase-|boss-damaged(?:-|$)|boss-player-damaged-|boss-defeated$|run-completed$|run-failed(?:-|$))/.test(name);
+  return /^(?:lobby-ready$|lobby-start-requested$|run-lobby-requested$|dungeon-room-ready-|dungeon-run-restarted$|secret-wall-revealed-|secret-reward-collected-|bomb-reward-selected-|player-health-recovered-|recovery-consumed-|boss-pattern-|boss-move-target-|boss-moved$|boss-phase-|boss-damaged(?:-|$)|boss-player-damaged-|boss-defeated$|player-died$|player-death-presentation-(?:started|completed)$|run-completed$|run-failed(?:-|$))/.test(name);
 }
 
 function countValues(items, selector, expectedValues = []) {

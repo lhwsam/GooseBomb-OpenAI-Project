@@ -59,6 +59,7 @@ namespace BombSwap
 
             session.BombPlaced += OnBombPlaced;
             session.PlayerDied += OnPlayerDied;
+            session.PlayerMovementStopped += OnPlayerMovementStopped;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
@@ -73,6 +74,7 @@ namespace BombSwap
             {
                 session.BombPlaced -= OnBombPlaced;
                 session.PlayerDied -= OnPlayerDied;
+                session.PlayerMovementStopped -= OnPlayerMovementStopped;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
@@ -113,9 +115,25 @@ namespace BombSwap
         private void OnPlayerDied(PlayerDamageResult _)
         {
             DeathAnimationCount++;
-            animator.SetBool(IsMovingParameterId, false);
+            StopLocomotionPresentation();
             animator.ResetTrigger(PlaceBombParameterId);
             animator.SetTrigger(DieParameterId);
+        }
+
+        private void OnPlayerMovementStopped()
+        {
+            StopLocomotionPresentation();
+        }
+
+        private void StopLocomotionPresentation()
+        {
+            animator.SetBool(IsMovingParameterId, false);
+            CharacterFootstepAudio[] footstepAudio =
+                animator.GetComponentsInParent<CharacterFootstepAudio>(true);
+            for (int index = 0; index < footstepAudio.Length; index++)
+            {
+                footstepAudio[index].StopPlayback();
+            }
         }
 
         private void OnPauseStateChanged(bool isPaused)

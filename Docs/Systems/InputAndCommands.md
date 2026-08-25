@@ -14,14 +14,14 @@
 
 | 명령 | 키보드 | 게임패드 |
 |---|---|---|
-| 이동 | WASD 또는 방향키 | 왼쪽 스틱 또는 D-pad |
+| 이동 | 방향키(설정 기본), WASD fallback | 왼쪽 스틱 또는 D-pad |
 | 폭탄 설치 | `Z` | South 버튼 |
 | 폭탄 교체 | `X` | West 버튼 |
 | 월드 오브젝트 상호작용 | `F` | North 버튼 |
 | 일시정지·재개 | `Esc` | Start 버튼 |
 | 완료·실패한 런 재시작 | `R` | Select 버튼 |
 
-설정 UI는 기본 WASD·Z·X·Esc·R binding을 키보드의 다른 단일 키로 변경할 수 있다. 현재 `F` 상호작용, 방향키 composite와 게임패드 binding은 고정 fallback이며 설정 화면에는 게임패드 조작을 표시하지 않는다. override는 장치 경로만 바꾸고 Core 명령 의미는 바꾸지 않는다.
+설정 UI는 방향키 네 방향·Z·X·Esc·R·F의 아홉 binding을 키보드의 다른 단일 키로 변경할 수 있다. WASD composite와 게임패드 binding은 고정 fallback이며 설정 화면에는 게임패드 조작을 표시하지 않는다. override는 장치 경로만 바꾸고 Core 명령 의미는 바꾸지 않는다.
 
 이동은 상하좌우 네 방향만 Core에 전달한다. 아날로그·복합 입력은 절댓값이 큰 축을 선택한다. 두 축의 크기가 같고 현재 방향도 여전히 눌려 있으면 현재 축에 직교하는 새 전환 축을 우선해 짧은 키 겹침에서도 방향 전환을 즉시 명령으로 만든다. 유지 중인 방향이 벡터에 없거나 `None`이면 세로축을 우선하는 결정론적 규칙을 사용한다.
 
@@ -50,6 +50,7 @@
 - 설치·교체·상호작용·pause·재시작은 버튼의 performed 시점에 한 번 발행한다.
 - 상호작용은 현재 플레이어의 cardinal 인접 셀에 있는 활성 오브젝트만 처리한다. 회복 성소·비밀 cache·폭탄 보상 상자는 획득 전후 모두 보이는 모델과 논리 점유를 유지하며, 획득 전의 유일한 인접 후보만 공용 `F` KeyIcon과 availability effect를 표시한다. 획득 뒤에는 효과와 프롬프트만 끄고 별도 안내 Canvas나 방향 입력 FIFO를 만들지 않는다.
 - 살아 있는 활성 세션에서 `Pause`를 받으면 `PrototypeGameSession.IsPaused`를 toggle한다. 진입 시 Core 이동 의도와 입력 어댑터의 유지·같은 frame 짧은 탭을 모두 해제한다.
+- 보스 격파로 방 클리어가 확정되면 같은 step에서 Core 이동·목적지 예약과 입력 어댑터의 유지 방향을 해제한다. 물리 키를 계속 누르고 있어도 완료 연출 중에는 Move 값을 다시 샘플링하거나 gameplay 명령을 적용하지 않는다.
 - pause 중에는 세션 `Update`가 입력 재샘플링과 `ManualGameClock.Advance` 전에 반환한다. 따라서 이동, 폭탄 설치·교체, fuse·쿨타임, 적·보스 상태와 피해가 함께 멈추며 `Time.timeScale`은 변경하지 않는다.
 - pause 중 `Move`, `PlaceBomb`, `SwapBomb`, `Interact`, `RestartRun`은 소비하지 않는다. 다시 `Pause`를 받으면 현재 유지 중인 Move 값을 즉시 재샘플링하고 다음 `Update`부터 같은 논리 시계를 진행한다.
 - `PauseStateChanged`는 세션이 실제 상태를 바꾼 뒤 발행한다. UI와 개발 probe는 입력 버튼 자체가 아니라 이 사건을 구독한다.
@@ -86,7 +87,7 @@
 ## 미정 사항과 종료 조건
 
 - 동일 크기 두 축에서 새 직교 방향을 우선하는 정책과 기본 5 cells/s의 10ms step 연속 이동을 채택했다. 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 현재 계약에 포함하지 않으며, 최종 체감은 수동 플레이로 재확인한다.
-- 기본 키보드 8개 리바인딩은 구현했다. UI 전용 action map, composite 자체 교체, 게임패드 재배치와 장치별 glyph는 후속 범위다.
+- 기본 키보드 9개 리바인딩은 구현했다. UI 전용 action map, WASD fallback composite 자체 교체, 게임패드 재배치와 장치별 glyph는 후속 범위다.
 - 게임패드 binding 구조, 합성 Input System 장치 상태→의미 명령, WebGL 표준 가상 장치의 브라우저 API→Emscripten→Unity Input System→명령·분리 정지·재연결 복구·Core 설치·실패·Select 재시작 경로는 자동 검증했다. 실제 목표 물리 컨트롤러의 연결·장치별 버튼 표기·deadzone·대각선 값·브라우저/OS 차이·조작감 수동 플레이가 남아 있다.
 - application focus 상실 시 입력은 해제하지만 자동 pause는 하지 않는다. 설정 메뉴는 로비와 pause에 연결됐으며 UI 전용 action map은 아직 없다.
 

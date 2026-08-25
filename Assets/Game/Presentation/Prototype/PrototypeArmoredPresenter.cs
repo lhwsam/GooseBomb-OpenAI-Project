@@ -8,26 +8,15 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeArmoredPresenter : MonoBehaviour
     {
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform presentationRoot;
 
-        [SerializeField]
-        private Color brokenColor = new Color(1f, 0.34f, 0.06f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.16f, 0.02f, 0.01f, 1f);
-
         private GameObject _instance;
-        private Renderer _renderer;
-        private MaterialPropertyBlock _propertyBlock;
-        private int _colorPropertyId;
-        private Color _armoredColor;
+        private PrototypeHologramFeedback _hologramFeedback;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
         private Vector3 _armoredScale;
         private Vector3 _visualStart;
         private Vector3 _visualTarget;
@@ -52,17 +41,19 @@ namespace BombSwap
 
         public int DeathCount { get; private set; }
 
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
+
         public bool IsInitialized { get; private set; }
 
         public bool IsEnemyVisible => _instance != null && _instance.activeSelf;
 
         public int ActivePanicTelegraphCellCount { get; private set; }
 
+        public bool UsesHologramPanicTelegraph { get; private set; }
+
         public ArmoredEnemyState CurrentState { get; private set; }
 
         public ArmoredEnemyBehaviorState CurrentBehaviorState { get; private set; }
-
-        public Color CurrentColor { get; private set; }
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -96,9 +87,14 @@ namespace BombSwap
                     "PrototypeArmoredPresenter requires session and presentation-root references.");
             }
 
+            _localHologramOverrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
+
             session.ArmoredAdvanced += OnArmoredAdvanced;
             session.ArmoredStateChanged += OnArmoredStateChanged;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
+            session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -112,7 +108,9 @@ namespace BombSwap
             {
                 session.ArmoredAdvanced -= OnArmoredAdvanced;
                 session.ArmoredStateChanged -= OnArmoredStateChanged;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
+                session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
             }
             if (_instance != null)
@@ -128,9 +126,11 @@ namespace BombSwap
             }
 
             _instance = null;
-            _renderer = null;
+            _hologramFeedback = null;
+            _localHologramOverrides = null;
             _panicTelegraphCells.Clear();
             ActivePanicTelegraphCellCount = 0;
+            UsesHologramPanicTelegraph = false;
             IsInitialized = false;
             _isInterpolating = false;
             _isShowingDeath = false;
@@ -183,8 +183,12 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             _instance = Instantiate(definition.ArmoredPrefab, presentationRoot);
             _instance.name = "PrototypeArmoredVisual";
-            _renderer = _instance.GetComponentInChildren<Renderer>(true);
-            InitializeColor();
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_instance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _armoredScale = _instance.transform.localScale;
             _visualTarget = ToPresentationPosition(session.CurrentArmoredGridPosition);
             _visualStart = _visualTarget;
@@ -285,39 +289,25 @@ namespace BombSwap
             DeathCount++;
             _isInterpolating = false;
             HidePanicTelegraph();
-            ApplyColor(deathColor);
             _deathEndsAt = Time.unscaledTime + session.ArmoredDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
         }
 
-        private void InitializeColor()
+        private void OnEnemyDamaged(EnemyDamageResult damage)
         {
-            if (_propertyBlock == null)
+            if (damage.ActorId == session.ArmoredActorId &&
+                _hologramFeedback != null)
             {
-                _propertyBlock = new MaterialPropertyBlock();
+                _hologramFeedback.TriggerHitBlink();
             }
+        }
 
-            Material material = _renderer.sharedMaterial;
-            if (material == null)
+        private void OnPauseStateChanged(bool isPaused)
+        {
+            if (_hologramFeedback != null)
             {
-                throw new InvalidOperationException("Armored enemy prefab renderer requires a material.");
+                _hologramFeedback.SetPaused(isPaused);
             }
-            if (material.HasProperty(BaseColorId))
-            {
-                _colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                _colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Armored enemy material requires a supported color property.");
-            }
-
-            _armoredColor = material.GetColor(_colorPropertyId);
-            CurrentColor = _armoredColor;
         }
 
         private void ApplyState(ArmoredEnemyState state)
@@ -325,19 +315,16 @@ namespace BombSwap
             switch (state)
             {
                 case ArmoredEnemyState.Armored:
-                    ApplyColor(_armoredColor);
                     _instance.transform.localScale = _armoredScale;
                     SetMovementDuration(state);
                     break;
                 case ArmoredEnemyState.Broken:
-                    ApplyColor(brokenColor);
                     _instance.transform.localScale = Vector3.Scale(
                         _armoredScale,
                         new Vector3(0.82f, 0.72f, 0.82f));
                     SetMovementDuration(state);
                     break;
                 case ArmoredEnemyState.Dead:
-                    ApplyColor(deathColor);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(state), state, null);
@@ -415,17 +402,16 @@ namespace BombSwap
                     definition.PanicTelegraphCellPrefab,
                     presentationRoot);
                 visual.name = $"PrototypeArmoredPanicTelegraphCell{_panicTelegraphCells.Count}";
+                Material hologramMaterial = _localHologramOverrides != null
+                    ? _localHologramOverrides.BombRangeHologramMaterial
+                    : null;
+                UsesHologramPanicTelegraph |=
+                    PrototypeHologramTelegraphStyle.Apply(
+                        visual,
+                        hologramMaterial);
                 visual.SetActive(false);
                 _panicTelegraphCells.Add(visual);
             }
-        }
-
-        private void ApplyColor(Color color)
-        {
-            _renderer.GetPropertyBlock(_propertyBlock);
-            _propertyBlock.SetColor(_colorPropertyId, color);
-            _renderer.SetPropertyBlock(_propertyBlock);
-            CurrentColor = color;
         }
 
         private Vector3 ToPresentationPosition(GridPosition position)

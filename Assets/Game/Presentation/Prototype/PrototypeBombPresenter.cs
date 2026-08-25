@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace BombSwap
 {
@@ -13,8 +14,14 @@ namespace BombSwap
         public const float BombFuseVisualReferenceSeconds = 2f;
         public const float CrossExplosionVisualSeconds = 1f;
         public const float CrossExplosionVisualHeight = 0.5f;
+        public const float BombDangerCellVisualHeight = 0.03f;
+        public const float DefaultFuseAudioVolume = 1f;
+        public const float DefaultExplosionAudioVolume = 0.9f;
+        public const float DefaultBombAudioMinDistance = 18f;
+        public const float DefaultBombAudioMaxDistance = 30f;
         public const string PlayerCrossBombDefinitionId = "prototype-cross";
         public const string PlayerLineBombDefinitionId = "prototype-line";
+        public const string SelfDestructBombDefinitionId = "prototype-self-destruct-blast";
         public const string ThrowerBombDefinitionId = "prototype-thrower-blocker";
         public const string BossThrowBombDefinitionId = "prototype-boss-throw";
         public const string BossChainBombDefinitionId = "prototype-boss-chain";
@@ -35,6 +42,28 @@ namespace BombSwap
         [SerializeField]
         private float bossThrowArcHeight = 2.2f;
 
+        [Header("Bomb Audio")]
+        [SerializeField]
+        private AudioClip fuseAudioClip;
+
+        [SerializeField]
+        private AudioClip[] explosionAudioClips = Array.Empty<AudioClip>();
+
+        [SerializeField]
+        private AudioMixerGroup bombAudioMixerGroup;
+
+        [SerializeField, Range(0f, 1f)]
+        private float fuseAudioVolume = DefaultFuseAudioVolume;
+
+        [SerializeField, Range(0f, 1f)]
+        private float explosionAudioVolume = DefaultExplosionAudioVolume;
+
+        [SerializeField, Min(0.01f)]
+        private float bombAudioMinDistance = DefaultBombAudioMinDistance;
+
+        [SerializeField, Min(0.01f)]
+        private float bombAudioMaxDistance = DefaultBombAudioMaxDistance;
+
         private readonly Dictionary<BombId, ActiveBombVisual> _activeBombs =
             new Dictionary<BombId, ActiveBombVisual>();
         private readonly Dictionary<BombDefinitionId, Stack<GameObject>> _availableBombs =
@@ -49,6 +78,8 @@ namespace BombSwap
             new Dictionary<GameObject, ParticleSystem[]>();
         private readonly Dictionary<GameObject, float[]> _particleSimulationSpeeds =
             new Dictionary<GameObject, float[]>();
+        private readonly HashSet<GameObject> _configuredBombReadyVfx =
+            new HashSet<GameObject>();
         private readonly Stack<GameObject> _availableCrossCenters =
             new Stack<GameObject>();
         private readonly Stack<GameObject> _availableCrossStraights =
@@ -61,8 +92,28 @@ namespace BombSwap
             new List<ActiveBossFlightVisual>(4);
         private readonly List<ActiveThrowerFlightVisual> _activeThrowerFlights =
             new List<ActiveThrowerFlightVisual>(3);
+        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
+            _activeBombDangerCells =
+                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
+        private readonly List<GridPosition> _visibleBombDangerCells =
+            new List<GridPosition>();
+        private readonly HashSet<GridPosition> _visibleBombDangerCellSet =
+            new HashSet<GridPosition>();
+        private readonly List<GameObject> _bombDangerCellInstances =
+            new List<GameObject>();
+        private readonly Dictionary<BombId, AudioSource> _activeFuseAudio =
+            new Dictionary<BombId, AudioSource>();
+        private readonly Stack<AudioSource> _availableFuseAudio =
+            new Stack<AudioSource>();
+        private readonly Stack<AudioSource> _availableExplosionAudio =
+            new Stack<AudioSource>();
+        private readonly List<TimedBombAudio> _activeExplosionAudio =
+            new List<TimedBombAudio>();
         private bool _initialized;
+        private int _lastExplosionAudioClipIndex = -1;
+        private GameObject _bombDangerCellPrefab;
         private PrototypeLocalVfxOverrides _localVfxOverrides;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
         private GameObject _crossCenterExplosionPrefab;
         private GameObject _crossStraightExplosionPrefab;
         private bool _crossExplosionVfxConfiguredExplicitly;
@@ -84,6 +135,46 @@ namespace BombSwap
         public int ActiveBossFlightVisualCount => _activeBossFlights.Count;
 
         public int ActiveThrowerFlightVisualCount => _activeThrowerFlights.Count;
+
+        public int VisibleBombDangerCellCount => _visibleBombDangerCells.Count;
+
+        public AudioClip FuseAudioClip => fuseAudioClip;
+
+        public IReadOnlyList<AudioClip> ExplosionAudioClips => explosionAudioClips;
+
+        public AudioMixerGroup BombAudioMixerGroup => bombAudioMixerGroup;
+
+        public float FuseAudioVolume => fuseAudioVolume;
+
+        public float ExplosionAudioVolume => explosionAudioVolume;
+
+        public float BombAudioMinDistance => bombAudioMinDistance;
+
+        public float BombAudioMaxDistance => bombAudioMaxDistance;
+
+        public int ActiveFuseAudioCount => _activeFuseAudio.Count;
+
+        public int ActiveExplosionAudioCount => _activeExplosionAudio.Count;
+
+        public int FuseAudioPlayCount { get; private set; }
+
+        public int ExplosionAudioPlayCount { get; private set; }
+
+        public bool HasBombAudioConfiguration =>
+            fuseAudioClip != null &&
+            explosionAudioClips != null &&
+            explosionAudioClips.Length > 0 &&
+            Array.TrueForAll(explosionAudioClips, clip => clip != null) &&
+            bombAudioMixerGroup != null;
+
+        public bool UsesHologramBombDanger =>
+            _localHologramOverrides != null &&
+            _localHologramOverrides.BombRangeHologramMaterial != null;
+
+        public bool HasBombDanger(BombId bombId)
+        {
+            return _activeBombDangerCells.ContainsKey(bombId);
+        }
 
         public void Configure(
             PrototypeGameSession gameSession,
@@ -119,9 +210,137 @@ namespace BombSwap
             explosionPoolSize = initialExplosionPoolSize;
         }
 
+        public void ConfigureLocalVfxOverrides(
+            PrototypeLocalVfxOverrides authoredLocalVfxOverrides)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeBombPresenter before changing its local VFX configuration.");
+            }
+
+            _localVfxOverrides = authoredLocalVfxOverrides ??
+                throw new ArgumentNullException(nameof(authoredLocalVfxOverrides));
+            _localVfxOverrides.ValidateConfiguration();
+        }
+
+        public void ConfigureBombAudio(
+            AudioClip authoredFuseAudioClip,
+            AudioClip[] authoredExplosionAudioClips,
+            AudioMixerGroup authoredMixerGroup,
+            float authoredFuseAudioVolume = DefaultFuseAudioVolume,
+            float authoredExplosionAudioVolume = DefaultExplosionAudioVolume,
+            float authoredMinDistance = DefaultBombAudioMinDistance,
+            float authoredMaxDistance = DefaultBombAudioMaxDistance)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeBombPresenter before changing its audio configuration.");
+            }
+            if (authoredFuseAudioClip == null)
+            {
+                throw new ArgumentNullException(nameof(authoredFuseAudioClip));
+            }
+            if (authoredExplosionAudioClips == null ||
+                authoredExplosionAudioClips.Length == 0)
+            {
+                throw new ArgumentException(
+                    "Bomb audio requires at least one explosion clip.",
+                    nameof(authoredExplosionAudioClips));
+            }
+            for (int index = 0; index < authoredExplosionAudioClips.Length; index++)
+            {
+                if (authoredExplosionAudioClips[index] == null)
+                {
+                    throw new ArgumentException(
+                        "Bomb explosion clips cannot contain null entries.",
+                        nameof(authoredExplosionAudioClips));
+                }
+            }
+            ValidateNormalizedAudioVolume(
+                authoredFuseAudioVolume,
+                nameof(authoredFuseAudioVolume));
+            ValidateNormalizedAudioVolume(
+                authoredExplosionAudioVolume,
+                nameof(authoredExplosionAudioVolume));
+            if (float.IsNaN(authoredMinDistance) ||
+                float.IsInfinity(authoredMinDistance) ||
+                authoredMinDistance <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(authoredMinDistance),
+                    authoredMinDistance,
+                    "Bomb audio minimum distance must be finite and positive.");
+            }
+            if (float.IsNaN(authoredMaxDistance) ||
+                float.IsInfinity(authoredMaxDistance) ||
+                authoredMaxDistance <= authoredMinDistance)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(authoredMaxDistance),
+                    authoredMaxDistance,
+                    "Bomb audio maximum distance must be finite and greater than the minimum distance.");
+            }
+
+            fuseAudioClip = authoredFuseAudioClip;
+            explosionAudioClips = (AudioClip[])authoredExplosionAudioClips.Clone();
+            bombAudioMixerGroup = authoredMixerGroup ??
+                throw new ArgumentNullException(nameof(authoredMixerGroup));
+            fuseAudioVolume = authoredFuseAudioVolume;
+            explosionAudioVolume = authoredExplosionAudioVolume;
+            bombAudioMinDistance = authoredMinDistance;
+            bombAudioMaxDistance = authoredMaxDistance;
+        }
+
         public bool HasBombVisual(BombId bombId)
         {
             return _activeBombs.ContainsKey(bombId);
+        }
+
+        public void HideAllForBossClear()
+        {
+            if (session == null || !session.HasBoss || session.IsBossAlive)
+            {
+                throw new InvalidOperationException(
+                    "Boss-clear visual cleanup requires a defeated boss session.");
+            }
+
+            foreach (KeyValuePair<BombId, ActiveBombVisual> entry in _activeBombs)
+            {
+                ActiveBombVisual visual = entry.Value;
+                SetBombAnimatorsEnabled(visual.Instance, false);
+                visual.Instance.SetActive(false);
+                GetBombPool(visual.DefinitionId).Push(visual.Instance);
+            }
+            _activeBombs.Clear();
+
+            for (int index = 0; index < _activeBossFlights.Count; index++)
+            {
+                ActiveBossFlightVisual flight = _activeBossFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
+                flight.Instance.SetActive(false);
+                GetBombPool(flight.DefinitionId).Push(flight.Instance);
+            }
+            _activeBossFlights.Clear();
+
+            for (int index = 0; index < _activeThrowerFlights.Count; index++)
+            {
+                ActiveThrowerFlightVisual flight = _activeThrowerFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
+                flight.Instance.SetActive(false);
+                GetBombPool(flight.DefinitionId).Push(flight.Instance);
+            }
+            _activeThrowerFlights.Clear();
+
+            for (int index = 0; index < _activeExplosions.Count; index++)
+            {
+                ReleaseExplosion(_activeExplosions[index]);
+            }
+            _activeExplosions.Clear();
+            _activeBombDangerCells.Clear();
+            StopAllBombAudio();
+            RefreshBombDangerCells();
         }
 
         public void ConfigureCrossExplosionVfx(
@@ -166,6 +385,7 @@ namespace BombSwap
                     "PrototypeBombPresenter requires session and presentation-root references.");
             }
 
+            session.BombActivated += OnBombActivated;
             session.BombPlaced += OnBombPlaced;
             session.BossBombPlaced += OnBombPlaced;
             session.BossBombLaunched += OnBossBombLaunched;
@@ -184,6 +404,7 @@ namespace BombSwap
         {
             if (session != null)
             {
+                session.BombActivated -= OnBombActivated;
                 session.BombPlaced -= OnBombPlaced;
                 session.BossBombPlaced -= OnBombPlaced;
                 session.BossBombLaunched -= OnBossBombLaunched;
@@ -209,6 +430,17 @@ namespace BombSwap
                 GetBombPool(flight.DefinitionId).Push(flight.Instance);
             }
             _activeThrowerFlights.Clear();
+            _activeBombDangerCells.Clear();
+            _visibleBombDangerCells.Clear();
+            _visibleBombDangerCellSet.Clear();
+            for (int index = 0; index < _bombDangerCellInstances.Count; index++)
+            {
+                if (_bombDangerCellInstances[index] != null)
+                {
+                    _bombDangerCellInstances[index].SetActive(false);
+                }
+            }
+            StopAllBombAudio();
         }
 
         private void Update()
@@ -233,6 +465,11 @@ namespace BombSwap
                 ReleaseExplosion(visual);
                 _activeExplosions.RemoveAt(index);
             }
+
+            if (!session.IsPaused)
+            {
+                UpdateExplosionAudio(Time.deltaTime);
+            }
         }
 
         private void OnSessionReady()
@@ -247,7 +484,12 @@ namespace BombSwap
                 return;
             }
 
-            _localVfxOverrides = PrototypeLocalVfxOverrides.LoadOptional();
+            if (_localVfxOverrides == null)
+            {
+                _localVfxOverrides = PrototypeLocalVfxOverrides.LoadOptional();
+            }
+            _localHologramOverrides =
+                PrototypeLocalHologramOverrides.LoadOptional();
             if (_crossCenterExplosionPrefab == null && _localVfxOverrides != null)
             {
                 _crossCenterExplosionPrefab =
@@ -304,7 +546,10 @@ namespace BombSwap
                     : null;
             if (instance == null)
             {
-                instance = AcquireBomb(snapshot.DefinitionId, definition);
+                instance = AcquireBomb(
+                    snapshot.DefinitionId,
+                    definition,
+                    snapshot.OwnerId == session.PlayerActorId);
             }
             instance.transform.position = session.GridSpace.GridToWorld(snapshot.Position);
             instance.transform.rotation = definition.ExplosionShape == BombExplosionShape.ForwardLine
@@ -330,6 +575,25 @@ namespace BombSwap
                     fuseAnimationSpeed));
         }
 
+        private void OnBombActivated(BombSnapshot snapshot)
+        {
+            if (!session.TryGetBombExplosionPreview(
+                    snapshot.Id,
+                    out IReadOnlyList<GridPosition> affectedCells))
+            {
+                throw new InvalidOperationException(
+                    $"Activated bomb {snapshot.Id} has no explosion preview.");
+            }
+
+            _activeBombDangerCells[snapshot.Id] = affectedCells;
+            StartFuseAudio(snapshot);
+            if (_bombDangerCellPrefab == null)
+            {
+                _bombDangerCellPrefab = ResolveBombDangerCellPrefab(snapshot.DefinitionId);
+            }
+            RefreshBombDangerCells();
+        }
+
         private void OnPauseStateChanged(bool isPaused)
         {
             foreach (KeyValuePair<BombId, ActiveBombVisual> entry in _activeBombs)
@@ -340,6 +604,7 @@ namespace BombSwap
                     isPaused ? 0f : visual.FuseAnimationSpeed);
                 SetBombParticlesPaused(visual.Instance, isPaused);
             }
+            SetBombAudioPaused(isPaused);
         }
 
         private void OnBossBombLaunched(BossBombFlight flight)
@@ -347,7 +612,10 @@ namespace BombSwap
             Initialize();
             BombDefinitionId definitionId = flight.Definition.Id;
             PrototypeBombDefinitionAsset definition = session.GetBombDefinition(definitionId);
-            GameObject instance = AcquireBomb(definitionId, definition);
+            GameObject instance = AcquireBomb(
+                definitionId,
+                definition,
+                applyPlayerFuseOffset: false);
             instance.transform.position = ToFlightPoint(flight.Origin, 0f);
             instance.transform.rotation = Quaternion.identity;
             instance.SetActive(true);
@@ -363,7 +631,10 @@ namespace BombSwap
             Initialize();
             BombDefinitionId definitionId = flight.Definition.Id;
             PrototypeBombDefinitionAsset definition = session.GetBombDefinition(definitionId);
-            GameObject instance = AcquireBomb(definitionId, definition);
+            GameObject instance = AcquireBomb(
+                definitionId,
+                definition,
+                applyPlayerFuseOffset: false);
             instance.transform.position = ToFlightPoint(flight.Origin, 0f);
             instance.transform.rotation = Quaternion.identity;
             instance.SetActive(true);
@@ -469,6 +740,13 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
+            StopFuseAudio(explosion.BombId);
+            PlayExplosionAudio(explosion);
+            if (_activeBombDangerCells.Remove(explosion.BombId))
+            {
+                RefreshBombDangerCells();
+            }
+
             if (_activeBombs.TryGetValue(
                     explosion.BombId,
                     out ActiveBombVisual bombVisual))
@@ -531,6 +809,11 @@ namespace BombSwap
                 return _crossExplosionVfxConfiguredExplicitly ||
                     definition.DefinitionId == PlayerCrossBombDefinitionId;
             }
+            if (explosion.OwnerId == session.SelfDestructActorId)
+            {
+                return _crossExplosionVfxConfiguredExplicitly ||
+                    definition.DefinitionId == SelfDestructBombDefinitionId;
+            }
             if (explosion.OwnerId == session.ThrowerActorId)
             {
                 return _crossExplosionVfxConfiguredExplicitly ||
@@ -563,7 +846,7 @@ namespace BombSwap
         {
             return explosion.OwnerId == session.PlayerActorId &&
                 definition.ExplosionShape == BombExplosionShape.ForwardLine &&
-                definition.Range <= 4 &&
+                definition.Range <= 5 &&
                 (_crossExplosionVfxConfiguredExplicitly ||
                  definition.DefinitionId == PlayerLineBombDefinitionId) &&
                 _crossCenterExplosionPrefab != null &&
@@ -836,12 +1119,48 @@ namespace BombSwap
 
         private GameObject AcquireBomb(
             BombDefinitionId definitionId,
-            PrototypeBombDefinitionAsset definition)
+            PrototypeBombDefinitionAsset definition,
+            bool applyPlayerFuseOffset)
         {
             Stack<GameObject> pool = GetBombPool(definitionId);
-            return pool.Count > 0
+            GameObject instance = pool.Count > 0
                 ? pool.Pop()
                 : CreatePooledInstance(definition.BombPrefab, "BombVisual");
+            ConfigureBombReadyVfx(instance, applyPlayerFuseOffset);
+            return instance;
+        }
+
+        private void ConfigureBombReadyVfx(
+            GameObject instance,
+            bool applyPlayerFuseOffset)
+        {
+            if (_localVfxOverrides == null || !_configuredBombReadyVfx.Add(instance))
+            {
+                return;
+            }
+
+            Transform anchor = instance.transform.Find("SparksEffect");
+            if (anchor == null)
+            {
+                return;
+            }
+
+            if (applyPlayerFuseOffset)
+            {
+                anchor.localPosition = _localVfxOverrides.BombReadyLocalPosition;
+                anchor.localRotation = _localVfxOverrides.BombReadyLocalRotation;
+                anchor.localScale = Vector3.one;
+            }
+
+            ParticleSystem[] systems = anchor.GetComponentsInChildren<ParticleSystem>(true);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+
+                ParticleSystem.CollisionModule collision = systems[index].collision;
+                collision.enabled = false;
+            }
         }
 
         private GameObject AcquireExplosion(
@@ -926,6 +1245,296 @@ namespace BombSwap
                 }
                 animator.speed = enabled && !paused ? playbackSpeed : 0f;
             }
+        }
+
+        private void StartFuseAudio(BombSnapshot snapshot)
+        {
+            if (!HasBombAudioConfiguration)
+            {
+                return;
+            }
+            if (_activeFuseAudio.ContainsKey(snapshot.Id))
+            {
+                throw new InvalidOperationException(
+                    $"Bomb {snapshot.Id} already has active fuse audio.");
+            }
+
+            AudioSource source = AcquireBombAudioSource(
+                _availableFuseAudio,
+                "BombFuseAudio");
+            source.transform.position = session.GridSpace.GridToWorld(snapshot.Position);
+            source.clip = fuseAudioClip;
+            source.loop = true;
+            source.volume = fuseAudioVolume;
+            source.Play();
+            if (session.IsPaused)
+            {
+                source.Pause();
+            }
+            _activeFuseAudio.Add(snapshot.Id, source);
+            FuseAudioPlayCount++;
+        }
+
+        private void StopFuseAudio(BombId bombId)
+        {
+            if (!_activeFuseAudio.TryGetValue(bombId, out AudioSource source))
+            {
+                return;
+            }
+
+            _activeFuseAudio.Remove(bombId);
+            ReleaseBombAudioSource(source, _availableFuseAudio);
+        }
+
+        private void PlayExplosionAudio(BombExplosion explosion)
+        {
+            if (!HasBombAudioConfiguration)
+            {
+                return;
+            }
+
+            int clipIndex = SelectExplosionAudioClipIndex();
+            AudioClip clip = explosionAudioClips[clipIndex];
+            AudioSource source = AcquireBombAudioSource(
+                _availableExplosionAudio,
+                "BombExplosionAudio");
+            source.transform.position = session.GridSpace.GridToWorld(explosion.Origin);
+            source.clip = clip;
+            source.loop = false;
+            source.volume = explosionAudioVolume;
+            source.Play();
+            if (session.IsPaused)
+            {
+                source.Pause();
+            }
+            _activeExplosionAudio.Add(new TimedBombAudio(source, clip.length));
+            _lastExplosionAudioClipIndex = clipIndex;
+            ExplosionAudioPlayCount++;
+        }
+
+        private void UpdateExplosionAudio(float elapsedSeconds)
+        {
+            for (int index = _activeExplosionAudio.Count - 1; index >= 0; index--)
+            {
+                TimedBombAudio audio = _activeExplosionAudio[index];
+                audio.RemainingSeconds -= elapsedSeconds;
+                if (audio.RemainingSeconds > 0f)
+                {
+                    _activeExplosionAudio[index] = audio;
+                    continue;
+                }
+
+                ReleaseBombAudioSource(audio.Source, _availableExplosionAudio);
+                _activeExplosionAudio.RemoveAt(index);
+            }
+        }
+
+        private void SetBombAudioPaused(bool isPaused)
+        {
+            foreach (KeyValuePair<BombId, AudioSource> entry in _activeFuseAudio)
+            {
+                SetAudioSourcePaused(entry.Value, isPaused);
+            }
+            for (int index = 0; index < _activeExplosionAudio.Count; index++)
+            {
+                SetAudioSourcePaused(_activeExplosionAudio[index].Source, isPaused);
+            }
+        }
+
+        private void StopAllBombAudio()
+        {
+            foreach (KeyValuePair<BombId, AudioSource> entry in _activeFuseAudio)
+            {
+                ReleaseBombAudioSource(entry.Value, _availableFuseAudio);
+            }
+            _activeFuseAudio.Clear();
+
+            for (int index = 0; index < _activeExplosionAudio.Count; index++)
+            {
+                ReleaseBombAudioSource(
+                    _activeExplosionAudio[index].Source,
+                    _availableExplosionAudio);
+            }
+            _activeExplosionAudio.Clear();
+        }
+
+        private AudioSource AcquireBombAudioSource(
+            Stack<AudioSource> pool,
+            string objectName)
+        {
+            AudioSource source;
+            if (pool.Count > 0)
+            {
+                source = pool.Pop();
+            }
+            else
+            {
+                var audioObject = new GameObject(objectName);
+                audioObject.transform.SetParent(presentationRoot, false);
+                source = audioObject.AddComponent<AudioSource>();
+            }
+
+            source.gameObject.SetActive(true);
+            source.playOnAwake = false;
+            source.spatialBlend = 1f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.minDistance = bombAudioMinDistance;
+            source.maxDistance = bombAudioMaxDistance;
+            source.dopplerLevel = 0f;
+            source.outputAudioMixerGroup = bombAudioMixerGroup;
+            return source;
+        }
+
+        private static void ValidateNormalizedAudioVolume(float volume, string parameterName)
+        {
+            if (float.IsNaN(volume) ||
+                float.IsInfinity(volume) ||
+                volume < 0f ||
+                volume > 1f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    parameterName,
+                    volume,
+                    "Bomb audio volume must be finite and between zero and one.");
+            }
+        }
+
+        private static void ReleaseBombAudioSource(
+            AudioSource source,
+            Stack<AudioSource> pool)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.Stop();
+            source.clip = null;
+            source.loop = false;
+            source.gameObject.SetActive(false);
+            pool.Push(source);
+        }
+
+        private static void SetAudioSourcePaused(AudioSource source, bool isPaused)
+        {
+            if (source == null)
+            {
+                return;
+            }
+            if (isPaused)
+            {
+                source.Pause();
+            }
+            else
+            {
+                source.UnPause();
+            }
+        }
+
+        private int SelectExplosionAudioClipIndex()
+        {
+            if (explosionAudioClips.Length == 1 ||
+                _lastExplosionAudioClipIndex < 0 ||
+                _lastExplosionAudioClipIndex >= explosionAudioClips.Length)
+            {
+                return UnityEngine.Random.Range(0, explosionAudioClips.Length);
+            }
+
+            int candidate = UnityEngine.Random.Range(0, explosionAudioClips.Length - 1);
+            return candidate >= _lastExplosionAudioClipIndex
+                ? candidate + 1
+                : candidate;
+        }
+
+        private void RefreshBombDangerCells()
+        {
+            _visibleBombDangerCells.Clear();
+            _visibleBombDangerCellSet.Clear();
+            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
+                     _activeBombDangerCells)
+            {
+                IReadOnlyList<GridPosition> cells = entry.Value;
+                for (int index = 0; index < cells.Count; index++)
+                {
+                    if (_visibleBombDangerCellSet.Add(cells[index]))
+                    {
+                        _visibleBombDangerCells.Add(cells[index]);
+                    }
+                }
+            }
+            _visibleBombDangerCells.Sort(CompareGridPositions);
+
+            EnsureBombDangerCellCapacity(_visibleBombDangerCells.Count);
+            for (int index = 0; index < _bombDangerCellInstances.Count; index++)
+            {
+                GameObject instance = _bombDangerCellInstances[index];
+                bool shouldShow = index < _visibleBombDangerCells.Count;
+                if (shouldShow)
+                {
+                    instance.transform.position = session.GridSpace.GridToWorld(
+                            _visibleBombDangerCells[index]) +
+                        (Vector3.up * BombDangerCellVisualHeight);
+                }
+                instance.SetActive(shouldShow);
+            }
+        }
+
+        private void EnsureBombDangerCellCapacity(int required)
+        {
+            while (_bombDangerCellInstances.Count < required)
+            {
+                GameObject instance = CreatePooledInstance(
+                    _bombDangerCellPrefab,
+                    $"BombDangerCellVisual{_bombDangerCellInstances.Count}");
+                ApplyBombDangerHologram(instance);
+                _bombDangerCellInstances.Add(instance);
+            }
+        }
+
+        private void ApplyBombDangerHologram(GameObject instance)
+        {
+            Material hologramMaterial = _localHologramOverrides != null
+                ? _localHologramOverrides.BombRangeHologramMaterial
+                : null;
+            PrototypeHologramTelegraphStyle.Apply(instance, hologramMaterial);
+        }
+
+        private GameObject ResolveBombDangerCellPrefab(BombDefinitionId definitionId)
+        {
+            if (session.SelfDestructDefinition != null &&
+                session.SelfDestructDefinition.TelegraphCellPrefab != null)
+            {
+                return session.SelfDestructDefinition.TelegraphCellPrefab;
+            }
+            if (session.BossDefinition != null &&
+                session.BossDefinition.DangerCellPrefab != null)
+            {
+                return session.BossDefinition.DangerCellPrefab;
+            }
+            if (session.ThrowerDefinition != null &&
+                session.ThrowerDefinition.TelegraphCellPrefab != null)
+            {
+                return session.ThrowerDefinition.TelegraphCellPrefab;
+            }
+
+            PrototypeBombDefinitionAsset definition =
+                session.GetBombDefinition(definitionId);
+            if (definition.ExplosionCellPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    "A bomb danger cell visual requires a presentation prefab.");
+            }
+            return definition.ExplosionCellPrefab;
+        }
+
+        private static int CompareGridPositions(
+            GridPosition left,
+            GridPosition right)
+        {
+            int xComparison = left.X.CompareTo(right.X);
+            return xComparison != 0
+                ? xComparison
+                : left.Z.CompareTo(right.Z);
         }
 
         private void SetBombAnimatorPlayback(GameObject instance, float playbackSpeed)
@@ -1024,6 +1633,19 @@ namespace BombSwap
             public float RemainingSeconds { get; set; }
 
             public ExplosionVisualKind Kind { get; }
+        }
+
+        private struct TimedBombAudio
+        {
+            public TimedBombAudio(AudioSource source, float remainingSeconds)
+            {
+                Source = source;
+                RemainingSeconds = remainingSeconds;
+            }
+
+            public AudioSource Source { get; }
+
+            public float RemainingSeconds { get; set; }
         }
 
         private enum ExplosionVisualKind

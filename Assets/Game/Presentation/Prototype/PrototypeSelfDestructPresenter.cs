@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
 
@@ -8,46 +7,27 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeSelfDestructPresenter : MonoBehaviour
     {
+        private const float SummonVfxCleanupPaddingSeconds = 0.25f;
+        private const float WarningHologramToggleSeconds = 0.14f;
+        private const float TelegraphHologramToggleSeconds = 0.065f;
         private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
         private static readonly int TelegraphParameterId = Animator.StringToHash("Telegraph");
         private static readonly int DetonateParameterId = Animator.StringToHash("Detonate");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform presentationRoot;
 
-        [SerializeField]
-        private Color telegraphColor = new Color(1f, 0.2f, 0.04f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.18f, 0.01f, 0.01f, 1f);
-
-        [SerializeField]
-        private float warningPulseHz = 3f;
-
-        [SerializeField]
-        private float telegraphPulseHz = 8f;
-
-        [SerializeField]
-        private float warningScaleMultiplier = 1.08f;
-
-        [SerializeField]
-        private float telegraphScaleMultiplier = 1.18f;
-
-        private readonly List<GameObject> telegraphCells = new List<GameObject>();
         private GameObject instance;
-        private Renderer instanceRenderer;
         private Animator animator;
-        private MaterialPropertyBlock propertyBlock;
-        private int colorPropertyId;
-        private Color normalColor;
-        private Vector3 baseScale;
+        private PrototypeHologramFeedback hologramFeedback;
+        private PrototypeLocalVfxOverrides localVfxOverrides;
+        private GameObject summonVfxAnchor;
+        private ParticleSystem[] summonVfxSystems = Array.Empty<ParticleSystem>();
+        private float summonVfxRemaining;
+        private PigCharacterVocalAudio vocalAudio;
         private float deathRemaining;
-        private float pulsePhase;
         private bool isShowingDeath;
 
         public PrototypeGameSession Session => session;
@@ -68,11 +48,14 @@ namespace BombSwap
 
         public Animator Animator => animator;
 
-        public int ActiveTelegraphCellCount { get; private set; }
+        public PrototypeHologramFeedback HologramFeedback => hologramFeedback;
 
         public SelfDestructEnemyState CurrentState { get; private set; }
 
-        public Color CurrentColor { get; private set; }
+        public int SummonVfxPlayCount { get; private set; }
+
+        public bool IsSummonVfxActive =>
+            summonVfxAnchor != null && summonVfxAnchor.activeSelf;
 
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
@@ -94,6 +77,18 @@ namespace BombSwap
             presentationRoot = visualRoot;
         }
 
+        public void ConfigureLocalVfxOverrides(
+            PrototypeLocalVfxOverrides authoredLocalVfxOverrides)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeSelfDestructPresenter before changing its local VFX overrides.");
+            }
+
+            localVfxOverrides = authoredLocalVfxOverrides;
+        }
+
         private void OnEnable()
         {
             if (!Application.isPlaying)
@@ -106,8 +101,10 @@ namespace BombSwap
                     "PrototypeSelfDestructPresenter requires session and presentation-root references.");
             }
 
+            localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
             session.SelfDestructAdvanced += OnSelfDestructAdvanced;
             session.SelfDestructSpawned += OnSelfDestructSpawned;
+            session.EnemyDamaged += OnEnemyDamaged;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -123,6 +120,7 @@ namespace BombSwap
             {
                 session.SelfDestructAdvanced -= OnSelfDestructAdvanced;
                 session.SelfDestructSpawned -= OnSelfDestructSpawned;
+                session.EnemyDamaged -= OnEnemyDamaged;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -131,23 +129,14 @@ namespace BombSwap
             {
                 Destroy(instance);
             }
-            for (int index = 0; index < telegraphCells.Count; index++)
-            {
-                if (telegraphCells[index] != null)
-                {
-                    Destroy(telegraphCells[index]);
-                }
-            }
-
             instance = null;
-            instanceRenderer = null;
+            hologramFeedback = null;
+            DestroySummonVfx();
             if (animator != null)
             {
                 animator.speed = 1f;
             }
             animator = null;
-            telegraphCells.Clear();
-            ActiveTelegraphCellCount = 0;
             IsInitialized = false;
             isShowingDeath = false;
         }
@@ -157,6 +146,15 @@ namespace BombSwap
             if (session != null && session.IsPaused)
             {
                 return;
+            }
+
+            if (summonVfxAnchor != null)
+            {
+                summonVfxRemaining -= Time.deltaTime;
+                if (summonVfxRemaining <= 0f)
+                {
+                    DestroySummonVfx();
+                }
             }
 
             if (instance != null && !isShowingDeath)
@@ -172,15 +170,6 @@ namespace BombSwap
             }
 
             SyncLocomotionAnimation();
-
-            if (!isShowingDeath &&
-                instance != null &&
-                session != null &&
-                (CurrentState == SelfDestructEnemyState.WarningChase ||
-                    CurrentState == SelfDestructEnemyState.Telegraph))
-            {
-                ApplyPulse(Time.deltaTime);
-            }
 
             if (isShowingDeath && instance != null)
             {
@@ -225,6 +214,7 @@ namespace BombSwap
             {
                 CreatePresentation();
             }
+            PlayBossSummonVfx();
         }
 
         private void CreatePresentation()
@@ -239,26 +229,26 @@ namespace BombSwap
             definition.ValidatePresentationReferences();
             instance = Instantiate(definition.EnemyPrefab, presentationRoot);
             instance.name = "PrototypeSelfDestructVisual";
-            instanceRenderer = instance.GetComponentInChildren<Renderer>(true);
+            hologramFeedback =
+                PrototypeHologramFeedback.CreateWarningFeedback(instance);
+            if (hologramFeedback != null)
+            {
+                hologramFeedback.SetPaused(session.IsPaused);
+            }
             animator = instance.GetComponentInChildren<Animator>(true);
+            vocalAudio = instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (animator != null)
             {
                 animator.applyRootMotion = false;
                 animator.speed = session.IsPaused ? 0f : 1f;
                 animator.SetBool(IsMovingParameterId, false);
             }
-            baseScale = instance.transform.localScale;
-            InitializeColor();
             instance.transform.position = ToPresentationPosition(
                 session.CurrentSelfDestructGridPosition);
             instance.SetActive(session.IsSelfDestructAlive);
             CurrentState = session.CurrentSelfDestructState;
             ApplyAnimationState(CurrentState);
-            ApplyStateVisual(CurrentState);
-            if (CurrentState == SelfDestructEnemyState.Telegraph)
-            {
-                ShowTelegraph();
-            }
+            RefreshWarningHologram();
             IsInitialized = true;
         }
 
@@ -296,15 +286,16 @@ namespace BombSwap
                         session.CurrentSelfDestructGridPosition);
                 }
                 ApplyAnimationState(CurrentState);
-                ApplyStateVisual(CurrentState);
-                if (CurrentState == SelfDestructEnemyState.Telegraph)
-                {
-                    ShowTelegraph();
-                }
-                else
-                {
-                    HideTelegraph();
-                }
+                RefreshWarningHologram();
+            }
+        }
+
+        private void OnEnemyDamaged(EnemyDamageResult damage)
+        {
+            if (damage.ActorId == session.SelfDestructActorId &&
+                hologramFeedback != null)
+            {
+                hologramFeedback.TriggerHitBlink();
             }
         }
 
@@ -320,9 +311,7 @@ namespace BombSwap
             }
 
             DeathCount++;
-            HideTelegraph();
-            instance.transform.localScale = baseScale;
-            ApplyColor(deathColor);
+            vocalAudio?.PlayDeathVocal();
             deathRemaining = session.SelfDestructDefinition.DeathVisualSeconds;
             isShowingDeath = true;
         }
@@ -333,6 +322,11 @@ namespace BombSwap
             {
                 animator.speed = isPaused ? 0f : 1f;
             }
+            if (hologramFeedback != null)
+            {
+                hologramFeedback.SetPaused(isPaused);
+            }
+            SetSummonVfxPaused(isPaused);
         }
 
         private void ApplyAnimationState(SelfDestructEnemyState state)
@@ -385,131 +379,117 @@ namespace BombSwap
                 EnemyLocomotionState.Moving);
         }
 
-        private void ShowTelegraph()
+        private void RefreshWarningHologram()
         {
-            HideTelegraph();
-            IReadOnlyList<GridPosition> cells = session.CurrentSelfDestructTelegraphCells;
-            EnsureTelegraphCapacity(cells.Count);
-            for (int index = 0; index < cells.Count; index++)
+            if (hologramFeedback == null)
             {
-                GameObject visual = telegraphCells[index];
-                visual.transform.position = session.GridSpace.GridToWorld(cells[index]) +
-                    (Vector3.up * 0.03f);
-                visual.SetActive(true);
+                return;
             }
 
-            ActiveTelegraphCellCount = cells.Count;
-        }
-
-        private void HideTelegraph()
-        {
-            for (int index = 0; index < ActiveTelegraphCellCount; index++)
+            switch (CurrentState)
             {
-                if (telegraphCells[index] != null)
-                {
-                    telegraphCells[index].SetActive(false);
-                }
-            }
-
-            ActiveTelegraphCellCount = 0;
-        }
-
-        private void EnsureTelegraphCapacity(int required)
-        {
-            while (telegraphCells.Count < required)
-            {
-                GameObject visual = Instantiate(
-                    session.SelfDestructDefinition.TelegraphCellPrefab,
-                    presentationRoot);
-                visual.name = $"PrototypeSelfDestructTelegraphCell{telegraphCells.Count}";
-                visual.SetActive(false);
-                telegraphCells.Add(visual);
-            }
-        }
-
-        private void InitializeColor()
-        {
-            if (propertyBlock == null)
-            {
-                propertyBlock = new MaterialPropertyBlock();
-            }
-
-            Material material = instanceRenderer.sharedMaterial;
-            if (material == null)
-            {
-                throw new InvalidOperationException(
-                    "Self-destruct enemy prefab renderer requires a material.");
-            }
-            if (material.HasProperty(BaseColorId))
-            {
-                colorPropertyId = BaseColorId;
-            }
-            else if (material.HasProperty(ColorId))
-            {
-                colorPropertyId = ColorId;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "Self-destruct enemy material requires a supported color property.");
-            }
-
-            normalColor = material.GetColor(colorPropertyId);
-            CurrentColor = normalColor;
-        }
-
-        private void ApplyStateVisual(SelfDestructEnemyState state)
-        {
-            pulsePhase = 0f;
-            instance.transform.localScale = baseScale;
-            switch (state)
-            {
-                case SelfDestructEnemyState.Chase:
-                    ApplyColor(normalColor);
-                    break;
                 case SelfDestructEnemyState.WarningChase:
-                    ApplyColor(Color.Lerp(normalColor, telegraphColor, 0.5f));
+                    hologramFeedback.StartLooping(WarningHologramToggleSeconds);
                     break;
                 case SelfDestructEnemyState.Telegraph:
-                    ApplyColor(telegraphColor);
-                    break;
-                case SelfDestructEnemyState.Detonated:
-                    ApplyColor(deathColor);
+                    hologramFeedback.StartLooping(TelegraphHologramToggleSeconds);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
+                    hologramFeedback.StopAndRestore();
+                    break;
             }
         }
 
-        private void ApplyPulse(float elapsedSeconds)
+        private void PlayBossSummonVfx()
         {
-            float warningProgress = CurrentState == SelfDestructEnemyState.WarningChase
-                ? Mathf.Clamp01(session.CurrentSelfDestructWarningProgress)
-                : 1f;
-            float frequency = Mathf.Lerp(
-                warningPulseHz,
-                telegraphPulseHz,
-                warningProgress);
-            float scaleMultiplier = Mathf.Lerp(
-                warningScaleMultiplier,
-                telegraphScaleMultiplier,
-                warningProgress);
-            pulsePhase = Mathf.Repeat(
-                pulsePhase + (elapsedSeconds * frequency),
-                1f);
-            float wave = 0.5f +
-                (Mathf.Sin(pulsePhase * Mathf.PI * 2f) * 0.5f);
-            ApplyColor(Color.Lerp(normalColor, telegraphColor, wave));
-            instance.transform.localScale = baseScale *
-                Mathf.Lerp(1f, scaleMultiplier, wave);
+            GameObject prefab = localVfxOverrides != null
+                ? localVfxOverrides.BossIntroSpawnVfxPrefab
+                : null;
+            if (prefab == null)
+            {
+                return;
+            }
+
+            DestroySummonVfx();
+            summonVfxAnchor = new GameObject("PrototypeBossSelfDestructSummonVfx");
+            summonVfxAnchor.transform.SetParent(presentationRoot, false);
+            summonVfxAnchor.transform.position = session.GridSpace.GridToWorld(
+                session.CurrentSelfDestructGridPosition);
+            GameObject vfxInstance = Instantiate(
+                prefab,
+                summonVfxAnchor.transform,
+                false);
+            vfxInstance.name = prefab.name;
+            vfxInstance.SetActive(true);
+            summonVfxSystems =
+                vfxInstance.GetComponentsInChildren<ParticleSystem>(true);
+            RestartSummonVfxParticles();
+            summonVfxRemaining = GetParticleLifetime(summonVfxSystems) +
+                SummonVfxCleanupPaddingSeconds;
+            session.BeginBossSelfDestructSpawnProtection(
+                session.SelfDestructActorId,
+                summonVfxRemaining);
+            SummonVfxPlayCount++;
         }
 
-        private void ApplyColor(Color color)
+        private void RestartSummonVfxParticles()
         {
-            instanceRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetColor(colorPropertyId, color);
-            instanceRenderer.SetPropertyBlock(propertyBlock);
-            CurrentColor = color;
+            for (int index = 0; index < summonVfxSystems.Length; index++)
+            {
+                ParticleSystem system = summonVfxSystems[index];
+                system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+                system.Play(false);
+                if (session.IsPaused)
+                {
+                    system.Pause(false);
+                }
+            }
+        }
+
+        private void SetSummonVfxPaused(bool isPaused)
+        {
+            for (int index = 0; index < summonVfxSystems.Length; index++)
+            {
+                ParticleSystem system = summonVfxSystems[index];
+                if (isPaused)
+                {
+                    if (system.isPlaying)
+                    {
+                        system.Pause(false);
+                    }
+                }
+                else if (system.isPaused)
+                {
+                    system.Play(false);
+                }
+            }
+        }
+
+        private void DestroySummonVfx()
+        {
+            if (summonVfxAnchor != null)
+            {
+                summonVfxAnchor.SetActive(false);
+                Destroy(summonVfxAnchor);
+            }
+            summonVfxAnchor = null;
+            summonVfxSystems = Array.Empty<ParticleSystem>();
+            summonVfxRemaining = 0f;
+        }
+
+        private static float GetParticleLifetime(ParticleSystem[] systems)
+        {
+            float lifetime = 0.1f;
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                lifetime = Mathf.Max(
+                    lifetime,
+                    main.startDelay.constantMax +
+                    main.duration +
+                    main.startLifetime.constantMax);
+            }
+            return lifetime;
         }
 
         private Vector3 ToPresentationPosition(GridPosition position)

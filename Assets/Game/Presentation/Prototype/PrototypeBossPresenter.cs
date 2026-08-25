@@ -89,25 +89,10 @@ namespace BombSwap
         private Color executeColor = new Color(1f, 0.08f, 0.04f, 0.9f);
 
         [SerializeField]
-        private Color recoveryColor = new Color(0.16f, 1f, 0.34f, 1f);
-
-        [SerializeField]
-        private Color phaseTwoColor = new Color(0.72f, 0.18f, 1f, 1f);
-
-        [SerializeField]
-        private Color lastStandColor = new Color(1f, 0.12f, 0.42f, 1f);
-
-        [SerializeField]
-        private Color deathColor = new Color(0.12f, 0.01f, 0.02f, 1f);
-
-        [SerializeField]
         private Color moveTargetColor = new Color(0.12f, 0.86f, 1f, 1f);
 
         private readonly List<GameObject> _dangerCellInstances = new List<GameObject>();
         private readonly List<Renderer> _dangerCellRenderers = new List<Renderer>();
-        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
-            _landedBossBombDangerCells =
-                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
         private readonly List<GridPosition> _visibleDangerCells =
             new List<GridPosition>();
         private readonly HashSet<GridPosition> _visibleDangerCellSet =
@@ -124,16 +109,15 @@ namespace BombSwap
             new List<float>();
         private readonly Queue<GridPosition> _movementTargets = new Queue<GridPosition>();
         private GameObject _bossInstance;
-        private Renderer _bossRenderer;
         private Animator _animator;
+        private PrototypeHologramFeedback _hologramFeedback;
+        private PrototypeLocalHologramOverrides _localHologramOverrides;
+        private PigCharacterVocalAudio _vocalAudio;
         private GameObject _moveTargetInstance;
         private Renderer _moveTargetRenderer;
-        private MaterialPropertyBlock _bossPropertyBlock;
         private MaterialPropertyBlock _moveTargetPropertyBlock;
         private MaterialPropertyBlock _dangerCellPropertyBlock;
-        private int _bossColorPropertyId;
         private int _moveTargetColorPropertyId;
-        private Color _baseBossColor;
         private Vector3 _moveVisualFrom;
         private Vector3 _moveVisualTo;
         private float _moveVisualElapsed;
@@ -141,7 +125,9 @@ namespace BombSwap
         private float _deathRemaining;
         private bool _isMoving;
         private bool _isShowingDeath;
+        private bool _isBossClearPresentationActive;
         private bool _isParityWaveTelegraphActive;
+        private readonly BossSkillVocalGate _skillVocalGate = new();
         private bool _isIntroPrepared;
         private bool _isIntroLanded;
         private Vector3 _introStartWorldPosition;
@@ -166,10 +152,7 @@ namespace BombSwap
 
         public int VisibleDangerCellCount { get; private set; }
 
-        public bool HasLandedBossBombDanger(BombId bombId)
-        {
-            return _landedBossBombDangerCells.ContainsKey(bombId);
-        }
+        public bool UsesHologramDangerCells { get; private set; }
 
         public int PatternTransitionCount { get; private set; }
 
@@ -195,6 +178,8 @@ namespace BombSwap
 
         public Animator Animator => _animator;
 
+        public PrototypeHologramFeedback HologramFeedback => _hologramFeedback;
+
         public int DisplayedHealth { get; private set; }
 
         public BossBattleState CurrentState { get; private set; }
@@ -217,6 +202,9 @@ namespace BombSwap
         public bool IsIntroPrepared => _isIntroPrepared;
 
         public bool IsIntroLanded => _isIntroLanded;
+
+        public bool IsBossClearPresentationActive =>
+            _isBossClearPresentationActive;
 
         public Vector3 IntroStartWorldPosition => _introStartWorldPosition;
 
@@ -267,7 +255,6 @@ namespace BombSwap
             session.BossMoved += OnBossMoved;
             session.BossDamaged += OnBossDamaged;
             session.BossBombLaunched += OnBossBombLaunched;
-            session.BossBombPlaced += OnBossBombPlaced;
             session.BombExploded += OnBombExploded;
             session.PauseStateChanged += OnPauseStateChanged;
             session.BossCombatStarted += OnBossCombatStarted;
@@ -286,7 +273,6 @@ namespace BombSwap
                 session.BossMoved -= OnBossMoved;
                 session.BossDamaged -= OnBossDamaged;
                 session.BossBombLaunched -= OnBossBombLaunched;
-                session.BossBombPlaced -= OnBossBombPlaced;
                 session.BombExploded -= OnBombExploded;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.BossCombatStarted -= OnBossCombatStarted;
@@ -314,7 +300,8 @@ namespace BombSwap
             }
 
             _bossInstance = null;
-            _bossRenderer = null;
+            _hologramFeedback = null;
+            _localHologramOverrides = null;
             if (_animator != null)
             {
                 _animator.speed = 1f;
@@ -324,16 +311,18 @@ namespace BombSwap
             _moveTargetRenderer = null;
             _dangerCellInstances.Clear();
             _dangerCellRenderers.Clear();
-            _landedBossBombDangerCells.Clear();
             _visibleDangerCells.Clear();
             _visibleDangerCellSet.Clear();
             _executingPatternDangerCells.Clear();
             _currentPatternDangerCells = NoDangerCells;
             VisibleDangerCellCount = 0;
+            UsesHologramDangerCells = false;
             IsInitialized = false;
             _isMoving = false;
             _isShowingDeath = false;
+            _isBossClearPresentationActive = false;
             _isParityWaveTelegraphActive = false;
+            _skillVocalGate.Reset();
             _isIntroPrepared = false;
             _isIntroLanded = false;
             _movementTargets.Clear();
@@ -405,16 +394,24 @@ namespace BombSwap
             }
 
             localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
+            _localHologramOverrides ??=
+                PrototypeLocalHologramOverrides.LoadOptional();
 
             PrototypeBossDefinitionAsset definition = session.BossDefinition;
             definition.ValidatePresentationReferences();
             _bossInstance = Instantiate(definition.BossPrefab, presentationRoot);
             _bossInstance.name = "PrototypeBossVisual";
+            _hologramFeedback =
+                PrototypeHologramFeedback.CreateHitFeedback(_bossInstance);
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(session.IsPaused);
+            }
             _bossInstance.transform.position =
                 session.GridSpace.GridToWorld(session.CurrentBossGridPosition) +
                 (Vector3.up * definition.VisualHeight);
-            _bossRenderer = _bossInstance.GetComponentInChildren<Renderer>(true);
             _animator = _bossInstance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _bossInstance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
@@ -422,17 +419,13 @@ namespace BombSwap
                 _animator.SetBool(AliveParameterId, session.IsBossAlive);
                 _animator.SetBool(IsMovingParameterId, false);
             }
-            _bossColorPropertyId = ResolveColorProperty(_bossRenderer, "Boss");
-            _bossPropertyBlock = new MaterialPropertyBlock();
             _moveTargetPropertyBlock = new MaterialPropertyBlock();
             _dangerCellPropertyBlock = new MaterialPropertyBlock();
-            _baseBossColor = _bossRenderer.sharedMaterial.GetColor(_bossColorPropertyId);
             DisplayedHealth = session.CurrentBossHealth;
             DisplayedBossPosition = session.CurrentBossGridPosition;
             CurrentState = session.CurrentBossState;
             CurrentPhase = session.CurrentBossPhase;
             CurrentPattern = session.CurrentBossPattern;
-            ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
             if (session.IsBossIntroPending)
             {
                 ApplyDangerCells(BossBattleState.Recovery, Array.Empty<GridPosition>());
@@ -521,9 +514,75 @@ namespace BombSwap
             _bossInstance.SetActive(session.IsBossAlive);
             if (_animator != null)
             {
+                _animator.SetBool(AliveParameterId, session.IsBossAlive);
                 _animator.speed = session.IsPaused ? 0f : 1f;
             }
             _isIntroLanded = true;
+        }
+
+        public void BeginBossClearPresentation(float animatorPlaybackSpeed)
+        {
+            if (animatorPlaybackSpeed <= 0f || animatorPlaybackSpeed > 1f ||
+                float.IsNaN(animatorPlaybackSpeed) ||
+                float.IsInfinity(animatorPlaybackSpeed))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(animatorPlaybackSpeed),
+                    animatorPlaybackSpeed,
+                    "Boss-clear animator speed must be finite and in (0, 1].");
+            }
+            if (!IsInitialized || _bossInstance == null || session.IsBossAlive)
+            {
+                throw new InvalidOperationException(
+                    "Boss-clear presentation requires an initialized defeated boss visual.");
+            }
+
+            _isMoving = false;
+            _movementTargets.Clear();
+            _isShowingDeath = false;
+            _isBossClearPresentationActive = true;
+            _bossInstance.SetActive(true);
+            if (_animator != null)
+            {
+                _animator.speed = animatorPlaybackSpeed;
+            }
+        }
+
+        public void CompleteBossClearPresentation()
+        {
+            if (!_isBossClearPresentationActive)
+            {
+                return;
+            }
+
+            _isBossClearPresentationActive = false;
+            _isShowingDeath = false;
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+            }
+            if (_bossInstance != null)
+            {
+                _bossInstance.SetActive(false);
+            }
+        }
+
+        public void CancelBossClearPresentation()
+        {
+            if (!_isBossClearPresentationActive)
+            {
+                return;
+            }
+
+            _isBossClearPresentationActive = false;
+            if (_animator != null)
+            {
+                _animator.speed = session != null && session.IsPaused ? 0f : 1f;
+            }
+            if (_bossInstance != null && session != null && !session.IsBossAlive)
+            {
+                _bossInstance.SetActive(false);
+            }
         }
 
         private void OnBossMoved(EnemyMovementStep step)
@@ -559,6 +618,11 @@ namespace BombSwap
             CurrentPhase = transition.Phase;
             CurrentPattern = transition.Pattern;
             DisplayedBossPosition = transition.BossPosition;
+            if (_skillVocalGate.ShouldPlay(transition.State, transition.Pattern) &&
+                IsVocalAttackPattern(transition.Pattern))
+            {
+                _vocalAudio?.PlaySkillVocal();
+            }
             if (transition.Movements.Count > 0)
             {
                 _movementTargets.Clear();
@@ -573,7 +637,6 @@ namespace BombSwap
                     Mathf.Epsilon);
                 StartNextMovementSegment();
             }
-            ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
             ApplyBossAnimation(CurrentState, CurrentPattern);
             ApplyDangerCells(CurrentState, transition.DangerCells);
             ApplyMoveTarget(CurrentState, transition.NextBossPosition);
@@ -594,12 +657,17 @@ namespace BombSwap
 
             DamageCount++;
             DisplayedHealth = result.CurrentHealth;
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.TriggerHitBlink();
+            }
             if (!result.WasFatal)
             {
                 return;
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             CurrentState = BossBattleState.Defeated;
             _isMoving = false;
             if (_animator != null)
@@ -611,7 +679,6 @@ namespace BombSwap
             }
             ApplyDangerCells(CurrentState, Array.Empty<GridPosition>());
             ApplyMoveTarget(CurrentState, default);
-            ApplyBossColor(deathColor);
             _deathRemaining = session.BossDefinition.DeathVisualSeconds;
             _isShowingDeath = true;
         }
@@ -636,34 +703,11 @@ namespace BombSwap
                 useLeft ? ThrowLeftParameterId : ThrowRightParameterId);
         }
 
-        private void OnBossBombPlaced(BombSnapshot snapshot)
-        {
-            if (snapshot.OwnerId != session.BossActorId)
-            {
-                return;
-            }
-            if (!session.TryGetBombExplosionPreview(
-                    snapshot.Id,
-                    out IReadOnlyList<GridPosition> affectedCells))
-            {
-                throw new InvalidOperationException(
-                    $"Landed boss bomb {snapshot.Id} has no explosion preview.");
-            }
-
-            _landedBossBombDangerCells[snapshot.Id] = affectedCells;
-            RefreshDangerCells();
-        }
-
         private void OnBombExploded(BombExplosion explosion)
         {
             if (!session.HasBoss || explosion.OwnerId != session.BossActorId)
             {
                 return;
-            }
-
-            if (_landedBossBombDangerCells.Remove(explosion.BombId))
-            {
-                RefreshDangerCells();
             }
 
             BossBombExplosionFeedbackCount++;
@@ -681,6 +725,10 @@ namespace BombSwap
                     (_isIntroPrepared && !_isIntroLanded)
                         ? 0f
                         : 1f;
+            }
+            if (_hologramFeedback != null)
+            {
+                _hologramFeedback.SetPaused(isPaused);
             }
             SetParityLightningPaused(isPaused);
             if (isPaused && attackCameraShake != null)
@@ -702,10 +750,11 @@ namespace BombSwap
                 CompleteBossIntroLanding();
             }
 
-            ApplyBossState(
-                session.CurrentBossState,
-                session.CurrentBossPhase,
-                session.CurrentBossPattern);
+            if (_animator != null)
+            {
+                _animator.SetBool(AliveParameterId, session.IsBossAlive);
+            }
+
             ApplyBossAnimation(
                 session.CurrentBossState,
                 session.CurrentBossPattern);
@@ -971,42 +1020,6 @@ namespace BombSwap
             _animator.ResetTrigger(ThrowRightParameterId);
         }
 
-        private void ApplyBossState(
-            BossBattleState state,
-            BossPhase phase,
-            BossPatternKind pattern)
-        {
-            switch (state)
-            {
-                case BossBattleState.Telegraph:
-                    ApplyBossColor(GetPhaseColor(phase));
-                    break;
-                case BossBattleState.Execute:
-                    ApplyBossColor(executeColor);
-                    break;
-                case BossBattleState.Recovery:
-                    ApplyBossColor(
-                        pattern == BossPatternKind.Overheat
-                            ? recoveryColor
-                            : GetPhaseColor(phase));
-                    break;
-                case BossBattleState.Defeated:
-                    ApplyBossColor(deathColor);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(state), state, null);
-            }
-        }
-
-        private Color GetPhaseColor(BossPhase phase)
-        {
-            return phase == BossPhase.LastStand
-                ? lastStandColor
-                : phase == BossPhase.Two
-                    ? phaseTwoColor
-                    : _baseBossColor;
-        }
-
         private void ApplyDangerCells(
             BossBattleState state,
             IReadOnlyList<GridPosition> dangerCells)
@@ -1026,12 +1039,6 @@ namespace BombSwap
             _visibleDangerCells.Clear();
             _visibleDangerCellSet.Clear();
             _executingPatternDangerCells.Clear();
-
-            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
-                     _landedBossBombDangerCells)
-            {
-                AddUniqueDangerCells(entry.Value);
-            }
 
             AddUniqueDangerCells(_currentPatternDangerCells);
             if (_currentDangerState == BossBattleState.Execute)
@@ -1062,11 +1069,14 @@ namespace BombSwap
                 instance.transform.position =
                     session.GridSpace.GridToWorld(position) +
                     (Vector3.up * session.BossDefinition.DangerCellVisualHeight);
-                ApplyDangerCellColor(
-                    _dangerCellRenderers[index],
-                    _executingPatternDangerCells.Contains(position)
-                        ? executeColor
-                        : telegraphColor);
+                if (!UsesHologramDangerCells)
+                {
+                    ApplyDangerCellColor(
+                        _dangerCellRenderers[index],
+                        _executingPatternDangerCells.Contains(position)
+                            ? executeColor
+                            : telegraphColor);
+                }
             }
             VisibleDangerCellCount = visibleCount;
         }
@@ -1097,6 +1107,27 @@ namespace BombSwap
         {
             return pattern != BossPatternKind.BombVolley &&
                    pattern != BossPatternKind.LastStandBombChain;
+        }
+
+        private static bool IsVocalAttackPattern(BossPatternKind pattern)
+        {
+            switch (pattern)
+            {
+                case BossPatternKind.FixedCharge:
+                case BossPatternKind.SummonSelfDestruct:
+                case BossPatternKind.BombVolley:
+                case BossPatternKind.ParityWave:
+                case BossPatternKind.Overheat:
+                case BossPatternKind.LastStandBombChain:
+                    return true;
+                case BossPatternKind.LimitedChase:
+                case BossPatternKind.ReturnToCenter:
+                case BossPatternKind.PhaseTransition:
+                case BossPatternKind.WaitForSelfDestruct:
+                    return false;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(pattern), pattern, null);
+            }
         }
 
         private void ApplyMoveTarget(
@@ -1130,7 +1161,17 @@ namespace BombSwap
                     presentationRoot);
                 instance.name = "PrototypeBossDangerCell_" + _dangerCellInstances.Count;
                 Renderer renderer = instance.GetComponentInChildren<Renderer>(true);
-                ResolveColorProperty(renderer, "Boss danger-cell");
+                Material hologramMaterial = _localHologramOverrides != null
+                    ? _localHologramOverrides.BombRangeHologramMaterial
+                    : null;
+                bool usesHologram = PrototypeHologramTelegraphStyle.Apply(
+                    instance,
+                    hologramMaterial);
+                if (!usesHologram)
+                {
+                    ResolveColorProperty(renderer, "Boss danger-cell");
+                }
+                UsesHologramDangerCells |= usesHologram;
                 _dangerCellInstances.Add(instance);
                 _dangerCellRenderers.Add(renderer);
             }
@@ -1165,13 +1206,6 @@ namespace BombSwap
             {
                 _animator.SetBool(IsMovingParameterId, true);
             }
-        }
-
-        private void ApplyBossColor(Color color)
-        {
-            _bossRenderer.GetPropertyBlock(_bossPropertyBlock);
-            _bossPropertyBlock.SetColor(_bossColorPropertyId, color);
-            _bossRenderer.SetPropertyBlock(_bossPropertyBlock);
         }
 
         private void ApplyMoveTargetColor()

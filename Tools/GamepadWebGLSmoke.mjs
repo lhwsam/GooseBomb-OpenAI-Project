@@ -164,6 +164,30 @@ async function waitForEvent(page, name, options = {}) {
   }, { expectedName: name, expectedCount: count }, { timeout });
 }
 
+async function assertEventOrderSince(page, startIndex, expectedNames, label) {
+  const observedNames = await page.evaluate(({ eventStart, expected }) => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    const names = events
+      .slice(eventStart)
+      .map((event) => typeof event === "string" ? event : event?.name)
+      .filter((name) => typeof name === "string");
+    let searchIndex = 0;
+    for (const expectedName of expected) {
+      const foundIndex = names.indexOf(expectedName, searchIndex);
+      if (foundIndex < 0) return names;
+      searchIndex = foundIndex + 1;
+    }
+    return true;
+  }, { eventStart: startIndex, expected: expectedNames });
+  if (observedNames !== true) {
+    throw new Error(
+      `${label}: expected ordered events ${expectedNames.join(" -> ")}, got ` +
+      `${Array.isArray(observedNames) ? observedNames.join(", ") : "no event log"}.`,
+    );
+  }
+}
+
 async function getLastPlayerCell(page) {
   return page.evaluate(() => {
     const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
@@ -478,6 +502,10 @@ async function main() {
       detail: "Standard button 9 resumed the session, reapplied the held east stick, advanced one east cell, then stopped on stick neutral.",
     });
 
+    const deathEventStart = await page.evaluate(() =>
+      Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
+        ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
+        : 0);
     for (let hit = 0; hit < 5; hit++) {
       const placementsBefore = await eventCount(
         page,
@@ -503,12 +531,30 @@ async function main() {
     });
 
     await waitForEvent(page, "player-died", { timeout: 5_000 });
-    await waitForEvent(page, "run-failed", { timeout: 5_000 });
-    await waitForEvent(page, "run-failed-cause-bomb-explosion", { timeout: 5_000 });
+    await waitForEvent(page, "player-death-presentation-started", {
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "player-death-presentation-completed", {
+      timeout: 8_000,
+    });
+    await waitForEvent(page, "run-failed", { timeout: 3_000 });
+    await waitForEvent(page, "run-failed-cause-bomb-explosion", { timeout: 3_000 });
+    await assertEventOrderSince(
+      page,
+      deathEventStart,
+      [
+        "player-died",
+        "player-death-presentation-started",
+        "player-death-presentation-completed",
+        "run-failed",
+        "run-failed-cause-bomb-explosion",
+      ],
+      "gamepad self explosion death presentation",
+    );
     checks.push({
       name: "gamepad-self-damage-run-failure",
       status: "passed",
-      detail: "Five South-button self explosions produced the authoritative bomb-explosion run failure.",
+      detail: "Five South-button self explosions completed the player-death presentation before the authoritative bomb-explosion run failure.",
     });
 
     const restartRequestsBefore = await eventCount(page, "run-restart-requested");

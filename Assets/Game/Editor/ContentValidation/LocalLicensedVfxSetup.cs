@@ -34,6 +34,15 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab",
         };
 
+        private static readonly string[] BombPrefabPaths =
+        {
+            "Assets/Game/Content/Prefabs/Bomb/Player/NormalBomb.prefab",
+            "Assets/Game/Content/Prefabs/Bomb/Player/RangeBomb.prefab",
+            "Assets/Game/Content/Prefabs/Bomb/Player/StraightBomb.prefab",
+            "Assets/Game/Content/Prefabs/Bomb/Boss/BossBomb.prefab",
+            "Assets/Game/Content/Prefabs/Bomb/Enemy/EnemyBomb.prefab",
+        };
+
         private static readonly Vector3 BombReadyLocalPosition =
             new Vector3(-0.031f, 0.926f, -0.152f);
         private static readonly Vector3 BombReadyLocalEulerAngles =
@@ -54,7 +63,7 @@ namespace BombSwap.Editor.ContentValidation
                 BossIntroSpawnPrefabPath);
             GameObject bossIntroLightning = LoadParticlePrefab(
                 BossIntroLightningPrefabPath);
-            SynchronizePlayerBombVfx(sparksEffect);
+            SynchronizeBombVfx(sparksEffect);
             EnsureDirectory(SettingsDirectory);
 
             PrototypeLocalVfxOverrides settings =
@@ -93,13 +102,13 @@ namespace BombSwap.Editor.ContentValidation
                 $"'{SettingsAssetPath}'. This asset is excluded from Git.");
         }
 
-        [MenuItem("Bomb Swap/Local Setup/Reset Player Bomb VFX to Public Fallback")]
+        [MenuItem("Bomb Swap/Local Setup/Reset Bomb VFX to Public Fallback")]
         public static void ResetPlayerBombVfxToPublicFallback()
         {
-            SynchronizePlayerBombVfx(null);
+            SynchronizeBombVfx(null);
             AssetDatabase.SaveAssets();
             Debug.Log(
-                "[LocalLicensedVfxSetup] Cleared local particle children from player bomb " +
+                "[LocalLicensedVfxSetup] Cleared local particle children from bomb " +
                 "prefabs. The empty SparksEffect anchors are the public fallback.");
         }
 
@@ -153,7 +162,7 @@ namespace BombSwap.Editor.ContentValidation
                 settings.BossIntroLightningVfxPrefab,
                 BossIntroLightningPrefabPath,
                 "boss-intro lightning VFX");
-            ValidatePlayerBombVfx();
+            ValidateBombVfx();
         }
 
         public static bool IsApprovedPlayerBombVfxReference(
@@ -162,13 +171,13 @@ namespace BombSwap.Editor.ContentValidation
             string[] assetDependencies,
             ISet<string> approvedVfxDependencies)
         {
-            bool referencesPlayerBomb = Array.IndexOf(PlayerBombPrefabPaths, assetPath) >= 0;
+            bool referencesPlayerBomb = Array.IndexOf(BombPrefabPaths, assetPath) >= 0;
             for (int index = 0;
-                 !referencesPlayerBomb && index < PlayerBombPrefabPaths.Length;
+                 !referencesPlayerBomb && index < BombPrefabPaths.Length;
                  index++)
             {
                 referencesPlayerBomb =
-                    Array.IndexOf(assetDependencies, PlayerBombPrefabPaths[index]) >= 0;
+                    Array.IndexOf(assetDependencies, BombPrefabPaths[index]) >= 0;
             }
             return referencesPlayerBomb &&
                 approvedVfxDependencies.Contains(dependencyPath);
@@ -244,16 +253,26 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static void SynchronizePlayerBombVfx(GameObject sparksEffectPrefab)
+        private static void SynchronizeBombVfx(GameObject sparksEffectPrefab)
         {
-            for (int index = 0; index < PlayerBombPrefabPaths.Length; index++)
+            for (int index = 0; index < BombPrefabPaths.Length; index++)
             {
-                string prefabPath = PlayerBombPrefabPaths[index];
+                string prefabPath = BombPrefabPaths[index];
                 GameObject contents = PrefabUtility.LoadPrefabContents(prefabPath);
                 try
                 {
                     Transform anchor = contents.transform.Find("SparksEffect");
-                    ValidatePlayerBombAnchor(anchor, prefabPath);
+                    ValidateBombAnchor(anchor, prefabPath);
+                    if (IsPlayerBombPrefabPath(prefabPath))
+                    {
+                        anchor.localPosition = sparksEffectPrefab != null
+                            ? BombReadyLocalPosition
+                            : Vector3.zero;
+                        anchor.localRotation = sparksEffectPrefab != null
+                            ? Quaternion.Euler(BombReadyLocalEulerAngles)
+                            : Quaternion.identity;
+                        anchor.localScale = Vector3.one;
+                    }
                     for (int childIndex = anchor.childCount - 1; childIndex >= 0; childIndex--)
                     {
                         UnityEngine.Object.DestroyImmediate(
@@ -269,6 +288,7 @@ namespace BombSwap.Editor.ContentValidation
                         instance.transform.localPosition = Vector3.zero;
                         instance.transform.localRotation = Quaternion.identity;
                         instance.transform.localScale = Vector3.one;
+                        ConfigureBombReadyParticles(instance);
                     }
 
                     PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
@@ -280,23 +300,35 @@ namespace BombSwap.Editor.ContentValidation
             }
         }
 
-        private static void ValidatePlayerBombVfx()
+        private static void ValidateBombVfx()
         {
-            for (int index = 0; index < PlayerBombPrefabPaths.Length; index++)
+            for (int index = 0; index < BombPrefabPaths.Length; index++)
             {
-                string prefabPath = PlayerBombPrefabPaths[index];
+                string prefabPath = BombPrefabPaths[index];
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
                 if (prefab == null)
                 {
                     throw new InvalidOperationException(
-                        $"Player bomb prefab is missing at '{prefabPath}'.");
+                        $"Bomb prefab is missing at '{prefabPath}'.");
                 }
                 Transform anchor = prefab.transform.Find("SparksEffect");
-                ValidatePlayerBombAnchor(anchor, prefabPath);
+                ValidateBombAnchor(anchor, prefabPath);
+                if (IsPlayerBombPrefabPath(prefabPath) &&
+                    (Vector3.Distance(
+                         anchor.localPosition,
+                         BombReadyLocalPosition) > 0.0001f ||
+                     Quaternion.Angle(
+                         anchor.localRotation,
+                         Quaternion.Euler(BombReadyLocalEulerAngles)) > 0.01f))
+                {
+                    throw new InvalidOperationException(
+                        $"Player bomb anchor '{prefabPath}/SparksEffect' must use the " +
+                        "configured fuse position and rotation.");
+                }
                 if (anchor.childCount != 1)
                 {
                     throw new InvalidOperationException(
-                        $"Player bomb anchor '{prefabPath}/SparksEffect' must contain the " +
+                        $"Bomb anchor '{prefabPath}/SparksEffect' must contain the " +
                         "licensed particle after connection.");
                 }
                 Transform particle = anchor.GetChild(0);
@@ -305,22 +337,79 @@ namespace BombSwap.Editor.ContentValidation
                 if (particle.name != "Particle" || sourcePath != SparksEffectPrefabPath)
                 {
                     throw new InvalidOperationException(
-                        $"Player bomb anchor '{prefabPath}/SparksEffect' contains an unexpected " +
+                        $"Bomb anchor '{prefabPath}/SparksEffect' contains an unexpected " +
                         $"child. Expected a 'Particle' instance of '{SparksEffectPrefabPath}'.");
+                }
+
+                if (particle.localPosition != Vector3.zero ||
+                    Quaternion.Angle(particle.localRotation, Quaternion.identity) > 0.01f)
+                {
+                    throw new InvalidOperationException(
+                        $"Bomb particle '{prefabPath}/SparksEffect/Particle' must keep " +
+                        "an identity transform under the configured anchor.");
+                }
+
+                ValidateBombReadyParticles(particle.gameObject, prefabPath);
+            }
+        }
+
+        private static void ConfigureBombReadyParticles(GameObject root)
+        {
+            ParticleSystem[] systems = root.GetComponentsInChildren<ParticleSystem>(true);
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+
+                ParticleSystem.CollisionModule collision = systems[index].collision;
+                collision.enabled = false;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(systems[index]);
+            }
+        }
+
+        private static void ValidateBombReadyParticles(GameObject root, string prefabPath)
+        {
+            ParticleSystem[] systems = root.GetComponentsInChildren<ParticleSystem>(true);
+            if (systems.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Player bomb particle '{prefabPath}/SparksEffect/Particle' requires at " +
+                    "least one ParticleSystem.");
+            }
+
+            for (int index = 0; index < systems.Length; index++)
+            {
+                if (systems[index].main.simulationSpace !=
+                    ParticleSystemSimulationSpace.Local)
+                {
+                    throw new InvalidOperationException(
+                        $"Bomb-ready ParticleSystem '{systems[index].name}' in '{prefabPath}' " +
+                        "must use Local simulation space.");
+                }
+                if (systems[index].collision.enabled)
+                {
+                    throw new InvalidOperationException(
+                        $"Bomb-ready ParticleSystem '{systems[index].name}' in '{prefabPath}' " +
+                        "must not collide with world geometry.");
                 }
             }
         }
 
-        private static void ValidatePlayerBombAnchor(
+        private static void ValidateBombAnchor(
             Transform anchor,
             string prefabPath)
         {
             if (anchor == null)
             {
                 throw new InvalidOperationException(
-                    $"Player bomb prefab '{prefabPath}' requires a direct child named " +
+                    $"Bomb prefab '{prefabPath}' requires a direct child named " +
                     "'SparksEffect'.");
             }
+        }
+
+        private static bool IsPlayerBombPrefabPath(string prefabPath)
+        {
+            return Array.IndexOf(PlayerBombPrefabPaths, prefabPath) >= 0;
         }
     }
 }
