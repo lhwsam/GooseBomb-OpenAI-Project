@@ -1722,6 +1722,7 @@ GameObject:
   - component: {fileID: 549228505}
   - component: {fileID: 549228507}
   - component: {fileID: 549228506}
+  - component: {fileID: 549228508}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1770,6 +1771,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 200685366}
+  - {fileID: 1460600177}
+  - {fileID: 1896391133}
   m_Father: {fileID: 455876710}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &549228483
@@ -2068,6 +2071,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeCameraShake
   shakeTarget: {fileID: 780599539}
   maxAmplitude: 0.25
+--- !u!114 &549228508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1400a2b8070b2fd49b4857fc243d3abe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerActionAudioPresenter
+  session: {fileID: 549228485}
+  damageAudio: {fileID: 1460600176}
+  bombPlacementAudio: {fileID: 1896391132}
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0
@@ -4413,6 +4431,59 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1428688723}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1460600175
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1460600177}
+  - component: {fileID: 1460600176}
+  m_Layer: 0
+  m_Name: PlayerDamageAudio
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1460600176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1460600175}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce4a045754be44248b8abd4a7f6efcea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRandomOneShotAudio
+  clips:
+  - {fileID: 8300000, guid: 352e79873d9750046aa8002d464a742c, type: 3}
+  - {fileID: 8300000, guid: f0788f5c3cc124b46a31fcff1aa8c5dd, type: 3}
+  - {fileID: 8300000, guid: 9d13f353ad4b7014895cbb09d3a2da01, type: 3}
+  outputGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  voiceCount: 4
+  spatialBlend: 0
+  minDistance: 1
+  maxDistance: 1
+--- !u!4 &1460600177
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1460600175}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 549228482}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1465906797
 GameObject:
   m_ObjectHideFlags: 0
@@ -6379,6 +6450,59 @@ Transform:
   - {fileID: 1030616170}
   - {fileID: 1766682968}
   m_Father: {fileID: 826194692}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1896391131
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1896391133}
+  - component: {fileID: 1896391132}
+  m_Layer: 0
+  m_Name: PlayerBombPlacementAudio
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1896391132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1896391131}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce4a045754be44248b8abd4a7f6efcea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeRandomOneShotAudio
+  clips:
+  - {fileID: 8300000, guid: 5791df2bab0f03249bd8e5230a9866e4, type: 3}
+  - {fileID: 8300000, guid: 9726214fc98c8404ebdc0d1d92c15f00, type: 3}
+  - {fileID: 8300000, guid: 09f68157d6be86b41b8fdb1398517e21, type: 3}
+  outputGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  voiceCount: 4
+  spatialBlend: 0
+  minDistance: 1
+  maxDistance: 1
+--- !u!4 &1896391133
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1896391131}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 549228482}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1931743759
 GameObject:

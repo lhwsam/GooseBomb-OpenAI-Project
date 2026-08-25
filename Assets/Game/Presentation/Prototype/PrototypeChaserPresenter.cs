@@ -25,6 +25,7 @@ namespace BombSwap
         private GameObject _instance;
         private Renderer _renderer;
         private Animator _animator;
+        private PigCharacterVocalAudio _vocalAudio;
         private MaterialPropertyBlock _propertyBlock;
         private int _colorPropertyId;
         private Color _normalColor;
@@ -166,6 +167,7 @@ namespace BombSwap
             _instance.name = "PrototypeChaserVisual";
             _renderer = _instance.GetComponentInChildren<Renderer>(true);
             _animator = _instance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
@@ -211,6 +213,7 @@ namespace BombSwap
             }
 
             AttackAnimationCount++;
+            _vocalAudio?.PlayAttackVocal();
             if (_animator != null)
             {
                 _animator.SetTrigger(AttackParameterId);
@@ -229,6 +232,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             if (_animator != null)
             {
                 _animator.SetBool(IsMovingParameterId, false);

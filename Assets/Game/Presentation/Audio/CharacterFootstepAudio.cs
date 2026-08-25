@@ -31,6 +31,9 @@ namespace BombSwap
         [SerializeField, Min(1)]
         private int maximumSharedEnemyVoices = 4;
 
+        [SerializeField]
+        private PigCharacterVocalAudio movementVocalAudio;
+
         private int _lastClipIndex = -1;
         private float _nextAllowedTime;
 
@@ -43,6 +46,10 @@ namespace BombSwap
             if (audioSource == null)
             {
                 audioSource = GetComponent<AudioSource>();
+            }
+            if (movementVocalAudio == null)
+            {
+                movementVocalAudio = GetComponentInChildren<PigCharacterVocalAudio>(true);
             }
 
             Animator[] animators = GetComponentsInChildren<Animator>(true);
@@ -105,6 +112,7 @@ namespace BombSwap
             _nextAllowedTime = now + minimumInterval;
             LastPlayedClip = clip;
             PlayCount++;
+            movementVocalAudio?.TryPlayMovementVocal();
         }
 
         private int SelectClipIndex()

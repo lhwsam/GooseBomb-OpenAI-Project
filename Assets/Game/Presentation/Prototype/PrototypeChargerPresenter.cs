@@ -38,6 +38,7 @@ namespace BombSwap
         private GameObject _instance;
         private Renderer _renderer;
         private Animator _animator;
+        private PigCharacterVocalAudio _vocalAudio;
         private MaterialPropertyBlock _propertyBlock;
         private int _colorPropertyId;
         private Color _normalColor;
@@ -196,6 +197,7 @@ namespace BombSwap
             _instance.name = "PrototypeChargerVisual";
             _renderer = _instance.GetComponentInChildren<Renderer>(true);
             _animator = _instance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
@@ -235,6 +237,10 @@ namespace BombSwap
             {
                 StateChangeCount++;
                 CurrentState = result.State;
+                if (CurrentState == ChargerEnemyState.Charge)
+                {
+                    _vocalAudio?.PlayAttackVocal();
+                }
                 ApplyAnimationState(CurrentState);
                 ApplyStateColor(CurrentState);
                 if (CurrentState == ChargerEnemyState.Telegraph)
@@ -275,6 +281,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             HideTelegraphLane();
             if (_animator != null)
             {

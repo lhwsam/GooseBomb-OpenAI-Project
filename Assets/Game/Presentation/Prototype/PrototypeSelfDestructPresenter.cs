@@ -42,6 +42,7 @@ namespace BombSwap
         private GameObject instance;
         private Renderer instanceRenderer;
         private Animator animator;
+        private PigCharacterVocalAudio vocalAudio;
         private MaterialPropertyBlock propertyBlock;
         private int colorPropertyId;
         private Color normalColor;
@@ -241,6 +242,7 @@ namespace BombSwap
             instance.name = "PrototypeSelfDestructVisual";
             instanceRenderer = instance.GetComponentInChildren<Renderer>(true);
             animator = instance.GetComponentInChildren<Animator>(true);
+            vocalAudio = instance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (animator != null)
             {
                 animator.applyRootMotion = false;
@@ -320,6 +322,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            vocalAudio?.PlayDeathVocal();
             HideTelegraph();
             instance.transform.localScale = baseScale;
             ApplyColor(deathColor);

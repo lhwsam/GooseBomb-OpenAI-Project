@@ -126,6 +126,7 @@ namespace BombSwap
         private GameObject _bossInstance;
         private Renderer _bossRenderer;
         private Animator _animator;
+        private PigCharacterVocalAudio _vocalAudio;
         private GameObject _moveTargetInstance;
         private Renderer _moveTargetRenderer;
         private MaterialPropertyBlock _bossPropertyBlock;
@@ -142,6 +143,7 @@ namespace BombSwap
         private bool _isMoving;
         private bool _isShowingDeath;
         private bool _isParityWaveTelegraphActive;
+        private readonly BossSkillVocalGate _skillVocalGate = new();
         private bool _isIntroPrepared;
         private bool _isIntroLanded;
         private Vector3 _introStartWorldPosition;
@@ -334,6 +336,7 @@ namespace BombSwap
             _isMoving = false;
             _isShowingDeath = false;
             _isParityWaveTelegraphActive = false;
+            _skillVocalGate.Reset();
             _isIntroPrepared = false;
             _isIntroLanded = false;
             _movementTargets.Clear();
@@ -415,6 +418,7 @@ namespace BombSwap
                 (Vector3.up * definition.VisualHeight);
             _bossRenderer = _bossInstance.GetComponentInChildren<Renderer>(true);
             _animator = _bossInstance.GetComponentInChildren<Animator>(true);
+            _vocalAudio = _bossInstance.GetComponentInChildren<PigCharacterVocalAudio>(true);
             if (_animator != null)
             {
                 _animator.applyRootMotion = false;
@@ -560,6 +564,11 @@ namespace BombSwap
             CurrentPhase = transition.Phase;
             CurrentPattern = transition.Pattern;
             DisplayedBossPosition = transition.BossPosition;
+            if (_skillVocalGate.ShouldPlay(transition.State, transition.Pattern) &&
+                IsVocalAttackPattern(transition.Pattern))
+            {
+                _vocalAudio?.PlaySkillVocal();
+            }
             if (transition.Movements.Count > 0)
             {
                 _movementTargets.Clear();
@@ -601,6 +610,7 @@ namespace BombSwap
             }
 
             DeathCount++;
+            _vocalAudio?.PlayDeathVocal();
             CurrentState = BossBattleState.Defeated;
             _isMoving = false;
             if (_animator != null)
@@ -1103,6 +1113,27 @@ namespace BombSwap
         {
             return pattern != BossPatternKind.BombVolley &&
                    pattern != BossPatternKind.LastStandBombChain;
+        }
+
+        private static bool IsVocalAttackPattern(BossPatternKind pattern)
+        {
+            switch (pattern)
+            {
+                case BossPatternKind.FixedCharge:
+                case BossPatternKind.SummonSelfDestruct:
+                case BossPatternKind.BombVolley:
+                case BossPatternKind.ParityWave:
+                case BossPatternKind.Overheat:
+                case BossPatternKind.LastStandBombChain:
+                    return true;
+                case BossPatternKind.LimitedChase:
+                case BossPatternKind.ReturnToCenter:
+                case BossPatternKind.PhaseTransition:
+                case BossPatternKind.WaitForSelfDestruct:
+                    return false;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(pattern), pattern, null);
+            }
         }
 
         private void ApplyMoveTarget(

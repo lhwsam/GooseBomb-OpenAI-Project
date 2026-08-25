@@ -9,6 +9,10 @@
 
 ## 완료
 
+- Chaser·Charger·SelfDestruct·Thrower·Boss 프리팹에 공용 Pig 음성을 연결했다. 사망은 Long 3종, 일반 공격과 이동은 Short 6종을 비반복 무작위 재생하며, 보스 스킬 Execute는 Boss 전용 3종을 사용한다. 이동 음성은 기존 발걸음 이벤트 기준 25% 확률·캐릭터별 최소 2초 간격, 적 위치 기반 3D SFX로 제한한다.
+
+- 플레이어 액션 SFX를 연결했다. 적용된 피해에는 `Duck_call_1/3/5`, 성공한 플레이어 폭탄 설치에는 `Duck_call_2/4/6` 중 하나를 무작위 재생하며, 두 그룹 모두 SFX Mixer 기반 2D one-shot으로 플레이 가능한 16개 씬에 저작되어 있다.
+
 - 플레이어와 Chaser·Charger·SelfDestruct·Thrower·Boss 비주얼 프리팹에 SFX Mixer 기반 발소리 AudioSource를 연결했다. 이동 클립의 `PlayFootstep` Animation Event는 중첩 FBX Animator에 런타임으로 붙는 relay를 거쳐 프리팹 루트의 `CharacterFootstepAudio`로 전달되며, 플레이어·적 전용 4개 clip 비반복 무작위 재생, 적 3D 거리 감쇠·4 voice 상한, 일시정지 차단을 적용한다. Charger와 Boss의 Walk·Charge 두 이동 클립 모두 같은 경로를 사용한다.
 
 - GDD v0.2와 프로토타입 검증 부록 v0.2 작성.
