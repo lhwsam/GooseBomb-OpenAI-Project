@@ -104,6 +104,10 @@ namespace BombSwap.Editor.ContentValidation
             BossBattlePlaytestScenePath,
         };
 
+        public static readonly string[] PlayerDeathScenePaths = BgmScenePaths
+            .Where(IsDungeonPresentationScenePath)
+            .ToArray();
+
         public static bool IsDungeonPresentationScenePath(string scenePath)
         {
             return string.Equals(scenePath, DungeonStartScenePath, StringComparison.Ordinal) ||
@@ -303,6 +307,7 @@ namespace BombSwap.Editor.ContentValidation
             ValidateBgmContent(errors);
             ValidateCameraShakeScenes(errors);
             ValidateBossIntroScenes(errors);
+            ValidatePlayerDeathScenes(errors);
             ValidateInGameUiPrefabs(errors);
             ValidateLobbyScene(errors);
             PrototypeThirdPartyAssetAuthoring.ValidatePublicDependencies(errors);
@@ -933,6 +938,14 @@ namespace BombSwap.Editor.ContentValidation
 
         private static void ValidateBossIntroScenes(ICollection<string> errors)
         {
+            PrototypeBossClearTransitionView transitionView =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossClearTransitionView>(
+                    PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath);
+            if (transitionView == null || !transitionView.HasRequiredReferences)
+            {
+                errors.Add(
+                    $"Missing or invalid boss-clear transition prefab: {PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath}");
+            }
             for (int index = 0; index < BossIntroScenePaths.Length; index++)
             {
                 ValidateBossIntroScene(BossIntroScenePaths[index], errors);
@@ -960,8 +973,12 @@ namespace BombSwap.Editor.ContentValidation
             {
                 PrototypeBossIntroPresenter[] intros =
                     FindComponents<PrototypeBossIntroPresenter>(scene);
+                PrototypeBossClearPresenter[] clears =
+                    FindComponents<PrototypeBossClearPresenter>(scene);
                 PrototypeBossPresenter[] bosses =
                     FindComponents<PrototypeBossPresenter>(scene);
+                PrototypeBombPresenter[] bombs =
+                    FindComponents<PrototypeBombPresenter>(scene);
                 PrototypeHealthHud[] healthHuds =
                     FindComponents<PrototypeHealthHud>(scene);
                 PrototypeGameSession[] sessions =
@@ -971,22 +988,26 @@ namespace BombSwap.Editor.ContentValidation
                 PrototypeCameraShake[] shakes =
                     FindComponents<PrototypeCameraShake>(scene);
                 Camera[] cameras = FindComponents<Camera>(scene);
+                PrototypeRunCompletionPresenter[] completions =
+                    FindComponents<PrototypeRunCompletionPresenter>(scene);
 
-                if (intros.Length != 1 || bosses.Length != 1 ||
+                if (intros.Length != 1 || clears.Length != 1 ||
+                    bosses.Length != 1 || bombs.Length != 1 ||
                     healthHuds.Length != 1 || sessions.Length != 1 ||
                     settings.Length != 1 || shakes.Length != 1 ||
                     cameras.Length != 1)
                 {
                     errors.Add(
-                        $"Boss-intro scene '{scenePath}' requires exactly one intro, boss " +
-                        "presenter, health HUD, session, settings runtime, camera shake, and " +
-                        $"camera; found {intros.Length}, {bosses.Length}, {healthHuds.Length}, " +
+                        $"Boss presentation scene '{scenePath}' requires exactly one intro, clear, boss " +
+                        "presenter, bomb presenter, health HUD, session, settings runtime, camera shake, and " +
+                        $"camera; found {intros.Length}, {clears.Length}, {bosses.Length}, {bombs.Length}, {healthHuds.Length}, " +
                         $"{sessions.Length}, {settings.Length}, {shakes.Length}, " +
                         $"{cameras.Length}.");
                     return;
                 }
 
                 PrototypeBossIntroPresenter intro = intros[0];
+                PrototypeBossClearPresenter clear = clears[0];
                 Camera camera = cameras[0];
                 if (intro.gameObject != sessions[0].gameObject ||
                     intro.Session != sessions[0] ||
@@ -995,21 +1016,49 @@ namespace BombSwap.Editor.ContentValidation
                     intro.Settings != settings[0] ||
                     intro.GameplayCamera != camera ||
                     intro.CameraShake != shakes[0] ||
+                    clear.gameObject != sessions[0].gameObject ||
+                    clear.Session != sessions[0] ||
+                    clear.BossPresenter != bosses[0] ||
+                    clear.BombPresenter != bombs[0] ||
+                    clear.Settings != settings[0] ||
+                    clear.GameplayCamera != camera ||
+                    clear.CameraShake != shakes[0] ||
+                    clear.TransitionViewPrefab == null ||
+                    AssetDatabase.GetAssetPath(clear.TransitionViewPrefab) !=
+                        PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath ||
                     bosses[0].AttackFeedbackSettings != settings[0] ||
                     bosses[0].AttackCameraShake != shakes[0])
                 {
                     errors.Add(
-                        $"Boss-intro scene '{scenePath}' has inconsistent intro or attack-feedback references.");
+                        $"Boss presentation scene '{scenePath}' has inconsistent intro, clear, or attack-feedback references.");
                 }
                 if (!sessions[0].IsBossEnabledByDefault ||
                     !camera.enabled || !camera.CompareTag("MainCamera") ||
                     !camera.orthographic ||
                     intro.FocusedOrthographicSize <= 0f ||
-                    intro.DropHeight <= 0f)
+                    intro.DropHeight <= 0f ||
+                    clear.FocusedOrthographicSize <= 0f ||
+                    clear.DeathAnimatorSpeed <= 0f ||
+                    clear.DeathAnimatorSpeed > 1f)
                 {
                     errors.Add(
-                        $"Boss-intro scene '{scenePath}' requires an authored boss, enabled " +
-                        "orthographic MainCamera, and positive focus/drop tuning.");
+                        $"Boss presentation scene '{scenePath}' requires an authored boss, enabled " +
+                        "orthographic MainCamera, and valid intro/clear tuning.");
+                }
+
+                bool expectsCompletion = string.Equals(
+                    scenePath,
+                    DungeonBossScenePath,
+                    StringComparison.Ordinal);
+                if ((expectsCompletion &&
+                     (completions.Length != 1 ||
+                      completions[0].BossClearPresenter != clear)) ||
+                    (!expectsCompletion && completions.Length != 0))
+                {
+                    errors.Add(
+                        expectsCompletion
+                            ? $"Dungeon boss scene '{scenePath}' must gate its single run-completion presenter with the boss-clear presentation."
+                            : $"Boss playtest scene '{scenePath}' must not contain a run-completion presenter.");
                 }
             }
             finally
@@ -3256,6 +3305,113 @@ namespace BombSwap.Editor.ContentValidation
             {
                 errors.Add(
                     "Recovery shrine availability effect must use the authored pulsing core, halo and one rising-mote ParticleSystem without realtime Light or Collider components.");
+            }
+        }
+
+        private static void ValidatePlayerDeathScenes(
+            ICollection<string> errors)
+        {
+            PrototypeBossClearTransitionView transitionView =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossClearTransitionView>(
+                    PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath);
+            if (transitionView == null || !transitionView.HasRequiredReferences)
+            {
+                errors.Add(
+                    $"Missing or invalid player-death transition prefab: {PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath}");
+            }
+
+            for (int index = 0; index < PlayerDeathScenePaths.Length; index++)
+            {
+                ValidatePlayerDeathScene(PlayerDeathScenePaths[index], errors);
+            }
+        }
+
+        private static void ValidatePlayerDeathScene(
+            string scenePath,
+            ICollection<string> errors)
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                errors.Add($"Missing player-death target scene: {scenePath}");
+                return;
+            }
+
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool openedForValidation = !scene.IsValid() || !scene.isLoaded;
+            if (openedForValidation)
+            {
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            }
+
+            try
+            {
+                PrototypePlayerDeathPresenter[] deathPresenters =
+                    FindComponents<PrototypePlayerDeathPresenter>(scene);
+                PrototypeGameSession[] sessions =
+                    FindComponents<PrototypeGameSession>(scene);
+                PrototypePlayerController[] controllers =
+                    FindComponents<PrototypePlayerController>(scene);
+                PrototypePlayerAnimationPresenter[] animations =
+                    FindComponents<PrototypePlayerAnimationPresenter>(scene);
+                PrototypeCameraShake[] shakes =
+                    FindComponents<PrototypeCameraShake>(scene);
+                PrototypeRunCompletionPresenter[] completions =
+                    FindComponents<PrototypeRunCompletionPresenter>(scene);
+                Camera[] cameras = FindComponents<Camera>(scene);
+
+                if (deathPresenters.Length != 1 || sessions.Length != 1 ||
+                    controllers.Length != 1 || animations.Length != 1 ||
+                    shakes.Length != 1 || completions.Length != 1 ||
+                    cameras.Length != 1)
+                {
+                    errors.Add(
+                        $"Player-death scene '{scenePath}' requires exactly one death presenter, session, player controller, player animation presenter, camera shake, run-completion presenter, and camera; found {deathPresenters.Length}, {sessions.Length}, {controllers.Length}, {animations.Length}, {shakes.Length}, {completions.Length}, and {cameras.Length}.");
+                    return;
+                }
+
+                PrototypePlayerDeathPresenter presenter = deathPresenters[0];
+                Camera camera = cameras[0];
+                Animator animator = animations[0].Animator;
+                bool hasDeathClip = animator != null &&
+                    animator.runtimeAnimatorController != null &&
+                    animator.runtimeAnimatorController.animationClips.Any(clip =>
+                        clip != null && string.Equals(
+                            clip.name,
+                            PrototypePlayerDeathPresenter.DeathAnimationClipName,
+                            StringComparison.Ordinal));
+                if (presenter.gameObject != sessions[0].gameObject ||
+                    presenter.Session != sessions[0] ||
+                    presenter.PlayerController != controllers[0] ||
+                    presenter.PlayerAnimationPresenter != animations[0] ||
+                    presenter.GameplayCamera != camera ||
+                    presenter.CameraShake != shakes[0] ||
+                    presenter.TransitionViewPrefab == null ||
+                    AssetDatabase.GetAssetPath(presenter.TransitionViewPrefab) !=
+                        PrototypeBossIntroAuthoring.BossClearTransitionPrefabPath ||
+                    completions[0].PlayerDeathPresenter != presenter ||
+                    controllers[0].Session != sessions[0] ||
+                    animations[0].Session != sessions[0] ||
+                    shakes[0].ShakeTarget != camera.transform)
+                {
+                    errors.Add(
+                        $"Player-death scene '{scenePath}' has inconsistent session, player, camera, transition, or result-gate references.");
+                }
+                if (!camera.enabled || !camera.CompareTag("MainCamera") ||
+                    !camera.orthographic || !hasDeathClip ||
+                    presenter.FocusedOrthographicSize <= 0f ||
+                    presenter.DeathAnimatorSpeed <= 0f ||
+                    presenter.DeathAnimatorSpeed > 1f)
+                {
+                    errors.Add(
+                        $"Player-death scene '{scenePath}' requires an enabled orthographic MainCamera, the player death clip, and valid presentation tuning.");
+                }
+            }
+            finally
+            {
+                if (openedForValidation && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
             }
         }
 

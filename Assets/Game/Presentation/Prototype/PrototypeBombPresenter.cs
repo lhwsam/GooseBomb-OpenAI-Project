@@ -13,6 +13,7 @@ namespace BombSwap
         public const float BombFuseVisualReferenceSeconds = 2f;
         public const float CrossExplosionVisualSeconds = 1f;
         public const float CrossExplosionVisualHeight = 0.5f;
+        public const float BombDangerCellVisualHeight = 0.03f;
         public const string PlayerCrossBombDefinitionId = "prototype-cross";
         public const string PlayerLineBombDefinitionId = "prototype-line";
         public const string ThrowerBombDefinitionId = "prototype-thrower-blocker";
@@ -61,7 +62,17 @@ namespace BombSwap
             new List<ActiveBossFlightVisual>(4);
         private readonly List<ActiveThrowerFlightVisual> _activeThrowerFlights =
             new List<ActiveThrowerFlightVisual>(3);
+        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
+            _activeBombDangerCells =
+                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
+        private readonly List<GridPosition> _visibleBombDangerCells =
+            new List<GridPosition>();
+        private readonly HashSet<GridPosition> _visibleBombDangerCellSet =
+            new HashSet<GridPosition>();
+        private readonly List<GameObject> _bombDangerCellInstances =
+            new List<GameObject>();
         private bool _initialized;
+        private GameObject _bombDangerCellPrefab;
         private PrototypeLocalVfxOverrides _localVfxOverrides;
         private GameObject _crossCenterExplosionPrefab;
         private GameObject _crossStraightExplosionPrefab;
@@ -84,6 +95,13 @@ namespace BombSwap
         public int ActiveBossFlightVisualCount => _activeBossFlights.Count;
 
         public int ActiveThrowerFlightVisualCount => _activeThrowerFlights.Count;
+
+        public int VisibleBombDangerCellCount => _visibleBombDangerCells.Count;
+
+        public bool HasBombDanger(BombId bombId)
+        {
+            return _activeBombDangerCells.ContainsKey(bombId);
+        }
 
         public void Configure(
             PrototypeGameSession gameSession,
@@ -122,6 +140,50 @@ namespace BombSwap
         public bool HasBombVisual(BombId bombId)
         {
             return _activeBombs.ContainsKey(bombId);
+        }
+
+        public void HideAllForBossClear()
+        {
+            if (session == null || !session.HasBoss || session.IsBossAlive)
+            {
+                throw new InvalidOperationException(
+                    "Boss-clear visual cleanup requires a defeated boss session.");
+            }
+
+            foreach (KeyValuePair<BombId, ActiveBombVisual> entry in _activeBombs)
+            {
+                ActiveBombVisual visual = entry.Value;
+                SetBombAnimatorsEnabled(visual.Instance, false);
+                visual.Instance.SetActive(false);
+                GetBombPool(visual.DefinitionId).Push(visual.Instance);
+            }
+            _activeBombs.Clear();
+
+            for (int index = 0; index < _activeBossFlights.Count; index++)
+            {
+                ActiveBossFlightVisual flight = _activeBossFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
+                flight.Instance.SetActive(false);
+                GetBombPool(flight.DefinitionId).Push(flight.Instance);
+            }
+            _activeBossFlights.Clear();
+
+            for (int index = 0; index < _activeThrowerFlights.Count; index++)
+            {
+                ActiveThrowerFlightVisual flight = _activeThrowerFlights[index];
+                SetBombAnimatorsEnabled(flight.Instance, false);
+                flight.Instance.SetActive(false);
+                GetBombPool(flight.DefinitionId).Push(flight.Instance);
+            }
+            _activeThrowerFlights.Clear();
+
+            for (int index = 0; index < _activeExplosions.Count; index++)
+            {
+                ReleaseExplosion(_activeExplosions[index]);
+            }
+            _activeExplosions.Clear();
+            _activeBombDangerCells.Clear();
+            RefreshBombDangerCells();
         }
 
         public void ConfigureCrossExplosionVfx(
@@ -166,6 +228,7 @@ namespace BombSwap
                     "PrototypeBombPresenter requires session and presentation-root references.");
             }
 
+            session.BombActivated += OnBombActivated;
             session.BombPlaced += OnBombPlaced;
             session.BossBombPlaced += OnBombPlaced;
             session.BossBombLaunched += OnBossBombLaunched;
@@ -184,6 +247,7 @@ namespace BombSwap
         {
             if (session != null)
             {
+                session.BombActivated -= OnBombActivated;
                 session.BombPlaced -= OnBombPlaced;
                 session.BossBombPlaced -= OnBombPlaced;
                 session.BossBombLaunched -= OnBossBombLaunched;
@@ -209,6 +273,16 @@ namespace BombSwap
                 GetBombPool(flight.DefinitionId).Push(flight.Instance);
             }
             _activeThrowerFlights.Clear();
+            _activeBombDangerCells.Clear();
+            _visibleBombDangerCells.Clear();
+            _visibleBombDangerCellSet.Clear();
+            for (int index = 0; index < _bombDangerCellInstances.Count; index++)
+            {
+                if (_bombDangerCellInstances[index] != null)
+                {
+                    _bombDangerCellInstances[index].SetActive(false);
+                }
+            }
         }
 
         private void Update()
@@ -328,6 +402,24 @@ namespace BombSwap
                     instance,
                     snapshot.DefinitionId,
                     fuseAnimationSpeed));
+        }
+
+        private void OnBombActivated(BombSnapshot snapshot)
+        {
+            if (!session.TryGetBombExplosionPreview(
+                    snapshot.Id,
+                    out IReadOnlyList<GridPosition> affectedCells))
+            {
+                throw new InvalidOperationException(
+                    $"Activated bomb {snapshot.Id} has no explosion preview.");
+            }
+
+            _activeBombDangerCells[snapshot.Id] = affectedCells;
+            if (_bombDangerCellPrefab == null)
+            {
+                _bombDangerCellPrefab = ResolveBombDangerCellPrefab(snapshot.DefinitionId);
+            }
+            RefreshBombDangerCells();
         }
 
         private void OnPauseStateChanged(bool isPaused)
@@ -469,6 +561,11 @@ namespace BombSwap
 
         private void OnBombExploded(BombExplosion explosion)
         {
+            if (_activeBombDangerCells.Remove(explosion.BombId))
+            {
+                RefreshBombDangerCells();
+            }
+
             if (_activeBombs.TryGetValue(
                     explosion.BombId,
                     out ActiveBombVisual bombVisual))
@@ -926,6 +1023,88 @@ namespace BombSwap
                 }
                 animator.speed = enabled && !paused ? playbackSpeed : 0f;
             }
+        }
+
+        private void RefreshBombDangerCells()
+        {
+            _visibleBombDangerCells.Clear();
+            _visibleBombDangerCellSet.Clear();
+            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
+                     _activeBombDangerCells)
+            {
+                IReadOnlyList<GridPosition> cells = entry.Value;
+                for (int index = 0; index < cells.Count; index++)
+                {
+                    if (_visibleBombDangerCellSet.Add(cells[index]))
+                    {
+                        _visibleBombDangerCells.Add(cells[index]);
+                    }
+                }
+            }
+            _visibleBombDangerCells.Sort(CompareGridPositions);
+
+            EnsureBombDangerCellCapacity(_visibleBombDangerCells.Count);
+            for (int index = 0; index < _bombDangerCellInstances.Count; index++)
+            {
+                GameObject instance = _bombDangerCellInstances[index];
+                bool shouldShow = index < _visibleBombDangerCells.Count;
+                if (shouldShow)
+                {
+                    instance.transform.position = session.GridSpace.GridToWorld(
+                            _visibleBombDangerCells[index]) +
+                        (Vector3.up * BombDangerCellVisualHeight);
+                }
+                instance.SetActive(shouldShow);
+            }
+        }
+
+        private void EnsureBombDangerCellCapacity(int required)
+        {
+            while (_bombDangerCellInstances.Count < required)
+            {
+                GameObject instance = CreatePooledInstance(
+                    _bombDangerCellPrefab,
+                    $"BombDangerCellVisual{_bombDangerCellInstances.Count}");
+                _bombDangerCellInstances.Add(instance);
+            }
+        }
+
+        private GameObject ResolveBombDangerCellPrefab(BombDefinitionId definitionId)
+        {
+            if (session.SelfDestructDefinition != null &&
+                session.SelfDestructDefinition.TelegraphCellPrefab != null)
+            {
+                return session.SelfDestructDefinition.TelegraphCellPrefab;
+            }
+            if (session.BossDefinition != null &&
+                session.BossDefinition.DangerCellPrefab != null)
+            {
+                return session.BossDefinition.DangerCellPrefab;
+            }
+            if (session.ThrowerDefinition != null &&
+                session.ThrowerDefinition.TelegraphCellPrefab != null)
+            {
+                return session.ThrowerDefinition.TelegraphCellPrefab;
+            }
+
+            PrototypeBombDefinitionAsset definition =
+                session.GetBombDefinition(definitionId);
+            if (definition.ExplosionCellPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    "A bomb danger cell visual requires a presentation prefab.");
+            }
+            return definition.ExplosionCellPrefab;
+        }
+
+        private static int CompareGridPositions(
+            GridPosition left,
+            GridPosition right)
+        {
+            int xComparison = left.X.CompareTo(right.X);
+            return xComparison != 0
+                ? xComparison
+                : left.Z.CompareTo(right.Z);
         }
 
         private void SetBombAnimatorPlayback(GameObject instance, float playbackSpeed)

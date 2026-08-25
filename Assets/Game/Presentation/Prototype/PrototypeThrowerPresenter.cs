@@ -34,9 +34,6 @@ namespace BombSwap
 
         private GameObject instance;
         private readonly List<GameObject> telegraphCells = new List<GameObject>(3);
-        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
-            landedBombDangerCells =
-                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
         private readonly List<GridPosition> visibleDangerCells =
             new List<GridPosition>();
         private readonly HashSet<GridPosition> visibleDangerCellSet =
@@ -68,11 +65,6 @@ namespace BombSwap
         public int ActiveTelegraphCellCount => currentTargetTelegraphCells.Count;
 
         public int VisibleDangerCellCount => visibleDangerCells.Count;
-
-        public bool HasLandedBombDanger(BombId bombId)
-        {
-            return landedBombDangerCells.ContainsKey(bombId);
-        }
 
         public int MoveCount { get; private set; }
 
@@ -106,8 +98,6 @@ namespace BombSwap
             }
 
             session.ThrowerAdvanced += OnThrowerAdvanced;
-            session.ThrowerBombPlaced += OnThrowerBombPlaced;
-            session.BombExploded += OnBombExploded;
             session.EnemyDied += OnEnemyDied;
             session.PauseStateChanged += OnPauseStateChanged;
             session.Ready += OnSessionReady;
@@ -122,8 +112,6 @@ namespace BombSwap
             if (session != null)
             {
                 session.ThrowerAdvanced -= OnThrowerAdvanced;
-                session.ThrowerBombPlaced -= OnThrowerBombPlaced;
-                session.BombExploded -= OnBombExploded;
                 session.EnemyDied -= OnEnemyDied;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.Ready -= OnSessionReady;
@@ -146,7 +134,6 @@ namespace BombSwap
             }
             animator = null;
             telegraphCells.Clear();
-            landedBombDangerCells.Clear();
             visibleDangerCells.Clear();
             visibleDangerCellSet.Clear();
             currentTargetTelegraphCells = NoDangerCells;
@@ -271,36 +258,6 @@ namespace BombSwap
             ApplyAnimationState(result.State);
         }
 
-        private void OnThrowerBombPlaced(BombSnapshot snapshot)
-        {
-            if (snapshot.OwnerId != session.ThrowerActorId)
-            {
-                return;
-            }
-            if (!session.TryGetBombExplosionPreview(
-                    snapshot.Id,
-                    out IReadOnlyList<GridPosition> affectedCells))
-            {
-                throw new InvalidOperationException(
-                    $"Landed thrower bomb {snapshot.Id} has no explosion preview.");
-            }
-
-            landedBombDangerCells[snapshot.Id] = affectedCells;
-            RefreshDangerCells();
-        }
-
-        private void OnBombExploded(BombExplosion explosion)
-        {
-            if (!session.HasThrower || explosion.OwnerId != session.ThrowerActorId)
-            {
-                return;
-            }
-            if (landedBombDangerCells.Remove(explosion.BombId))
-            {
-                RefreshDangerCells();
-            }
-        }
-
         private void OnEnemyDied(EnemyDamageResult damage)
         {
             if (!session.HasThrower || damage.ActorId != session.ThrowerActorId)
@@ -411,11 +368,6 @@ namespace BombSwap
             visibleDangerCells.Clear();
             visibleDangerCellSet.Clear();
 
-            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
-                     landedBombDangerCells)
-            {
-                AddUniqueDangerCells(entry.Value);
-            }
             AddUniqueDangerCells(currentTargetTelegraphCells);
             visibleDangerCells.Sort(CompareGridPositions);
 

@@ -154,6 +154,8 @@ namespace BombSwap
 
         public event Action<GridSubcellPosition, CardinalDirection> PlayerPositionChanged;
 
+        public event Action<BombSnapshot> BombActivated;
+
         public event Action<BombSnapshot> BombPlaced;
 
         public event Action<BombSnapshot> BossBombPlaced;
@@ -1006,6 +1008,7 @@ namespace BombSwap
             }
 
             _movement.GrantBombPassThrough(snapshot);
+            BombActivated?.Invoke(snapshot);
             BombPlaced?.Invoke(snapshot);
             return true;
         }
@@ -1818,6 +1821,7 @@ namespace BombSwap
                     "Armed self-destruct bomb could not be read from the simulation.");
             }
 
+            BombActivated?.Invoke(snapshot);
             SelfDestructArmed?.Invoke(snapshot);
         }
 
@@ -1909,6 +1913,7 @@ namespace BombSwap
                 }
 
                 _bossReservedBombCells.Remove(pending.Flight.Target);
+                BombActivated?.Invoke(snapshot);
                 BossBombPlaced?.Invoke(snapshot);
                 _pendingBossBombFlights.RemoveAt(index);
             }
@@ -1973,6 +1978,7 @@ namespace BombSwap
                 }
 
                 _thrower.ConfirmBombPlaced(bombId);
+                BombActivated?.Invoke(snapshot);
                 ThrowerBombPlaced?.Invoke(snapshot);
             }
         }

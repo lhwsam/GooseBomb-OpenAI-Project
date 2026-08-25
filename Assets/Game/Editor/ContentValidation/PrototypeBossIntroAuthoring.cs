@@ -9,6 +9,9 @@ namespace BombSwap.Editor.ContentValidation
 {
     public static class PrototypeBossIntroAuthoring
     {
+        public const string BossClearTransitionPrefabPath =
+            "Assets/Game/Content/Resources/UI/PrototypeBossClearCanvas.prefab";
+
         private const string MenuPath =
             "Bomb Swap/Prototype/Apply Boss Intro Presentation";
 
@@ -58,12 +61,23 @@ namespace BombSwap.Editor.ContentValidation
             PrototypeGameSession session = FindExactlyOne<PrototypeGameSession>(scene);
             PrototypeBossPresenter bossPresenter =
                 FindExactlyOne<PrototypeBossPresenter>(scene);
+            PrototypeBombPresenter bombPresenter =
+                FindExactlyOne<PrototypeBombPresenter>(scene);
             PrototypeHealthHud healthHud = FindExactlyOne<PrototypeHealthHud>(scene);
             PrototypeUserSettingsRuntime settings =
                 FindExactlyOne<PrototypeUserSettingsRuntime>(scene);
             PrototypeCameraShake cameraShake =
                 FindExactlyOne<PrototypeCameraShake>(scene);
             Camera camera = FindExactlyOne<Camera>(scene);
+            PrototypeBossClearTransitionView transitionViewPrefab =
+                AssetDatabase.LoadAssetAtPath<PrototypeBossClearTransitionView>(
+                    BossClearTransitionPrefabPath);
+            if (transitionViewPrefab == null ||
+                !transitionViewPrefab.HasRequiredReferences)
+            {
+                throw new InvalidOperationException(
+                    $"Boss presentation requires a valid transition prefab at '{BossClearTransitionPrefabPath}'.");
+            }
             if (!session.IsBossEnabledByDefault ||
                 !camera.enabled || !camera.CompareTag("MainCamera") ||
                 !camera.orthographic)
@@ -86,9 +100,41 @@ namespace BombSwap.Editor.ContentValidation
                 settings,
                 camera,
                 cameraShake);
+            PrototypeBossClearPresenter clearPresenter =
+                session.GetComponent<PrototypeBossClearPresenter>();
+            if (clearPresenter == null)
+            {
+                clearPresenter =
+                    session.gameObject.AddComponent<PrototypeBossClearPresenter>();
+            }
+            clearPresenter.Configure(
+                session,
+                bossPresenter,
+                bombPresenter,
+                settings,
+                camera,
+                cameraShake,
+                transitionViewPrefab);
             bossPresenter.ConfigureAttackFeedback(settings, cameraShake);
 
+            PrototypeRunCompletionPresenter[] completionPresenters =
+                scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<
+                        PrototypeRunCompletionPresenter>(true))
+                    .ToArray();
+            if (completionPresenters.Length > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Boss scene '{scene.path}' has multiple run-completion presenters.");
+            }
+            if (completionPresenters.Length == 1)
+            {
+                completionPresenters[0].BindBossClearPresenter(clearPresenter);
+                EditorUtility.SetDirty(completionPresenters[0]);
+            }
+
             EditorUtility.SetDirty(intro);
+            EditorUtility.SetDirty(clearPresenter);
             EditorUtility.SetDirty(bossPresenter);
             EditorSceneManager.MarkSceneDirty(scene);
         }

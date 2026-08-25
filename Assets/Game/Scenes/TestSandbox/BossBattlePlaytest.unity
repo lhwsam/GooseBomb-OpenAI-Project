@@ -1679,6 +1679,7 @@ GameObject:
   - component: {fileID: 549228507}
   - component: {fileID: 549228506}
   - component: {fileID: 549228508}
+  - component: {fileID: 549228509}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -2047,6 +2048,30 @@ MonoBehaviour:
   landingShakeAmplitude: 0.24
   landingShakeDuration: 0.32
   landingShakeFrequency: 22
+--- !u!114 &549228509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7b15cd867ee9ac48ba881e1211bbc75, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossClearPresenter
+  session: {fileID: 549228485}
+  bossPresenter: {fileID: 549228496}
+  bombPresenter: {fileID: 549228484}
+  settings: {fileID: 549228504}
+  gameplayCamera: {fileID: 780599541}
+  cameraShake: {fileID: 549228507}
+  transitionViewPrefab: {fileID: 3347041615783577207, guid: ccb9b1abb8cdd7d448e7f55933b841bd, type: 3}
+  localVfxOverrides: {fileID: 0}
+  focusedOrthographicSize: 4.7
+  deathAnimatorSpeed: 0.5
+  burstShakeAmplitude: 0.07
+  finalShakeAmplitude: 0.2
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

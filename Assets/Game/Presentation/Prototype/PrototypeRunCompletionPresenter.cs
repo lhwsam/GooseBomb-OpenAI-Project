@@ -120,6 +120,12 @@ namespace BombSwap
         [SerializeField]
         private PrototypeRunCompletionView viewPrefab;
 
+        [SerializeField]
+        private PrototypeBossClearPresenter bossClearPresenter;
+
+        [SerializeField]
+        private PrototypePlayerDeathPresenter playerDeathPresenter;
+
         private PrototypeRunCompletionView _viewInstance;
         private TextMeshProUGUI _failureCauseLabel;
         private Button _restartButton;
@@ -132,6 +138,12 @@ namespace BombSwap
         public BombSwapInputReader InputReader => inputReader;
 
         public PrototypeRunCompletionView ViewPrefab => viewPrefab;
+
+        public PrototypeBossClearPresenter BossClearPresenter =>
+            bossClearPresenter;
+
+        public PrototypePlayerDeathPresenter PlayerDeathPresenter =>
+            playerDeathPresenter;
 
         public PrototypeRunCompletionView ViewInstance => _viewInstance;
 
@@ -190,6 +202,30 @@ namespace BombSwap
 
             viewPrefab = authoredViewPrefab ??
                 throw new ArgumentNullException(nameof(authoredViewPrefab));
+        }
+
+        public void BindBossClearPresenter(
+            PrototypeBossClearPresenter authoredBossClearPresenter)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeRunCompletionPresenter before changing its boss-clear gate.");
+            }
+
+            bossClearPresenter = authoredBossClearPresenter;
+        }
+
+        public void BindPlayerDeathPresenter(
+            PrototypePlayerDeathPresenter authoredPlayerDeathPresenter)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeRunCompletionPresenter before changing its player-death gate.");
+            }
+
+            playerDeathPresenter = authoredPlayerDeathPresenter;
         }
 
         public void RequestRestart()
@@ -269,6 +305,25 @@ namespace BombSwap
             roomBinder.RoomSession.Ready += OnSessionReady;
             roomBinder.RoomSession.RoomCleared += OnRoomCleared;
             roomBinder.RoomSession.PlayerDied += OnPlayerDied;
+            if (bossClearPresenter != null)
+            {
+                if (bossClearPresenter.Session != roomBinder.RoomSession)
+                {
+                    throw new InvalidOperationException(
+                        "Run completion and boss-clear presenters must share the same room session.");
+                }
+                bossClearPresenter.Completed += OnBossClearPresentationCompleted;
+            }
+            if (playerDeathPresenter != null)
+            {
+                if (playerDeathPresenter.Session != roomBinder.RoomSession)
+                {
+                    throw new InvalidOperationException(
+                        "Run completion and player-death presenters must share the same room session.");
+                }
+                playerDeathPresenter.Completed +=
+                    OnPlayerDeathPresentationCompleted;
+            }
             inputReader.CommandIssued += OnCommandIssued;
             if (roomBinder.RoomSession.IsReady)
             {
@@ -303,6 +358,15 @@ namespace BombSwap
                 roomBinder.RoomSession.RoomCleared -= OnRoomCleared;
                 roomBinder.RoomSession.PlayerDied -= OnPlayerDied;
             }
+            if (bossClearPresenter != null)
+            {
+                bossClearPresenter.Completed -= OnBossClearPresentationCompleted;
+            }
+            if (playerDeathPresenter != null)
+            {
+                playerDeathPresenter.Completed -=
+                    OnPlayerDeathPresentationCompleted;
+            }
             if (inputReader != null)
             {
                 inputReader.CommandIssued -= OnCommandIssued;
@@ -320,6 +384,16 @@ namespace BombSwap
         }
 
         private void OnPlayerDied(PlayerDamageResult _)
+        {
+            _checkResultNextFrame = true;
+        }
+
+        private void OnBossClearPresentationCompleted()
+        {
+            _checkResultNextFrame = true;
+        }
+
+        private void OnPlayerDeathPresentationCompleted()
         {
             _checkResultNextFrame = true;
         }
@@ -351,6 +425,16 @@ namespace BombSwap
                 roomBinder.RuntimeRoomType == RoomType.Boss &&
                 session.IsRoomCleared;
             if (!failed && !completed)
+            {
+                return;
+            }
+            if (completed && bossClearPresenter != null &&
+                !bossClearPresenter.IsCompleted)
+            {
+                return;
+            }
+            if (failed && playerDeathPresenter != null &&
+                !playerDeathPresenter.IsCompleted)
             {
                 return;
             }

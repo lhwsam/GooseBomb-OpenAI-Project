@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using BombSwap.Core;
 using UnityEngine;
 
@@ -38,7 +37,6 @@ namespace BombSwap
         [SerializeField]
         private float telegraphScaleMultiplier = 1.18f;
 
-        private readonly List<GameObject> telegraphCells = new List<GameObject>();
         private GameObject instance;
         private Renderer instanceRenderer;
         private Animator animator;
@@ -67,8 +65,6 @@ namespace BombSwap
         public int DeathCount { get; private set; }
 
         public Animator Animator => animator;
-
-        public int ActiveTelegraphCellCount { get; private set; }
 
         public SelfDestructEnemyState CurrentState { get; private set; }
 
@@ -131,14 +127,6 @@ namespace BombSwap
             {
                 Destroy(instance);
             }
-            for (int index = 0; index < telegraphCells.Count; index++)
-            {
-                if (telegraphCells[index] != null)
-                {
-                    Destroy(telegraphCells[index]);
-                }
-            }
-
             instance = null;
             instanceRenderer = null;
             if (animator != null)
@@ -146,8 +134,6 @@ namespace BombSwap
                 animator.speed = 1f;
             }
             animator = null;
-            telegraphCells.Clear();
-            ActiveTelegraphCellCount = 0;
             IsInitialized = false;
             isShowingDeath = false;
         }
@@ -255,10 +241,6 @@ namespace BombSwap
             CurrentState = session.CurrentSelfDestructState;
             ApplyAnimationState(CurrentState);
             ApplyStateVisual(CurrentState);
-            if (CurrentState == SelfDestructEnemyState.Telegraph)
-            {
-                ShowTelegraph();
-            }
             IsInitialized = true;
         }
 
@@ -297,14 +279,6 @@ namespace BombSwap
                 }
                 ApplyAnimationState(CurrentState);
                 ApplyStateVisual(CurrentState);
-                if (CurrentState == SelfDestructEnemyState.Telegraph)
-                {
-                    ShowTelegraph();
-                }
-                else
-                {
-                    HideTelegraph();
-                }
             }
         }
 
@@ -320,7 +294,6 @@ namespace BombSwap
             }
 
             DeathCount++;
-            HideTelegraph();
             instance.transform.localScale = baseScale;
             ApplyColor(deathColor);
             deathRemaining = session.SelfDestructDefinition.DeathVisualSeconds;
@@ -383,48 +356,6 @@ namespace BombSwap
                     CurrentState == SelfDestructEnemyState.WarningChase) &&
                 session.CurrentSelfDestructLocomotionState ==
                 EnemyLocomotionState.Moving);
-        }
-
-        private void ShowTelegraph()
-        {
-            HideTelegraph();
-            IReadOnlyList<GridPosition> cells = session.CurrentSelfDestructTelegraphCells;
-            EnsureTelegraphCapacity(cells.Count);
-            for (int index = 0; index < cells.Count; index++)
-            {
-                GameObject visual = telegraphCells[index];
-                visual.transform.position = session.GridSpace.GridToWorld(cells[index]) +
-                    (Vector3.up * 0.03f);
-                visual.SetActive(true);
-            }
-
-            ActiveTelegraphCellCount = cells.Count;
-        }
-
-        private void HideTelegraph()
-        {
-            for (int index = 0; index < ActiveTelegraphCellCount; index++)
-            {
-                if (telegraphCells[index] != null)
-                {
-                    telegraphCells[index].SetActive(false);
-                }
-            }
-
-            ActiveTelegraphCellCount = 0;
-        }
-
-        private void EnsureTelegraphCapacity(int required)
-        {
-            while (telegraphCells.Count < required)
-            {
-                GameObject visual = Instantiate(
-                    session.SelfDestructDefinition.TelegraphCellPrefab,
-                    presentationRoot);
-                visual.name = $"PrototypeSelfDestructTelegraphCell{telegraphCells.Count}";
-                visual.SetActive(false);
-                telegraphCells.Add(visual);
-            }
         }
 
         private void InitializeColor()

@@ -105,9 +105,6 @@ namespace BombSwap
 
         private readonly List<GameObject> _dangerCellInstances = new List<GameObject>();
         private readonly List<Renderer> _dangerCellRenderers = new List<Renderer>();
-        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
-            _landedBossBombDangerCells =
-                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
         private readonly List<GridPosition> _visibleDangerCells =
             new List<GridPosition>();
         private readonly HashSet<GridPosition> _visibleDangerCellSet =
@@ -141,6 +138,7 @@ namespace BombSwap
         private float _deathRemaining;
         private bool _isMoving;
         private bool _isShowingDeath;
+        private bool _isBossClearPresentationActive;
         private bool _isParityWaveTelegraphActive;
         private bool _isIntroPrepared;
         private bool _isIntroLanded;
@@ -165,11 +163,6 @@ namespace BombSwap
         public int DangerCellPoolCount => _dangerCellInstances.Count;
 
         public int VisibleDangerCellCount { get; private set; }
-
-        public bool HasLandedBossBombDanger(BombId bombId)
-        {
-            return _landedBossBombDangerCells.ContainsKey(bombId);
-        }
 
         public int PatternTransitionCount { get; private set; }
 
@@ -217,6 +210,9 @@ namespace BombSwap
         public bool IsIntroPrepared => _isIntroPrepared;
 
         public bool IsIntroLanded => _isIntroLanded;
+
+        public bool IsBossClearPresentationActive =>
+            _isBossClearPresentationActive;
 
         public Vector3 IntroStartWorldPosition => _introStartWorldPosition;
 
@@ -267,7 +263,6 @@ namespace BombSwap
             session.BossMoved += OnBossMoved;
             session.BossDamaged += OnBossDamaged;
             session.BossBombLaunched += OnBossBombLaunched;
-            session.BossBombPlaced += OnBossBombPlaced;
             session.BombExploded += OnBombExploded;
             session.PauseStateChanged += OnPauseStateChanged;
             session.BossCombatStarted += OnBossCombatStarted;
@@ -286,7 +281,6 @@ namespace BombSwap
                 session.BossMoved -= OnBossMoved;
                 session.BossDamaged -= OnBossDamaged;
                 session.BossBombLaunched -= OnBossBombLaunched;
-                session.BossBombPlaced -= OnBossBombPlaced;
                 session.BombExploded -= OnBombExploded;
                 session.PauseStateChanged -= OnPauseStateChanged;
                 session.BossCombatStarted -= OnBossCombatStarted;
@@ -324,7 +318,6 @@ namespace BombSwap
             _moveTargetRenderer = null;
             _dangerCellInstances.Clear();
             _dangerCellRenderers.Clear();
-            _landedBossBombDangerCells.Clear();
             _visibleDangerCells.Clear();
             _visibleDangerCellSet.Clear();
             _executingPatternDangerCells.Clear();
@@ -333,6 +326,7 @@ namespace BombSwap
             IsInitialized = false;
             _isMoving = false;
             _isShowingDeath = false;
+            _isBossClearPresentationActive = false;
             _isParityWaveTelegraphActive = false;
             _isIntroPrepared = false;
             _isIntroLanded = false;
@@ -526,6 +520,71 @@ namespace BombSwap
             _isIntroLanded = true;
         }
 
+        public void BeginBossClearPresentation(float animatorPlaybackSpeed)
+        {
+            if (animatorPlaybackSpeed <= 0f || animatorPlaybackSpeed > 1f ||
+                float.IsNaN(animatorPlaybackSpeed) ||
+                float.IsInfinity(animatorPlaybackSpeed))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(animatorPlaybackSpeed),
+                    animatorPlaybackSpeed,
+                    "Boss-clear animator speed must be finite and in (0, 1].");
+            }
+            if (!IsInitialized || _bossInstance == null || session.IsBossAlive)
+            {
+                throw new InvalidOperationException(
+                    "Boss-clear presentation requires an initialized defeated boss visual.");
+            }
+
+            _isMoving = false;
+            _movementTargets.Clear();
+            _isShowingDeath = false;
+            _isBossClearPresentationActive = true;
+            _bossInstance.SetActive(true);
+            if (_animator != null)
+            {
+                _animator.speed = animatorPlaybackSpeed;
+            }
+        }
+
+        public void CompleteBossClearPresentation()
+        {
+            if (!_isBossClearPresentationActive)
+            {
+                return;
+            }
+
+            _isBossClearPresentationActive = false;
+            _isShowingDeath = false;
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+            }
+            if (_bossInstance != null)
+            {
+                _bossInstance.SetActive(false);
+            }
+        }
+
+        public void CancelBossClearPresentation()
+        {
+            if (!_isBossClearPresentationActive)
+            {
+                return;
+            }
+
+            _isBossClearPresentationActive = false;
+            if (_animator != null)
+            {
+                _animator.speed = session != null && session.IsPaused ? 0f : 1f;
+            }
+            if (_bossInstance != null && session != null && !session.IsBossAlive)
+            {
+                _bossInstance.SetActive(false);
+            }
+        }
+
         private void OnBossMoved(EnemyMovementStep step)
         {
             if (!IsInitialized)
@@ -636,34 +695,11 @@ namespace BombSwap
                 useLeft ? ThrowLeftParameterId : ThrowRightParameterId);
         }
 
-        private void OnBossBombPlaced(BombSnapshot snapshot)
-        {
-            if (snapshot.OwnerId != session.BossActorId)
-            {
-                return;
-            }
-            if (!session.TryGetBombExplosionPreview(
-                    snapshot.Id,
-                    out IReadOnlyList<GridPosition> affectedCells))
-            {
-                throw new InvalidOperationException(
-                    $"Landed boss bomb {snapshot.Id} has no explosion preview.");
-            }
-
-            _landedBossBombDangerCells[snapshot.Id] = affectedCells;
-            RefreshDangerCells();
-        }
-
         private void OnBombExploded(BombExplosion explosion)
         {
             if (!session.HasBoss || explosion.OwnerId != session.BossActorId)
             {
                 return;
-            }
-
-            if (_landedBossBombDangerCells.Remove(explosion.BombId))
-            {
-                RefreshDangerCells();
             }
 
             BossBombExplosionFeedbackCount++;
@@ -1026,12 +1062,6 @@ namespace BombSwap
             _visibleDangerCells.Clear();
             _visibleDangerCellSet.Clear();
             _executingPatternDangerCells.Clear();
-
-            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
-                     _landedBossBombDangerCells)
-            {
-                AddUniqueDangerCells(entry.Value);
-            }
 
             AddUniqueDangerCells(_currentPatternDangerCells);
             if (_currentDangerState == BossBattleState.Execute)

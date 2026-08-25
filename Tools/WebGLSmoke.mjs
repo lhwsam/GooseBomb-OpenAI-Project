@@ -90,6 +90,30 @@ async function waitForEvent(page, name, options = {}) {
   }, { expectedName: name, expectedCount: count }, { timeout });
 }
 
+async function assertEventOrderSince(page, startIndex, expectedNames, label) {
+  const observedNames = await page.evaluate(({ eventStart, expected }) => {
+    const events = globalThis.__BOMBSWAP_HARNESS_EVENTS__;
+    if (!Array.isArray(events)) return null;
+    const names = events
+      .slice(eventStart)
+      .map((event) => typeof event === "string" ? event : event?.name)
+      .filter((name) => typeof name === "string");
+    let searchIndex = 0;
+    for (const expectedName of expected) {
+      const foundIndex = names.indexOf(expectedName, searchIndex);
+      if (foundIndex < 0) return names;
+      searchIndex = foundIndex + 1;
+    }
+    return true;
+  }, { eventStart: startIndex, expected: expectedNames });
+  if (observedNames !== true) {
+    throw new Error(
+      `${label}: expected ordered events ${expectedNames.join(" -> ")}, got ` +
+      `${Array.isArray(observedNames) ? observedNames.join(", ") : "no event log"}.`,
+    );
+  }
+}
+
 async function tapUiNavigationKey(page, key) {
   await page.keyboard.down(key);
   await page.waitForTimeout(100);
@@ -1055,7 +1079,24 @@ async function main() {
       detail: `The main dungeon thrower crossed ${uniqueEntryTrackCells.size - 1} staging-to-anchor cells before its first Telegraph and authored three-bomb volley.`,
     });
     await waitForEvent(page, "player-died", { timeout: 15_000 });
-    await waitForEvent(page, "run-failed", { timeout: 5_000 });
+    await waitForEvent(page, "player-death-presentation-started", {
+      timeout: 5_000,
+    });
+    await waitForEvent(page, "player-death-presentation-completed", {
+      timeout: 8_000,
+    });
+    await waitForEvent(page, "run-failed", { timeout: 3_000 });
+    await assertEventOrderSince(
+      page,
+      healthProbeEntryEventStart,
+      [
+        "player-died",
+        "player-death-presentation-started",
+        "player-death-presentation-completed",
+        "run-failed",
+      ],
+      "health probe player death presentation",
+    );
     await page.keyboard.press("KeyR");
     await waitForEvent(page, "run-restart-requested", {
       count: healthProbeRestartRequestsBefore + 1,
@@ -1988,6 +2029,10 @@ async function main() {
       detail: "The result UI returned to the lobby, then started a full-health seed-0 run without reloading the browser page.",
     });
 
+    const runFailureEventStart = await page.evaluate(() =>
+      Array.isArray(globalThis.__BOMBSWAP_HARNESS_EVENTS__)
+        ? globalThis.__BOMBSWAP_HARNESS_EVENTS__.length
+        : 0);
     for (let hit = 0; hit < 5; hit++) {
       const placementsBefore = await eventCount(
         page,
@@ -2005,16 +2050,34 @@ async function main() {
       });
     }
     await waitForEvent(page, "player-died", { timeout: 5_000 });
-    await waitForEvent(page, "run-failed", { timeout: 5_000 });
-    await waitForEvent(page, "run-failed-cause-bomb-explosion", {
+    await waitForEvent(page, "player-death-presentation-started", {
       timeout: 5_000,
     });
+    await waitForEvent(page, "player-death-presentation-completed", {
+      timeout: 8_000,
+    });
+    await waitForEvent(page, "run-failed", { timeout: 3_000 });
+    await waitForEvent(page, "run-failed-cause-bomb-explosion", {
+      timeout: 3_000,
+    });
+    await assertEventOrderSince(
+      page,
+      runFailureEventStart,
+      [
+        "player-died",
+        "player-death-presentation-started",
+        "player-death-presentation-completed",
+        "run-failed",
+        "run-failed-cause-bomb-explosion",
+      ],
+      "safe-room self explosion death presentation",
+    );
     fs.mkdirSync(path.dirname(runFailureScreenshotPath), { recursive: true });
     await page.screenshot({ path: runFailureScreenshotPath });
     checks.push({
       name: "failed-run-result",
       status: "passed",
-      detail: "Five self explosions in the restarted safe room produced one player death, the run-failed result, and the BOMB EXPLOSION cause.",
+      detail: "Five self explosions in the restarted safe room completed the focused player-death presentation before the run-failed result and BOMB EXPLOSION cause.",
     });
 
     const failureRestartRequestsBefore = await eventCount(
@@ -2167,6 +2230,8 @@ async function main() {
       "boss-defeated",
       "run-completed",
       "player-died",
+      "player-death-presentation-started",
+      "player-death-presentation-completed",
       "run-failed",
       "run-failed-cause-bomb-explosion",
       "run-restart-requested",

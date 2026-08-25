@@ -1069,6 +1069,8 @@ namespace BombSwap.Tests.PlayMode
 
             Assert.That(_presenter.ActiveBombVisualCount, Is.EqualTo(1));
             Assert.That(_presenter.HasBombVisual(placedId), Is.True);
+            Assert.That(_presenter.HasBombDanger(placedId), Is.True);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.EqualTo(5));
             Animator pooledBombAnimator = System.Array.Find(
                 _presenter.PresentationRoot.GetComponentsInChildren<Animator>(true),
                 animator => animator.gameObject.activeInHierarchy);
@@ -1097,6 +1099,8 @@ namespace BombSwap.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.15f);
 
             Assert.That(_presenter.ActiveBombVisualCount, Is.Zero);
+            Assert.That(_presenter.HasBombDanger(placedId), Is.False);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.Zero);
             Assert.That(_presenter.ActiveExplosionVisualCount, Is.EqualTo(5));
             Assert.That(pooledBombAnimator.enabled, Is.False);
 
@@ -2213,7 +2217,7 @@ namespace BombSwap.Tests.PlayMode
                         "Flames_F",
                         GetExplosionVfxPosition(explosion.Origin));
                     landedDangerRemoved =
-                        !_bossPresenter.HasLandedBossBombDanger(landed.Id);
+                        !_presenter.HasBombDanger(landed.Id);
                 }
             };
 
@@ -2244,10 +2248,10 @@ namespace BombSwap.Tests.PlayMode
                 Is.True);
             Assert.That(landedDangerCells, Is.Not.Empty);
             Assert.That(
-                _bossPresenter.HasLandedBossBombDanger(landed.Id),
+                _presenter.HasBombDanger(landed.Id),
                 Is.True);
             Assert.That(
-                _bossPresenter.VisibleDangerCellCount,
+                _presenter.VisibleBombDangerCellCount,
                 Is.GreaterThanOrEqualTo(landedDangerCells.Count));
 
             deadline = Time.realtimeSinceStartup + 2f;
@@ -2452,13 +2456,19 @@ namespace BombSwap.Tests.PlayMode
                 includeDestructibleWallPresenter: true,
                 selfDestructSpawnPosition: new Vector2Int(0, 2),
                 selfDestructAnchors: new[] { new Vector2Int(-1, 0) },
+                includePresenter: true,
                 includeSelfDestructPresenter: true,
                 selfDestructChaseCellsPerSecond: 20f,
                 selfDestructFuseSeconds: 0.25f,
                 selfDestructExplosionRange: 2);
             int armedCount = 0;
+            BombId armedBombId = default;
             int selfDestructDeathCount = 0;
-            _session.SelfDestructArmed += _ => armedCount++;
+            _session.SelfDestructArmed += snapshot =>
+            {
+                armedCount++;
+                armedBombId = snapshot.Id;
+            };
             _session.EnemyDied += damage =>
             {
                 if (damage.ActorId == _session.SelfDestructActorId)
@@ -2490,7 +2500,8 @@ namespace BombSwap.Tests.PlayMode
                 Is.EqualTo(SelfDestructEnemyState.Telegraph));
             Assert.That(_session.IsSelfDestructAlive, Is.True);
             Assert.That(armedCount, Is.EqualTo(1));
-            Assert.That(_selfDestructPresenter.ActiveTelegraphCellCount, Is.GreaterThan(0));
+            Assert.That(_presenter.HasBombDanger(armedBombId), Is.True);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.GreaterThan(0));
             Vector3 expectedTelegraphPosition =
                 _session.GridSpace.GridToWorld(
                     _session.CurrentSelfDestructGridPosition) +
@@ -2510,7 +2521,8 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.IsSelfDestructAlive, Is.False);
             Assert.That(selfDestructDeathCount, Is.EqualTo(1));
             Assert.That(_selfDestructPresenter.DeathCount, Is.EqualTo(1));
-            Assert.That(_selfDestructPresenter.ActiveTelegraphCellCount, Is.Zero);
+            Assert.That(_presenter.HasBombDanger(armedBombId), Is.False);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.Zero);
             Assert.That(_destructibleWallPresenter.ActiveWallVisualCount, Is.Zero);
             Assert.That(
                 _session.GetCell(new GridPosition(1, 1)).Terrain,
@@ -2531,13 +2543,19 @@ namespace BombSwap.Tests.PlayMode
                 },
                 selfDestructSpawnPosition: new Vector2Int(2, 2),
                 selfDestructAnchors: new[] { new Vector2Int(2, 1) },
+                includePresenter: true,
                 includeSelfDestructPresenter: true,
                 selfDestructChaseCellsPerSecond: 10f,
                 selfDestructWarningMaxCellsPerSecond: 20f,
                 selfDestructWarningEscalationSeconds: 0.15f,
                 selfDestructFuseSeconds: 1f);
             int armedCount = 0;
-            _session.SelfDestructArmed += _ => armedCount++;
+            BombId armedBombId = default;
+            _session.SelfDestructArmed += snapshot =>
+            {
+                armedCount++;
+                armedBombId = snapshot.Id;
+            };
 
             yield return new WaitForSecondsRealtime(0.11f);
             Assert.That(
@@ -2568,13 +2586,71 @@ namespace BombSwap.Tests.PlayMode
                 _session.CurrentSelfDestructGridPosition,
                 Is.EqualTo(new GridPosition(2, 1)));
             Assert.That(armedCount, Is.EqualTo(1));
-            Assert.That(_selfDestructPresenter.ActiveTelegraphCellCount, Is.GreaterThan(0));
+            Assert.That(_presenter.HasBombDanger(armedBombId), Is.True);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.GreaterThan(0));
             Assert.That(
                 Vector3.Distance(
                     _selfDestructPresenter.Instance.transform.position,
                     _session.GridSpace.GridToWorld(new GridPosition(2, 1)) +
                         (Vector3.up * _session.SelfDestructDefinition.VisualHeight)),
                 Is.LessThan(0.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator BombPresenter_ShowsSelfDestructRangeFromCommonActivation()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includePresenter: true,
+                fuseSeconds: 0.03f,
+                firstExplosionRange: 2,
+                chaserSpawnPosition: new Vector2Int(2, -2),
+                retreatAnchors: new[]
+                {
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(1, 0),
+                },
+                selfDestructSpawnPosition: new Vector2Int(0, 2),
+                selfDestructAnchors: new[] { new Vector2Int(-1, 0) },
+                selfDestructChaseCellsPerSecond: 1f,
+                selfDestructWarningMaxCellsPerSecond: 1f,
+                selfDestructFuseSeconds: 0.5f,
+                selfDestructExplosionRange: 2);
+            BombId armedBombId = default;
+            _session.SelfDestructArmed += snapshot => armedBombId = snapshot.Id;
+
+            yield return null;
+            PressAndRelease(Key.Z);
+
+            float deadline = Time.realtimeSinceStartup + 1f;
+            while ((!armedBombId.IsValid || _presenter.ActiveBombVisualCount > 0) &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(armedBombId.IsValid, Is.True);
+            Assert.That(_presenter.ActiveBombVisualCount, Is.Zero);
+            Assert.That(_presenter.HasBombDanger(armedBombId), Is.True);
+            Assert.That(
+                _session.TryGetBombExplosionPreview(
+                    armedBombId,
+                    out IReadOnlyList<GridPosition> affectedCells),
+                Is.True);
+            Assert.That(
+                _presenter.VisibleBombDangerCellCount,
+                Is.EqualTo(affectedCells.Count));
+
+            deadline = Time.realtimeSinceStartup + 1f;
+            while (_presenter.HasBombDanger(armedBombId) &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(_presenter.HasBombDanger(armedBombId), Is.False);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.Zero);
         }
 
         [UnityTest]
@@ -2653,7 +2729,7 @@ namespace BombSwap.Tests.PlayMode
                 if (thrownBombIds.Contains(explosion.BombId))
                 {
                     thrownCauses[explosion.BombId] = explosion.Cause;
-                    if (!_throwerPresenter.HasLandedBombDanger(explosion.BombId))
+                    if (!_presenter.HasBombDanger(explosion.BombId))
                     {
                         removedDangerBombIds.Add(explosion.BombId);
                     }
@@ -2706,11 +2782,11 @@ namespace BombSwap.Tests.PlayMode
             for (int index = 0; index < thrownBombIds.Count; index++)
             {
                 BombId bombId = thrownBombIds[index];
-                Assert.That(_throwerPresenter.HasLandedBombDanger(bombId), Is.True);
+                Assert.That(_presenter.HasBombDanger(bombId), Is.True);
                 expectedVisibleDangerCells.UnionWith(landedRanges[bombId]);
             }
             Assert.That(
-                _throwerPresenter.VisibleDangerCellCount,
+                _presenter.VisibleBombDangerCellCount,
                 Is.EqualTo(expectedVisibleDangerCells.Count));
 
             Assert.That(_session.TryPlaceBomb(), Is.True);
@@ -2729,6 +2805,7 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_session.HasPendingThrowerBombFlight, Is.False);
             Assert.That(removedDangerBombIds.Count, Is.EqualTo(3));
             Assert.That(_throwerPresenter.VisibleDangerCellCount, Is.Zero);
+            Assert.That(_presenter.VisibleBombDangerCellCount, Is.Zero);
             Assert.That(
                 thrownBombIds,
                 Has.None.Matches<BombId>(id => _presenter.HasBombVisual(id)));

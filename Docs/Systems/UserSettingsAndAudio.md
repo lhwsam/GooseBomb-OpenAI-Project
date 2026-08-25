@@ -78,6 +78,8 @@
 - 플레이 가능한 16개 던전·TestSandbox·독립 적 플레이테스트 씬은 같은 실행기와 플레이어 폭탄 presenter를 직렬화한다. Cinemachine 패키지, FEEL과 DOTween Pro는 사용하지 않는다.
 - 보스 소환 연출은 착지 cue에서 같은 `PrototypeCameraShake` 실행기를 재사용한다. 초기 저작값은 amplitude `0.24`, duration `0.32초`, frequency `22Hz`이며 전역 amplitude 상한과 사용자 ON/OFF를 그대로 적용한다. 인트로 시작·종료가 아니라 실제 착지 한 번만 요청하고, 새 요청과 현재 흔들림의 우선순위는 공용 실행기의 큰 세기 재시작 정책을 따른다.
 - 보스 공격 presenter도 같은 실행기를 재사용한다. 고정 돌진 Execute는 `0.20 / 0.22초 / 22Hz`, parity 행 Execute는 `0.11 / 0.13초 / 26Hz`, 보스 소유 폭탄의 실제 폭발은 `0.13 / 0.16초 / 24Hz`를 요청한다. 투척 예고·발사·착탄 예약에는 흔들림을 만들지 않으며 일시정지와 사용자 `꺼짐` 계약은 동일하다.
+- 보스 격파 연출도 같은 실행기를 재사용한다. 앞의 세 burst는 각각 `0.07 / 0.12초 / 28Hz`, 보스를 숨기는 마지막 burst는 `0.20 / 0.28초 / 22Hz`를 요청한다. 카메라 focus, 사망 Animator와 curtain은 DOTween unscaled update를 사용하고 `Time.timeScale`을 바꾸지 않으므로 설정 UI·BGM DSP·Core 10ms simulation 시간의 권위를 침범하지 않는다.
+- 플레이어 사망 연출은 새 흔들림을 요청하지 않고 치명 폭발에서 남은 공용 흔들림을 즉시 정리한다. 카메라 focus·curtain과 플레이어 사망 Animator만 unscaled 표현 시간으로 진행하며, `PlayerDied`에서 시작한 BGM fade-out과 Core run 실패 시각은 연출 완료를 기다리지 않는다.
 
 ## UI 저작과 수명
 
