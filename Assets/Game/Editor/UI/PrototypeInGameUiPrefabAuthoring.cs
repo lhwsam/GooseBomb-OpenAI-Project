@@ -52,6 +52,10 @@ namespace BombSwap.Editor.UI
             "Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Area.png";
         public const string LineBombIconPath =
             "Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Line.png";
+        public const string WeaponKeyIconAtlasPath =
+            "Assets/Game/Content/UI/Sprites/CC0/Game Prompts/Transparent/Letters.png";
+        public const string SelectedWeaponKeyIconName = "Letters_51";
+        public const string UnselectedWeaponKeyIconName = "Letters_49";
 
         private const string MinimapBackgroundAtlasPath =
             "Assets/ThirdParty/UI/BlackandWhiteUI.png/BlackandWhiteUI.png";
@@ -112,6 +116,22 @@ namespace BombSwap.Editor.UI
                 $"{changedSceneCount} scenes changed.");
         }
 
+        [MenuItem("Bomb Swap/UI/Wire Weapon HUD Key Icons")]
+        private static void WireWeaponHudKeyIconsFromMenu()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                throw new InvalidOperationException(
+                    "Stop Play Mode before wiring weapon HUD key icons.");
+            }
+
+            EnsureWeaponHudPrefab(true);
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Wired PrototypeWeaponHudCanvas KeyIcon references: " +
+                "selected=Letters_51 (Z), unselected=Letters_49 (X).");
+        }
+
         [MenuItem("Bomb Swap/UI/Repair Health HUD Boss Label References")]
         private static void RepairHealthHudBossLabelReferencesFromMenu()
         {
@@ -170,6 +190,12 @@ namespace BombSwap.Editor.UI
             PrototypeRunCompletionView completion = EnsurePrefab(
                 RunCompletionPrefabPath,
                 CreateRunCompletionPrefab);
+            UiButtonAudioAuthoring.ApplyToPrefabAsset(PausePrefabPath);
+            UiButtonAudioAuthoring.ApplyToPrefabAsset(RunCompletionPrefabPath);
+            pause = AssetDatabase.LoadAssetAtPath<PrototypePauseView>(
+                PausePrefabPath);
+            completion = AssetDatabase.LoadAssetAtPath<PrototypeRunCompletionView>(
+                RunCompletionPrefabPath);
             return new PrefabSet(
                 weapon,
                 health,
@@ -357,6 +383,13 @@ namespace BombSwap.Editor.UI
                 var cooldownLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
                 var slotEmptyIndicators = new GameObject[BombWeaponLoadout.SlotCount];
                 var slotSelections = new GameObject[BombWeaponLoadout.SlotCount];
+                var slotKeyIcons = new Image[BombWeaponLoadout.SlotCount];
+                Sprite selectedKeyIcon = LoadRequiredSpriteSubAsset(
+                    WeaponKeyIconAtlasPath,
+                    SelectedWeaponKeyIconName);
+                Sprite unselectedKeyIcon = LoadRequiredSpriteSubAsset(
+                    WeaponKeyIconAtlasPath,
+                    UnselectedWeaponKeyIconName);
                 for (int slotIndex = 0;
                      slotIndex < BombWeaponLoadout.SlotCount;
                      slotIndex++)
@@ -369,7 +402,11 @@ namespace BombSwap.Editor.UI
                         out slotFills[slotIndex],
                         out cooldownLabels[slotIndex],
                         out slotEmptyIndicators[slotIndex],
-                        out slotSelections[slotIndex]);
+                        out slotSelections[slotIndex],
+                        out slotKeyIcons[slotIndex]);
+                    slotKeyIcons[slotIndex].sprite = slotIndex == 0
+                        ? selectedKeyIcon
+                        : unselectedKeyIcon;
                 }
 
                 PrototypeWeaponHudView view =
@@ -385,6 +422,10 @@ namespace BombSwap.Editor.UI
                     LoadRequiredSprite(CrossBombIconPath),
                     LoadRequiredSprite(AreaBombIconPath),
                     LoadRequiredSprite(LineBombIconPath));
+                view.BindKeyIcons(
+                    slotKeyIcons,
+                    selectedKeyIcon,
+                    unselectedKeyIcon);
                 return SavePrefabView(root, WeaponHudPrefabPath, view);
             }
             finally
@@ -817,7 +858,8 @@ namespace BombSwap.Editor.UI
             out Image fill,
             out TextMeshProUGUI cooldownLabel,
             out GameObject emptyIndicator,
-            out GameObject selection)
+            out GameObject selection,
+            out Image keyIcon)
         {
             RectTransform slot = CreateRect("Slot" + (slotIndex + 1), panel);
             SetRect(
@@ -876,15 +918,17 @@ namespace BombSwap.Editor.UI
             selectionImage.raycastTarget = false;
             selection = selectionRect.gameObject;
 
-            TextMeshProUGUI keyLabel = PrototypeUiFactory.CreateText(
-                "KeyIcon",
-                slot,
-                16f,
-                TextAlignmentOptions.BottomRight,
-                FontStyles.Bold);
-            SetAnchors(keyLabel.rectTransform, Vector2.zero, Vector2.one);
-            keyLabel.text = slotIndex == 0 ? "Z" : "X";
-            keyLabel.color = Color.white;
+            RectTransform keyIconRect = CreateRect("KeyIcon", slot);
+            SetRect(
+                keyIconRect,
+                Vector2.one,
+                Vector2.one,
+                Vector2.one,
+                new Vector2(-4f, -4f),
+                new Vector2(30f, 30f));
+            keyIcon = keyIconRect.gameObject.AddComponent<Image>();
+            keyIcon.preserveAspect = true;
+            keyIcon.raycastTarget = false;
 
             cooldownPanel.SetActive(false);
             emptyIndicator.SetActive(slotIndex != 0);
@@ -1096,6 +1140,12 @@ namespace BombSwap.Editor.UI
             Sprite crossIcon = LoadRequiredSprite(CrossBombIconPath);
             Sprite areaIcon = LoadRequiredSprite(AreaBombIconPath);
             Sprite lineIcon = LoadRequiredSprite(LineBombIconPath);
+            Sprite selectedKeyIcon = LoadRequiredSpriteSubAsset(
+                WeaponKeyIconAtlasPath,
+                SelectedWeaponKeyIconName);
+            Sprite unselectedKeyIcon = LoadRequiredSpriteSubAsset(
+                WeaponKeyIconAtlasPath,
+                UnselectedWeaponKeyIconName);
             PrototypeWeaponHudView existing =
                 AssetDatabase.LoadAssetAtPath<PrototypeWeaponHudView>(
                     WeaponHudPrefabPath);
@@ -1110,7 +1160,9 @@ namespace BombSwap.Editor.UI
                 existing.HasRequiredReferences &&
                 existing.GetBombIcon(BombExplosionShape.Cross) == crossIcon &&
                 existing.GetBombIcon(BombExplosionShape.SquareArea) == areaIcon &&
-                existing.GetBombIcon(BombExplosionShape.ForwardLine) == lineIcon;
+                existing.GetBombIcon(BombExplosionShape.ForwardLine) == lineIcon &&
+                existing.SelectedSlotKeyIcon == selectedKeyIcon &&
+                existing.UnselectedSlotKeyIcon == unselectedKeyIcon;
             if (forceRebind || !hasCanonicalIcons)
             {
                 GameObject root = PrefabUtility.LoadPrefabContents(
@@ -1136,6 +1188,8 @@ namespace BombSwap.Editor.UI
                         new GameObject[BombWeaponLoadout.SlotCount];
                     var slotSelections =
                         new GameObject[BombWeaponLoadout.SlotCount];
+                    var slotKeyIcons =
+                        new Image[BombWeaponLoadout.SlotCount];
                     for (int slotIndex = 0;
                          slotIndex < BombWeaponLoadout.SlotCount;
                          slotIndex++)
@@ -1157,6 +1211,8 @@ namespace BombSwap.Editor.UI
                             FindRequiredDescendant(slot, "Empty").gameObject;
                         slotSelections[slotIndex] =
                             FindRequiredDescendant(slot, "Selection").gameObject;
+                        slotKeyIcons[slotIndex] =
+                            FindRequiredComponent<Image>(slot, "KeyIcon");
                     }
 
                     view.BindAuthoredView(
@@ -1170,6 +1226,10 @@ namespace BombSwap.Editor.UI
                         crossIcon,
                         areaIcon,
                         lineIcon);
+                    view.BindKeyIcons(
+                        slotKeyIcons,
+                        selectedKeyIcon,
+                        unselectedKeyIcon);
                     EditorUtility.SetDirty(view);
                     PrefabUtility.SaveAsPrefabAsset(root, WeaponHudPrefabPath);
                 }
@@ -1198,6 +1258,26 @@ namespace BombSwap.Editor.UI
                     $"Required weapon HUD sprite is missing or not imported as a Sprite: {assetPath}");
             }
             return sprite;
+        }
+
+        private static Sprite LoadRequiredSpriteSubAsset(
+            string assetPath,
+            string spriteName)
+        {
+            Sprite[] matches = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+                .OfType<Sprite>()
+                .Where(sprite => string.Equals(
+                    sprite.name,
+                    spriteName,
+                    StringComparison.Ordinal))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Required weapon HUD sprite {spriteName} was found " +
+                    $"{matches.Length} times at {assetPath}.");
+            }
+            return matches[0];
         }
 
         private static Transform FindRequiredDescendant(

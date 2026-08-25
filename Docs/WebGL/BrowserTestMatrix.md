@@ -17,7 +17,7 @@
 ## smoke 항목
 
 - cold/warm load와 진행 표시.
-- 첫 enabled `DungeonLobby`가 `Bomb Goose`와 DungGeunMo TMP UI를 표시하고 `lobby-ready`를 기록해야 한다. 키보드 Enter와 표준 게임패드 South는 선택된 `게임 시작`을 Submit해 `lobby-start-requested` 뒤에만 `DungeonStart` probe가 나타나야 한다. 마우스 hover `1.06` 확대, 누름 `0.96` 축소·복귀와 `조작 방법 → 돌아가기`는 수동 WebGL 항목으로 함께 확인한다.
+- 첫 enabled `DungeonLobby`가 `Bomb Goose`와 DungGeunMo TMP UI를 표시하고 `lobby-ready`를 기록해야 한다. 키보드 Enter와 표준 게임패드 South는 선택된 `게임 시작`을 Submit해 `lobby-start-requested` 뒤에만 `DungeonStart` probe가 나타나야 한다. 마우스 hover `1.06` 확대와 진입당 한 번의 낮은 Hover SFX, 누름 `0.96` 축소·복귀와 Click SFX, 키보드·게임패드 Submit의 동일 Click SFX, `조작 방법 → 돌아가기`는 수동 WebGL 항목으로 함께 확인한다. 최초 선택과 키보드 탐색만으로 Hover SFX가 나지 않아야 한다.
 - canvas click/focus 전후 키보드 입력.
 - WASD/방향키, 게임패드 사용 시 매핑. Input System 합성 Gamepad의 왼쪽 스틱·D-pad·South/West/Start/Select→의미 명령은 PlayMode에서 검증한다. 별도 WebGL smoke는 `navigator.getGamepads()`의 표준 가상 장치 연결부터 스틱·D-pad 해제, 유지 스틱 중 분리의 즉시 정지·300ms 위치 안정성과 동일 index 재연결 입력 복구, South 설치·자기폭발 실패, West 교체 명령, Start pause 중 유지 스틱 500ms 차단과 Start 재개 뒤 유지 스틱 재적용, Select의 실패 런 재시작까지 검증한다. pause 메뉴에서 South는 선택된 UI 버튼의 Submit으로 사용되므로 gameplay 차단 검사는 유지 스틱으로 독립 검증한다. 실제 물리 컨트롤러 연결·장치별 버튼 표기·deadzone·브라우저/OS별 Gamepad API 차이는 수동 항목으로 남긴다. 기본 자동 smoke는 seed-0 Start 안전방에서 첫 `Pillars` 전투방으로 이동한 뒤 겹친 직교 방향키의 최신 축 우선과 빠른 즉시 press-release 방향 교대가 각 탭마다 한 frame의 실제 motion을 만들고 이후 추가 이동 없이 멈추는지 확인한다. 방 준비 이후 돌진형의 첫 관련 행동은 `charger-telegraph`가 아니라 `charger-track-moved`여야 하며, 이어 측면·중앙 아래쪽 폭탄 유도로 방을 실제 클리어한다. Telegraph·Charge 이동/목표 충돌·Recover의 모든 상태 분기와 시간 경계는 EditMode·PlayMode가 소유한다. 실제 browser 경로에서는 다른 적 점유나 플레이어 폭탄 처치에 따라 한 run에서 모든 분기가 나타나지 않을 수 있으므로 이를 억지로 기다리지 않는다.
 - focus 상실/복귀 후 stuck input 없음. 기본 자동 smoke는 오른쪽 키를 누른 채 브라우저 `blur` lifecycle 사건을 발생시키고 `Move(None)` 뒤 셀·motion이 정지하는지 확인한다. 이어 `focus` 복귀 전 key-up이 누락된 상태에서도 이동이 되살아나지 않고 다음 `Esc` 입력이 정상 처리돼야 한다.
@@ -33,7 +33,7 @@
 - 첫 키보드/게임패드 button gesture 전에는 BGM을 예약하지 않고, gesture 뒤 `bgm-audio-started`가 한 번 기록되어야 한다. 자동 marker는 DSP 예약 시작 경계만 증명하고 실제 가청 출력은 증명하지 않는다.
 - 로비 설정에서 키보드 binding 변경→게임 시작 뒤 새 키 반영→page reload 뒤 유지→기본값 복원. 게임패드 binding 문구는 표시하지 않는다.
 - 로비와 pause의 같은 설정에서 Master/BGM/SFX/화면 흔들림 slider가 즉시 반영되고, pause 설정 중 `Esc`가 키 변경 취소→설정 닫기→게임 재개 순서로 동작한다.
-- 수동 청감은 로비 시작, 로비→던전→보스 1초 family crossfade, 안전/전투/회복/보상/클리어의 다음 마디부터 한 마디 smoothstep stem 전환, 보스 One/Two/LastStand 밀도 상승, pause 50% duck·복귀, 사망·격파 fade-out을 확인한다. 설정 BGM 0/70/100%가 적응형 mix와 독립적으로 적용되고 stem이 0에 도달하는 순간의 절단감, loop click·stem 위상 어긋남·Console 오디오 오류가 없어야 한다. UI/gameplay SFX는 아직 연결되지 않았으므로 BGM 통과와 분리한다.
+- 수동 청감은 로비 시작, 로비→던전→보스 1초 family crossfade, 안전/전투/회복/보상/클리어의 다음 마디부터 한 마디 smoothstep stem 전환, 보스 One/Two/LastStand 밀도 상승, pause 50% duck·복귀, 사망·격파 fade-out을 확인한다. 설정 BGM 0/70/100%가 적응형 mix와 독립적으로 적용되고 stem이 0에 도달하는 순간의 절단감, loop click·stem 위상 어긋남·Console 오디오 오류가 없어야 한다. UI Button SFX는 로비·pause·런 완료에서 Hover/Click과 SFX 0/100%를 별도로 확인하고, 발소리와 UI 버튼을 제외한 gameplay SFX는 아직 연결되지 않았으므로 BGM 통과와 분리한다.
 - 전체 화면/창 크기 변경 시 화면과 UI. 자동 smoke는 로드 직후 1280×720→640×720, 전체 경로 뒤 1024×768→640×720을 검사한다. canvas는 각각 viewport 안에 완전히 들어오고 문서 overflow가 없으며 960×600 네이티브 상한과 16:10 비율을 유지해야 한다. 실제 fullscreen 진입과 640px 미만 텍스트 가독성은 수동 항목이다.
 - 브라우저 Console error와 WebGL context loss.
 - 캐시된 이전 버전에서 새 버전 갱신.

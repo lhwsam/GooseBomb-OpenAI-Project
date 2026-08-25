@@ -78,6 +78,7 @@ namespace BombSwap.Tests.PlayMode
         [TearDown]
         public override void TearDown()
         {
+            Time.timeScale = 1f;
             if (_root != null)
             {
                 Object.DestroyImmediate(_root);
@@ -911,6 +912,12 @@ namespace BombSwap.Tests.PlayMode
                 Is.False);
             Assert.That(_weaponHud.ViewInstance.GetSlotSelection(0).activeSelf, Is.True);
             Assert.That(_weaponHud.ViewInstance.GetSlotSelection(1).activeSelf, Is.False);
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotKeyIcon(0).sprite,
+                Is.SameAs(_weaponHud.ViewInstance.SelectedSlotKeyIcon));
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotKeyIcon(1).sprite,
+                Is.SameAs(_weaponHud.ViewInstance.UnselectedSlotKeyIcon));
 
             PressAndRelease(Key.Z);
             PressAndRelease(Key.X);
@@ -928,6 +935,42 @@ namespace BombSwap.Tests.PlayMode
                 Does.Match(@"^\d+\.\ds$"));
             Assert.That(_weaponHud.ViewInstance.GetSlotSelection(0).activeSelf, Is.False);
             Assert.That(_weaponHud.ViewInstance.GetSlotSelection(1).activeSelf, Is.True);
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotKeyIcon(0).sprite,
+                Is.SameAs(_weaponHud.ViewInstance.UnselectedSlotKeyIcon));
+            Assert.That(
+                _weaponHud.ViewInstance.GetSlotKeyIcon(1).sprite,
+                Is.SameAs(_weaponHud.ViewInstance.SelectedSlotKeyIcon));
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponHud_ShowsSwapCooldownOnInactiveSlotPanel()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                includeWeaponHud: true,
+                swapCooldownSeconds: 0.25f);
+            yield return null;
+
+            PressAndRelease(Key.X);
+            yield return null;
+
+            PrototypeWeaponHudView view = _weaponHud.ViewInstance;
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(1));
+            Assert.That(view.GetSlotCooldownPanel(0).activeSelf, Is.True);
+            Assert.That(view.GetSlotCooldownFill(0).fillAmount, Is.GreaterThan(0f));
+            Assert.That(view.GetSlotCooldownFill(0).fillAmount, Is.LessThanOrEqualTo(1f));
+            Assert.That(
+                view.GetSlotCooldownLabel(0).text,
+                Does.Match(@"^\d+\.\ds$"));
+            Assert.That(view.GetSlotCooldownPanel(1).activeSelf, Is.False);
+
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            Assert.That(view.GetSlotCooldownPanel(0).activeSelf, Is.False);
+            Assert.That(view.GetSlotCooldownFill(0).fillAmount, Is.Zero);
+            Assert.That(view.GetSlotCooldownLabel(0).text, Is.Empty);
         }
 
         [UnityTest]
@@ -1908,6 +1951,58 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator BossIntroGate_FreezesClockAndRejectsGameplayUntilOpenedOnce()
+        {
+            CreateRuntime(
+                Vector2Int.zero,
+                false,
+                combatEnabled: true,
+                bossEnabled: true,
+                requestBossIntroGate: true,
+                bossPhaseOneTelegraphSeconds: 1f);
+
+            yield return null;
+
+            Assert.That(_session.IsBossIntroPending, Is.True);
+            Assert.That(_session.IsBossCombatStarted, Is.False);
+            Assert.That(_session.CurrentGameTime, Is.EqualTo(System.TimeSpan.Zero));
+            GridSubcellPosition start = _session.CurrentMovementPosition;
+            int activeSlot = _session.ActiveBombSlotIndex;
+
+            QueueKeyboardState(Key.W, Key.Z, Key.X);
+            QueueKeyboardState();
+            yield return new WaitForSecondsRealtime(0.08f);
+
+            Assert.That(_session.CurrentGameTime, Is.EqualTo(System.TimeSpan.Zero));
+            Assert.That(_session.CurrentMovementPosition, Is.EqualTo(start));
+            Assert.That(_session.ActiveBombCount, Is.Zero);
+            Assert.That(_session.ActiveBombSlotIndex, Is.EqualTo(activeSlot));
+            Assert.That(_session.TryPlaceBomb(), Is.False);
+            Assert.That(_session.TrySwapActiveBomb(), Is.False);
+
+            int combatStartedCount = 0;
+            _session.BossCombatStarted += () => combatStartedCount++;
+            Assert.That(_session.BeginBossCombat(), Is.True);
+            Assert.That(_session.BeginBossCombat(), Is.False);
+            Assert.That(combatStartedCount, Is.EqualTo(1));
+            Assert.That(_session.IsBossIntroPending, Is.False);
+            Assert.That(_session.IsBossCombatStarted, Is.True);
+
+            QueueKeyboardState(Key.D);
+            float resumeDeadline = Time.realtimeSinceStartup + 1f;
+            while (_session.CurrentGameTime == System.TimeSpan.Zero &&
+                   Time.realtimeSinceStartup < resumeDeadline)
+            {
+                yield return null;
+            }
+            QueueKeyboardState();
+            yield return null;
+
+            Assert.That(_session.CurrentGameTime, Is.GreaterThan(System.TimeSpan.Zero));
+            Assert.That(_session.CurrentMovementPosition.X, Is.GreaterThan(start.X));
+        }
+
+        [UnityTest]
         public IEnumerator BossEncounter_OverheatAcceptsTwoBombsAndHidesDestinationGhost()
         {
             CreateRuntime(
@@ -2066,6 +2161,8 @@ namespace BombSwap.Tests.PlayMode
                 includePresenter: true,
                 combatEnabled: true,
                 bossEnabled: true,
+                includeBossPresenter: true,
+                maxHealth: 50,
                 bossMaxHealth: 3,
                 bossPhaseTwoHealthThreshold: 2,
                 bossPhaseOneTelegraphSeconds: 0.01f,
@@ -2073,10 +2170,27 @@ namespace BombSwap.Tests.PlayMode
                 bossPhaseOneRecoverySeconds: 0.2f,
                 bossPhaseTwoTelegraphSeconds: 0.01f,
                 bossPhaseTwoExecuteSeconds: 0.01f);
+            Time.timeScale = 4f;
             ConfigureTestExplosionVfx();
             BossBombFlight launched = default;
             BombSnapshot landed = default;
             bool explosionVfxObserved = false;
+            bool landedDangerRemoved = false;
+            int coreVolleyDangerCellCount = 0;
+            int visibleVolleyDangerCellCount = -1;
+            _session.BossPatternTransitioned += transition =>
+            {
+                if (transition.Pattern == BossPatternKind.BombVolley &&
+                    (transition.State == BossBattleState.Telegraph ||
+                     transition.State == BossBattleState.Execute))
+                {
+                    coreVolleyDangerCellCount = Mathf.Max(
+                        coreVolleyDangerCellCount,
+                        transition.DangerCells.Count);
+                    visibleVolleyDangerCellCount =
+                        _bossPresenter.VisibleDangerCellCount;
+                }
+            };
             _session.BossBombLaunched += flight =>
             {
                 if (launched.Definition == null)
@@ -2098,18 +2212,22 @@ namespace BombSwap.Tests.PlayMode
                     explosionVfxObserved = HasActiveParticleAt(
                         "Flames_F",
                         GetExplosionVfxPosition(explosion.Origin));
+                    landedDangerRemoved =
+                        !_bossPresenter.HasLandedBossBombDanger(landed.Id);
                 }
             };
 
-            float deadline = Time.realtimeSinceStartup + 2f;
+            float deadline = Time.realtimeSinceStartup + 5f;
             while (launched.Definition == null && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
             Assert.That(launched.Definition, Is.Not.Null);
             Assert.That(_presenter.ActiveBossFlightVisualCount, Is.GreaterThan(0));
+            Assert.That(coreVolleyDangerCellCount, Is.GreaterThan(0));
+            Assert.That(visibleVolleyDangerCellCount, Is.Zero);
 
-            deadline = Time.realtimeSinceStartup + 1f;
+            deadline = Time.realtimeSinceStartup + 2f;
             while (!landed.Id.IsValid && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
@@ -2119,13 +2237,49 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(landed.Position, Is.EqualTo(launched.Target));
             Assert.That(landed.DetonatesAt, Is.GreaterThan(launched.LandsAt));
             Assert.That(_presenter.ActiveBossFlightVisualCount, Is.LessThan(3));
+            Assert.That(
+                _session.TryGetBombExplosionPreview(
+                    landed.Id,
+                    out IReadOnlyList<GridPosition> landedDangerCells),
+                Is.True);
+            Assert.That(landedDangerCells, Is.Not.Empty);
+            Assert.That(
+                _bossPresenter.HasLandedBossBombDanger(landed.Id),
+                Is.True);
+            Assert.That(
+                _bossPresenter.VisibleDangerCellCount,
+                Is.GreaterThanOrEqualTo(landedDangerCells.Count));
 
-            deadline = Time.realtimeSinceStartup + 1f;
+            deadline = Time.realtimeSinceStartup + 2f;
             while (!explosionVfxObserved && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
             Assert.That(explosionVfxObserved, Is.True);
+            Assert.That(landedDangerRemoved, Is.True);
+
+            deadline = Time.realtimeSinceStartup + 5f;
+            while (_bossPresenter.ParityAttackFeedbackCount == 0 &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(
+                _bossPresenter.BossBombExplosionFeedbackCount,
+                Is.GreaterThan(0));
+            Assert.That(
+                _bossPresenter.ParityAttackFeedbackCount,
+                Is.GreaterThan(0));
+            PrototypeLocalVfxOverrides localVfx =
+                PrototypeLocalVfxOverrides.LoadOptional();
+            if (localVfx != null &&
+                localVfx.BossIntroLightningVfxPrefab != null)
+            {
+                Assert.That(
+                    _bossPresenter.ParityLightningVfxPlayCount,
+                    Is.GreaterThan(0));
+            }
         }
 
         [UnityTest]
@@ -2458,7 +2612,7 @@ namespace BombSwap.Tests.PlayMode
                 includeThrowerPresenter: true,
                 throwerMoveCellsPerSecond: 20f,
                 throwerTelegraphSeconds: 0.04f,
-                throwerFlightSeconds: 0.04f,
+                throwerFlightSeconds: 0.2f,
                 throwerRecoverySeconds: 0.04f,
                 throwerBombFuseSeconds: 1f);
             ConfigureTestExplosionVfx();
@@ -2468,6 +2622,9 @@ namespace BombSwap.Tests.PlayMode
             int placedCount = 0;
             var thrownBombIds = new List<BombId>();
             var thrownCauses = new Dictionary<BombId, BombDetonationCause>();
+            var landedRanges =
+                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
+            var removedDangerBombIds = new HashSet<BombId>();
             bool throwerExplosionVfxObserved = false;
             _session.ThrowerAdvanced += result =>
             {
@@ -2484,12 +2641,22 @@ namespace BombSwap.Tests.PlayMode
             {
                 placedCount++;
                 thrownBombIds.Add(snapshot.Id);
+                Assert.That(
+                    _session.TryGetBombExplosionPreview(
+                        snapshot.Id,
+                        out IReadOnlyList<GridPosition> affectedCells),
+                    Is.True);
+                landedRanges.Add(snapshot.Id, affectedCells);
             };
             _session.BombExploded += explosion =>
             {
                 if (thrownBombIds.Contains(explosion.BombId))
                 {
                     thrownCauses[explosion.BombId] = explosion.Cause;
+                    if (!_throwerPresenter.HasLandedBombDanger(explosion.BombId))
+                    {
+                        removedDangerBombIds.Add(explosion.BombId);
+                    }
                     throwerExplosionVfxObserved |= HasActiveParticleAt(
                         "Flames_F",
                         GetExplosionVfxPosition(explosion.Origin));
@@ -2497,6 +2664,18 @@ namespace BombSwap.Tests.PlayMode
             };
 
             float deadline = Time.realtimeSinceStartup + 2f;
+            while (launchCount < 3 && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(launchCount, Is.EqualTo(3));
+            Assert.That(_session.HasPendingThrowerBombFlight, Is.True);
+            Assert.That(_throwerPresenter.IsTelegraphVisible, Is.False);
+            Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
+            Assert.That(_throwerPresenter.VisibleDangerCellCount, Is.Zero);
+
+            deadline = Time.realtimeSinceStartup + 2f;
             while (placedCount < 3 && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
@@ -2514,8 +2693,8 @@ namespace BombSwap.Tests.PlayMode
                 }));
             Assert.That(telegraphCount, Is.EqualTo(1));
             Assert.That(visibleTelegraphCellCount, Is.EqualTo(3));
-            Assert.That(launchCount, Is.EqualTo(3));
             Assert.That(placedCount, Is.EqualTo(3));
+            Assert.That(landedRanges.Count, Is.EqualTo(3));
             Assert.That(thrownBombIds, Has.All.Matches<BombId>(id => id.IsValid));
             Assert.That(
                 thrownBombIds,
@@ -2523,6 +2702,16 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(_throwerPresenter.TelegraphCount, Is.EqualTo(1));
             Assert.That(_throwerPresenter.IsTelegraphVisible, Is.False);
             Assert.That(_throwerPresenter.ActiveTelegraphCellCount, Is.Zero);
+            var expectedVisibleDangerCells = new HashSet<GridPosition>();
+            for (int index = 0; index < thrownBombIds.Count; index++)
+            {
+                BombId bombId = thrownBombIds[index];
+                Assert.That(_throwerPresenter.HasLandedBombDanger(bombId), Is.True);
+                expectedVisibleDangerCells.UnionWith(landedRanges[bombId]);
+            }
+            Assert.That(
+                _throwerPresenter.VisibleDangerCellCount,
+                Is.EqualTo(expectedVisibleDangerCells.Count));
 
             Assert.That(_session.TryPlaceBomb(), Is.True);
             deadline = Time.realtimeSinceStartup + 2f;
@@ -2538,6 +2727,8 @@ namespace BombSwap.Tests.PlayMode
                 thrownCauses.Values,
                 Has.Exactly(1).EqualTo(BombDetonationCause.Fuse));
             Assert.That(_session.HasPendingThrowerBombFlight, Is.False);
+            Assert.That(removedDangerBombIds.Count, Is.EqualTo(3));
+            Assert.That(_throwerPresenter.VisibleDangerCellCount, Is.Zero);
             Assert.That(
                 thrownBombIds,
                 Has.None.Matches<BombId>(id => _presenter.HasBombVisual(id)));
@@ -2642,6 +2833,7 @@ namespace BombSwap.Tests.PlayMode
             bool? runtimeCombatEnabled = null,
             bool bossEnabled = false,
             bool includeBossPresenter = false,
+            bool requestBossIntroGate = false,
             Vector2Int? bossSpawnPosition = null,
             int bossMaxHealth = 3,
             int bossPhaseTwoHealthThreshold = 2,
@@ -3157,6 +3349,10 @@ namespace BombSwap.Tests.PlayMode
                 bossEnabled,
                 _selfDestructDefinition,
                 _throwerDefinition);
+            if (requestBossIntroGate)
+            {
+                _session.PrepareBossIntroGate();
+            }
             if (startWithEmptySecondBombSlot)
             {
                 _session.PrepareRuntimeBombLoadout(

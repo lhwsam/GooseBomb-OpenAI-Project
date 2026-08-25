@@ -1036,7 +1036,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 712220341515236449}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 534828790967188715}
+        m_TargetAssemblyTypeName: BombSwap.PrototypeUiButtonAudioPlayer, BombSwap.Unity
+        m_MethodName: PlayClick
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &4783249528026055051
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1054,10 +1066,13 @@ MonoBehaviour:
   pressedScaleMultiplier: 0.96
   transitionDuration: 0.1
   submitPulseDuration: 0.08
-  colorTarget: {fileID: 0}
+  colorTarget: {fileID: 8557955046026887877}
   startColor: {r: 0.7372549, g: 0.7372549, b: 0.7372549, a: 1}
   targetColor: {r: 1, g: 1, b: 1, a: 1}
-  hoverVisualTargets: []
+  hoverVisualTargets:
+  - {fileID: 3111007789712732534}
+  - {fileID: 2956902366745492792}
+  audioPlayer: {fileID: 534828790967188715}
 --- !u!1 &7872529371921117521
 GameObject:
   m_ObjectHideFlags: 0
@@ -1208,6 +1223,8 @@ GameObject:
   - component: {fileID: 6769194102835462627}
   - component: {fileID: 8177038721726613964}
   - component: {fileID: 1591085519140803233}
+  - component: {fileID: 8750948889489715694}
+  - component: {fileID: 534828790967188715}
   m_Layer: 0
   m_Name: PrototypeRunCompletionCanvas
   m_TagString: Untagged
@@ -1319,6 +1336,118 @@ MonoBehaviour:
   lobbyButton: {fileID: 6227530953801971913}
   completedTitleColor: {r: 0.22, g: 0.95, b: 0.5, a: 1}
   failedTitleColor: {r: 1, g: 0.32, b: 0.26, a: 1}
+--- !u!82 &8750948889489715694
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7998275566875757103}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: -221016187620281052, guid: b74aa777e8d8ccc4baf8013136c4eebc, type: 2}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &534828790967188715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7998275566875757103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 202ca3bbee8adf74ca320e5510f58b5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeUiButtonAudioPlayer
+  audioSource: {fileID: 8750948889489715694}
+  hoverClip: {fileID: 8300000, guid: 52679d25c8a715440990f1369487a22a, type: 3}
+  clickClip: {fileID: 8300000, guid: d27987d6d1cbb2044a41820fa6c63fed, type: 3}
 --- !u!1 &8617009073655287819
 GameObject:
   m_ObjectHideFlags: 0
@@ -1442,7 +1571,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1402419099789211530}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 534828790967188715}
+        m_TargetAssemblyTypeName: BombSwap.PrototypeUiButtonAudioPlayer, BombSwap.Unity
+        m_MethodName: PlayClick
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &4234961654312988442
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1460,7 +1601,10 @@ MonoBehaviour:
   pressedScaleMultiplier: 0.96
   transitionDuration: 0.1
   submitPulseDuration: 0.08
-  colorTarget: {fileID: 0}
+  colorTarget: {fileID: 581551579041378512}
   startColor: {r: 0.7372549, g: 0.7372549, b: 0.7372549, a: 1}
   targetColor: {r: 1, g: 1, b: 1, a: 1}
-  hoverVisualTargets: []
+  hoverVisualTargets:
+  - {fileID: 4884982570688304119}
+  - {fileID: 3661516058877546907}
+  audioPlayer: {fileID: 534828790967188715}

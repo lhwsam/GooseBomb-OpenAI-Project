@@ -3753,6 +3753,9 @@ namespace BombSwap.Editor.ContentValidation
             PrototypePlayerAnimationPresenter playerAnimationPresenter =
                 systems.AddComponent<PrototypePlayerAnimationPresenter>();
             PrototypeBombPresenter bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            PrototypeCameraShake cameraShake = systems.AddComponent<PrototypeCameraShake>();
+            PrototypePlayerBombCameraShakePresenter playerBombCameraShake =
+                systems.AddComponent<PrototypePlayerBombCameraShakePresenter>();
             PrototypeDestructibleWallPresenter destructibleWallPresenter =
                 systems.AddComponent<PrototypeDestructibleWallPresenter>();
             PrototypePlayerHealthPresenter healthPresenter =
@@ -3896,7 +3899,7 @@ namespace BombSwap.Editor.ContentValidation
                     room.PlayerSpawn.Z * cellSize));
             Transform runtimePresentation = CreateChild("RuntimePresentation", gridRoot.transform);
 
-            CreateCamera(root.transform);
+            Camera mainCamera = CreateCamera(root.transform);
             CreateDirectionalLight(root.transform);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -3927,6 +3930,8 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            cameraShake.Configure(mainCamera.transform);
+            playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, player.GetComponentInChildren<Renderer>());
             chaserPresenter.Configure(gameSession, runtimePresentation);
@@ -3998,6 +4003,18 @@ namespace BombSwap.Editor.ContentValidation
             if (bombPresenter == null)
             {
                 bombPresenter = systems.AddComponent<PrototypeBombPresenter>();
+            }
+            PrototypeCameraShake cameraShake = systems.GetComponent<PrototypeCameraShake>();
+            if (cameraShake == null)
+            {
+                cameraShake = systems.AddComponent<PrototypeCameraShake>();
+            }
+            PrototypePlayerBombCameraShakePresenter playerBombCameraShake =
+                systems.GetComponent<PrototypePlayerBombCameraShakePresenter>();
+            if (playerBombCameraShake == null)
+            {
+                playerBombCameraShake =
+                    systems.AddComponent<PrototypePlayerBombCameraShakePresenter>();
             }
             PrototypeDestructibleWallPresenter destructibleWallPresenter =
                 systems.GetComponent<PrototypeDestructibleWallPresenter>();
@@ -4208,6 +4225,9 @@ namespace BombSwap.Editor.ContentValidation
             playerController.Configure(gameSession, player);
             playerAnimationPresenter.Configure(gameSession, playerAnimator);
             bombPresenter.Configure(gameSession, runtimePresentation);
+            Camera mainCamera = FindExactlyOne<Camera>(scene);
+            cameraShake.Configure(mainCamera.transform);
+            playerBombCameraShake.Configure(gameSession, settingsRuntime, cameraShake);
             destructibleWallPresenter.Configure(gameSession, destructibleObstacles);
             healthPresenter.Configure(gameSession, playerRenderer);
             chaserPresenter.Configure(gameSession, runtimePresentation);
@@ -4229,6 +4249,8 @@ namespace BombSwap.Editor.ContentValidation
             EditorUtility.SetDirty(playerController);
             EditorUtility.SetDirty(playerAnimationPresenter);
             EditorUtility.SetDirty(bombPresenter);
+            EditorUtility.SetDirty(cameraShake);
+            EditorUtility.SetDirty(playerBombCameraShake);
             EditorUtility.SetDirty(destructibleWallPresenter);
             EditorUtility.SetDirty(healthPresenter);
             EditorUtility.SetDirty(chaserPresenter);
@@ -4757,7 +4779,7 @@ namespace BombSwap.Editor.ContentValidation
             return instance;
         }
 
-        private static void CreateCamera(Transform parent)
+        private static Camera CreateCamera(Transform parent)
         {
             var cameraObject = new GameObject("Main Camera");
             cameraObject.transform.SetParent(parent, false);
@@ -4773,6 +4795,7 @@ namespace BombSwap.Editor.ContentValidation
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 50f;
             cameraObject.AddComponent<AudioListener>();
+            return camera;
         }
 
         private static void CreateLobbyCamera(Transform parent)

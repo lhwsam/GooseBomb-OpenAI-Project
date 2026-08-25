@@ -593,6 +593,21 @@ namespace BombSwap.Tests.PlayMode
             Assert.That(instance.GetComponent<ParticleSystem>().isPlaying, Is.True);
         }
 
+        [Test]
+        public void LocalVfxOverrides_ConfiguresBossIntroSpawnAndLightningAsAPair()
+        {
+            GameObject spawn = CreateSecretWallBreakVfxPrefab();
+            GameObject lightning = CreateSecretWallBreakVfxPrefab();
+            lightning.name = "BossIntroLightningTestVfx";
+            var overrides = ScriptableObject.CreateInstance<PrototypeLocalVfxOverrides>();
+            _createdAssets.Add(overrides);
+
+            overrides.ConfigureBossIntroVfx(spawn, lightning);
+
+            Assert.That(overrides.BossIntroSpawnVfxPrefab, Is.SameAs(spawn));
+            Assert.That(overrides.BossIntroLightningVfxPrefab, Is.SameAs(lightning));
+        }
+
         [UnityTest]
         public IEnumerator AnimatedDoorPresenter_AppliesRotatedOpenAndSecretStates()
         {
@@ -1068,6 +1083,26 @@ namespace BombSwap.Tests.PlayMode
                     UnityEngine.Object.FindObjectsByType<PrototypeBossPresenter>(
                             FindObjectsInactive.Include)
                         .Single();
+                PrototypeBossIntroPresenter intro =
+                    UnityEngine.Object.FindObjectsByType<PrototypeBossIntroPresenter>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeHealthHud healthHud =
+                    UnityEngine.Object.FindObjectsByType<PrototypeHealthHud>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeUserSettingsRuntime settings =
+                    UnityEngine.Object.FindObjectsByType<PrototypeUserSettingsRuntime>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                PrototypeCameraShake cameraShake =
+                    UnityEngine.Object.FindObjectsByType<PrototypeCameraShake>(
+                            FindObjectsInactive.Include)
+                        .Single();
+                Camera gameplayCamera =
+                    UnityEngine.Object.FindObjectsByType<Camera>(
+                            FindObjectsInactive.Include)
+                        .Single(camera => camera.enabled && camera.CompareTag("MainCamera"));
                 PrototypeRunCompletionPresenter completionPresenter =
                     UnityEngine.Object.FindObjectsByType<PrototypeRunCompletionPresenter>(
                             FindObjectsInactive.Include)
@@ -1083,11 +1118,75 @@ namespace BombSwap.Tests.PlayMode
                 Assert.That(session.BossActorId, Is.EqualTo(new ActorId(5)));
                 Assert.That(session.EnemyActiveCount, Is.EqualTo(1));
                 Assert.That(session.IsRoomCleared, Is.False);
+                Assert.That(session.IsBossIntroPending, Is.True);
+                Assert.That(session.IsBossCombatStarted, Is.False);
+                Assert.That(session.CurrentGameTime, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(intro.IsPlaying, Is.True);
                 Assert.That(presenter.IsInitialized, Is.True);
-                Assert.That(presenter.IsBossVisible, Is.True);
+                Assert.That(presenter.AttackFeedbackSettings, Is.SameAs(settings));
+                Assert.That(presenter.AttackCameraShake, Is.SameAs(cameraShake));
+                Assert.That(presenter.IsBossVisible, Is.False);
+                Assert.That(healthHud.IsBossPanelVisible, Is.False);
+                Assert.That(healthHud.BossPanelAlpha, Is.EqualTo(0f).Within(0.001f));
+                Assert.That(
+                    gameplayCamera.orthographicSize,
+                    Is.EqualTo(intro.FocusedOrthographicSize).Within(0.001f));
+                Assert.That(session.TryPlaceBomb(), Is.False);
                 Assert.That(session.CurrentBossPattern, Is.EqualTo(BossPatternKind.LimitedChase));
                 Assert.That(presenter.VisibleDangerCellCount, Is.EqualTo(0));
                 Assert.That(presenter.IsMoveTargetVisible, Is.False);
+
+                yield return new WaitForSecondsRealtime(0.08f);
+                Assert.That(session.CurrentGameTime, Is.EqualTo(TimeSpan.Zero));
+
+                float introDeadline = Time.realtimeSinceStartup + 6f;
+                while (session.IsBossIntroPending &&
+                       Time.realtimeSinceStartup < introDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(session.IsBossIntroPending, Is.False);
+                Assert.That(session.IsBossCombatStarted, Is.True);
+                Assert.That(intro.IsCompleted, Is.True);
+                Assert.That(presenter.IsBossVisible, Is.True);
+                Assert.That(presenter.IsIntroLanded, Is.True);
+                Assert.That(healthHud.IsBossPanelVisible, Is.True);
+                Assert.That(healthHud.BossPanelAlpha, Is.EqualTo(1f).Within(0.001f));
+                Assert.That(
+                    Vector2.Distance(
+                        healthHud.BossPanelAnchoredPosition,
+                        healthHud.BossPanelRestingAnchoredPosition),
+                    Is.LessThan(0.01f));
+                Assert.That(gameplayCamera.orthographicSize, Is.EqualTo(7.5f).Within(0.001f));
+                PrototypeLocalVfxOverrides localVfx =
+                    PrototypeLocalVfxOverrides.LoadOptional();
+                if (localVfx != null &&
+                    localVfx.BossIntroSpawnVfxPrefab != null &&
+                    localVfx.BossIntroLightningVfxPrefab != null)
+                {
+                    Assert.That(intro.SpawnVfxPlayCount, Is.EqualTo(1));
+                    Assert.That(intro.LightningVfxPlayCount, Is.EqualTo(1));
+                }
+
+                Time.timeScale = 4f;
+                float attackFeedbackDeadline = Time.realtimeSinceStartup + 9f;
+                while ((presenter.ChargeAttackFeedbackCount == 0 ||
+                        presenter.BossBombExplosionFeedbackCount == 0) &&
+                       Time.realtimeSinceStartup < attackFeedbackDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(presenter.ChargeAttackFeedbackCount, Is.GreaterThan(0));
+                Assert.That(
+                    presenter.BossBombExplosionFeedbackCount,
+                    Is.GreaterThan(0));
+                if (settings.Current.IsScreenShakeEnabled)
+                {
+                    Assert.That(presenter.AttackShakePlayCount, Is.GreaterThan(0));
+                }
+                Assert.That(session.BeginBossCombat(), Is.False);
                 Assert.That(completionPresenter.RoomBinder, Is.SameAs(binder));
                 Assert.That(completionPresenter.InputReader, Is.SameAs(session.InputReader));
                 Assert.That(completionPresenter.ViewPrefab, Is.Not.Null);
@@ -1106,6 +1205,7 @@ namespace BombSwap.Tests.PlayMode
             }
             finally
             {
+                Time.timeScale = 1f;
                 PrototypeDungeonRunHost[] hosts =
                     UnityEngine.Object.FindObjectsByType<PrototypeDungeonRunHost>(
                         FindObjectsInactive.Include);
@@ -2469,6 +2569,10 @@ namespace BombSwap.Tests.PlayMode
                             TextMeshProUGUI>(true)));
                 Assert.That(startFeedback.HoverVisualTargetCount, Is.EqualTo(2));
                 Assert.That(settingsFeedback.HoverVisualTargetCount, Is.EqualTo(2));
+                AssertButtonClickAudioIsFirst(lobby.StartButton, startFeedback);
+                AssertButtonClickAudioIsFirst(
+                    lobby.ControlsButton,
+                    settingsFeedback);
                 for (int hoverIndex = 0; hoverIndex < 2; hoverIndex++)
                 {
                     Assert.That(
@@ -2571,6 +2675,34 @@ namespace BombSwap.Tests.PlayMode
                     Is.False);
                 lobby.SettingsPanel.ShowAudioPage();
                 Assert.That(lobby.SettingsPanel.IsControlsPageVisible, Is.False);
+                Assert.That(lobby.SettingsPanel.ScreenShakeButton, Is.Not.Null);
+                Assert.That(lobby.SettingsPanel.ScreenShakeValueLabel, Is.Not.Null);
+                Assert.That(
+                    lobby.SettingsPanel.ScreenShakeValueLabel.transform.IsChildOf(
+                        lobby.SettingsPanel.ScreenShakeButton.transform),
+                    Is.True);
+                bool screenShakeWasEnabled =
+                    lobby.SettingsRuntime.Current.IsScreenShakeEnabled;
+                Assert.That(
+                    lobby.SettingsPanel.ScreenShakeValueLabel.text,
+                    Is.EqualTo(
+                        screenShakeWasEnabled
+                            ? PrototypeSettingsPanelPresenter.ScreenShakeEnabledLabel
+                            : PrototypeSettingsPanelPresenter.ScreenShakeDisabledLabel));
+                lobby.SettingsPanel.ScreenShakeButton.onClick.Invoke();
+                Assert.That(
+                    lobby.SettingsRuntime.Current.IsScreenShakeEnabled,
+                    Is.EqualTo(!screenShakeWasEnabled));
+                Assert.That(
+                    lobby.SettingsPanel.ScreenShakeValueLabel.text,
+                    Is.EqualTo(
+                        screenShakeWasEnabled
+                            ? PrototypeSettingsPanelPresenter.ScreenShakeDisabledLabel
+                            : PrototypeSettingsPanelPresenter.ScreenShakeEnabledLabel));
+                lobby.SettingsPanel.ScreenShakeButton.onClick.Invoke();
+                Assert.That(
+                    lobby.SettingsRuntime.Current.IsScreenShakeEnabled,
+                    Is.EqualTo(screenShakeWasEnabled));
                 lobby.HideControls();
                 Assert.That(lobby.IsControlsVisible, Is.False);
 
@@ -2642,6 +2774,12 @@ namespace BombSwap.Tests.PlayMode
                     Is.EqualTo(PrototypeSettingsPanelFactory.KeyboardBindingCount));
                 Assert.That(
                     pausePresenter.SettingsPanel.KeyboardResetButton,
+                    Is.Not.Null);
+                Assert.That(
+                    pausePresenter.SettingsPanel.ScreenShakeButton,
+                    Is.Not.Null);
+                Assert.That(
+                    pausePresenter.SettingsPanel.ScreenShakeValueLabel,
                     Is.Not.Null);
 
                 PressAndRelease(pauseKeyboard, Key.Escape);
@@ -3305,6 +3443,19 @@ namespace BombSwap.Tests.PlayMode
                     $"Door {doors[index].name} must preserve its authored material properties.");
                 propertyBlock.Clear();
             }
+        }
+
+        private static void AssertButtonClickAudioIsFirst(
+            Button button,
+            PrototypeButtonScaleFeedback feedback)
+        {
+            Assert.That(button.onClick.GetPersistentEventCount(), Is.EqualTo(1));
+            Assert.That(
+                button.onClick.GetPersistentTarget(0),
+                Is.SameAs(feedback.AudioPlayer));
+            Assert.That(
+                button.onClick.GetPersistentMethodName(0),
+                Is.EqualTo(nameof(PrototypeUiButtonAudioPlayer.PlayClick)));
         }
 
         private static string ExpectedSpecialScene(RoomType roomType)

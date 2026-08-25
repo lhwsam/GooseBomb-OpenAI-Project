@@ -1651,8 +1651,10 @@ async function main() {
       "ArrowDown",
       "dungeon-room-ready-7-boss-active",
     );
+    await waitForEvent(page, "boss-intro-started", { timeout: 5_000 });
+    await waitForEvent(page, "boss-intro-completed", { timeout: 10_000 });
     await waitForEvent(page, "boss-pattern-limited-chase-telegraph", {
-      timeout: 5_000,
+      timeout: 10_000,
     });
     await waitForEvent(page, "boss-cell-x-0-z-1", { timeout: 5_000 });
     const firstChargeTelegraphBefore = await eventCount(

@@ -22,6 +22,7 @@ namespace BombSwap
         private TextMeshProUGUI[] _slotCooldownLabels;
         private GameObject[] _slotEmptyIndicators;
         private GameObject[] _slotSelections;
+        private Image[] _slotKeyIcons;
         private string[] _lastDefinitionIds;
         private int _lastActiveSlot = -1;
         private int _lastFirstCooldownDeciseconds = -1;
@@ -137,6 +138,7 @@ namespace BombSwap
             _slotCooldownLabels = new TextMeshProUGUI[BombWeaponLoadout.SlotCount];
             _slotEmptyIndicators = new GameObject[BombWeaponLoadout.SlotCount];
             _slotSelections = new GameObject[BombWeaponLoadout.SlotCount];
+            _slotKeyIcons = new Image[BombWeaponLoadout.SlotCount];
             _lastDefinitionIds = new string[BombWeaponLoadout.SlotCount];
             for (int slotIndex = 0; slotIndex < BombWeaponLoadout.SlotCount; slotIndex++)
             {
@@ -152,6 +154,8 @@ namespace BombSwap
                     _viewInstance.GetSlotEmptyIndicator(slotIndex);
                 _slotSelections[slotIndex] =
                     _viewInstance.GetSlotSelection(slotIndex);
+                _slotKeyIcons[slotIndex] =
+                    _viewInstance.GetSlotKeyIcon(slotIndex);
             }
 
             _initialized = true;
@@ -168,15 +172,35 @@ namespace BombSwap
                     SetActiveIfChanged(
                         _slotSelections[slotIndex],
                         slotIndex == activeSlot);
+                    _slotKeyIcons[slotIndex].sprite = slotIndex == activeSlot
+                        ? _viewInstance.SelectedSlotKeyIcon
+                        : _viewInstance.UnselectedSlotKeyIcon;
                 }
                 _lastActiveSlot = activeSlot;
             }
 
-            RefreshSlot(0, ref _lastFirstCooldownDeciseconds);
-            RefreshSlot(1, ref _lastSecondCooldownDeciseconds);
+            TimeSpan swapCooldown = session.BombSwapCooldown;
+            TimeSpan swapCooldownRemaining = session.BombSwapCooldownRemaining;
+            RefreshSlot(
+                0,
+                activeSlot,
+                swapCooldown,
+                swapCooldownRemaining,
+                ref _lastFirstCooldownDeciseconds);
+            RefreshSlot(
+                1,
+                activeSlot,
+                swapCooldown,
+                swapCooldownRemaining,
+                ref _lastSecondCooldownDeciseconds);
         }
 
-        private void RefreshSlot(int slotIndex, ref int lastCooldownDeciseconds)
+        private void RefreshSlot(
+            int slotIndex,
+            int activeSlot,
+            TimeSpan swapCooldown,
+            TimeSpan swapCooldownRemaining,
+            ref int lastCooldownDeciseconds)
         {
             BombWeaponSlotSnapshot slot = session.GetBombSlot(slotIndex);
             if (!slot.HasDefinition)
@@ -214,10 +238,19 @@ namespace BombSwap
             SetActiveIfChanged(_slotBombIcons[slotIndex].gameObject, true);
             SetActiveIfChanged(_slotEmptyIndicators[slotIndex], false);
 
-            float cooldownFraction = 1f - (float)slot.ReadyFraction;
-            _slotCooldownFills[slotIndex].fillAmount = Mathf.Clamp01(cooldownFraction);
-            int cooldownDeciseconds = ToRemainingDeciseconds(
-                slot.PlacementCooldownRemaining);
+            TimeSpan displayedCooldown = slot.PlacementCooldown;
+            TimeSpan displayedRemaining = slot.PlacementCooldownRemaining;
+            if (slotIndex != activeSlot &&
+                swapCooldownRemaining > TimeSpan.Zero &&
+                swapCooldownRemaining >= displayedRemaining)
+            {
+                displayedCooldown = swapCooldown;
+                displayedRemaining = swapCooldownRemaining;
+            }
+
+            _slotCooldownFills[slotIndex].fillAmount =
+                CalculateRemainingFraction(displayedRemaining, displayedCooldown);
+            int cooldownDeciseconds = ToRemainingDeciseconds(displayedRemaining);
             bool isCooling = cooldownDeciseconds > 0;
             SetActiveIfChanged(_slotCooldownPanels[slotIndex], isCooling);
             if (cooldownDeciseconds == lastCooldownDeciseconds)
@@ -229,6 +262,18 @@ namespace BombSwap
                 ? FormatDeciseconds(cooldownDeciseconds)
                 : string.Empty;
             lastCooldownDeciseconds = cooldownDeciseconds;
+        }
+
+        private static float CalculateRemainingFraction(
+            TimeSpan remaining,
+            TimeSpan cooldown)
+        {
+            if (remaining <= TimeSpan.Zero || cooldown <= TimeSpan.Zero)
+            {
+                return 0f;
+            }
+
+            return Mathf.Clamp01((float)(remaining.Ticks / (double)cooldown.Ticks));
         }
 
         private static void SetActiveIfChanged(GameObject target, bool active)

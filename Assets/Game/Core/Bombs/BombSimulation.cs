@@ -7,6 +7,8 @@ namespace BombSwap.Core
     {
         private static readonly IReadOnlyList<BombExplosion> NoExplosions =
             Array.Empty<BombExplosion>();
+        private static readonly IReadOnlyList<GridPosition> NoAffectedCells =
+            Array.Empty<GridPosition>();
 
         private readonly GridState grid;
         private readonly IGameClock clock;
@@ -124,6 +126,20 @@ namespace BombSwap.Core
 
             snapshot = default;
             return false;
+        }
+
+        public bool TryGetExplosionPreview(
+            BombId bombId,
+            out IReadOnlyList<GridPosition> affectedCells)
+        {
+            if (!bombsById.TryGetValue(bombId, out ActiveBomb bomb))
+            {
+                affectedCells = NoAffectedCells;
+                return false;
+            }
+
+            affectedCells = ResolveExplosion(bomb).AffectedCells.AsReadOnly();
+            return true;
         }
 
         public IReadOnlyList<BombExplosion> ProcessDueBombs()

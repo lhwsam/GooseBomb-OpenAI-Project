@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using BombSwap.Core;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,6 +12,8 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeHealthHud : MonoBehaviour
     {
+        public const float DefaultBossIntroVerticalOffset = 72f;
+
         [SerializeField]
         private PrototypeGameSession session;
 
@@ -19,6 +22,9 @@ namespace BombSwap
 
         private PrototypeHealthHudView _viewInstance;
         private GameObject _bossPanelObject;
+        private RectTransform _bossPanelRectTransform;
+        private CanvasGroup _bossPanelCanvasGroup;
+        private Vector2 _bossPanelRestingAnchoredPosition;
         private RectTransform _playerHeartContainer;
         private PrototypeHealthHeartView _playerHeartPrefab;
         private readonly List<PrototypeHealthHeartView> _playerHearts = new();
@@ -52,7 +58,22 @@ namespace BombSwap
         public int DisplayedCombatRewardTokenCount { get; private set; }
 
         public bool IsBossPanelVisible =>
-            _bossPanelObject != null && _bossPanelObject.activeSelf;
+            _bossPanelObject != null &&
+            _bossPanelObject.activeSelf &&
+            (_bossPanelCanvasGroup == null || _bossPanelCanvasGroup.alpha > 0.001f);
+
+        public float BossPanelAlpha =>
+            _bossPanelCanvasGroup != null ? _bossPanelCanvasGroup.alpha : 0f;
+
+        public Vector2 BossPanelAnchoredPosition =>
+            _bossPanelRectTransform != null
+                ? _bossPanelRectTransform.anchoredPosition
+                : Vector2.zero;
+
+        public Vector2 BossPanelRestingAnchoredPosition =>
+            _bossPanelRestingAnchoredPosition;
+
+        public bool IsBossIntroPrepared { get; private set; }
 
         public int DisplayedPlayerHeartCount => DisplayedPlayerMaxHealth;
 
@@ -232,11 +253,18 @@ namespace BombSwap
                 _roomBinder != null ? _roomBinder.RoomRewardTokenCount : 0);
             if (session.HasBoss)
             {
-                _bossPanelObject.SetActive(true);
                 RefreshBoss(
                     session.CurrentBossHealth,
                     session.MaxBossHealth,
                     session.CurrentBossPhase);
+                if (session.IsBossIntroPending)
+                {
+                    PrepareBossIntro();
+                }
+                else
+                {
+                    ShowBossPanelImmediately();
+                }
             }
             else
             {
@@ -245,6 +273,83 @@ namespace BombSwap
                 DisplayedBossMaxHealth = 0;
                 DisplayedBossPhase = BossPhase.One;
             }
+        }
+
+        public void PrepareBossIntro(
+            float verticalOffset = DefaultBossIntroVerticalOffset)
+        {
+            if (verticalOffset < 0f || float.IsNaN(verticalOffset) ||
+                float.IsInfinity(verticalOffset))
+            {
+                throw new ArgumentOutOfRangeException(nameof(verticalOffset));
+            }
+            if (!IsInitialized)
+            {
+                if (session == null || !session.IsReady)
+                {
+                    throw new InvalidOperationException(
+                        "Boss HUD intro requires a ready session.");
+                }
+                Initialize();
+            }
+            if (!session.HasBoss)
+            {
+                throw new InvalidOperationException(
+                    "Boss HUD intro requires a boss encounter.");
+            }
+
+            _bossPanelObject.SetActive(true);
+            _bossPanelCanvasGroup.alpha = 0f;
+            _bossPanelRectTransform.anchoredPosition =
+                _bossPanelRestingAnchoredPosition + (Vector2.up * verticalOffset);
+            _bossHealthFill.fillAmount = 0f;
+            IsBossIntroPrepared = true;
+        }
+
+        public Sequence CreateBossIntroReveal(
+            float panelDuration,
+            float fillDuration)
+        {
+            if (!IsBossIntroPrepared)
+            {
+                throw new InvalidOperationException(
+                    "Prepare the boss HUD before creating its intro reveal.");
+            }
+            if (panelDuration <= 0f || float.IsNaN(panelDuration) ||
+                float.IsInfinity(panelDuration))
+            {
+                throw new ArgumentOutOfRangeException(nameof(panelDuration));
+            }
+            if (fillDuration <= 0f || float.IsNaN(fillDuration) ||
+                float.IsInfinity(fillDuration))
+            {
+                throw new ArgumentOutOfRangeException(nameof(fillDuration));
+            }
+
+            float targetFill = GetFraction(
+                DisplayedBossHealth,
+                DisplayedBossMaxHealth);
+            Sequence sequence = DOTween.Sequence();
+            sequence.Join(DOTween.To(
+                    () => _bossPanelCanvasGroup.alpha,
+                    value => _bossPanelCanvasGroup.alpha = value,
+                    1f,
+                    panelDuration)
+                .SetEase(Ease.OutCubic));
+            sequence.Join(DOTween.To(
+                    () => _bossPanelRectTransform.anchoredPosition,
+                    value => _bossPanelRectTransform.anchoredPosition = value,
+                    _bossPanelRestingAnchoredPosition,
+                    panelDuration)
+                .SetEase(Ease.OutCubic));
+            sequence.Append(DOTween.To(
+                    () => _bossHealthFill.fillAmount,
+                    value => _bossHealthFill.fillAmount = value,
+                    targetFill,
+                    fillDuration)
+                .SetEase(Ease.OutCubic));
+            sequence.OnComplete(CompleteBossIntroReveal);
+            return sequence;
         }
 
         private void RefreshPlayer(int currentHealth, int maxHealth)
@@ -309,6 +414,19 @@ namespace BombSwap
             }
 
             _bossPanelObject = _viewInstance.BossPanel;
+            _bossPanelRectTransform =
+                _bossPanelObject.GetComponent<RectTransform>() ??
+                throw new InvalidOperationException(
+                    "Boss HUD panel requires a RectTransform.");
+            _bossPanelCanvasGroup =
+                _bossPanelObject.GetComponent<CanvasGroup>();
+            if (_bossPanelCanvasGroup == null)
+            {
+                _bossPanelCanvasGroup =
+                    _bossPanelObject.AddComponent<CanvasGroup>();
+            }
+            _bossPanelRestingAnchoredPosition =
+                _bossPanelRectTransform.anchoredPosition;
             _playerHeartContainer = _viewInstance.PlayerHeartContainer;
             _playerHeartPrefab = _viewInstance.PlayerHeartPrefab;
             _bossHealthFill = _viewInstance.BossHealthFill;
@@ -326,6 +444,23 @@ namespace BombSwap
             {
                 _playerHearts.Add(authoredHearts[index]);
             }
+        }
+
+        private void ShowBossPanelImmediately()
+        {
+            _bossPanelObject.SetActive(true);
+            _bossPanelCanvasGroup.alpha = 1f;
+            _bossPanelRectTransform.anchoredPosition =
+                _bossPanelRestingAnchoredPosition;
+            _bossHealthFill.fillAmount = GetFraction(
+                DisplayedBossHealth,
+                DisplayedBossMaxHealth);
+            IsBossIntroPrepared = false;
+        }
+
+        private void CompleteBossIntroReveal()
+        {
+            ShowBossPanelImmediately();
         }
 
         private void EnsurePlayerHeartCapacity(int maxHealth)

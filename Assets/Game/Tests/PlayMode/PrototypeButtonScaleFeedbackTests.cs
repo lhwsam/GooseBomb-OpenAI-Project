@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -10,6 +11,9 @@ namespace BombSwap.Tests.PlayMode
 {
     public sealed class PrototypeButtonScaleFeedbackTests
     {
+        private const string ClickVoiceObjectName =
+            "Prototype UI Button Click Voice";
+
         [UnityTest]
         public IEnumerator PointerHoverAndPress_AnimateUsingUnscaledTime()
         {
@@ -362,6 +366,143 @@ namespace BombSwap.Tests.PlayMode
             {
                 Object.Destroy(root);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator PointerHoverAndConfirmedClick_UseSharedCanvasAudio()
+        {
+            PrototypeButtonScaleFeedback feedback = CreateFeedback(
+                out GameObject root,
+                out _);
+            var audioRoot = new GameObject(
+                "ButtonAudio",
+                typeof(AudioSource),
+                typeof(PrototypeUiButtonAudioPlayer));
+            AudioClip hoverClip = AudioClip.Create(
+                "HoverClip",
+                4410,
+                1,
+                44100,
+                false);
+            AudioClip clickClip = AudioClip.Create(
+                "ClickClip",
+                4410,
+                1,
+                44100,
+                false);
+            PrototypeUiButtonAudioPlayer audioPlayer =
+                audioRoot.GetComponent<PrototypeUiButtonAudioPlayer>();
+            audioPlayer.Configure(
+                audioRoot.GetComponent<AudioSource>(),
+                hoverClip,
+                clickClip);
+            feedback.ConfigureAudio(audioPlayer);
+
+            try
+            {
+                var pointer = new PointerEventData(null)
+                {
+                    button = PointerEventData.InputButton.Left
+                };
+                Button button = root.GetComponent<Button>();
+
+                feedback.OnPointerEnter(pointer);
+                Assert.That(audioPlayer.HoverPlayCount, Is.EqualTo(1));
+                Assert.That(audioPlayer.LastPlayedClip, Is.SameAs(hoverClip));
+
+                feedback.OnPointerEnter(pointer);
+                Assert.That(
+                    audioPlayer.HoverPlayCount,
+                    Is.EqualTo(1),
+                    "Repeated enter callbacks must not restart the same hover cue.");
+
+                feedback.OnPointerExit(pointer);
+                feedback.OnPointerEnter(pointer);
+                Assert.That(audioPlayer.HoverPlayCount, Is.EqualTo(2));
+
+                int confirmedClickCount = 0;
+                button.onClick.AddListener(audioPlayer.PlayClick);
+                button.onClick.AddListener(() =>
+                {
+                    confirmedClickCount++;
+                    audioRoot.SetActive(false);
+                });
+
+                ExecuteEvents.Execute<IPointerClickHandler>(
+                    root,
+                    pointer,
+                    ExecuteEvents.pointerClickHandler);
+                Assert.That(confirmedClickCount, Is.EqualTo(1));
+                Assert.That(audioPlayer.ClickPlayCount, Is.EqualTo(1));
+                Assert.That(audioPlayer.LastPlayedClip, Is.SameAs(clickClip));
+                AudioSource clickVoice = FindClickVoices().Single();
+                Assert.That(clickVoice, Is.Not.SameAs(audioPlayer.AudioSource));
+                Assert.That(clickVoice.gameObject.activeInHierarchy, Is.True);
+
+                Assert.That(
+                    clickVoice.gameObject.activeInHierarchy,
+                    Is.True,
+                    "A click voice must survive the next listener disabling its Canvas audio player.");
+                audioRoot.SetActive(true);
+
+                button.interactable = false;
+                feedback.OnPointerExit(pointer);
+                feedback.OnPointerEnter(pointer);
+                ExecuteEvents.Execute<IPointerClickHandler>(
+                    root,
+                    pointer,
+                    ExecuteEvents.pointerClickHandler);
+                Assert.That(audioPlayer.HoverPlayCount, Is.EqualTo(2));
+                Assert.That(audioPlayer.ClickPlayCount, Is.EqualTo(1));
+                Assert.That(confirmedClickCount, Is.EqualTo(1));
+
+                feedback.enabled = false;
+                button.interactable = true;
+                ExecuteEvents.Execute<IPointerClickHandler>(
+                    root,
+                    pointer,
+                    ExecuteEvents.pointerClickHandler);
+                Assert.That(
+                    audioPlayer.ClickPlayCount,
+                    Is.EqualTo(2),
+                    "Click audio must not depend on the optional visual feedback component.");
+                Assert.That(
+                    confirmedClickCount,
+                    Is.EqualTo(2),
+                    "Disabling feedback must not disable the Button action.");
+
+                audioRoot.SetActive(true);
+                feedback.enabled = true;
+                ExecuteEvents.Execute<IPointerClickHandler>(
+                    root,
+                    pointer,
+                    ExecuteEvents.pointerClickHandler);
+                Assert.That(audioPlayer.ClickPlayCount, Is.EqualTo(3));
+                Assert.That(confirmedClickCount, Is.EqualTo(3));
+            }
+            finally
+            {
+                Object.Destroy(root);
+                Object.Destroy(audioRoot);
+                Object.Destroy(hoverClip);
+                Object.Destroy(clickClip);
+                AudioSource[] clickVoices = FindClickVoices();
+                for (int index = 0; index < clickVoices.Length; index++)
+                {
+                    Object.Destroy(clickVoices[index].gameObject);
+                }
+            }
+
+            yield return null;
+        }
+
+        private static AudioSource[] FindClickVoices()
+        {
+            return Object.FindObjectsByType<AudioSource>(
+                    FindObjectsInactive.Include)
+                .Where(source =>
+                    source.name == ClickVoiceObjectName)
+                .ToArray();
         }
 
         [UnityTest]

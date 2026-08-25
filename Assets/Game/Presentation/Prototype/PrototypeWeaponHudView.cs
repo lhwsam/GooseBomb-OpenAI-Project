@@ -31,6 +31,16 @@ namespace BombSwap
         [SerializeField]
         private GameObject[] slotSelections;
 
+        [SerializeField]
+        private Image[] slotKeyIcons;
+
+        [Header("Slot key icons")]
+        [SerializeField]
+        private Sprite selectedSlotKeyIcon;
+
+        [SerializeField]
+        private Sprite unselectedSlotKeyIcon;
+
         [Header("Bomb type icons")]
         [SerializeField]
         private Sprite crossBombIcon;
@@ -73,9 +83,16 @@ namespace BombSwap
             HasSlotCount(slotCooldownLabels) &&
             HasSlotCount(slotEmptyIndicators) &&
             HasSlotCount(slotSelections) &&
+            HasSlotCount(slotKeyIcons) &&
+            selectedSlotKeyIcon != null &&
+            unselectedSlotKeyIcon != null &&
             crossBombIcon != null &&
             areaBombIcon != null &&
             lineBombIcon != null;
+
+        public Sprite SelectedSlotKeyIcon => selectedSlotKeyIcon;
+
+        public Sprite UnselectedSlotKeyIcon => unselectedSlotKeyIcon;
 
         public Image GetSlotBombIcon(int slotIndex)
         {
@@ -111,6 +128,12 @@ namespace BombSwap
         {
             ValidateSlotIndex(slotIndex);
             return slotSelections[slotIndex];
+        }
+
+        public Image GetSlotKeyIcon(int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            return slotKeyIcons[slotIndex];
         }
 
         public Sprite GetBombIcon(BombExplosionShape explosionShape)
@@ -174,6 +197,26 @@ namespace BombSwap
                 throw new ArgumentNullException(nameof(authoredAreaBombIcon));
             lineBombIcon = authoredLineBombIcon ??
                 throw new ArgumentNullException(nameof(authoredLineBombIcon));
+        }
+
+        public void BindKeyIcons(
+            Image[] authoredSlotKeyIcons,
+            Sprite authoredSelectedSlotKeyIcon,
+            Sprite authoredUnselectedSlotKeyIcon)
+        {
+            if (Application.isPlaying)
+            {
+                throw new InvalidOperationException(
+                    "Weapon HUD key icons can only be authored outside Play Mode.");
+            }
+
+            slotKeyIcons = RequireSlotArray(
+                authoredSlotKeyIcons,
+                nameof(authoredSlotKeyIcons));
+            selectedSlotKeyIcon = authoredSelectedSlotKeyIcon ??
+                throw new ArgumentNullException(nameof(authoredSelectedSlotKeyIcon));
+            unselectedSlotKeyIcon = authoredUnselectedSlotKeyIcon ??
+                throw new ArgumentNullException(nameof(authoredUnselectedSlotKeyIcon));
         }
 
         private static bool HasSlotCount<T>(T[] values)

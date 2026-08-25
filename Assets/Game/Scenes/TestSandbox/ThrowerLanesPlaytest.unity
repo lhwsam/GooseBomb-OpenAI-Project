@@ -1677,6 +1677,8 @@ GameObject:
   - component: {fileID: 549228503}
   - component: {fileID: 549228505}
   - component: {fileID: 549228506}
+  - component: {fileID: 549228508}
+  - component: {fileID: 549228507}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -1994,6 +1996,38 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerAnimationPresenter
   session: {fileID: 549228485}
   animator: {fileID: 941045123}
+--- !u!114 &549228507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cec8f0c4796109246875499dfa6e194a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerBombCameraShakePresenter
+  session: {fileID: 549228485}
+  settings: {fileID: 549228505}
+  cameraShake: {fileID: 549228508}
+  amplitude: 0.16
+  duration: 0.18
+  frequency: 24
+--- !u!114 &549228508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84f4e7e467914a1438a602540dc1c847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeCameraShake
+  shakeTarget: {fileID: 780599539}
+  maxAmplitude: 0.25
 --- !u!1 &550081170
 GameObject:
   m_ObjectHideFlags: 0

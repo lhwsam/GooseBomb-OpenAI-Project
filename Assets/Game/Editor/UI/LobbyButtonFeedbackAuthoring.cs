@@ -70,7 +70,7 @@ namespace BombSwap.Editor.UI
             }
 
             Button[] buttons = FindButtons(scene);
-            int changed = 0;
+            int changed = UiButtonAudioAuthoring.ApplyToButtons(buttons);
             for (int index = 0; index < buttons.Length; index++)
             {
                 Button button = buttons[index];

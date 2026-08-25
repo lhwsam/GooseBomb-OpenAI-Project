@@ -99,6 +99,9 @@ namespace BombSwap
         public void SetScreenShakeIntensity(float value) =>
             SetCurrent(Current.WithScreenShakeIntensity(value));
 
+        public void SetScreenShakeEnabled(bool isEnabled) =>
+            SetCurrent(Current.WithScreenShakeEnabled(isEnabled));
+
         public float ScaleScreenShake(float authoredAmplitude) =>
             Current.ScaleScreenShake(authoredAmplitude);
 

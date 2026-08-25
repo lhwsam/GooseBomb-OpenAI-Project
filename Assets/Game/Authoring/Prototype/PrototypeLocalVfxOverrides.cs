@@ -23,6 +23,12 @@ namespace BombSwap
         private GameObject areaBombGridExplosionVfxPrefab;
 
         [SerializeField]
+        private GameObject bossIntroSpawnVfxPrefab;
+
+        [SerializeField]
+        private GameObject bossIntroLightningVfxPrefab;
+
+        [SerializeField]
         private Vector3 bombReadyLocalPosition = new Vector3(-0.031f, 0.926f, -0.152f);
 
         [SerializeField]
@@ -40,6 +46,11 @@ namespace BombSwap
 
         public GameObject AreaBombGridExplosionVfxPrefab =>
             areaBombGridExplosionVfxPrefab;
+
+        public GameObject BossIntroSpawnVfxPrefab => bossIntroSpawnVfxPrefab;
+
+        public GameObject BossIntroLightningVfxPrefab =>
+            bossIntroLightningVfxPrefab;
 
         public Vector3 BombReadyLocalPosition => bombReadyLocalPosition;
 
@@ -89,6 +100,16 @@ namespace BombSwap
                     areaBombGridExplosionVfxPrefab,
                     nameof(areaBombGridExplosionVfxPrefab));
             }
+            if (bossIntroSpawnVfxPrefab != null ||
+                bossIntroLightningVfxPrefab != null)
+            {
+                ValidateParticlePrefab(
+                    bossIntroSpawnVfxPrefab,
+                    nameof(bossIntroSpawnVfxPrefab));
+                ValidateParticlePrefab(
+                    bossIntroLightningVfxPrefab,
+                    nameof(bossIntroLightningVfxPrefab));
+            }
         }
 
         public void ConfigureCrossBombExplosionVfx(
@@ -113,6 +134,20 @@ namespace BombSwap
                 authoredGridExplosionVfxPrefab,
                 nameof(authoredGridExplosionVfxPrefab));
             areaBombGridExplosionVfxPrefab = authoredGridExplosionVfxPrefab;
+        }
+
+        public void ConfigureBossIntroVfx(
+            GameObject authoredSpawnVfxPrefab,
+            GameObject authoredLightningVfxPrefab)
+        {
+            ValidateParticlePrefab(
+                authoredSpawnVfxPrefab,
+                nameof(authoredSpawnVfxPrefab));
+            ValidateParticlePrefab(
+                authoredLightningVfxPrefab,
+                nameof(authoredLightningVfxPrefab));
+            bossIntroSpawnVfxPrefab = authoredSpawnVfxPrefab;
+            bossIntroLightningVfxPrefab = authoredLightningVfxPrefab;
         }
 
         public static PrototypeLocalVfxOverrides LoadOptional()

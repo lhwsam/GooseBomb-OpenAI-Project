@@ -4230,6 +4230,9 @@ GameObject:
   - component: {fileID: 549228499}
   - component: {fileID: 549228500}
   - component: {fileID: 549228501}
+  - component: {fileID: 549228503}
+  - component: {fileID: 549228502}
+  - component: {fileID: 549228504}
   m_Layer: 0
   m_Name: Systems
   m_TagString: Untagged
@@ -4486,6 +4489,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossPresenter
   session: {fileID: 549228485}
   presentationRoot: {fileID: 550081171}
+  attackFeedbackSettings: {fileID: 549228500}
+  attackCameraShake: {fileID: 549228503}
+  localVfxOverrides: {fileID: 0}
+  chargeShakeAmplitude: 0.2
+  chargeShakeDuration: 0.22
+  chargeShakeFrequency: 22
+  parityShakeAmplitude: 0.11
+  parityShakeDuration: 0.13
+  parityShakeFrequency: 26
+  bossBombShakeAmplitude: 0.13
+  bossBombShakeDuration: 0.16
+  bossBombShakeFrequency: 24
   telegraphColor: {r: 1, g: 0.72, b: 0.08, a: 0.68}
   executeColor: {r: 1, g: 0.08, b: 0.04, a: 0.9}
   recoveryColor: {r: 0.16, g: 1, b: 0.34, a: 1}
@@ -4584,6 +4599,62 @@ MonoBehaviour:
   m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerAnimationPresenter
   session: {fileID: 549228485}
   animator: {fileID: 2021100145}
+--- !u!114 &549228502
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cec8f0c4796109246875499dfa6e194a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypePlayerBombCameraShakePresenter
+  session: {fileID: 549228485}
+  settings: {fileID: 549228500}
+  cameraShake: {fileID: 549228503}
+  amplitude: 0.16
+  duration: 0.18
+  frequency: 24
+--- !u!114 &549228503
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84f4e7e467914a1438a602540dc1c847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeCameraShake
+  shakeTarget: {fileID: 780599539}
+  maxAmplitude: 0.25
+--- !u!114 &549228504
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549228479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01fb66c203645b849974f67180b50878, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BombSwap.Unity::BombSwap.PrototypeBossIntroPresenter
+  session: {fileID: 549228485}
+  bossPresenter: {fileID: 549228495}
+  healthHud: {fileID: 549228497}
+  settings: {fileID: 549228500}
+  gameplayCamera: {fileID: 780599541}
+  cameraShake: {fileID: 549228503}
+  localVfxOverrides: {fileID: 0}
+  focusedOrthographicSize: 5.2
+  dropHeight: 6
+  landingShakeAmplitude: 0.24
+  landingShakeDuration: 0.32
+  landingShakeFrequency: 22
 --- !u!1001 &549748642
 PrefabInstance:
   m_ObjectHideFlags: 0

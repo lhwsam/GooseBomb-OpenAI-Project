@@ -1,13 +1,13 @@
 # 사용자 설정, 오디오와 화면 흔들림
 
 - 상태: 설정 저장·공통 UI·키보드 리바인딩 `Accepted`
-- 상태: 캐릭터 발소리와 로비·던전·보스 적응형 BGM 재생 `Accepted`, UI 버튼 클릭 SFX 후보 클립 `Proposed`, 나머지 gameplay SFX와 폭발 화면 흔들림 연출 `Deferred`
-- 기준일: 2026-08-24
-- 코드 소유: `BombSwap.Unity`의 `PrototypeUserSettingsRuntime`, `PrototypeUserSettingsStorage`, `PrototypeSettingsPanelPresenter`, `PrototypeBgmPresenter`, `PrototypeBgmMixPolicy`
+- 상태: 캐릭터 발소리, 로비·던전·보스 적응형 BGM, UI 버튼 Hover/Click SFX 재생과 플레이어 폭탄·보스 소환·보스 공격 화면 흔들림 `Accepted`, 화면 흔들림 세부 튜닝 `Proposed`, 나머지 gameplay SFX `Deferred`
+- 기준일: 2026-08-25
+- 코드 소유: `BombSwap.Unity`의 `PrototypeUserSettingsRuntime`, `PrototypeUserSettingsStorage`, `PrototypeSettingsPanelPresenter`, `PrototypeBgmPresenter`, `PrototypeBgmMixPolicy`, `PrototypeUiButtonAudioPlayer`, `PrototypeCameraShake`, `PrototypePlayerBombCameraShakePresenter`
 
 ## 목적
 
-로비와 일시정지에서 같은 설정을 제공하고 WebGL의 페이지 재실행 뒤에도 사용자 선택을 복원한다. 설정은 게임 규칙과 런 진행 상태가 아니며, 입력 에셋·AudioMixer·BGM 표현·향후 카메라 연출에 값을 전달하는 Unity 어댑터다. BGM은 확정된 방·전투·보스 상태를 표현하지만 게임 판정에는 영향을 주지 않는다.
+로비와 일시정지에서 같은 설정을 제공하고 WebGL의 페이지 재실행 뒤에도 사용자 선택을 복원한다. 설정은 게임 규칙과 런 진행 상태가 아니며, 입력 에셋·AudioMixer·BGM 표현·카메라 연출에 값을 전달하는 Unity 어댑터다. BGM과 화면 흔들림은 확정된 게임 상태를 표현하지만 게임 판정에는 영향을 주지 않는다.
 
 ## 플레이어 계약
 
@@ -16,7 +16,7 @@
 - 변경 가능한 기본 키는 WASD 네 방향, 폭탄 설치, 폭탄 교체, 일시정지, 결과 재시작이다. 방향키 이동은 고정 fallback으로 남는다.
 - 키 버튼을 누른 뒤 새 키를 입력하면 즉시 반영하고 저장한다. 이미 표시된 다른 명령이 사용하는 키는 거부하며 `Esc`는 변경만 취소한다.
 - 중복 키를 입력하면 별도 상태 문구를 만들지 않는다. 선택한 키 버튼 안에 `이미 사용 중`을 잠시 표시하고 짧게 좌우로 흔든 뒤 기존 키 표시로 복원한다.
-- 전체 음량, 배경음, 효과음과 화면 흔들림 강도는 0~100%이며 즉시 반영한다. 화면 흔들림 0%는 끔이다.
+- 전체 음량, 배경음과 효과음은 0~100% Slider로 즉시 반영한다. 화면 흔들림은 `켜짐/꺼짐` Button이며 기본값은 `켜짐`이다.
 - 조작 페이지 최하단의 `키 설정 초기화`는 키보드 override만 제거하며 음량과 화면 흔들림 값은 유지한다.
 - 오디오·화면 페이지의 `기본값 복원`은 네 수치와 키보드 override를 함께 제거한다.
 - 전체 화면 전환은 현재 브라우저/플랫폼의 Unity fullscreen 요청을 사용한다.
@@ -31,9 +31,9 @@
 | 전체 음량 | 100% | `MasterVolume` |
 | 배경음 | 70% | `BgmVolume` |
 | 효과음 | 100% | `SfxVolume` |
-| 화면 흔들림 | 100% | 향후 카메라 shake amplitude 배율 |
+| 화면 흔들림 | 켜짐 | 카메라 shake 사용 여부 |
 
-- 수치는 versioned `PlayerPrefs` 키에 저장한다. 키 override는 `InputActionAsset.SaveBindingOverridesAsJson()` 결과를 한 키에 저장한다.
+- 수치는 versioned `PlayerPrefs` 키에 저장한다. 화면 흔들림은 기존 float 저장 키와 호환하되 불러올 때 `0.001` 초과는 `1`, 그 이하는 `0`으로 정규화한다. 키 override는 `InputActionAsset.SaveBindingOverridesAsJson()` 결과를 한 키에 저장한다.
 - 잘못되거나 이전 에셋과 호환되지 않는 override JSON은 입력을 막지 않고 폐기한다.
 - 설정은 현재 브라우저 profile/site storage에만 남는다. 사이트 데이터 삭제, private browsing 정책 또는 다른 브라우저·기기 이동 뒤에는 기본값으로 돌아갈 수 있다.
 - 설정 저장과 던전 run 저장은 별개다. 방문 방, 체력, 폭탄 로드아웃, 적 상태를 저장하지 않는다.
@@ -59,21 +59,31 @@
 - `PrototypeBgmPresenter`는 `Presentation` 계층의 표현 어댑터다. 확정된 `RoomType`, room clear, `BossPhase`, pause, 사망 사건만 구독하며 Core가 DSP 시각·clip·volume을 읽거나 음악이 게임 규칙을 바꾸게 하지 않는다. 전역 singleton 접근 API나 범용 Event Bus를 추가하지 않는다.
 - 로비·던전·보스·독립 TestSandbox 대상 17개 scene은 root `PrototypeBgmPresenter` 한 개와 catalog 참조만 직렬화한다. 최초 로드된 presenter가 자기 전용 GameObject를 `DontDestroyOnLoad`로 유지하고 이후 scene의 중복 root는 제거한다. 여덟 `AudioSource`는 런타임에만 만들며 scene YAML에 직렬화하지 않는다.
 - WebGL autoplay 정책 때문에 첫 Input System button press 전에는 재생을 예약하지 않는다. 첫 gesture 뒤 현재 family를 시작하고 Development build에 `bgm-audio-started`를 한 번 기록한다. 이 marker는 DSP 예약 시점 도달을 뜻할 뿐 실제 가청 출력·음량 밸런스·브라우저 장치 상태를 증명하지 않는다.
-- UI 버튼 클릭 SFX 후보는 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`다. 44.1 kHz mono 16-bit PCM, 6,394 frame·약 0.145초이며 짧은 부리 snap·기계식 저음 body·작은 C♯→D 확인 pulse로 구성한다. `Tools/Audio/GenerateUiButtonClickSfx.py`가 고정 seed로 같은 파일을 재현한다. 향후 연결 시 BGM이 아니라 SFX Mixer 그룹으로 route하고 hover가 아닌 interactable Button의 확정 click/Submit에만 재생한다.
-- BGM clip의 처음과 끝은 digital zero이며 `AudioSource.loop`로 전체 clip을 반복한다. catalog validator는 44.1 kHz stereo와 family별 정확한 sample 수, 여덟 clip의 고유성, full-mix 미리보기 비참조를 검사한다. UI SFX도 양 끝을 digital zero로 마감하지만 반복하지 않고 click마다 한 번만 재생한다.
-- BGM과 발소리 연결은 구현됐지만 최종 청감·상대 stem gain·발소리 음량·브라우저별 실제 출력 승인은 해당 화면·room과 실제 WebGL에서 사람이 판단한다. UI 버튼 클릭 SFX와 발소리를 제외한 gameplay SFX의 실제 `AudioSource` 연결은 아직 없다. `audio-unlocked`와 `bgm-audio-started` marker만으로 가청 오디오 통과를 기록하지 않는다.
+- UI 버튼 Hover SFX는 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonHover_GooseNudge_8Bit.wav`다. 44.1 kHz mono 16-bit PCM, 6,174 frame·약 0.140초의 낮고 패딩된 나무 밀림 질감이며 `Tools/Audio/GenerateUiButtonHoverSfx.py`가 고정 seed로 재현한다. interactable Button에 포인터가 실제 진입할 때만 진입당 한 번 재생하고, 키보드·게임패드 선택만으로는 재생하지 않는다.
+- UI 버튼 Click SFX는 `Assets/Game/Content/Audio/SFX/UI/SFX_UI_ButtonClick_GooseClack_8Bit.wav`다. 44.1 kHz mono 16-bit PCM, 7,497 frame·약 0.170초의 저압 충격·필터된 나무 body·기계식 latch 질감이며 `Tools/Audio/GenerateUiButtonClickSfx.py`가 고정 seed로 재현한다. 포인터 click과 키보드·게임패드 Submit이 확정한 interactable Button의 `onClick`에서 같은 소리를 재생한다.
+- 로비, 일시정지, 런 완료 UI는 Canvas마다 `PrototypeUiButtonAudioPlayer`와 2D·비반복 `AudioSource`를 하나만 공유한다. 모든 Button 피드백은 재생기를 직렬화 참조하고 Source는 SFX Mixer 그룹으로 route한다. `PlayClick`은 각 Button의 유일한 persistent `onClick` listener이며 런타임 화면 전환·비활성화 listener보다 먼저 실행되어야 한다. 확정 click은 끝나지 않은 hover음을 교체한 뒤 SFX Mixer 설정을 복제한 짧은 scene-independent voice로 재생해, 같은 프레임의 Canvas 비활성화·scene 전환에도 0.170초 tail을 보존하고 unscaled 시간으로 voice를 정리한다. Disabled·비활성화 상태에서는 재생하지 않는다.
+- BGM clip의 처음과 끝은 digital zero이며 `AudioSource.loop`로 전체 clip을 반복한다. catalog validator는 44.1 kHz stereo와 family별 정확한 sample 수, 여덟 clip의 고유성, full-mix 미리보기 비참조를 검사한다. UI SFX도 양 끝을 digital zero로 마감하고 정확한 mono sample 수, 공유 재생기·clip·SFX route·Button 참조를 검사한다.
+- BGM·발소리·UI 버튼 SFX 연결은 구현됐지만 최종 청감·상대 stem gain·효과음 음량·브라우저별 실제 출력 승인은 해당 화면·room과 실제 WebGL에서 사람이 판단한다. 발소리와 UI 버튼을 제외한 gameplay SFX의 실제 `AudioSource` 연결은 아직 없다. `audio-unlocked`와 `bgm-audio-started` marker만으로 가청 오디오 통과를 기록하지 않는다.
 
 ## 화면 흔들림 계약
 
-- `PrototypeUserSettingsRuntime.ScaleScreenShake(authoredAmplitude)`가 저작 amplitude와 사용자 강도를 결합하는 단일 경계다.
-- 향후 폭발 presenter나 카메라 shake 어댑터는 설정을 직접 읽어 별도 보정하지 말고 이 메서드의 결과만 사용한다.
-- 0 이하의 저작 amplitude와 사용자 0%는 흔들림을 만들지 않는다.
-- 이번 작업은 설정과 소비 계약까지만 구현한다. 실제 카메라 이동, Cinemachine impulse, 폭발 거리 감쇠와 중첩 상한은 폭발 연출 슬라이스에서 결정한다.
+- `PrototypeUserSettingsRuntime.ScaleScreenShake(authoredAmplitude)`가 저작 amplitude와 사용자 ON/OFF 값을 결합하는 단일 경계다.
+- 폭발 presenter나 카메라 shake 어댑터는 설정을 직접 읽어 별도 보정하지 말고 이 메서드의 결과만 사용한다.
+- 0 이하의 저작 amplitude와 사용자 `꺼짐`은 흔들림을 만들지 않는다.
+- `PrototypeCameraShake`는 DOTween Core를 내부 구현으로만 사용하는 Presentation 어댑터다. 카메라의 저작 local position에서 화면 기준 X/Y 오프셋만 더하고 Z는 움직이지 않으며, 완료·비활성화·씬 종료 때 적용한 오프셋을 제거한다. Core, 폭발 판정과 카메라의 기본 구도는 이 효과에 의존하지 않는다.
+- `PrototypePlayerBombCameraShakePresenter`는 `BombExploded` 중 `OwnerId == PlayerActorId`인 폭발만 소비한다. 적·보스 소유 폭탄은 흔들림을 요청하지 않으며 플레이어 폭탄의 연쇄 기폭도 각 폭탄의 기존 owner를 따른다.
+- 플레이어 폭탄의 초기 저작값은 amplitude `0.16`, duration `0.18초`, frequency `24Hz`이고 전역 최대 amplitude는 `0.25`다. 조작감 플레이테스트 전까지 세 수치는 `Proposed`다.
+- 중첩 요청은 여러 Tween을 합산하지 않는다. 단일 실행기가 새 요청과 현재 남은 세기 중 큰 값을 최대 amplitude 안에서 다시 시작해 연쇄 폭발의 무제한 누적을 막는다.
+- 일시정지 진입과 화면 흔들림 `꺼짐` 변경은 진행 중인 흔들림을 즉시 끝내고 카메라 오프셋을 복원한다.
+- 플레이 가능한 16개 던전·TestSandbox·독립 적 플레이테스트 씬은 같은 실행기와 플레이어 폭탄 presenter를 직렬화한다. Cinemachine 패키지, FEEL과 DOTween Pro는 사용하지 않는다.
+- 보스 소환 연출은 착지 cue에서 같은 `PrototypeCameraShake` 실행기를 재사용한다. 초기 저작값은 amplitude `0.24`, duration `0.32초`, frequency `22Hz`이며 전역 amplitude 상한과 사용자 ON/OFF를 그대로 적용한다. 인트로 시작·종료가 아니라 실제 착지 한 번만 요청하고, 새 요청과 현재 흔들림의 우선순위는 공용 실행기의 큰 세기 재시작 정책을 따른다.
+- 보스 공격 presenter도 같은 실행기를 재사용한다. 고정 돌진 Execute는 `0.20 / 0.22초 / 22Hz`, parity 행 Execute는 `0.11 / 0.13초 / 26Hz`, 보스 소유 폭탄의 실제 폭발은 `0.13 / 0.16초 / 24Hz`를 요청한다. 투척 예고·발사·착탄 예약에는 흔들림을 만들지 않으며 일시정지와 사용자 `꺼짐` 계약은 동일하다.
 
 ## UI 저작과 수명
 
 - `PrototypeSettingsPanelFactory`는 누락 UI를 만드는 초기 저작 도구이며 TMP `DungGeunMo`와 960×600 reference Canvas 규칙을 따른다. 실제 실행에서는 로비 scene과 pause 프리팹에 저장된 `PrototypeSettingsPanelPresenter`를 사용한다.
 - 로비 설정 패널은 `DungeonLobby` 씬에 직렬화해 디자이너가 RectTransform, Image, TMP와 Button을 직접 수정할 수 있다.
+- `ScreenShakeButton`과 그 자식 TMP 상태 라벨은 presenter에 직접 직렬화한다. 클릭할 때 `0/1`을 교대하고 로비와 pause 양쪽에서 같은 `켜짐/꺼짐` 문구와 저장값을 사용한다.
 - 로비 조작 페이지는 ScrollRect이며 디자이너가 저작한 viewport, content 크기와 자식 배치를 presenter가 변경하지 않는다. 최하단 초기화 Button은 런타임 이름 검색 대신 presenter의 직렬화 참조로 연결한다.
 - 기존 `SettingsStatusText`는 사용하지 않는다. 키 변경 대기 상태는 해당 키 값 라벨에 표시하고 중복 알림은 같은 버튼의 라벨·RectTransform에 한정한다.
 - 일시정지 설정 패널은 [공유 pause 프리팹](InGameUiPrefabs.md) 안에 저작한다. 첫 pause 때 overlay 프리팹을 인스턴스화하고 현재 scene의 설정 runtime만 연결한다.
@@ -85,7 +95,7 @@
 
 ## 검증
 
-- PlayMode: 수치 clamp·dB 변환·화면 흔들림 배율, PlayerPrefs round-trip, binding override round-trip, 손상 JSON 복구, 발소리 무작위 비반복·Animation Event relay·일시정지 차단.
+- PlayMode: 수치 clamp·dB 변환·화면 흔들림 ON/OFF 정규화와 배율, PlayerPrefs round-trip, 로비 Button 교대와 pause 프리팹 참조, 플레이어 폭탄·보스 착지·돌진·parity·보스 폭탄 폭발 요청, binding override round-trip, 손상 JSON 복구, 발소리 무작위 비반복·Animation Event relay·일시정지 차단.
 - scene 통합: 로비의 Mixer 그룹/파라미터·키보드 8개·gamepad 문구 부재, 로비/일시정지의 같은 설정 panel, 설정 중 `Esc`와 실제 pause 수명.
 - PlayMode: room/clear별 던전 mix, boss phase mix, DSP 다음 마디 계산, Boss room의 던전 정책 오사용 거부.
 - Editor validator: AudioMixer 그룹/노출 파라미터, BGM catalog의 8개 clip·sample alignment·미리보기 비참조, 대상 17개 scene의 root presenter 정확히 한 개·catalog 참조·직렬화 `AudioSource` 부재.

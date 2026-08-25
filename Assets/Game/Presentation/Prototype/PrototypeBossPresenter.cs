@@ -8,6 +8,16 @@ namespace BombSwap
     [DisallowMultipleComponent]
     public sealed class PrototypeBossPresenter : MonoBehaviour
     {
+        public const float DefaultChargeShakeAmplitude = 0.2f;
+        public const float DefaultChargeShakeDuration = 0.22f;
+        public const float DefaultChargeShakeFrequency = 22f;
+        public const float DefaultParityShakeAmplitude = 0.11f;
+        public const float DefaultParityShakeDuration = 0.13f;
+        public const float DefaultParityShakeFrequency = 26f;
+        public const float DefaultBossBombShakeAmplitude = 0.13f;
+        public const float DefaultBossBombShakeDuration = 0.16f;
+        public const float DefaultBossBombShakeFrequency = 24f;
+
         private static readonly int AliveParameterId = Animator.StringToHash("Alive");
         private static readonly int IsMovingParameterId = Animator.StringToHash("IsMoving");
         private static readonly int TelegraphParameterId = Animator.StringToHash("Telegraph");
@@ -18,12 +28,59 @@ namespace BombSwap
         private static readonly int DieParameterId = Animator.StringToHash("Die");
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly IReadOnlyList<GridPosition> NoDangerCells =
+            Array.Empty<GridPosition>();
 
         [SerializeField]
         private PrototypeGameSession session;
 
         [SerializeField]
         private Transform presentationRoot;
+
+        [SerializeField]
+        private PrototypeUserSettingsRuntime attackFeedbackSettings;
+
+        [SerializeField]
+        private PrototypeCameraShake attackCameraShake;
+
+        [SerializeField]
+        private PrototypeLocalVfxOverrides localVfxOverrides;
+
+        [SerializeField]
+        [Min(0f)]
+        private float chargeShakeAmplitude = DefaultChargeShakeAmplitude;
+
+        [SerializeField]
+        [Min(0f)]
+        private float chargeShakeDuration = DefaultChargeShakeDuration;
+
+        [SerializeField]
+        [Min(0f)]
+        private float chargeShakeFrequency = DefaultChargeShakeFrequency;
+
+        [SerializeField]
+        [Min(0f)]
+        private float parityShakeAmplitude = DefaultParityShakeAmplitude;
+
+        [SerializeField]
+        [Min(0f)]
+        private float parityShakeDuration = DefaultParityShakeDuration;
+
+        [SerializeField]
+        [Min(0f)]
+        private float parityShakeFrequency = DefaultParityShakeFrequency;
+
+        [SerializeField]
+        [Min(0f)]
+        private float bossBombShakeAmplitude = DefaultBossBombShakeAmplitude;
+
+        [SerializeField]
+        [Min(0f)]
+        private float bossBombShakeDuration = DefaultBossBombShakeDuration;
+
+        [SerializeField]
+        [Min(0f)]
+        private float bossBombShakeFrequency = DefaultBossBombShakeFrequency;
 
         [SerializeField]
         private Color telegraphColor = new Color(1f, 0.72f, 0.08f, 0.68f);
@@ -48,6 +105,23 @@ namespace BombSwap
 
         private readonly List<GameObject> _dangerCellInstances = new List<GameObject>();
         private readonly List<Renderer> _dangerCellRenderers = new List<Renderer>();
+        private readonly Dictionary<BombId, IReadOnlyList<GridPosition>>
+            _landedBossBombDangerCells =
+                new Dictionary<BombId, IReadOnlyList<GridPosition>>();
+        private readonly List<GridPosition> _visibleDangerCells =
+            new List<GridPosition>();
+        private readonly HashSet<GridPosition> _visibleDangerCellSet =
+            new HashSet<GridPosition>();
+        private readonly HashSet<GridPosition> _executingPatternDangerCells =
+            new HashSet<GridPosition>();
+        private readonly List<GameObject> _parityLightningInstances =
+            new List<GameObject>();
+        private readonly List<ParticleSystem[]> _parityLightningSystems =
+            new List<ParticleSystem[]>();
+        private readonly List<float> _parityLightningRemaining =
+            new List<float>();
+        private readonly List<float> _parityLightningLifetimes =
+            new List<float>();
         private readonly Queue<GridPosition> _movementTargets = new Queue<GridPosition>();
         private GameObject _bossInstance;
         private Renderer _bossRenderer;
@@ -68,16 +142,34 @@ namespace BombSwap
         private bool _isMoving;
         private bool _isShowingDeath;
         private bool _isParityWaveTelegraphActive;
+        private bool _isIntroPrepared;
+        private bool _isIntroLanded;
+        private Vector3 _introStartWorldPosition;
+        private Vector3 _introLandingWorldPosition;
+        private GameObject _parityLightningPrefab;
+        private IReadOnlyList<GridPosition> _currentPatternDangerCells =
+            NoDangerCells;
+        private BossBattleState _currentDangerState;
 
         public PrototypeGameSession Session => session;
 
         public Transform PresentationRoot => presentationRoot;
+
+        public PrototypeUserSettingsRuntime AttackFeedbackSettings =>
+            attackFeedbackSettings;
+
+        public PrototypeCameraShake AttackCameraShake => attackCameraShake;
 
         public GameObject BossInstance => _bossInstance;
 
         public int DangerCellPoolCount => _dangerCellInstances.Count;
 
         public int VisibleDangerCellCount { get; private set; }
+
+        public bool HasLandedBossBombDanger(BombId bombId)
+        {
+            return _landedBossBombDangerCells.ContainsKey(bombId);
+        }
 
         public int PatternTransitionCount { get; private set; }
 
@@ -88,6 +180,16 @@ namespace BombSwap
         public int DeathCount { get; private set; }
 
         public int ThrowAnimationCount { get; private set; }
+
+        public int ChargeAttackFeedbackCount { get; private set; }
+
+        public int ParityAttackFeedbackCount { get; private set; }
+
+        public int ParityLightningVfxPlayCount { get; private set; }
+
+        public int BossBombExplosionFeedbackCount { get; private set; }
+
+        public int AttackShakePlayCount { get; private set; }
 
         public bool LastThrowWasLeft { get; private set; }
 
@@ -112,6 +214,14 @@ namespace BombSwap
 
         public GridPosition DisplayedMoveTarget { get; private set; }
 
+        public bool IsIntroPrepared => _isIntroPrepared;
+
+        public bool IsIntroLanded => _isIntroLanded;
+
+        public Vector3 IntroStartWorldPosition => _introStartWorldPosition;
+
+        public Vector3 IntroLandingWorldPosition => _introLandingWorldPosition;
+
         public void Configure(PrototypeGameSession gameSession, Transform visualRoot)
         {
             if (Application.isPlaying && isActiveAndEnabled)
@@ -121,6 +231,24 @@ namespace BombSwap
             }
             session = gameSession ?? throw new ArgumentNullException(nameof(gameSession));
             presentationRoot = visualRoot ?? throw new ArgumentNullException(nameof(visualRoot));
+        }
+
+        public void ConfigureAttackFeedback(
+            PrototypeUserSettingsRuntime settingsRuntime,
+            PrototypeCameraShake cameraShake,
+            PrototypeLocalVfxOverrides authoredLocalVfxOverrides = null)
+        {
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Disable PrototypeBossPresenter before changing its attack feedback configuration.");
+            }
+
+            attackFeedbackSettings = settingsRuntime ??
+                throw new ArgumentNullException(nameof(settingsRuntime));
+            attackCameraShake = cameraShake ??
+                throw new ArgumentNullException(nameof(cameraShake));
+            localVfxOverrides = authoredLocalVfxOverrides;
         }
 
         private void OnEnable()
@@ -139,7 +267,10 @@ namespace BombSwap
             session.BossMoved += OnBossMoved;
             session.BossDamaged += OnBossDamaged;
             session.BossBombLaunched += OnBossBombLaunched;
+            session.BossBombPlaced += OnBossBombPlaced;
+            session.BombExploded += OnBombExploded;
             session.PauseStateChanged += OnPauseStateChanged;
+            session.BossCombatStarted += OnBossCombatStarted;
             session.Ready += OnSessionReady;
             if (session.IsReady)
             {
@@ -155,7 +286,10 @@ namespace BombSwap
                 session.BossMoved -= OnBossMoved;
                 session.BossDamaged -= OnBossDamaged;
                 session.BossBombLaunched -= OnBossBombLaunched;
+                session.BossBombPlaced -= OnBossBombPlaced;
+                session.BombExploded -= OnBombExploded;
                 session.PauseStateChanged -= OnPauseStateChanged;
+                session.BossCombatStarted -= OnBossCombatStarted;
                 session.Ready -= OnSessionReady;
             }
             if (_bossInstance != null)
@@ -173,6 +307,11 @@ namespace BombSwap
                     Destroy(_dangerCellInstances[index]);
                 }
             }
+            DestroyParityLightningPool();
+            if (attackCameraShake != null)
+            {
+                attackCameraShake.Stop();
+            }
 
             _bossInstance = null;
             _bossRenderer = null;
@@ -185,11 +324,18 @@ namespace BombSwap
             _moveTargetRenderer = null;
             _dangerCellInstances.Clear();
             _dangerCellRenderers.Clear();
+            _landedBossBombDangerCells.Clear();
+            _visibleDangerCells.Clear();
+            _visibleDangerCellSet.Clear();
+            _executingPatternDangerCells.Clear();
+            _currentPatternDangerCells = NoDangerCells;
             VisibleDangerCellCount = 0;
             IsInitialized = false;
             _isMoving = false;
             _isShowingDeath = false;
             _isParityWaveTelegraphActive = false;
+            _isIntroPrepared = false;
+            _isIntroLanded = false;
             _movementTargets.Clear();
         }
 
@@ -222,6 +368,20 @@ namespace BombSwap
                     _isShowingDeath = false;
                 }
             }
+            UpdateParityLightningVfx();
+        }
+
+        private void OnValidate()
+        {
+            chargeShakeAmplitude = Mathf.Max(0f, chargeShakeAmplitude);
+            chargeShakeDuration = Mathf.Max(0f, chargeShakeDuration);
+            chargeShakeFrequency = Mathf.Max(0f, chargeShakeFrequency);
+            parityShakeAmplitude = Mathf.Max(0f, parityShakeAmplitude);
+            parityShakeDuration = Mathf.Max(0f, parityShakeDuration);
+            parityShakeFrequency = Mathf.Max(0f, parityShakeFrequency);
+            bossBombShakeAmplitude = Mathf.Max(0f, bossBombShakeAmplitude);
+            bossBombShakeDuration = Mathf.Max(0f, bossBombShakeDuration);
+            bossBombShakeFrequency = Mathf.Max(0f, bossBombShakeFrequency);
         }
 
         private void OnSessionReady()
@@ -243,6 +403,8 @@ namespace BombSwap
                 IsInitialized = true;
                 return;
             }
+
+            localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
 
             PrototypeBossDefinitionAsset definition = session.BossDefinition;
             definition.ValidatePresentationReferences();
@@ -271,11 +433,97 @@ namespace BombSwap
             CurrentPhase = session.CurrentBossPhase;
             CurrentPattern = session.CurrentBossPattern;
             ApplyBossState(CurrentState, CurrentPhase, CurrentPattern);
-            ApplyBossAnimation(CurrentState, CurrentPattern);
-            ApplyDangerCells(CurrentState, session.CurrentBossDangerCells);
-            ApplyMoveTarget(CurrentState, session.NextBossGridPosition);
-            _bossInstance.SetActive(session.IsBossAlive);
+            if (session.IsBossIntroPending)
+            {
+                ApplyDangerCells(BossBattleState.Recovery, Array.Empty<GridPosition>());
+                ApplyMoveTarget(BossBattleState.Recovery, default);
+                _bossInstance.SetActive(false);
+            }
+            else
+            {
+                ApplyBossAnimation(CurrentState, CurrentPattern);
+                ApplyDangerCells(CurrentState, session.CurrentBossDangerCells);
+                ApplyMoveTarget(CurrentState, session.NextBossGridPosition);
+                _bossInstance.SetActive(session.IsBossAlive);
+            }
             IsInitialized = true;
+        }
+
+        public void PrepareBossIntro(float dropHeight)
+        {
+            if (dropHeight <= 0f || float.IsNaN(dropHeight) ||
+                float.IsInfinity(dropHeight))
+            {
+                throw new ArgumentOutOfRangeException(nameof(dropHeight));
+            }
+            if (!IsInitialized)
+            {
+                InitializePresentation();
+            }
+            if (!session.HasBoss || !session.IsBossIntroPending || _bossInstance == null)
+            {
+                throw new InvalidOperationException(
+                    "Boss intro preparation requires a pending boss encounter.");
+            }
+
+            _introLandingWorldPosition =
+                session.GridSpace.GridToWorld(session.CurrentBossGridPosition) +
+                (Vector3.up * session.BossDefinition.VisualHeight);
+            _introStartWorldPosition =
+                _introLandingWorldPosition + (Vector3.up * dropHeight);
+            _bossInstance.transform.position = _introStartWorldPosition;
+            _bossInstance.SetActive(false);
+            ApplyDangerCells(BossBattleState.Recovery, Array.Empty<GridPosition>());
+            ApplyMoveTarget(BossBattleState.Recovery, default);
+            if (_animator != null)
+            {
+                _animator.SetBool(IsMovingParameterId, false);
+                _animator.speed = 0f;
+            }
+            _isIntroPrepared = true;
+            _isIntroLanded = false;
+        }
+
+        public void RevealBossForIntro()
+        {
+            if (!_isIntroPrepared || _bossInstance == null)
+            {
+                throw new InvalidOperationException(
+                    "Prepare the boss intro before revealing its visual.");
+            }
+
+            _bossInstance.SetActive(session.IsBossAlive);
+        }
+
+        public void SetBossIntroDropProgress(float progress)
+        {
+            if (!_isIntroPrepared || _bossInstance == null)
+            {
+                throw new InvalidOperationException(
+                    "Prepare the boss intro before moving its visual.");
+            }
+
+            _bossInstance.transform.position = Vector3.Lerp(
+                _introStartWorldPosition,
+                _introLandingWorldPosition,
+                Mathf.Clamp01(progress));
+        }
+
+        public void CompleteBossIntroLanding()
+        {
+            if (!_isIntroPrepared || _bossInstance == null)
+            {
+                throw new InvalidOperationException(
+                    "Prepare the boss intro before completing its landing.");
+            }
+
+            _bossInstance.transform.position = _introLandingWorldPosition;
+            _bossInstance.SetActive(session.IsBossAlive);
+            if (_animator != null)
+            {
+                _animator.speed = session.IsPaused ? 0f : 1f;
+            }
+            _isIntroLanded = true;
         }
 
         private void OnBossMoved(EnemyMovementStep step)
@@ -329,6 +577,7 @@ namespace BombSwap
             ApplyBossAnimation(CurrentState, CurrentPattern);
             ApplyDangerCells(CurrentState, transition.DangerCells);
             ApplyMoveTarget(CurrentState, transition.NextBossPosition);
+            ApplyAttackFeedback(transition);
         }
 
         private void OnBossDamaged(BossDamageResult result)
@@ -387,12 +636,277 @@ namespace BombSwap
                 useLeft ? ThrowLeftParameterId : ThrowRightParameterId);
         }
 
+        private void OnBossBombPlaced(BombSnapshot snapshot)
+        {
+            if (snapshot.OwnerId != session.BossActorId)
+            {
+                return;
+            }
+            if (!session.TryGetBombExplosionPreview(
+                    snapshot.Id,
+                    out IReadOnlyList<GridPosition> affectedCells))
+            {
+                throw new InvalidOperationException(
+                    $"Landed boss bomb {snapshot.Id} has no explosion preview.");
+            }
+
+            _landedBossBombDangerCells[snapshot.Id] = affectedCells;
+            RefreshDangerCells();
+        }
+
+        private void OnBombExploded(BombExplosion explosion)
+        {
+            if (!session.HasBoss || explosion.OwnerId != session.BossActorId)
+            {
+                return;
+            }
+
+            if (_landedBossBombDangerCells.Remove(explosion.BombId))
+            {
+                RefreshDangerCells();
+            }
+
+            BossBombExplosionFeedbackCount++;
+            RequestAttackShake(
+                bossBombShakeAmplitude,
+                bossBombShakeDuration,
+                bossBombShakeFrequency);
+        }
+
         private void OnPauseStateChanged(bool isPaused)
         {
             if (_animator != null)
             {
-                _animator.speed = isPaused ? 0f : 1f;
+                _animator.speed = isPaused ||
+                    (_isIntroPrepared && !_isIntroLanded)
+                        ? 0f
+                        : 1f;
             }
+            SetParityLightningPaused(isPaused);
+            if (isPaused && attackCameraShake != null)
+            {
+                attackCameraShake.Stop();
+            }
+        }
+
+        private void OnBossCombatStarted()
+        {
+            if (!session.HasBoss)
+            {
+                return;
+            }
+
+            localVfxOverrides ??= PrototypeLocalVfxOverrides.LoadOptional();
+            if (_isIntroPrepared && !_isIntroLanded)
+            {
+                CompleteBossIntroLanding();
+            }
+
+            ApplyBossState(
+                session.CurrentBossState,
+                session.CurrentBossPhase,
+                session.CurrentBossPattern);
+            ApplyBossAnimation(
+                session.CurrentBossState,
+                session.CurrentBossPattern);
+            ApplyDangerCells(
+                session.CurrentBossState,
+                session.CurrentBossDangerCells);
+            ApplyMoveTarget(
+                session.CurrentBossState,
+                session.NextBossGridPosition);
+            _isIntroPrepared = false;
+        }
+
+        private void ApplyAttackFeedback(BossPatternTransition transition)
+        {
+            if (transition.State != BossBattleState.Execute)
+            {
+                return;
+            }
+
+            switch (transition.Pattern)
+            {
+                case BossPatternKind.FixedCharge:
+                    ChargeAttackFeedbackCount++;
+                    RequestAttackShake(
+                        chargeShakeAmplitude,
+                        chargeShakeDuration,
+                        chargeShakeFrequency);
+                    break;
+                case BossPatternKind.ParityWave:
+                    ParityAttackFeedbackCount++;
+                    PlayParityLightning(transition.DangerCells);
+                    RequestAttackShake(
+                        parityShakeAmplitude,
+                        parityShakeDuration,
+                        parityShakeFrequency);
+                    break;
+            }
+        }
+
+        private bool RequestAttackShake(
+            float amplitude,
+            float duration,
+            float frequency)
+        {
+            if (attackFeedbackSettings == null || attackCameraShake == null)
+            {
+                return false;
+            }
+
+            float effectiveAmplitude =
+                attackFeedbackSettings.ScaleScreenShake(amplitude);
+            if (!attackCameraShake.Play(effectiveAmplitude, duration, frequency))
+            {
+                return false;
+            }
+
+            AttackShakePlayCount++;
+            return true;
+        }
+
+        private void PlayParityLightning(
+            IReadOnlyList<GridPosition> dangerCells)
+        {
+            GameObject prefab = localVfxOverrides != null
+                ? localVfxOverrides.BossIntroLightningVfxPrefab
+                : null;
+            if (prefab == null || dangerCells == null || dangerCells.Count == 0)
+            {
+                return;
+            }
+
+            EnsureParityLightningPool(prefab, dangerCells.Count);
+            for (int index = 0; index < dangerCells.Count; index++)
+            {
+                GameObject instance = _parityLightningInstances[index];
+                instance.transform.position =
+                    session.GridSpace.GridToWorld(dangerCells[index]);
+                instance.SetActive(true);
+                RestartParticleSystems(_parityLightningSystems[index]);
+                _parityLightningRemaining[index] =
+                    _parityLightningLifetimes[index] + 0.1f;
+                ParityLightningVfxPlayCount++;
+            }
+        }
+
+        private void EnsureParityLightningPool(GameObject prefab, int requiredCount)
+        {
+            if (_parityLightningPrefab != null && _parityLightningPrefab != prefab)
+            {
+                DestroyParityLightningPool();
+            }
+            _parityLightningPrefab = prefab;
+
+            while (_parityLightningInstances.Count < requiredCount)
+            {
+                GameObject instance = Instantiate(prefab, presentationRoot, false);
+                instance.name =
+                    "PrototypeBossParityLightning_" +
+                    _parityLightningInstances.Count;
+                instance.SetActive(false);
+                ParticleSystem[] systems =
+                    instance.GetComponentsInChildren<ParticleSystem>(true);
+                _parityLightningInstances.Add(instance);
+                _parityLightningSystems.Add(systems);
+                _parityLightningRemaining.Add(0f);
+                _parityLightningLifetimes.Add(GetParticleLifetime(systems));
+            }
+        }
+
+        private void UpdateParityLightningVfx()
+        {
+            if (session == null || session.IsPaused)
+            {
+                return;
+            }
+
+            for (int index = 0; index < _parityLightningInstances.Count; index++)
+            {
+                GameObject instance = _parityLightningInstances[index];
+                if (instance == null || !instance.activeSelf)
+                {
+                    continue;
+                }
+
+                float remaining =
+                    _parityLightningRemaining[index] - Time.unscaledDeltaTime;
+                _parityLightningRemaining[index] = remaining;
+                if (remaining <= 0f)
+                {
+                    instance.SetActive(false);
+                }
+            }
+        }
+
+        private void SetParityLightningPaused(bool isPaused)
+        {
+            for (int index = 0; index < _parityLightningInstances.Count; index++)
+            {
+                GameObject instance = _parityLightningInstances[index];
+                if (instance == null || !instance.activeSelf)
+                {
+                    continue;
+                }
+
+                ParticleSystem[] systems = _parityLightningSystems[index];
+                for (int systemIndex = 0;
+                     systemIndex < systems.Length;
+                     systemIndex++)
+                {
+                    if (isPaused)
+                    {
+                        systems[systemIndex].Pause(true);
+                    }
+                    else
+                    {
+                        systems[systemIndex].Play(true);
+                    }
+                }
+            }
+        }
+
+        private void DestroyParityLightningPool()
+        {
+            for (int index = 0; index < _parityLightningInstances.Count; index++)
+            {
+                if (_parityLightningInstances[index] != null)
+                {
+                    Destroy(_parityLightningInstances[index]);
+                }
+            }
+            _parityLightningInstances.Clear();
+            _parityLightningSystems.Clear();
+            _parityLightningRemaining.Clear();
+            _parityLightningLifetimes.Clear();
+            _parityLightningPrefab = null;
+        }
+
+        private static void RestartParticleSystems(ParticleSystem[] systems)
+        {
+            for (int index = 0; index < systems.Length; index++)
+            {
+                systems[index].Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear);
+                systems[index].Play(true);
+            }
+        }
+
+        private static float GetParticleLifetime(ParticleSystem[] systems)
+        {
+            float lifetime = 0.1f;
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem.MainModule main = systems[index].main;
+                lifetime = Mathf.Max(
+                    lifetime,
+                    main.startDelay.constantMax +
+                    main.duration +
+                    main.startLifetime.constantMax);
+            }
+            return lifetime;
         }
 
         private void ApplyBossAnimation(BossBattleState state, BossPatternKind pattern)
@@ -497,14 +1011,43 @@ namespace BombSwap
             BossBattleState state,
             IReadOnlyList<GridPosition> dangerCells)
         {
-            int visibleCount = state == BossBattleState.Telegraph ||
-                state == BossBattleState.Execute
-                ? dangerCells.Count
-                : 0;
+            _currentDangerState = state;
+            _currentPatternDangerCells =
+                ShouldShowPreImpactDangerCells(CurrentPattern) &&
+                (state == BossBattleState.Telegraph ||
+                 state == BossBattleState.Execute)
+                    ? dangerCells
+                    : NoDangerCells;
+            RefreshDangerCells();
+        }
+
+        private void RefreshDangerCells()
+        {
+            _visibleDangerCells.Clear();
+            _visibleDangerCellSet.Clear();
+            _executingPatternDangerCells.Clear();
+
+            foreach (KeyValuePair<BombId, IReadOnlyList<GridPosition>> entry in
+                     _landedBossBombDangerCells)
+            {
+                AddUniqueDangerCells(entry.Value);
+            }
+
+            AddUniqueDangerCells(_currentPatternDangerCells);
+            if (_currentDangerState == BossBattleState.Execute)
+            {
+                for (int index = 0;
+                     index < _currentPatternDangerCells.Count;
+                     index++)
+                {
+                    _executingPatternDangerCells.Add(
+                        _currentPatternDangerCells[index]);
+                }
+            }
+
+            _visibleDangerCells.Sort(CompareGridPositions);
+            int visibleCount = _visibleDangerCells.Count;
             EnsureDangerCellPool(visibleCount);
-            Color color = state == BossBattleState.Execute
-                ? executeColor
-                : telegraphColor;
             for (int index = 0; index < _dangerCellInstances.Count; index++)
             {
                 bool visible = index < visibleCount;
@@ -515,12 +1058,45 @@ namespace BombSwap
                     continue;
                 }
 
+                GridPosition position = _visibleDangerCells[index];
                 instance.transform.position =
-                    session.GridSpace.GridToWorld(dangerCells[index]) +
+                    session.GridSpace.GridToWorld(position) +
                     (Vector3.up * session.BossDefinition.DangerCellVisualHeight);
-                ApplyDangerCellColor(_dangerCellRenderers[index], color);
+                ApplyDangerCellColor(
+                    _dangerCellRenderers[index],
+                    _executingPatternDangerCells.Contains(position)
+                        ? executeColor
+                        : telegraphColor);
             }
             VisibleDangerCellCount = visibleCount;
+        }
+
+        private void AddUniqueDangerCells(IReadOnlyList<GridPosition> cells)
+        {
+            for (int index = 0; index < cells.Count; index++)
+            {
+                if (_visibleDangerCellSet.Add(cells[index]))
+                {
+                    _visibleDangerCells.Add(cells[index]);
+                }
+            }
+        }
+
+        private static int CompareGridPositions(
+            GridPosition left,
+            GridPosition right)
+        {
+            int xComparison = left.X.CompareTo(right.X);
+            return xComparison != 0
+                ? xComparison
+                : left.Z.CompareTo(right.Z);
+        }
+
+        private static bool ShouldShowPreImpactDangerCells(
+            BossPatternKind pattern)
+        {
+            return pattern != BossPatternKind.BombVolley &&
+                   pattern != BossPatternKind.LastStandBombChain;
         }
 
         private void ApplyMoveTarget(

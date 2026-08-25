@@ -358,6 +358,7 @@ namespace BombSwap.Core
                     "Game clock moved backwards during self-destruct movement.");
             }
             lastObservedTime = now;
+            movement.Advance(now);
         }
 
         private SelfDestructEnemyAdvanceResult BeginTelegraph(

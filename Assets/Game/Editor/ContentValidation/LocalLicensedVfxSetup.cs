@@ -22,6 +22,10 @@ namespace BombSwap.Editor.ContentValidation
             "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Bomb_Straight.prefab";
         public const string AreaBombGridExplosionPrefabPath =
             "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Explosion_Grid.prefab";
+        public const string BossIntroSpawnPrefabPath =
+            "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Spawn.prefab";
+        public const string BossIntroLightningPrefabPath =
+            "Assets/Arts/VFX/EffectPrefab/bomb/vfx_Lightning.prefab";
 
         private static readonly string[] PlayerBombPrefabPaths =
         {
@@ -46,6 +50,10 @@ namespace BombSwap.Editor.ContentValidation
                 CrossBombStraightExplosionPrefabPath);
             GameObject areaGridExplosion = LoadParticlePrefab(
                 AreaBombGridExplosionPrefabPath);
+            GameObject bossIntroSpawn = LoadParticlePrefab(
+                BossIntroSpawnPrefabPath);
+            GameObject bossIntroLightning = LoadParticlePrefab(
+                BossIntroLightningPrefabPath);
             SynchronizePlayerBombVfx(sparksEffect);
             EnsureDirectory(SettingsDirectory);
 
@@ -72,6 +80,9 @@ namespace BombSwap.Editor.ContentValidation
                 centerExplosion,
                 straightExplosion);
             settings.ConfigureAreaBombExplosionVfx(areaGridExplosion);
+            settings.ConfigureBossIntroVfx(
+                bossIntroSpawn,
+                bossIntroLightning);
             EditorUtility.SetDirty(settings);
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(SettingsAssetPath, ImportAssetOptions.ForceUpdate);
@@ -134,6 +145,14 @@ namespace BombSwap.Editor.ContentValidation
                 settings.AreaBombGridExplosionVfxPrefab,
                 AreaBombGridExplosionPrefabPath,
                 "area-bomb grid explosion VFX");
+            ValidateExpectedReference(
+                settings.BossIntroSpawnVfxPrefab,
+                BossIntroSpawnPrefabPath,
+                "boss-intro spawn VFX");
+            ValidateExpectedReference(
+                settings.BossIntroLightningVfxPrefab,
+                BossIntroLightningPrefabPath,
+                "boss-intro lightning VFX");
             ValidatePlayerBombVfx();
         }
 

@@ -1320,6 +1320,11 @@ MonoBehaviour:
   slotSelections:
   - {fileID: 7717983188068371009}
   - {fileID: 3534202003729134263}
+  slotKeyIcons:
+  - {fileID: 6486622155422665138}
+  - {fileID: 1401874112792477876}
+  selectedSlotKeyIcon: {fileID: -1863902898, guid: b002ebc165720524793d2fcab24c0014, type: 3}
+  unselectedSlotKeyIcon: {fileID: 1254955531, guid: b002ebc165720524793d2fcab24c0014, type: 3}
   crossBombIcon: {fileID: 21300000, guid: 57139b8ec045102439cfeef89762dbc8, type: 3}
   areaBombIcon: {fileID: 21300000, guid: a4ea9bc4614d8f048a6a1b565cc557ab, type: 3}
   lineBombIcon: {fileID: 21300000, guid: 1ae4ac79847dc2049b273cd75cb5d73f, type: 3}

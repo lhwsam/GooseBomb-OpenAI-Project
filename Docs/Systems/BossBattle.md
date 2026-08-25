@@ -24,6 +24,15 @@
 
 Core는 Transform, Physics, Unity `Time`, Rigidbody를 읽지 않는다. `PrototypeGameSession`은 Core 전이를 기존 폭탄·체력·표현 사건으로 연결하며 규칙을 다시 판단하지 않는다.
 
+## 첫 입장 연출
+
+- `DungeonBoss`와 `BossBattlePlaytest`는 세션 초기화 전에 보스 인트로 gate를 준비한다. gate가 열릴 때까지 10ms simulation clock, 플레이어 이동·설치·교체와 보스 AI를 진행하지 않는다.
+- 카메라는 저작 구도를 보존한 채 보스 논리 spawn 셀을 중심으로 즉시 줌인한다. 보스의 논리 셀과 점유는 처음부터 spawn 셀로 고정하고, `PrototypeBossPresenter`의 표현 root만 위에서 아래로 낙하한다.
+- spawn 예고 VFX 뒤 보스를 공개하고 lightning VFX와 함께 낙하시킨다. 착지 순간 공용 `PrototypeCameraShake`에 별도 소환 흔들림을 요청하며 사용자 화면 흔들림 설정을 적용한다.
+- 착지 뒤 보스 HUD panel을 위에서 저작 위치로 내리며 fade-in하고, 체력 fill을 0에서 현재 비율까지 채운다. 잠시 유지한 뒤 카메라를 원래 위치·orthographic size로 되돌리고 추가 대기 후 gate를 한 번만 연다.
+- VFX prefab은 Git에서 제외한 `PrototypeLocalVfxOverrides`의 spawn/lightning 한 쌍으로 연결한다. 로컬 VFX가 없는 공개 clone에서도 낙하·HUD·카메라·gate는 그대로 동작하며 VFX만 생략한다.
+- 인트로 도중 presenter가 비활성화되면 DOTween sequence, 일회성 VFX와 카메라 흔들림을 정리하고 카메라의 저작 상태를 복원한다. Core 보스 규칙은 이 연출의 Tween이나 Transform을 읽지 않는다.
+
 ## phase와 시퀀스
 
 | phase | 체력 | 시퀀스 |
@@ -58,7 +67,7 @@ Core는 Transform, Physics, Unity `Time`, Rigidbody를 읽지 않는다. `Protot
 - 투척 전 `ReturnToCenter`가 BFS 경로로 시작 셀까지 복귀한다.
 - 정확한 다음 이동 셀 고스트는 사용하지 않는다.
 - `Movements`의 확정된 여러 셀만 presenter가 패턴 실행 시간에 나눠 보간하며 pause 중 멈춘다.
-- 돌진 위험 차선, 착탄·소환 셀, 현재 parity 행은 표시한다.
+- 돌진 위험 차선, 소환 셀과 현재 parity 행은 표시한다. 보스 폭탄 목표 셀은 Core 예약으로만 유지하고 비행 전에 별도 위험 셀을 표시하지 않는다.
 
 ## 보스 폭탄
 
@@ -81,6 +90,7 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - 비행 중에는 논리 bomb 점유가 없다.
 - `BossBombFlight`는 순번·정의·시작/목표 셀·발사/착탄 시각을 소유한다.
 - `PrototypeBombPresenter`는 Rigidbody 없이 고정 포물선과 회전을 표현하고, 착탄한 같은 시각 인스턴스를 일반 폭탄 표시로 넘긴다.
+- 투척 목표 셀의 예약은 Telegraph부터 유지하지만 presenter는 착탄 전에 해당 셀의 범위·위험 표시를 노출하지 않는다. 각 폭탄이 바닥에 도착하면 현재 논리 격자에서 Core 폭발 해석으로 계산한 해당 폭탄의 범위를 표시하고 일반 설치 폭탄의 fuse·준비 VFX를 시작한다. 여러 폭탄의 겹친 셀은 하나로 합치며 실제 폭발 사건에서 해당 폭탄의 범위만 제거한다.
 - 착탄 이벤트와 폭탄 생성은 순번 오름차순으로 처리한다.
 - fuse, 벽 차단, 파괴 벽, 0.15초 연쇄는 기존 `BombSimulation` 계약을 그대로 사용한다.
 - 보스 소유 폭탄은 보스에게 피해를 주지 않는다.
@@ -92,6 +102,13 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - One은 한 parity만 한쪽 끝에서 진행한다.
 - Two와 LastStand는 첫 parity 뒤 반대 parity를 진행하며 다음 반복에서는 시작 parity를 교대한다.
 - Execute에서 현재 행에 있는 플레이어만 패턴 피해 1을 받는다. 먼저 끝난 행은 이후 안전 공간으로 재사용할 수 있다.
+- 각 행의 Execute 순간에는 보스 소환과 같은 로컬 lightning prefab을 실제 위험 셀마다 재생한다. 인스턴스와 `ParticleSystem` 참조는 presenter가 풀링하며 로컬 VFX가 없는 clone에서는 논리 피해·위험 셀만 유지한다.
+
+## 공격 피드백
+
+- `PrototypeBossPresenter`는 `FixedCharge` Execute, 각 `ParityWave` 행 Execute와 보스 소유 폭탄의 실제 `BombExploded` 사건에만 화면 흔들림을 요청한다. 투척 시작·착탄 예약·Telegraph에는 요청하지 않는다.
+- 초기 저작값은 돌진 `0.20 / 0.22초 / 22Hz`, parity `0.11 / 0.13초 / 26Hz`, 보스 폭탄 폭발 `0.13 / 0.16초 / 24Hz`다. 세기는 공용 `PrototypeUserSettingsRuntime.ScaleScreenShake`와 `PrototypeCameraShake`의 전역 `0.25` 상한·큰 세기 재시작 정책을 따른다.
+- 화면 흔들림과 번개는 Presentation 피드백이다. Core 위험 셀, 피해, 예약, 폭탄 비행·fuse 시각은 이 효과를 읽지 않는다.
 
 ## 피해와 과열
 
@@ -107,7 +124,7 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 - Core는 저작 소환 앵커 중 비점유 바닥을 고르고 플레이어와 Manhattan 거리가 먼 셀을 안정 좌표 순으로 잠근다.
 - 소환 셀은 Telegraph 위험 셀로 먼저 표시되고 Execute에서 자폭병을 생성한다.
 - 자폭병은 기존 BFS·WarningChase·조기 점화·0.75초 fuse를 사용한다.
-- 생성 4.5초 뒤 아직 추격 중이면 현재 셀에서 강제 점화한다. 보스의 돌진 Telegraph/Execute 중에는 강제 점화를 보류해 최대 위협을 겹치지 않는다.
+- 생성 4.5초 뒤 아직 추격 중이면 현재 셀에서 강제 점화한다. 보스의 돌진 Telegraph/Execute 중에도 자폭병의 시계 관측과 기존 추격은 계속하며, 4.5초 강제 점화 요청만 보류해 최대 위협을 겹치지 않는다. 폭발 셀 조회는 자폭병이 `Chase` 또는 `WarningChase`이고 논리 격자에 남아 있을 때만 최신 simulation interval에서 수행한다.
 - 보스는 `WaitForSelfDestruct`에서 해결 사건을 받을 때까지 강화 투척으로 진행하지 않는다.
 - 자폭병 폭발이 보스 셀을 포함하면 과열 여부와 무관하게 1피해를 준다. 같은 폭탄 ID는 한 번만 처리한다.
 
@@ -131,10 +148,11 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 ## Unity 연결
 
 - `PrototypeGameSession`: Core 전이, 예약 셀, 비행·착탄, 자폭병 생성/강제 점화, 보스/플레이어 피해, 방 클리어.
-- `PrototypeBossPresenter`: collider와 Rigidbody가 없는 `BossPig` 프리팹의 보스 위치 보간과 Animator를 담당한다. Telegraph 모션은 연속된 `ParityWave` 행들을 하나의 시각 공격으로 묶은 첫 Telegraph 진입에서만 재생하며, 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 고정 돌진은 Charge, 자폭병 소환은 Summon, 개별 `BossBombLaunched.Sequence`의 짝·홀에 따라 ThrowLeft/ThrowRight를 교대하고 사망은 terminal Die로 변환한다. Root Motion은 사용하지 않으며 상태/phase 색과 돌진·착탄·소환·parity 위험 셀도 유지한다. 정확한 이동 목적지 고스트는 비활성이다.
+- `PrototypeBossPresenter`: collider와 Rigidbody가 없는 `BossPig` 프리팹의 보스 위치 보간과 Animator를 담당한다. Telegraph 모션은 연속된 `ParityWave` 행들을 하나의 시각 공격으로 묶은 첫 Telegraph 진입에서만 재생하며, 다른 패턴의 준비 구간에서는 호출하지 않는다. 추격·중앙 복귀 실행 이동은 Walk, 고정 돌진은 Charge, 자폭병 소환은 Summon, 개별 `BossBombLaunched.Sequence`의 짝·홀에 따라 ThrowLeft/ThrowRight를 교대하고 사망은 terminal Die로 변환한다. Root Motion은 사용하지 않으며 상태/phase 색, 돌진·소환·parity 위험 셀, parity lightning 풀과 보스 공격 화면 흔들림을 유지한다. 투척 목표의 조기 위험 표시와 정확한 이동 목적지 고스트는 비활성이다.
 - `PrototypeBombPresenter`: 정의별 풀, 보스 포물선 비행, 착탄 뒤 fuse 표시와 폭발 셀.
 - `PrototypeSelfDestructPresenter`: 2페이즈 도중 생성 사건을 받아 동적으로 인스턴스를 만든다.
 - `PrototypeHealthHud`: 체력 10과 phase 1/2/3을 사건 기반으로 표시한다.
+- `PrototypeBossIntroPresenter`: 보스방 최초 준비 시 카메라 포커스, 로컬 spawn/lightning VFX, 표현 낙하, 착지 흔들림, HUD 공개, 카메라 복귀와 전투 gate 해제를 순서대로 소유한다.
 - `BossBattlePlaytest.unity`: 던전 이동 없이 이 계약만 빠르게 확인하는 전용 씬이다.
 
 ## 오디오 후보
@@ -158,7 +176,7 @@ Telegraph 예약 → Execute에서 순차 발사 → 포물선 보간 → 착탄
 ## 검증
 
 - EditMode: 정의·3 phase, 추격·돌진, 순차 투척, parity 행, 모든 생존 상태의 피해·중복 차단, 지연 전환, 소환 셀 잠금·해결 대기, 자폭병 피해, LastStand 단일 실행, 사망·시계·저작 앵커 검증.
-- PlayMode: Telegraph 중 실제 폭탄 피해, 세션 전이, 포물선 flight→landing→fuse, 예약 셀, 자폭병 동적 생성·강제 점화, presenter pause, HUD phase, 실제 던전 보스 씬 회귀.
-- Content: 보스 정의, 폭탄/prefab, 6 투척·3 소환 앵커, 전용 플레이테스트 씬과 기존 Build Settings 유지.
+- PlayMode: 인트로 중 시계·입력 차단과 단일 gate 해제, 카메라·보스·HUD 시작/완료 상태, Telegraph 중 실제 폭탄 피해, 세션 전이, 조기 목표 표시 없는 포물선 flight→landing→fuse, 예약 셀 유지, parity Execute lightning, 돌진·보스 폭탄 공격 피드백, 자폭병 동적 생성·강제 점화, presenter pause, HUD phase, 실제 던전 보스 씬 회귀.
+- Content: 보스 정의, 폭탄/prefab, 6 투척·3 소환 앵커, 두 보스 씬의 인트로 presenter·카메라·HUD·화면 흔들림 참조, 전용 플레이테스트 씬과 기존 Build Settings 유지.
 - 사람: 공격 패턴 중 폭탄 지속 적중, 자폭병 보스 유도, parity 안전 칸 재사용, phase 차이·최후 발악 공정성, 60~150초 목표 시간.
-- WebGL: 전체 던전 경로가 모든 phase를 진행하고 살아 있는 보스에게 플레이어 폭탄 피해가 적용되는지 검증한다.
+- WebGL: `boss-intro-started → boss-intro-completed` 뒤 전체 던전 경로가 모든 phase를 진행하고 살아 있는 보스에게 플레이어 폭탄 피해가 적용되는지 검증한다.
