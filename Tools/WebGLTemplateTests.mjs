@@ -28,10 +28,23 @@ const harnessInteropPath = path.join(
   "WebGL",
   "BombSwapHarness.jslib",
 );
+const mobilePipelinePath = path.join(
+  projectRoot,
+  "Assets",
+  "Settings",
+  "Mobile_RPAsset.asset",
+);
+const qualitySettingsPath = path.join(
+  projectRoot,
+  "ProjectSettings",
+  "QualitySettings.asset",
+);
 
 const html = fs.readFileSync(templatePath, "utf8");
 const templateScope = fs.readFileSync(templateScopePath, "utf8");
 const harnessInterop = fs.readFileSync(harnessInteropPath, "utf8");
+const mobilePipeline = fs.readFileSync(mobilePipelinePath, "utf8");
+const qualitySettings = fs.readFileSync(qualitySettingsPath, "utf8");
 
 for (const requiredText of [
   'name="viewport"',
@@ -80,6 +93,16 @@ assert.ok(
 assert.ok(
   !html.includes('canvas.style.height = "{{{ HEIGHT }}}px"'),
   "The template must not restore Unity's fixed desktop canvas height.",
+);
+assert.match(
+  qualitySettings,
+  /^\s+WebGL:\s+0\s*$/m,
+  "WebGL must keep using the Mobile quality profile.",
+);
+assert.match(
+  mobilePipeline,
+  /^\s+m_RenderScale:\s+1(?:\.0+)?\s*$/m,
+  "The WebGL Mobile pipeline must preserve the native 480x300 pixel-camera target instead of downscaling it again.",
 );
 assert.match(
   templateScope,

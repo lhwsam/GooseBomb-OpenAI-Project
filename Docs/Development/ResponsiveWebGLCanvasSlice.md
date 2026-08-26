@@ -34,9 +34,10 @@ WebGLTemplateTests + WebGLSmoke
 사람 관찰 플레이
 ```
 
-- `index.html`이 hosting shell과 canvas CSS 크기를 소유한다. canvas의 `width`·`height` 속성은 Unity 렌더 기준 960×600을 유지한다.
+- `index.html`이 hosting shell과 canvas CSS 크기를 소유한다. canvas의 `width`·`height` 속성은 초기 Unity 렌더 기준 960×600을 제공하고, player가 로드된 뒤 실제 backing 크기는 CSS 표시 크기와 브라우저 device pixel ratio를 따라 동기화된다.
 - Unity의 first-party uGUI도 공통 `PrototypeUiFactory`를 통해 960×600을 reference resolution으로 사용한다. 따라서 네이티브 canvas에서는 `CanvasScaler` scale이 1이고, CSS 축소와 Unity UI 좌표계가 서로 다른 기준값으로 표류하지 않는다.
 - CSS 표시 크기는 `min(1, availableWidth / 960, availableHeight / 600)`으로 계산한다. `ResizeObserver`와 window resize가 같은 함수를 사용한다.
+- gameplay world는 480×300 point-filter target이므로 브라우저 zoom 100%의 960×600 backing에서 정확한 2배 픽셀 크기가 기준이다. WebGL Mobile URP render scale은 `1.0`으로 유지해 저해상도 world를 한 번 더 80%로 줄이지 않는다. zoom·DPI가 바뀌면 uGUI는 더 높은 backing 해상도로 선명하게 보일 수 있지만 world target의 확대 배율은 2가 아니게 되어 3D만 더 거칠게 보일 수 있다.
 - 빌드 하네스는 프로젝트의 평상시 템플릿 설정을 영구 변경하지 않는다. build scope가 이전 값을 보존하고 종료 시 `AssetDatabase.SaveAssets()`까지 수행해 디스크 설정도 복원한다.
 - `Tools/WebGLTemplateTests.mjs`는 필수 Unity macro, 반응형 식, 고정 크기 회귀 금지와 설정 저장 복원을 검사한다.
 - `Tools/WebGLSmoke.mjs`는 Unity 로드 직후와 전체 던전 회귀 뒤에 1280×720, 1024×768, 640×720 viewport에서 canvas 경계·문서 overflow·네이티브 상한·16:10 비율을 검사한다.

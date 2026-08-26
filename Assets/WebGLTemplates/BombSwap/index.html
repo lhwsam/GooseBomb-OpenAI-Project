@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
-    <title>Bomb Swap | {{{ PRODUCT_NAME }}}</title>
+    <title>{{{ PRODUCT_NAME }}}</title>
     <style>
       :root {
         color-scheme: dark;
@@ -64,12 +64,12 @@
         text-align: center;
       }
 
-      #unity-loading-title {
-        margin-bottom: 12px;
-        color: #f2f7fb;
-        font-size: 18px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+      #unity-loading-logo {
+        display: block;
+        width: min(280px, 100%);
+        height: auto;
+        margin: 0 auto 14px;
+        image-rendering: pixelated;
       }
 
       #unity-progress-track {
@@ -193,10 +193,10 @@
           width={{{ WIDTH }}}
           height={{{ HEIGHT }}}
           tabindex="0"
-          aria-label="Bomb Swap game canvas"></canvas>
+          aria-label="GooseBomb game canvas"></canvas>
       </div>
       <div id="unity-loading-bar" aria-live="polite">
-        <div id="unity-loading-title">BOMB SWAP</div>
+        <img id="unity-loading-logo" src="Team_Icon.png" alt="Vigilante team logo">
         <div id="unity-progress-track">
           <div id="unity-progress-bar"></div>
         </div>

@@ -14,7 +14,7 @@
 ## 확인된 환경
 
 - Unity: `6000.5.3f1 (c2eb47b3a2a9)`.
-- 렌더링: URP `17.5.0`. WebGL은 `Mobile` 품질 프로필과 `Mobile_RPAsset`을 사용하며 render scale은 `0.8`, 추가 광원 그림자는 비활성화되어 있다.
+- 렌더링: URP `17.5.0`. WebGL은 `Mobile` 품질 프로필과 `Mobile_RPAsset`을 사용하며 3DPixelCamera의 480×300 target을 다시 축소하지 않도록 render scale은 `1.0`, 추가 광원 그림자는 비활성화되어 있다.
 - 입력: Input System `1.19.0` 전용(`activeInputHandler: 1`). 게임 전용 `BombSwapInputActions.inputactions`를 의미 명령으로 변환한다.
 - 목표 플랫폼: 3D WebGL. 기준 해상도는 `960x600`, WebGL threads는 꺼져 있고 data caching은 켜져 있다.
 - 실행 상태: Unity 주 Editor 한 개와 그 하위 Asset Import Worker 두 개가 프로젝트를 열고 있다. 독립 Editor가 세 개 열린 상태는 아니다.

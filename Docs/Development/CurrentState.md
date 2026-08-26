@@ -1,13 +1,19 @@
 # 현재 프로젝트 상태
 
 - 기준일: 2026-08-26
-- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause·런 결과를 960×600 기준으로 분리하고, 보스 등장·격파 연출과 결과 gate를 표현 계층에 연결했으며, 공용 폭탄 오디오·보스 자폭병 소환 보호·보스 클리어 이동 정리와 방향키 기본 9키 설정을 통합한 상태
+- 단계: 로비 scene 저작 UI와 공유 프리팹 기반 인게임 HUD·미니맵·pause·런 결과를 960×600 기준으로 분리하고, 보스 등장·격파 연출과 결과 gate를 표현 계층에 연결했으며, 공용 폭탄 오디오·보스 자폭병 소환 보호·보스 클리어 이동 정리·방향키 기본 9키 설정과 GooseBomb Release 브랜딩·runtime run seed·WebGL native render scale을 통합한 상태
 - Unity: `ProjectSettings/ProjectVersion.txt` 기준 6000.5.3f1
 - 목표 플랫폼: 3D WebGL
 
 이 파일은 현재 스냅샷이다. 과거 작업 일지를 누적하지 않는다.
 
 ## 완료
+
+- Core 던전 생성의 명시 seed·결정성은 유지하면서 Unity run host 정책을 분리했다. Editor와 Development build는 저작 seed 0을 그대로 사용해 기존 자동화·버그 재현을 보존하고, 정식 non-Development build는 새 run과 terminal 재시작마다 UTC ticks·platform tick·host-local sequence를 혼합한 0이 아닌 runtime seed를 Core session에 전달한다. Release에서도 실제 seed를 Console에 한 번 기록해 재현 근거를 남긴다. 정책·완료/실패 재시작 집중 PlayMode `3/3`이 통과했고 Unity compile·Console Error 0이다. 증거는 `Artifacts/Verification/ConnectedTests/20260825-230558-896.json`이다.
+- WebGL과 Editor 화면 차이는 UI가 아니라 WebGL 기본 `Mobile_RPAsset`만 render scale `0.8`이어서 3DPixelCamera의 480×300 world target을 다시 80%로 축소·업스케일하던 것이 원인이었다. Mobile 품질의 다른 성능 설정과 480×300 point target은 유지하고 render scale만 `1.0`으로 복구했다. `Tools/WebGLTemplateTests.mjs`가 WebGL→Mobile 품질 매핑과 render scale `1.0`을 회귀 검사한다. 브라우저 zoom/DPI가 100%가 아니면 point 확대 배율은 별도로 달라질 수 있으므로 화질 기준은 zoom 100%·960×600 canvas다. URP 17.5가 사용하지 않는 FSR pass 초기화에서 남기는 `Edge Adaptive Spatial Upsampling` capability 경고는 render scale `1.0`에서 실제 업스케일이 실행된다는 뜻이 아니며 패키지 원본은 수정하지 않았다.
+- Player Settings product name과 WebGL shell 제목을 `GooseBomb`으로 바꾸고, 사용자가 제공한 alpha 포함 1650×1125 `Team_Icon.png`를 로딩 화면과 최종 산출물에 연결했다. 정식 Release 정책은 Lobby·Dungeon 7개 scene에 런타임 전투방 카탈로그가 참조하는 `TestSandbox`, `TestSandboxThrower`, `TestSandboxPillars`, `TestSandboxGates`를 더한 11개 scene을 포함한다. 카탈로그 밖 `TestSandboxArmor`와 독립 playtest scene은 제외한다. WebGL 전용 import는 HUD 폭탄 아이콘 256, 캐릭터 diffuse/normal 1024, 실제 포함 환경·폭탄·VFX texture 512로 제한하고 PC/원본 import는 보존한다. 캐릭터 기본 rig 6개의 미사용 T-Pose import를 끄되 별도 동작 clip과 Animator Controller는 유지한다.
+- 수정된 최적화 Release WebGL은 `53,046,330 bytes`(`50.59 MiB`), `299.649초`, 오류 0·기존 패키지/셰이더 범주 경고 350건으로 성공했다. 이전 12-scene `146,752,168 bytes`보다 약 64% 작고 `data.br`는 `130.65 MiB → 41.29 MiB`다. 1280×720 viewport에서 960×600 canvas, 로비→`DungeonStart` 진입과 첫 문→`TestSandboxGates` 전환, page/Console error 0을 확인했다. 산출물은 `Artifacts/Verification/20260826-093648-connected-release-web-validation-bypass/`이다. `Artifacts/Verification/20260826-090427-optimized-release-web/`의 7-scene 빌드는 런타임 전투 scene 4개가 빠져 첫 문을 통과할 수 없으므로 배포 후보가 아니다. 이번 빌드도 기존 콘텐츠 validator 66건을 명시적으로 우회했으므로 Web tier 전체 통과로 표현하지 않는다.
+- GitHub Pages 정적 호스팅 전용 Release 프로필은 빌드 중에만 WebGL decompression fallback을 켜 `.unityweb`을 만들고 기존 프로젝트 설정을 `Off`로 복구·저장한다. 같은 11개 scene의 Pages 후보는 `53,136,971 bytes`(`50.68 MiB`), `300.941초`, 오류 0·기존 패키지/셰이더 범주 경고 350건으로 성공했고 보고서가 `hostingProfile: GitHubPages`, `decompressionFallback: true`, `contentValidationSkipped: true`를 기록한다. 로컬 정적 서버에서 Unity splash→GooseBomb 로비→`DungeonStart` 진입과 960×600 canvas를 확인했다. 산출물은 `Artifacts/Verification/20260826-100050-connected-github-pages-release-web-validation-bypass/`이며 기존 validator 66건을 우회했으므로 Web tier 전체 통과 근거가 아니다.
 
 - 플레이어·자폭병·투척병·보스의 모든 활성 폭탄은 공통 `BombActivated`/`BombExploded` 경계에서 `Fuse_burn` loop와 `Bomb_blast_1/2` 중 하나를 위치 기반 3D SFX로 재생한다. 탑다운 Camera Listener의 지면 거리 약 16~21을 포함하도록 선형 감쇠를 `minDistance 18`·`maxDistance 30`으로 조정했고 원본 레벨이 낮은 fuse volume은 `1`, 폭발은 `0.9`다. playable 16개 scene의 bomb presenter가 같은 값과 SFX Mixer 참조를 직렬화하며 pause·비활성화·보스 클리어에서 voice를 정리한다.
 - 일반 던전 전투방 카탈로그는 `Loop → Thrower → Pillars → Gates` 네 entry만 사용한다. Armor room asset과 `TestSandboxArmor`·`ArmoredPanicPlaytest`는 삭제하지 않고 메인 런 배정 밖의 독립 검증 콘텐츠로 유지한다. 보스가 소환한 자폭병은 로컬 spawn VFX의 실제 수명이 끝날 때까지 이동·조기 점화·폭발 피해를 받지 않으며 그 뒤 기존 AI와 4.5초 강제 점화 시계를 시작한다.
@@ -238,7 +244,7 @@
 
 ## 알려진 위험과 미정
 
-- 전체 EditMode는 `364/364`로 통과했다. 교체 쿨타임 HUD 회귀를 포함한 전체 PlayMode 독립 2회 실행은 모두 `189/197`이며 보고된 `Cell history` 예외와 Weapon HUD KeyIcon·쿨타임 회귀는 0이다. 남은 Charger·run host·추격자·자폭병·폭발·방 클리어 기준선 8건 때문에 Full 통과로 보고하지 않는다.
+- 최적화 뒤 연결 EditMode는 `367/367`로 통과했다. 전체 PlayMode는 `217/229`, 실패 12건이며 boss visual height·Gates 시각 pair·Recovery realtime Light와 Charger/Chaser timing·자폭 정의/범위·폭발/방 클리어 기대값에서 발생했다. 실패 stack에는 texture, model importer, Avatar, Animator clip 누락이 없고 브라우저의 플레이어 이동 pose도 정상이나, 기존 기준선보다 실패 수가 늘어 Full 통과로 보고하지 않는다.
 - 권위 이동 계약은 기본 5 cells/s, cardinal 단일 축, Core 10ms 고정 step 연속 위치와 셀 경계 정수 점유 전이다. 공간 기반 코너 보정·중심선 스냅·별도 가속/감속은 추가하지 않았다.
 - 프로토타입은 플레이어 `ActorId(1)`, 추격자 `ActorId(2)`, 선택적 돌진형 `ActorId(3)`, 선택적 갑옷 적 `ActorId(4)`, 보스 `ActorId(5)`, 선택적 자폭병 `ActorId(6)`, 선택적 투척병 `ActorId(7)`을 고정 생성하고 ID 순서를 사용한다. 범용 적 ID 발급, 가변 목록과 동일 목적 셀 경합 정책은 아직 없다.
 - 첫 보상은 3×3 광역과 설치 방향 앞쪽 범위 5(원점 포함 총 6셀) 직선 후보를 제공하지만 실제 플레이에서 다른 위치 선택을 만드는지 아직 판정하지 않았다. 직선 범위 상향이 복도 정렬 이점을 읽기 쉽게 만드는지, 반대로 긴 안전 사거리 때문에 광역 선택을 압도하지는 않는지 확인해야 한다. 광역의 넓은 자기 위험과 긴 설치 쿨타임이 선택을 만들지 답답함만 만드는지도 함께 관찰한다. 폭탄별 위력과 동시 설치 수 제한은 아직 없다.
@@ -252,6 +258,7 @@
 - commit `134dd06`의 post-commit 11-scene Development WebGL 빌드는 138,129,918 bytes, 46.442초, 오류 0과 TextMeshPro 대형 메서드 분할 안내 경고 3건으로 성공했다. Edge 키보드 smoke 38/38과 가상 Gamepad 14/14가 Console/page error 0으로 통과했다. 이 incremental development 크기·시간을 release 성능이나 cold build 예산으로 해석하지 않으며 실제 배포 예산과 미사용 AI Inference·vendor 패키지 정리는 사람 수직 슬라이스 검증 이후 별도 결정이 필요하다.
 - 보스 실제 asset은 체력 10·phase 임계 7/2, 추격 2/3/2, 돌진 3칸, 일반탄 fuse 1.25초·연쇄탄 fuse 2.25초, 과열 2.0/1.5/2.25초, 비행 0.45초·투척 간격 0.4초, 자폭병 강제 점화 4.5초를 사용한다. 자동 테스트는 결정론·상한·전환·연결 정확성만 보장한다. placeholder에는 방향 몸짓·착탄 그림자·오디오가 없어 목적지 ghost 제거 뒤 가독성, 정보 중첩, 체력 10의 반복 피로와 실제 위협도는 사람 플레이 전까지 `Proposed`다.
 - AI Navigation, AI Inference, Visual Scripting 등 설치 패키지의 실제 사용 여부는 결정되지 않았다.
+- 실제 사용 중인 `DungGeunMo.asset`·`DNFBitBitv2.asset`은 각각 약 16.97/16.94 MiB의 4096×4096 정적 한글 atlas로 최적화 Release의 가장 큰 두 packed asset이다. 현재 전체 한글 1.1만~1.2만 글리프를 보존하며, UI 문자열 집합과 fallback 범위를 확정한 Font Asset Creator 재생성 전에는 축소하지 않는다. BGM 8개도 adaptive stem loop 동기 검증 전까지 Vorbis quality 1.0과 현재 load type을 유지한다.
 - 실제 pause는 논리 시계와 게임플레이 입력을 정지하고 공통 설정·키보드 리바인딩을 제공한다. focus 상실 자동 pause, UI 전용 action map과 게임패드 리바인딩은 아직 없다.
 - 프로토타입 전투방 스키마는 필수 추격자와 선택적 돌진형·갑옷 적·자폭병·투척병 각 한 개, 자폭 유도 anchor, 투척병 사격/목표 anchor, 고정 벽·1회 파괴 벽을 지원한다. 자폭 유도 anchor는 AI waypoint가 아니라 레벨 의도·폭발 결과 검증용이고 투척병 anchor는 실제 AI 이동·목표 계약이다. Secret 문은 방별 출구 셀→연결 경계 adapter가 폭발 footprint를 소비한다. 범용 여러 적 spawn 후보, 일반 파괴 보상, 다종 환경 반응물 registry, 보상·전환 anchor와 room prefab 선택은 아직 없다.
 - 다섯 room asset의 cardinal 잠재 출구와 Core 배정, 실제 분할 외벽·문 presenter·입장 spawn·회전 geometry 연결은 구현됐다. 장착된 두 폭탄 정의·성공한 마지막 활성 슬롯·현재 체력·Recovery 소비 여부는 run 전체에서 보존되고 새 run만 슬롯 0·최대 체력·미소비 Recovery로 시작한다. `+2`와 한 번 사용은 자동 검증을 통과한 `Proposed` 값이며 사람 플레이 전에는 확정하지 않는다.

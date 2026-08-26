@@ -11,6 +11,7 @@
 ## 프로토타입 계약
 
 - run은 명시적 seed를 가진다.
+- Unity host는 Editor와 Development build에서는 저작 seed를 그대로 사용해 자동화와 버그 재현을 보존한다. 정식 non-Development build에서는 새 run을 시작하거나 terminal run을 재시작할 때마다 현재 시각·플랫폼 tick·host-local sequence를 혼합한 0이 아닌 seed를 만들고, 그 정수 하나를 Core에 명시적으로 전달한다.
 - 한 층의 normal progression은 트리형 방 그래프로 생성한다. 이후 비밀방 하나가 일반 전투방 2~3개를 잇는 명시적 Secret 연결을 추가할 수 있다.
 - GDD의 전투방 범위는 run당 3~5개다. 현재 테스트 4 기본 정의는 보스 주 경로 전투방 3개와 선택 가지를 동시에 보장하기 위해 4~5개를 생성한다. 이 수치는 플레이테스트 전 `Proposed`다.
 - 첫 전투 진행에서 두 번째 폭탄 획득을 보장한다.
@@ -42,7 +43,7 @@
 - `DungeonRunState`는 정확히 한 개인 Recovery 노드의 소비 여부를 run 수명으로 소유한다. 현재 Recovery 노드에서 최대 체력이 아닐 때만 회복과 소비를 함께 확정하며 재입장이나 scene 재로드로 다시 생성하지 않는다.
 - `DungeonRunState`는 Secret 연결별 공개와 Secret 노드의 cache 소비를 run 수명으로 소유한다. Unity binder가 매핑한 문 앞 출구 셀이 실제 폭발 `AffectedCells`에 포함됐을 때만 해당 연결을 공개하고, 현재 Secret 방에서만 양수 cache 토큰을 한 번 지급한다.
 - Unity room binder는 Core 토큰 값의 변경 사건만 HUD에 전달한다. `PrototypeHealthHud`는 토큰 아이콘 옆에 접두 문구 없는 숫자 snapshot을 표시하며 frame polling이나 별도 보상 상태를 만들지 않는다.
-- `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 같은 seed·catalog에서 새 session과 navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
+- `DungeonRunState`는 `InProgress`, 보스방 클리어의 `Completed`, 플레이어 사망의 `Failed` 결과를 소유한다. terminal 상태는 이동·추가 클리어를 거부한다. persistent host는 완료 또는 실패와 pending 전환 없음이 확인된 뒤 Editor/Development에서는 같은 저작 seed, 정식 build에서는 새 runtime seed와 같은 catalog로 새 session·navigator를 만들고 시작 씬을 다시 로드한다. 세부 계약은 `RunCompletion.md`가 소유한다.
 
 현재 필수 주 경로는 다음과 같다.
 
@@ -79,7 +80,7 @@ Secret post-pass:             Combat ─┐
 18. 방 session은 run 현재 체력으로 시작하고 적용된 피해 결과를 같은 run 상태에 즉시 기록한다.
 19. Recovery 중앙 셀은 유효할 때만 `+2`, Secret 중앙 cache는 최초 한 번만 토큰 `+3`과 소비를 함께 확정한다.
 20. 일반 전투방 최초 클리어에서 run token을 1 지급하고 HUD에 `RoomRewardTokenCount` 확정 값을 전달한다.
-21. 보스방 클리어를 run 완료로 판정하고 플레이어가 요청하면 토큰 0·최대 체력·미소비 Recovery/Secret cache·미공개 Secret 연결·초기 미니맵 범위의 새 run state로 시작 씬을 다시 로드한다.
+21. 보스방 클리어를 run 완료로 판정하고 플레이어가 요청하면 빌드 종류에 맞는 다음 명시 seed로 토큰 0·최대 체력·미소비 Recovery/Secret cache·미공개 Secret 연결·초기 미니맵 범위의 새 run state를 만들고 시작 씬을 다시 로드한다.
 
 ## 불변식
 

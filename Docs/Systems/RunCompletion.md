@@ -6,7 +6,7 @@
 
 ## 목적
 
-현재 프로토타입의 한 층 주 경로가 보스 격파 또는 플레이어 사망으로 끝났음을 명확히 알리고, 브라우저 페이지를 새로 고치지 않아도 같은 seed의 초기 상태로 즉시 다시 플레이할 수 있게 한다. 여러 층 메타 진행이나 저장 시스템은 미리 만들지 않는다.
+현재 프로토타입의 한 층 주 경로가 보스 격파 또는 플레이어 사망으로 끝났음을 명확히 알리고, 브라우저 페이지를 새로 고치지 않아도 초기 상태의 새 run을 즉시 플레이할 수 있게 한다. Editor·Development 자동화는 같은 저작 seed로 재현하고 정식 build는 새 runtime seed로 다른 배치를 만든다. 여러 층 메타 진행이나 저장 시스템은 미리 만들지 않는다.
 
 ## 플레이어 계약
 
@@ -17,7 +17,7 @@
 - 키보드 `R` 또는 게임패드 Select를 한 번 누르면 같은 브라우저 페이지에서 새 런을 시작한다.
 - 결과 프리팹에는 별도의 `R 키로 즉시 다시 시작` 안내 라벨을 두지 않는다. 재시작 단축키 계약은 화면의 `다시 시작` Button과 함께 그대로 유지한다.
 - 결과 화면의 `다시 시작`은 같은 즉시 재시작을 수행하고, `로비로 돌아가기`는 현재 run host를 제거한 뒤 `DungeonLobby`로 이동한다.
-- 재시작은 같은 저작 seed를 사용하므로 그래프와 방 배정은 재현되지만 방문·클리어·방 보상 토큰·Secret 연결 공개·Recovery/Secret 보상 소비·보상 선택·두 번째 폭탄은 초기 상태이고, 새 `DungeonPlayerHealthState`는 검증된 최대 체력으로 시작한다.
+- Editor·Development 재시작은 같은 저작 seed를 사용해 그래프와 방 배정을 재현한다. 정식 non-Development build 재시작은 새 runtime seed를 사용한다. 어느 경우든 방문·클리어·방 보상 토큰·Secret 연결 공개·Recovery/Secret 보상 소비·보상 선택·두 번째 폭탄은 초기 상태이고, 새 `DungeonPlayerHealthState`는 검증된 최대 체력으로 시작한다.
 - 완료 또는 실패 전의 `RestartRun` 명령은 게임 상태를 바꾸지 않는다.
 
 ## 책임과 상태 전이
@@ -31,7 +31,7 @@
 7. `PrototypeRunCompletionPresenter`는 구독 순서에 의존하지 않도록 다음 `LateUpdate`에서 Core run 결과를 읽는다. 완료는 보스방의 로컬 클리어와 격파 gate 완료를, 실패는 플레이어 사망 gate 완료를 함께 확인한다. 실패 원인은 Transform이나 Collider가 아니라 `FailureDamage.SourceKind`와 프로토타입 적 `ActorId(2~4)`만으로 표시 문구를 선택한다.
 8. presenter는 공유 `PrototypeRunCompletionCanvas.prefab`을 한 번 인스턴스화하고 방 로컬 `PrototypeGameSession`을 멱등적으로 비활성화한다. InputReader와 persistent run host는 계속 살아 있다.
 9. `RestartRun`을 받으면 presenter가 중복 요청을 잠그고 `PrototypeDungeonRunHost.RestartFinishedRun()`을 호출한다.
-10. host는 pending 전환이 없고 기존 run이 terminal인지 확인한 뒤 같은 seed, 검증된 세 catalog와 player-vitals 데이터로 새 run session·navigator를 만든다.
+10. host는 pending 전환이 없고 기존 run이 terminal인지 확인한 뒤 Editor·Development에서는 저작 seed, 정식 build에서는 새 runtime seed와 검증된 세 catalog·player-vitals 데이터로 새 run session·navigator를 만든다.
 11. 시작 씬의 로드 가능성을 먼저 확인하고 navigator를 교체한 뒤 `DungeonStart`를 단일 로드한다. 로드 호출이 실패하면 이전 navigator를 복구한다.
 12. 새 씬의 중복 bootstrap은 기존 primary host를 발견하고 제거되며, 새 room binder는 토큰 0의 새 run state와 시작 폭탄 한 종류를 주입한다.
 13. 로비 복귀는 terminal·pending 없음·씬 로드 가능성을 확인하고 `DungeonLobby`를 단일 로드한 뒤 persistent host를 제거한다. 로비에는 대체 host가 없으며 다음 `게임 시작`이 새 run을 만든다.
@@ -66,7 +66,7 @@
 
 ## 범위 밖
 
-- 다음 층 생성, seed 변경 정책, 메타 성장과 저장/불러오기.
+- 다음 층 생성, 플레이어가 seed를 입력·공유하는 UI, 메타 성장과 저장/불러오기.
 - 부활, 체크포인트, 자동 재시작과 공격 이름·방·시간을 포함한 상세 사망 타임라인.
 - 완료·실패 통계, 점수, 플레이 시간, 보상 요약.
 - 완성된 UI 아트·애니메이션·오디오와 게임패드 실기 수동 검증.

@@ -15,6 +15,9 @@ namespace BombSwap.Editor.Verification
         private static string _scheduledBuildPath;
         private static string _scheduledScenePath;
         private static string _scheduledStatusPath;
+        private static bool _scheduledRelease;
+        private static bool _scheduledValidateContent;
+        private static bool? _scheduledDecompressionFallbackOverride;
 
         [MenuItem("Bomb Swap/Verification/Build Development WebGL Connected")]
         private static void ScheduleDevelopmentMenu()
@@ -30,6 +33,69 @@ namespace BombSwap.Editor.Verification
                 "BOMBSWAP_CONNECTED_WEBGL_BUILD SCHEDULED " + statusPath);
         }
 
+        [MenuItem("Bomb Swap/Verification/Build Release WebGL Connected")]
+        private static void ScheduleReleaseMenu()
+        {
+            ScheduleReleaseMenu(validateContent: true);
+        }
+
+        [MenuItem(
+            "Bomb Swap/Verification/Build Release WebGL Connected (Validation Bypass)")]
+        private static void ScheduleReleaseValidationBypassMenu()
+        {
+            ScheduleReleaseMenu(validateContent: false);
+        }
+
+        private static void ScheduleReleaseMenu(bool validateContent)
+        {
+            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string artifactsDirectory = Path.Combine(
+                "Artifacts",
+                "Verification",
+                timestamp + (validateContent
+                    ? "-connected-release-web"
+                    : "-connected-release-web-validation-bypass"));
+            string buildPath = Path.Combine(artifactsDirectory, "WebGLBuild");
+            string statusPath = ScheduleRelease(
+                artifactsDirectory,
+                buildPath,
+                validateContent);
+            Debug.Log(
+                "BOMBSWAP_CONNECTED_RELEASE_WEBGL_BUILD SCHEDULED " + statusPath);
+        }
+
+        [MenuItem("Bomb Swap/Verification/Build GitHub Pages WebGL Connected")]
+        private static void ScheduleGitHubPagesMenu()
+        {
+            ScheduleGitHubPagesMenu(validateContent: true);
+        }
+
+        [MenuItem(
+            "Bomb Swap/Verification/Build GitHub Pages WebGL Connected (Validation Bypass)")]
+        private static void ScheduleGitHubPagesValidationBypassMenu()
+        {
+            ScheduleGitHubPagesMenu(validateContent: false);
+        }
+
+        private static void ScheduleGitHubPagesMenu(bool validateContent)
+        {
+            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string artifactsDirectory = Path.Combine(
+                "Artifacts",
+                "Verification",
+                timestamp + (validateContent
+                    ? "-connected-github-pages-release-web"
+                    : "-connected-github-pages-release-web-validation-bypass"));
+            string buildPath = Path.Combine(artifactsDirectory, "WebGLBuild");
+            string statusPath = ScheduleGitHubPagesRelease(
+                artifactsDirectory,
+                buildPath,
+                validateContent);
+            Debug.Log(
+                "BOMBSWAP_CONNECTED_GITHUB_PAGES_WEBGL_BUILD SCHEDULED " +
+                statusPath);
+        }
+
         public static string ScheduleDevelopment(
             string artifactsDirectory,
             string buildPath)
@@ -38,6 +104,34 @@ namespace BombSwap.Editor.Verification
                 artifactsDirectory,
                 buildPath,
                 scenePath: null);
+        }
+
+        public static string ScheduleRelease(
+            string artifactsDirectory,
+            string buildPath,
+            bool validateContent = true)
+        {
+            return ScheduleBuildInternal(
+                artifactsDirectory,
+                buildPath,
+                scenePath: null,
+                release: true,
+                validateContent: validateContent,
+                decompressionFallbackOverride: null);
+        }
+
+        public static string ScheduleGitHubPagesRelease(
+            string artifactsDirectory,
+            string buildPath,
+            bool validateContent = true)
+        {
+            return ScheduleBuildInternal(
+                artifactsDirectory,
+                buildPath,
+                scenePath: null,
+                release: true,
+                validateContent: validateContent,
+                decompressionFallbackOverride: true);
         }
 
         public static string ScheduleDevelopmentScene(
@@ -63,6 +157,23 @@ namespace BombSwap.Editor.Verification
             string buildPath,
             string scenePath)
         {
+            return ScheduleBuildInternal(
+                artifactsDirectory,
+                buildPath,
+                scenePath,
+                release: false,
+                validateContent: true,
+                decompressionFallbackOverride: null);
+        }
+
+        private static string ScheduleBuildInternal(
+            string artifactsDirectory,
+            string buildPath,
+            string scenePath,
+            bool release,
+            bool validateContent,
+            bool? decompressionFallbackOverride)
+        {
             if (string.IsNullOrWhiteSpace(artifactsDirectory))
             {
                 throw new ArgumentException(
@@ -86,6 +197,10 @@ namespace BombSwap.Editor.Verification
             _scheduledArtifactsDirectory = artifactsDirectory;
             _scheduledBuildPath = buildPath;
             _scheduledScenePath = scenePath;
+            _scheduledRelease = release;
+            _scheduledValidateContent = validateContent;
+            _scheduledDecompressionFallbackOverride =
+                decompressionFallbackOverride;
             _scheduledStatusPath = Path.Combine(
                 absoluteArtifacts,
                 "webgl-build-status.txt");
@@ -103,7 +218,40 @@ namespace BombSwap.Editor.Verification
             return BuildDevelopmentInternal(
                 artifactsDirectory,
                 buildPath,
-                scenes: null);
+                scenes: null,
+                validateContent: true);
+        }
+
+        public static string BuildRelease(
+            string artifactsDirectory,
+            string buildPath,
+            bool validateContent = true)
+        {
+            return BuildWebGlInternal(
+                artifactsDirectory,
+                buildPath,
+                WebGLReleaseBuildPolicy.GetEnabledReleaseScenePaths(),
+                BuildOptions.DetailedBuildReport,
+                mode: "Release",
+                validateContent: validateContent,
+                decompressionFallbackOverride: null,
+                hostingProfile: "Generic");
+        }
+
+        public static string BuildGitHubPagesRelease(
+            string artifactsDirectory,
+            string buildPath,
+            bool validateContent = true)
+        {
+            return BuildWebGlInternal(
+                artifactsDirectory,
+                buildPath,
+                WebGLReleaseBuildPolicy.GetEnabledReleaseScenePaths(),
+                BuildOptions.DetailedBuildReport,
+                mode: "Release",
+                validateContent: validateContent,
+                decompressionFallbackOverride: true,
+                hostingProfile: "GitHubPages");
         }
 
         public static string BuildDevelopmentScene(
@@ -126,13 +274,36 @@ namespace BombSwap.Editor.Verification
             return BuildDevelopmentInternal(
                 artifactsDirectory,
                 buildPath,
-                new[] { scenePath });
+                new[] { scenePath },
+                validateContent: true);
         }
 
         private static string BuildDevelopmentInternal(
             string artifactsDirectory,
             string buildPath,
-            string[] scenes)
+            string[] scenes,
+            bool validateContent)
+        {
+            return BuildWebGlInternal(
+                artifactsDirectory,
+                buildPath,
+                scenes,
+                BuildOptions.Development | BuildOptions.DetailedBuildReport,
+                mode: "Development",
+                validateContent,
+                decompressionFallbackOverride: null,
+                hostingProfile: "Development");
+        }
+
+        private static string BuildWebGlInternal(
+            string artifactsDirectory,
+            string buildPath,
+            string[] scenes,
+            BuildOptions buildOptions,
+            string mode,
+            bool validateContent,
+            bool? decompressionFallbackOverride,
+            string hostingProfile)
         {
             if (string.IsNullOrWhiteSpace(artifactsDirectory))
             {
@@ -164,13 +335,16 @@ namespace BombSwap.Editor.Verification
                     "This Unity installation does not include WebGL build support.");
             }
 
-            var validationErrors = new List<string>();
-            PrototypeContentValidator.Validate(validationErrors);
-            if (validationErrors.Count != 0)
+            if (validateContent)
             {
-                throw new InvalidOperationException(
-                    $"Content validation failed before WebGL build: " +
-                    string.Join(" | ", validationErrors));
+                var validationErrors = new List<string>();
+                PrototypeContentValidator.Validate(validationErrors);
+                if (validationErrors.Count != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Content validation failed before WebGL build: " +
+                        string.Join(" | ", validationErrors));
+                }
             }
 
             scenes ??= EditorBuildSettings.scenes
@@ -188,15 +362,42 @@ namespace BombSwap.Editor.Verification
                 scenes = scenes,
                 locationPathName = absoluteBuild,
                 target = BuildTarget.WebGL,
-                options = BuildOptions.Development | BuildOptions.DetailedBuildReport,
+                options = buildOptions,
             };
             BuildReport report;
-            using (ResponsiveWebGLTemplateScope.Activate())
+            bool previousDecompressionFallback =
+                PlayerSettings.WebGL.decompressionFallback;
+            bool buildDecompressionFallback =
+                decompressionFallbackOverride ?? previousDecompressionFallback;
+            try
             {
-                report = BuildPipeline.BuildPlayer(options);
+                if (previousDecompressionFallback != buildDecompressionFallback)
+                {
+                    PlayerSettings.WebGL.decompressionFallback =
+                        buildDecompressionFallback;
+                }
+
+                using (ResponsiveWebGLTemplateScope.Activate())
+                {
+                    report = BuildPipeline.BuildPlayer(options);
+                }
+            }
+            finally
+            {
+                if (PlayerSettings.WebGL.decompressionFallback !=
+                    previousDecompressionFallback)
+                {
+                    PlayerSettings.WebGL.decompressionFallback =
+                        previousDecompressionFallback;
+                    AssetDatabase.SaveAssets();
+                }
             }
             BuildSummary summary = report.summary;
             var artifact = new ConnectedWebGLBuildReport(
+                mode,
+                hostingProfile,
+                !validateContent,
+                buildDecompressionFallback,
                 summary.result.ToString(),
                 summary.outputPath,
                 summary.totalSize,
@@ -209,6 +410,12 @@ namespace BombSwap.Editor.Verification
                 absoluteArtifacts,
                 "webgl-build-report.json");
             File.WriteAllText(reportPath, JsonUtility.ToJson(artifact, true));
+            if (!validateContent)
+            {
+                File.WriteAllText(
+                    Path.Combine(absoluteArtifacts, "VALIDATION-BYPASS.txt"),
+                    "Content validation was deliberately bypassed for this build.");
+            }
             if (summary.result != BuildResult.Succeeded)
             {
                 throw new InvalidOperationException(
@@ -230,15 +437,29 @@ namespace BombSwap.Editor.Verification
             string buildPath = _scheduledBuildPath;
             string scenePath = _scheduledScenePath;
             string statusPath = _scheduledStatusPath;
+            bool release = _scheduledRelease;
+            bool validateContent = _scheduledValidateContent;
+            bool? decompressionFallbackOverride =
+                _scheduledDecompressionFallbackOverride;
             try
             {
                 File.WriteAllText(statusPath, "Running");
-                string reportPath = string.IsNullOrEmpty(scenePath)
-                    ? BuildDevelopment(artifactsDirectory, buildPath)
-                    : BuildDevelopmentScene(
-                        artifactsDirectory,
-                        buildPath,
-                        scenePath);
+                string reportPath = release
+                    ? decompressionFallbackOverride == true
+                        ? BuildGitHubPagesRelease(
+                            artifactsDirectory,
+                            buildPath,
+                            validateContent)
+                        : BuildRelease(
+                            artifactsDirectory,
+                            buildPath,
+                            validateContent)
+                    : string.IsNullOrEmpty(scenePath)
+                        ? BuildDevelopment(artifactsDirectory, buildPath)
+                        : BuildDevelopmentScene(
+                            artifactsDirectory,
+                            buildPath,
+                            scenePath);
                 File.WriteAllText(
                     statusPath,
                     "Passed" + Environment.NewLine + reportPath);
@@ -258,12 +479,19 @@ namespace BombSwap.Editor.Verification
                 _scheduledBuildPath = null;
                 _scheduledScenePath = null;
                 _scheduledStatusPath = null;
+                _scheduledRelease = false;
+                _scheduledValidateContent = false;
+                _scheduledDecompressionFallbackOverride = null;
             }
         }
 
         [Serializable]
         private sealed class ConnectedWebGLBuildReport
         {
+            public string mode;
+            public string hostingProfile;
+            public bool contentValidationSkipped;
+            public bool decompressionFallback;
             public string result;
             public string outputPath;
             public ulong totalSizeBytes;
@@ -274,6 +502,10 @@ namespace BombSwap.Editor.Verification
             public string errorSummary;
 
             public ConnectedWebGLBuildReport(
+                string mode,
+                string hostingProfile,
+                bool contentValidationSkipped,
+                bool decompressionFallback,
                 string result,
                 string outputPath,
                 ulong totalSizeBytes,
@@ -283,6 +515,10 @@ namespace BombSwap.Editor.Verification
                 string[] scenes,
                 string errorSummary)
             {
+                this.mode = mode;
+                this.hostingProfile = hostingProfile;
+                this.contentValidationSkipped = contentValidationSkipped;
+                this.decompressionFallback = decompressionFallback;
                 this.result = result;
                 this.outputPath = outputPath;
                 this.totalSizeBytes = totalSizeBytes;

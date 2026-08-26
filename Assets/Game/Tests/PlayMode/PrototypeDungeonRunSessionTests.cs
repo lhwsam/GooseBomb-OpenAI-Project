@@ -78,6 +78,28 @@ namespace BombSwap.Tests.PlayMode
         }
 
         [Test]
+        public void ReleaseSeedPolicy_UsesRuntimeEntropyAndNeverReturnsZero()
+        {
+            int first = PrototypeDungeonRunSeedPolicy.CreateReleaseSeed(
+                638918208000000000L,
+                123456,
+                1);
+            int second = PrototypeDungeonRunSeedPolicy.CreateReleaseSeed(
+                638918208000000000L,
+                123456,
+                2);
+            int zeroEntropy = PrototypeDungeonRunSeedPolicy.CreateReleaseSeed(
+                0L,
+                0,
+                0);
+
+            Assert.That(first, Is.Not.Zero);
+            Assert.That(second, Is.Not.Zero);
+            Assert.That(second, Is.Not.EqualTo(first));
+            Assert.That(zeroEntropy, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Session_DelegatesLockedClearAndBidirectionalTravelToCoreState()
         {
             var session = new PrototypeDungeonRunSession(12, CreateCatalog());

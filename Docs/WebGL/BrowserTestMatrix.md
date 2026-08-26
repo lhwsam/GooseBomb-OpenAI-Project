@@ -34,7 +34,7 @@
 - 로비 설정에서 키보드 binding 변경→게임 시작 뒤 새 키 반영→page reload 뒤 유지→기본값 복원. 게임패드 binding 문구는 표시하지 않는다.
 - 로비와 pause의 같은 설정에서 Master/BGM/SFX/화면 흔들림 slider가 즉시 반영되고, pause 설정 중 `Esc`가 키 변경 취소→설정 닫기→게임 재개 순서로 동작한다.
 - 수동 청감은 로비 시작, 로비→던전→보스 1초 family crossfade, 안전/전투/회복/보상/클리어의 다음 마디부터 한 마디 smoothstep stem 전환, 보스 One/Two/LastStand 밀도 상승, pause 50% duck·복귀, 사망·격파 fade-out을 확인한다. 설정 BGM 0/70/100%가 적응형 mix와 독립적으로 적용되고 stem이 0에 도달하는 순간의 절단감, loop click·stem 위상 어긋남·Console 오디오 오류가 없어야 한다. UI Button SFX는 로비·pause·런 완료에서 Hover/Click과 SFX 0/100%를 별도로 확인하고, 발소리와 UI 버튼을 제외한 gameplay SFX는 아직 연결되지 않았으므로 BGM 통과와 분리한다.
-- 전체 화면/창 크기 변경 시 화면과 UI. 자동 smoke는 로드 직후 1280×720→640×720, 전체 경로 뒤 1024×768→640×720을 검사한다. canvas는 각각 viewport 안에 완전히 들어오고 문서 overflow가 없으며 960×600 네이티브 상한과 16:10 비율을 유지해야 한다. 실제 fullscreen 진입과 640px 미만 텍스트 가독성은 수동 항목이다.
+- 전체 화면/창 크기 변경 시 화면과 UI. 자동 smoke는 로드 직후 1280×720→640×720, 전체 경로 뒤 1024×768→640×720을 검사한다. canvas는 각각 viewport 안에 완전히 들어오고 문서 overflow가 없으며 960×600 네이티브 상한과 16:10 비율을 유지해야 한다. WebGL Mobile URP render scale은 `1.0`이어야 한다. URP 17.5는 WebGL에서 사용하지 않는 FSR pass도 초기화하며 `Edge Adaptive Spatial Upsampling` 미지원 capability 경고를 한 번 남길 수 있지만, render scale `1.0`에서는 FSR 업스케일을 선택·실행하지 않는다. 수동 화질 비교는 브라우저 zoom 100%(`Ctrl+0`)·960×600 canvas에서 480×300 gameplay target이 정확한 2배 point upscale인지 먼저 확인하고, zoom/DPI가 달라질 때 UI와 3D 픽셀 크기의 차이를 build 품질 저하로 오판하지 않는다. 실제 fullscreen 진입과 640px 미만 텍스트 가독성은 수동 항목이다.
 - 브라우저 Console error와 WebGL context loss.
 - 캐시된 이전 버전에서 새 버전 갱신.
 

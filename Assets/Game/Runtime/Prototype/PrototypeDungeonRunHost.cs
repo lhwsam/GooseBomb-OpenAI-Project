@@ -28,6 +28,7 @@ namespace BombSwap
         private bool requireInitialSceneMatch = true;
 
         private PrototypeDungeonRunNavigator _navigator;
+        private int _releaseSeedSequence;
 
         public event Action RoomCommitted;
 
@@ -140,7 +141,8 @@ namespace BombSwap
                     "Only a completed or failed dungeon run can restart.");
             }
 
-            PrototypeDungeonRunSession restartedSession = CreateRunSession();
+            PrototypeDungeonRunSession restartedSession = CreateRunSession(
+                SelectNextRunSeed());
             if (!restartedSession.TryGetCurrentSceneName(out string startSceneName) ||
                 !Application.CanStreamedLevelBeLoaded(startSceneName))
             {
@@ -152,6 +154,7 @@ namespace BombSwap
             _navigator = new PrototypeDungeonRunNavigator(restartedSession);
             try
             {
+                LogActiveSeed(restartedSession);
                 WebGlHarnessReporter.Report("dungeon-run-restarted");
                 SceneManager.LoadScene(startSceneName, LoadSceneMode.Single);
             }
@@ -223,7 +226,8 @@ namespace BombSwap
                     "PrototypeDungeonRunHost requires combat, special-room, bomb-reward, and player-vitals assets.");
             }
 
-            PrototypeDungeonRunSession runSession = CreateRunSession();
+            PrototypeDungeonRunSession runSession = CreateRunSession(
+                SelectNextRunSeed());
             _navigator = new PrototypeDungeonRunNavigator(runSession);
             if (requireInitialSceneMatch)
             {
@@ -237,6 +241,7 @@ namespace BombSwap
             }
 
             IsPrimary = true;
+            LogActiveSeed(runSession);
             DontDestroyOnLoad(gameObject);
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
@@ -280,14 +285,56 @@ namespace BombSwap
             }
         }
 
-        private PrototypeDungeonRunSession CreateRunSession()
+        private int SelectNextRunSeed()
+        {
+            if (Debug.isDebugBuild)
+            {
+                return seed;
+            }
+
+            _releaseSeedSequence++;
+            return PrototypeDungeonRunSeedPolicy.CreateReleaseSeed(
+                DateTime.UtcNow.Ticks,
+                Environment.TickCount,
+                _releaseSeedSequence);
+        }
+
+        private void LogActiveSeed(PrototypeDungeonRunSession runSession)
+        {
+            Debug.Log($"[DungeonRun] Active seed: {runSession.Seed}.", this);
+        }
+
+        private PrototypeDungeonRunSession CreateRunSession(int runSeed)
         {
             return new PrototypeDungeonRunSession(
-                seed,
+                runSeed,
                 combatRoomCatalog,
                 specialRoomCatalog,
                 bombRewardCatalog,
                 playerVitals.CreateCoreDefinition());
+        }
+    }
+
+    internal static class PrototypeDungeonRunSeedPolicy
+    {
+        internal static int CreateReleaseSeed(
+            long utcTicks,
+            int environmentTickCount,
+            int sequence)
+        {
+            unchecked
+            {
+                ulong ticks = (ulong)utcTicks;
+                uint mixed = (uint)ticks ^ (uint)(ticks >> 32);
+                mixed ^= (uint)environmentTickCount;
+                mixed ^= (uint)sequence * 0x9E3779B9u;
+                mixed ^= mixed >> 16;
+                mixed *= 0x7FEB352Du;
+                mixed ^= mixed >> 15;
+                mixed *= 0x846CA68Bu;
+                mixed ^= mixed >> 16;
+                return mixed == 0u ? 1 : (int)mixed;
+            }
         }
     }
 }
