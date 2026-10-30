@@ -154,6 +154,7 @@ MonoBehaviour:
   minimumInterval: 0.08
   countsTowardSharedEnemyLimit: 0
   maximumSharedEnemyVoices: 4
+  movementVocalAudio: {fileID: 0}
 --- !u!1001 &1156236316987086725
 PrefabInstance:
   m_ObjectHideFlags: 0
