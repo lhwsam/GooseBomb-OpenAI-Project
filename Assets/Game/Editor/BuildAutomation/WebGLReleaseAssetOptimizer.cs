@@ -11,9 +11,9 @@ namespace BombSwap.Editor.Verification
 
         private static readonly TextureImportRule[] TextureRules =
         {
-            new("Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Area.png", 256),
-            new("Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Line.png", 256),
-            new("Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Cross.png", 256),
+            new("Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Area.png", 256, crunch: false),
+            new("Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Line.png", 256, crunch: false),
+            new("Assets/Game/Content/UI/Sprites/Common/Bomb/Bomb_Cross.png", 256, crunch: false),
 
             new("Assets/Arts/Character/PlayerDuck/material_0_Pbr_Diffuse.png", 1024),
             new("Assets/Arts/Character/PlayerDuck/material_0_Pbr_Normal.png", 1024),
@@ -110,13 +110,15 @@ namespace BombSwap.Editor.Verification
                     $"Texture importer was not found for '{rule.AssetPath}'.");
             }
 
+            const int CrunchQuality = 50;
             TextureImporterPlatformSettings settings =
                 importer.GetPlatformTextureSettings(WebGlPlatformName);
             if (settings.overridden &&
                 settings.maxTextureSize == rule.MaxTextureSize &&
                 settings.format == TextureImporterFormat.Automatic &&
                 settings.textureCompression == TextureImporterCompression.Compressed &&
-                !settings.crunchedCompression)
+                settings.crunchedCompression == rule.Crunch &&
+                (!rule.Crunch || settings.compressionQuality == CrunchQuality))
             {
                 return;
             }
@@ -127,11 +129,15 @@ namespace BombSwap.Editor.Verification
             settings.maxTextureSize = rule.MaxTextureSize;
             settings.format = TextureImporterFormat.Automatic;
             settings.textureCompression = TextureImporterCompression.Compressed;
-            settings.crunchedCompression = false;
+            settings.crunchedCompression = rule.Crunch;
+            if (rule.Crunch)
+            {
+                settings.compressionQuality = CrunchQuality;
+            }
             importer.SetPlatformTextureSettings(settings);
             importer.SaveAndReimport();
             changedAssets.Add(
-                $"texture {rule.MaxTextureSize}: {rule.AssetPath}");
+                $"texture {rule.MaxTextureSize}{(rule.Crunch ? " crunch" : string.Empty)}: {rule.AssetPath}");
         }
 
         private static void DisableUnusedBaseRigAnimation(
@@ -157,15 +163,24 @@ namespace BombSwap.Editor.Verification
 
         private readonly struct TextureImportRule
         {
-            internal TextureImportRule(string assetPath, int maxTextureSize)
+            internal TextureImportRule(
+                string assetPath,
+                int maxTextureSize,
+                bool crunch = true)
             {
                 AssetPath = assetPath;
                 MaxTextureSize = maxTextureSize;
+                Crunch = crunch;
             }
 
             internal string AssetPath { get; }
 
             internal int MaxTextureSize { get; }
+
+            // WebGL download size: Crunch (DXT+crunch) is usually smaller over the
+            // wire than Brotli-compressed DXT. Disabled for crisp UI sprites where
+            // crunch artifacts are visible.
+            internal bool Crunch { get; }
         }
     }
 }
