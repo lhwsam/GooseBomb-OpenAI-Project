@@ -15,11 +15,21 @@
 | uGUI | 2.5.0 | UI 가능성 | 프로토타입 HUD 구현 시 선택 |
 | Visual Scripting | 1.9.11 | 설치됨 | first-party 핵심 규칙에 사용하지 않음 |
 | Timeline | 1.8.12 | 설치됨 | 보스/연출 필요가 확인될 때 검토 |
+| Unity Pipeline | 0.9.1-exp.1 | 개발 도구 | Unity CLI `unity command`로 열린 Editor를 제어. Editor 전용, 게임 코드·asmdef에서 참조하지 않음 |
 | DOTween Core | `Assets/Plugins/Demigiant/DOTween`, `DemiLib` | UI 표현 tween | 공식 원본과 고지 파일을 유지한 무료 Core만 Git 추적 |
 | DOTween Pro | 로컬 Asset Store extension | 사용하지 않음 | Git·공개 기록 제외. 각 작업자 유효 license 필요 |
 | Feel | 로컬 Asset Store extension | 제거됨 | Git·공개 기록 제외. 필요 시 각 작업자가 직접 설치하고 어댑터 뒤에서만 사용 |
 
 `Assets/ThirdParty`, `Assets/Feel`, DOTween Pro의 공급자 원본은 Unity Package Manager 패키지가 아니며 Git에서 제외한다. 무료 DOTween Core는 공급자의 재배포 조건에 맞춰 원본과 copyright/readme를 유지한다. 로컬 에셋 설치, 공개 대체 UI와 참조 검증은 [서드파티 자산과 로컬 패키지](../Systems/ThirdPartyAssets.md) 및 [ADR-0009](../ADR/0009-Local-ThirdParty-Asset-Distribution.md)를 따른다.
+
+## Unity Pipeline 도입 기록 (2026-10-24)
+
+- 문제: 열린 Editor 자동화가 `Artifacts/Automation/setup-request.txt` 폴링(`SetupBridge`)에 의존해, 새 Editor 스크립트를 컴파일해야 실행되고 Editor 창이 비활성이면 컴파일이 멈췄다.
+- 선택: `com.unity.pipeline`을 설치해 `unity command`(C# `eval` 포함)로 열린 Editor를 직접 제어한다. `SetupBridge`는 예비 경로로 유지한다.
+- 대안: 기존 파일 폴링 유지, batchmode `-executeMethod`(열린 Editor와 동시 실행 불가).
+- WebGL·빌드 크기: Editor 전용 개발 도구로 플레이어 빌드 의존이 없다고 예상한다. 도입 시 WebGL 빌드로 확인한다.
+- 위험: experimental(`-exp`) 버전이라 API와 명령 이름이 바뀔 수 있다.
+- 롤백: `Packages/manifest.json`에서 `"com.unity.pipeline"` 한 줄을 지우고 Editor가 `packages-lock.json`을 다시 해석하게 한다.
 
 ## 변경 규칙
 
